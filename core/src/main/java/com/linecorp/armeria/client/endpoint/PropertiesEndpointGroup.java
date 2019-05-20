@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
 
 import com.google.common.collect.ImmutableList;
 
@@ -42,6 +43,7 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
     private static final PropertiesEndpointGroupWatcherRunnable runnable =
             new PropertiesEndpointGroupWatcherRunnable();
     private static final Thread thread = new Thread(runnable);
+    private final Runnable reloadCallback;
     private final Runnable closeCallback;
     static {
         thread.setDaemon(true);
@@ -181,6 +183,7 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
 
     private PropertiesEndpointGroup(List<Endpoint> endpoints) {
         setEndpoints(endpoints);
+        reloadCallback = () -> {};
         closeCallback = () -> {};
     }
 
@@ -196,12 +199,18 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
         setEndpoints(endpoints);
 
         if (reloadable) {
-            PropertiesEndpointGroupRegistry.register(resourceUrl, () -> {
+            reloadCallback = () -> {
                 setEndpoints(loadEndpoints(resourceUrl, endpointKeyPrefix, defaultPort));
-            });
+            };
             closeCallback = () -> PropertiesEndpointGroupRegistry.deregister(resourceUrl);
         } else {
+            reloadCallback = () -> {};
             closeCallback = () -> {};
+        }
+
+        CompletableFuture<Void> future = CompletableFuture.runAsync(runnable);
+        if (future.cancel(true)) {
+
         }
     }
 
