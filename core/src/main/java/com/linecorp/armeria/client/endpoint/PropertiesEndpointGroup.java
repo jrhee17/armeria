@@ -199,9 +199,10 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
             PropertiesEndpointGroupRegistry.register(resourceUrl, () -> {
                 setEndpoints(loadEndpoints(resourceUrl, endpointKeyPrefix, defaultPort));
             });
+            closeCallback = () -> PropertiesEndpointGroupRegistry.deregister(resourceUrl);
+        } else {
+            closeCallback = () -> {};
         }
-
-        closeCallback = () -> PropertiesEndpointGroupRegistry.deregister(resourceUrl);
     }
 
     private static URL getResourceUrl(ClassLoader classLoader, String resourceName) {

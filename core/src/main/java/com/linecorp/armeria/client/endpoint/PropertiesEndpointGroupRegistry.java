@@ -13,13 +13,12 @@ import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 import javax.annotation.Nonnull;
 
 final class PropertiesEndpointGroupRegistry {
 
-    private static final Map<String, RunnableGroupContext> contextMap = new HashMap<>();
+    private static final Map<String, RunnableGroupContext> ctxRegistry = new HashMap<>();
 
     static final WatchService watchService;
 
@@ -36,21 +35,21 @@ final class PropertiesEndpointGroupRegistry {
     static void register(URL resourceUrl, Runnable reloader) {
         final File file = new File(resourceUrl.getFile());
         final Path path = file.getParentFile().toPath();
-        checkArgument(!contextMap.containsKey(resourceUrl.getFile()),
+        checkArgument(!ctxRegistry.containsKey(resourceUrl.getFile()),
                       "endpoint is already watched: %s", resourceUrl.getFile());
 
         try {
             final WatchKey key = path.register(watchService, ENTRY_MODIFY);
-            contextMap.put(resourceUrl.getFile(), new RunnableGroupContext(key, reloader));
+            ctxRegistry.put(resourceUrl.getFile(), new RunnableGroupContext(key, reloader));
         } catch (IOException e) {
             throw new RuntimeException("Failed to register path");
         }
     }
 
     static void deregister(@Nonnull URL resourceUrl) {
-        final RunnableGroupContext context = contextMap.remove(resourceUrl.getFile());
+        final RunnableGroupContext context = ctxRegistry.remove(resourceUrl.getFile());
         context.key.cancel();
-        contextMap.remove(resourceUrl.getFile());
+        ctxRegistry.remove(resourceUrl.getFile());
     }
 
     static class PropertiesEndpointGroupWatcherRunnable implements Runnable {
@@ -60,14 +59,13 @@ final class PropertiesEndpointGroupRegistry {
             try {
                 WatchKey key;
                 while ((key = watchService.take()) != null) {
-                    final Set<String> targetFileNames = contextMap.keySet();
                     for (WatchEvent<?> event : key.pollEvents()) {
                         if (event.kind() == ENTRY_MODIFY) {
                             @SuppressWarnings("unchecked")
                             final Path watchedPath = ((Path) key.watchable()).resolve(((WatchEvent<Path>) event).context());
                             final String watchedPathFile = watchedPath.toFile().getAbsolutePath();
-                            if (targetFileNames.contains(watchedPathFile)) {
-                                final RunnableGroupContext context = contextMap.get(watchedPathFile);
+                            if (ctxRegistry.containsKey(watchedPathFile)) {
+                                final RunnableGroupContext context = ctxRegistry.get(watchedPathFile);
                                 context.reloader.run();
                             }
                         }
