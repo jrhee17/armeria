@@ -28,11 +28,10 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Properties;
 
-import javax.annotation.Nullable;
-
 import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.endpoint.PropertiesEndpointGroupRegistry.PropertiesEndpointGroupWatcherRunnable;
 
 /**
  * A {@link Properties} backed {@link EndpointGroup}. The list of {@link Endpoint}s are loaded from the
@@ -40,13 +39,14 @@ import com.linecorp.armeria.client.Endpoint;
  */
 public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
 
-    @Nullable
-    private URL resourceUrl;
     private static final PropertiesEndpointGroupWatcherRunnable runnable =
             new PropertiesEndpointGroupWatcherRunnable();
-    @Nullable
-    private static volatile Thread thread;
-    private boolean reloadable;
+    private static final Thread thread = new Thread(runnable);
+    private final Runnable closeCallback;
+    static {
+        thread.setDaemon(true);
+        thread.start();
+    }
 
     /**
      * Creates a new {@link EndpointGroup} instance that loads the host names (or IP address) and the port
@@ -66,9 +66,11 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
      */
     public static PropertiesEndpointGroup of(ClassLoader classLoader, String resourceName,
                                              String endpointKeyPrefix) {
-        return new PropertiesEndpointGroup(loadEndpoints(
+        final URL resourceUrl = getResourceUrl(
                 requireNonNull(classLoader, "classLoader"),
-                requireNonNull(resourceName, "fileName"),
+                requireNonNull(resourceName, "fileName"));
+        return new PropertiesEndpointGroup(loadEndpoints(
+                resourceUrl,
                 requireNonNull(endpointKeyPrefix, "endpointKeyPrefix"),
                 0));
     }
@@ -93,9 +95,11 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
     public static PropertiesEndpointGroup of(ClassLoader classLoader, String resourceName,
                                              String endpointKeyPrefix, int defaultPort) {
         validateDefaultPort(defaultPort);
-        return new PropertiesEndpointGroup(loadEndpoints(
+        final URL resourceUrl = getResourceUrl(
                 requireNonNull(classLoader, "classLoader"),
-                requireNonNull(resourceName, "fileName"),
+                requireNonNull(resourceName, "fileName"));
+        return new PropertiesEndpointGroup(loadEndpoints(
+                resourceUrl,
                 requireNonNull(endpointKeyPrefix, "endpointKeyPrefix"),
                 defaultPort));
     }
@@ -177,42 +181,48 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
 
     private PropertiesEndpointGroup(List<Endpoint> endpoints) {
         setEndpoints(endpoints);
+        closeCallback = () -> {};
     }
 
     private PropertiesEndpointGroup(ClassLoader classLoader, String resourceName,
                                     String endpointKeyPrefix, int defaultPort, boolean reloadable) {
-        final List<Endpoint> endpoints = loadEndpoints(
+        final URL resourceUrl = getResourceUrl(
                 requireNonNull(classLoader, "classLoader"),
-                requireNonNull(resourceName, "fileName"),
+                requireNonNull(resourceName, "fileName"));
+        final List<Endpoint> endpoints = loadEndpoints(
+                resourceUrl,
                 requireNonNull(endpointKeyPrefix, "endpointKeyPrefix"),
                 0);
         setEndpoints(endpoints);
-        this.reloadable = reloadable;
-        final URL resourceUrl = classLoader.getResource(resourceName);
 
-        if (reloadable && resourceUrl != null) {
-            this.resourceUrl = resourceUrl;
-
-            runnable.register(resourceUrl, () -> {
-                final List<Endpoint> endpointList = read(
-                        resourceUrl, resourceName, endpointKeyPrefix, defaultPort);
-                setEndpoints(endpointList);
+        if (reloadable) {
+            PropertiesEndpointGroupRegistry.register(resourceUrl, () -> {
+                setEndpoints(loadEndpoints(resourceUrl, endpointKeyPrefix, defaultPort));
             });
-
-            updateThreadStatus();
         }
+
+        closeCallback = () -> PropertiesEndpointGroupRegistry.deregister(resourceUrl);
     }
 
-    private static List<Endpoint> loadEndpoints(ClassLoader classLoader, String resourceName,
-                                                String endpointKeyPrefix, int defaultPort) {
-
+    private static URL getResourceUrl(ClassLoader classLoader, String resourceName) {
         final URL resourceUrl = classLoader.getResource(resourceName);
         checkArgument(resourceUrl != null, "resource not found: %s", resourceName);
+        return resourceUrl;
+    }
+
+    private static List<Endpoint> loadEndpoints(URL resourceUrl, String endpointKeyPrefix, int defaultPort) {
+
         if (!endpointKeyPrefix.endsWith(".")) {
             endpointKeyPrefix += ".";
         }
 
-        return read(resourceUrl, resourceName, endpointKeyPrefix, defaultPort);
+        try (InputStream in = resourceUrl.openStream()) {
+            final Properties props = new Properties();
+            props.load(in);
+            return loadEndpoints(props, endpointKeyPrefix, defaultPort);
+        } catch (IOException e) {
+            throw new IllegalArgumentException("failed to load resource url" + resourceUrl.getFile(), e);
+        }
     }
 
     private static List<Endpoint> loadEndpoints(Properties properties, String endpointKeyPrefix,
@@ -234,38 +244,14 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
         return ImmutableList.copyOf(newEndpoints);
     }
 
-    private static List<Endpoint> read(URL resourceUrl, String resourceName,
-                                       String endpointKeyPrefix, int defaultPort) {
-        try (InputStream in = resourceUrl.openStream()) {
-            final Properties props = new Properties();
-            props.load(in);
-            return loadEndpoints(props, endpointKeyPrefix, defaultPort);
-        } catch (IOException e) {
-              throw new IllegalArgumentException("failed to load: " + resourceName, e);
-        }
-    }
-
     private static void validateDefaultPort(int defaultPort) {
         checkArgument(defaultPort > 0 && defaultPort <= 65535,
                       "defaultPort: %s (expected: 1-65535)", defaultPort);
     }
 
-    private synchronized void updateThreadStatus() {
-        if (thread == null || (!thread.isAlive() && !runnable.isEmpty())) {
-            thread = new Thread(runnable);
-            thread.setDaemon(true);
-            thread.start();
-        } else if (thread.isAlive() && runnable.isEmpty()) {
-            thread.interrupt();
-        }
-    }
-
     @Override
     public void close() {
         super.close();
-        if (reloadable && resourceUrl != null) {
-            runnable.deregister(resourceUrl);
-            updateThreadStatus();
-        }
+        closeCallback.run();
     }
 }
