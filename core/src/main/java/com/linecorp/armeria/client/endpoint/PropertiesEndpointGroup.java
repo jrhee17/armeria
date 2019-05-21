@@ -39,16 +39,8 @@ import com.linecorp.armeria.client.endpoint.PropertiesEndpointGroupRegistry.Prop
  * {@link Properties}.
  */
 public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
-
-    private static final PropertiesEndpointGroupWatcherRunnable runnable =
-            new PropertiesEndpointGroupWatcherRunnable();
-    private static final Thread thread = new Thread(runnable);
-    private final Runnable reloadCallback;
     private final Runnable closeCallback;
-    static {
-        thread.setDaemon(true);
-        thread.start();
-    }
+    private static CompletableFuture<Void> future = CompletableFuture.runAsync(new PropertiesEndpointGroupWatcherRunnable());
 
     /**
      * Creates a new {@link EndpointGroup} instance that loads the host names (or IP address) and the port
@@ -183,7 +175,6 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
 
     private PropertiesEndpointGroup(List<Endpoint> endpoints) {
         setEndpoints(endpoints);
-        reloadCallback = () -> {};
         closeCallback = () -> {};
     }
 
@@ -199,18 +190,12 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
         setEndpoints(endpoints);
 
         if (reloadable) {
-            reloadCallback = () -> {
+            PropertiesEndpointGroupRegistry.register(resourceUrl, () -> {
                 setEndpoints(loadEndpoints(resourceUrl, endpointKeyPrefix, defaultPort));
-            };
+            });
             closeCallback = () -> PropertiesEndpointGroupRegistry.deregister(resourceUrl);
         } else {
-            reloadCallback = () -> {};
             closeCallback = () -> {};
-        }
-
-        CompletableFuture<Void> future = CompletableFuture.runAsync(runnable);
-        if (future.cancel(true)) {
-
         }
     }
 
