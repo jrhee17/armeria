@@ -5,6 +5,7 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URL;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -13,20 +14,30 @@ import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 final class PropertiesEndpointGroupRegistry {
-
+    private static final Logger logger = LoggerFactory.getLogger(PropertiesEndpointGroupRegistry.class);
+    @Nullable
+    private static CompletableFuture<Void> future;
     private static final Map<String, RunnableGroupContext> ctxRegistry = new HashMap<>();
 
-    static final WatchService watchService;
+    private static final WatchService watchService;
+    private static final ExecutorService eventLoop = Executors.newSingleThreadExecutor();
 
     static {
         try {
             watchService = FileSystems.getDefault().newWatchService();
         } catch (IOException e) {
-            throw new RuntimeException("Failed to register watch service");
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -36,13 +47,13 @@ final class PropertiesEndpointGroupRegistry {
         final File file = new File(resourceUrl.getFile());
         final Path path = file.getParentFile().toPath();
         checkArgument(!ctxRegistry.containsKey(resourceUrl.getFile()),
-                      "endpoint is already watched: %s", resourceUrl.getFile());
-
+                      "file is already watched: %s", resourceUrl.getFile());
         try {
             final WatchKey key = path.register(watchService, ENTRY_MODIFY);
+            startFutureIfPossible();
             ctxRegistry.put(resourceUrl.getFile(), new RunnableGroupContext(key, reloader));
         } catch (IOException e) {
-            throw new RuntimeException("Failed to register path");
+            throw new IllegalArgumentException("failed to watch file " + resourceUrl.getFile(), e);
         }
     }
 
@@ -50,10 +61,22 @@ final class PropertiesEndpointGroupRegistry {
         final RunnableGroupContext context = ctxRegistry.remove(resourceUrl.getFile());
         context.key.cancel();
         ctxRegistry.remove(resourceUrl.getFile());
+        stopFutureIfPossible();
     }
 
-    static class PropertiesEndpointGroupWatcherRunnable implements Runnable {
+    private static synchronized void startFutureIfPossible() {
+        if ((future == null || future.isDone()) && ctxRegistry.isEmpty()) {
+            future = CompletableFuture.runAsync(new PropertiesEndpointGroupWatcherRunnable(), eventLoop);
+        }
+    }
 
+    private static synchronized void stopFutureIfPossible() {
+        if (future != null && !future.isDone() && ctxRegistry.isEmpty()) {
+            future.cancel(true);
+        }
+    }
+
+    private static class PropertiesEndpointGroupWatcherRunnable implements Runnable {
         @Override
         public void run() {
             try {
@@ -73,10 +96,10 @@ final class PropertiesEndpointGroupRegistry {
                     key.reset();
                 }
             } catch (InterruptedException e) {
-                throw new RuntimeException("Unexpected exception while watching");
+                Thread.currentThread().interrupt();
+                logger.warn("unexpected interruption while reloading properties file: ", e);
             }
         }
-
     }
 
     private static class RunnableGroupContext {

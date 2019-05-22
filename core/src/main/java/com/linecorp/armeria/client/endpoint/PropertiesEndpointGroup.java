@@ -27,20 +27,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Properties;
-import java.util.concurrent.CompletableFuture;
+
+import javax.annotation.Nullable;
 
 import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.client.endpoint.PropertiesEndpointGroupRegistry.PropertiesEndpointGroupWatcherRunnable;
 
 /**
  * A {@link Properties} backed {@link EndpointGroup}. The list of {@link Endpoint}s are loaded from the
  * {@link Properties}.
  */
 public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
-    private final Runnable closeCallback;
-    private static CompletableFuture<Void> future = CompletableFuture.runAsync(new PropertiesEndpointGroupWatcherRunnable());
+    @Nullable
+    private Runnable closeCallback;
 
     /**
      * Creates a new {@link EndpointGroup} instance that loads the host names (or IP address) and the port
@@ -101,7 +101,8 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
     /**
      * Creates a new {@link EndpointGroup} instance that loads the host names (or IP address) and the port
      * numbers of the {@link Endpoint} from the {@code fileName} resource file. The resource file must
-     * contain at least one property whose name starts with {@code endpointKeyPrefix}:
+     * contain at least one property whose name starts with {@code endpointKeyPrefix}:. Reloading property files
+     * for changes is false by default.
      *
      * <pre>{@code
      * example.hosts.0=example1.com:36462
@@ -112,7 +113,7 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
      * @param resourceName the name of the resource where the list of {@link Endpoint}s is loaded from
      * @param endpointKeyPrefix the property name prefix
      * @param defaultPort the default port number to use
-     * @param reloadable whether to watch and reload resource
+     * @param reloadable whether to watch and reload resource.
      *
      * @throws IllegalArgumentException if failed to load any hosts from the specified resource file
      */
@@ -175,7 +176,6 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
 
     private PropertiesEndpointGroup(List<Endpoint> endpoints) {
         setEndpoints(endpoints);
-        closeCallback = () -> {};
     }
 
     private PropertiesEndpointGroup(ClassLoader classLoader, String resourceName,
@@ -194,8 +194,6 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
                 setEndpoints(loadEndpoints(resourceUrl, endpointKeyPrefix, defaultPort));
             });
             closeCallback = () -> PropertiesEndpointGroupRegistry.deregister(resourceUrl);
-        } else {
-            closeCallback = () -> {};
         }
     }
 
@@ -247,6 +245,8 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
     @Override
     public void close() {
         super.close();
-        closeCallback.run();
+        if (closeCallback != null) {
+            closeCallback.run();
+        }
     }
 }
