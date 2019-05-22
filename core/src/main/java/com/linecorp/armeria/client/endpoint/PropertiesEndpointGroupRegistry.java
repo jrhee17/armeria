@@ -53,22 +53,21 @@ final class PropertiesEndpointGroupRegistry {
                       "file is already watched: %s", resourceUrl.getFile());
         try {
             final WatchKey key = path.register(watchService, ENTRY_MODIFY);
-            startFutureIfPossible();
             ctxRegistry.put(resourceUrl.getFile(), new RunnableGroupContext(key, reloader));
         } catch (IOException e) {
             throw new IllegalArgumentException("failed to watch file " + resourceUrl.getFile(), e);
         }
+        startFutureIfPossible();
     }
 
     static void deregister(@Nonnull URL resourceUrl) {
         final RunnableGroupContext context = ctxRegistry.remove(resourceUrl.getFile());
         context.key.cancel();
-        ctxRegistry.remove(resourceUrl.getFile());
         stopFutureIfPossible();
     }
 
     private static synchronized void startFutureIfPossible() {
-        if ((future == null || future.isDone()) && ctxRegistry.isEmpty()) {
+        if ((future == null || future.isDone()) && !ctxRegistry.isEmpty()) {
             future = CompletableFuture.runAsync(new PropertiesEndpointGroupWatcherRunnable(), eventLoop);
         }
     }
