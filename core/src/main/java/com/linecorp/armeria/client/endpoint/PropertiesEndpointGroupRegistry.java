@@ -31,7 +31,11 @@ final class PropertiesEndpointGroupRegistry {
     private static final Map<String, RunnableGroupContext> ctxRegistry = new HashMap<>();
 
     private static final WatchService watchService;
-    private static final ExecutorService eventLoop = Executors.newSingleThreadExecutor();
+    private static final ExecutorService eventLoop = Executors.newSingleThreadExecutor(runnable -> {
+        final Thread thread = new Thread(runnable);
+        thread.setDaemon(true);
+        return thread;
+    });
 
     static {
         try {
