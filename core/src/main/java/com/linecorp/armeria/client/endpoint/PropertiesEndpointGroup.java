@@ -46,7 +46,7 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
 
     /**
      * Creates a new {@link EndpointGroup} instance that loads the host names (or IP address) and the port
-     * numbers of the {@link Endpoint} from the {@code fileName} resource file. The resource file must
+     * numbers of the {@link Endpoint} from the {@code resourceName} resource file. The resource file must
      * contain at least one property whose name starts with {@code endpointKeyPrefix}:
      *
      * <pre>{@code
@@ -73,7 +73,7 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
 
     /**
      * Creates a new {@link EndpointGroup} instance that loads the host names (or IP address) and the port
-     * numbers of the {@link Endpoint} from the {@code fileName} resource file. The resource file must
+     * numbers of the {@link Endpoint} from the {@code resourceName} resource file. The resource file must
      * contain at least one property whose name starts with {@code endpointKeyPrefix}:
      *
      * <pre>{@code
@@ -102,7 +102,7 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
 
     /**
      * Creates a new {@link EndpointGroup} instance that loads the host names (or IP address) and the port
-     * numbers of the {@link Endpoint} from the {@code fileName} resource file. The resource file must
+     * numbers of the {@link Endpoint} from the {@code resourceName} resource file. The resource file must
      * contain at least one property whose name starts with {@code endpointKeyPrefix}:. Reloading property files
      * for changes is false by default.
      *
@@ -216,7 +216,7 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
             props.load(in);
             return loadEndpoints(props, endpointKeyPrefix, defaultPort);
         } catch (IOException e) {
-            throw new IllegalArgumentException("failed to load resource url" + resourceUrl.getFile(), e);
+            throw new IllegalArgumentException("failed to load: " + resourceUrl.getFile(), e);
         }
     }
 

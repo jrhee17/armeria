@@ -48,8 +48,10 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 final class PropertiesFileWatcherRegistry {
     private static final Logger logger = LoggerFactory.getLogger(PropertiesFileWatcherRegistry.class);
+
     @Nullable
     private CompletableFuture<Void> future;
+    
     private final Map<String, RunnableGroupContext> ctxRegistry = new ConcurrentHashMap<>();
     private final WatchService watchService;
     private final ExecutorService eventLoop =
