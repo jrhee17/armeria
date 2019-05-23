@@ -161,24 +161,4 @@ public class PropertiesEndpointGroupTest {
                 getClass().getClassLoader(), "server-list.properties", "serverA.hosts", 80, true))
                 .isInstanceOf(IllegalArgumentException.class);
     }
-
-    @Test
-    public void testDuplicateResourceUrl2() throws IOException {
-        final File file = folder.newFile("temp-file.properties");
-        final URL url = file.getParentFile().toURI().toURL();
-        final URLClassLoader classLoader = URLClassLoader.newInstance(new URL[]{url});
-
-        final OutputStream outputStream = new FileOutputStream(file);
-        final Properties props = new Properties();
-        props.setProperty("serverA.hosts.0", "127.0.0.1:8080");
-        props.store(outputStream, "");
-        outputStream.flush();
-
-        PropertiesEndpointGroup.of(
-                classLoader, file.getName(), "serverA.hosts", 80, true);
-
-        assertThatThrownBy(() -> PropertiesEndpointGroup.of(
-                classLoader, file.getName(), "serverA.hosts", 80, true))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
 }

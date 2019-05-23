@@ -41,6 +41,8 @@ import com.linecorp.armeria.client.Endpoint;
 public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
     @Nullable
     private Runnable closeCallback;
+    private static final PropertiesFileWatcherRegistry registry =
+            new PropertiesFileWatcherRegistry();
 
     /**
      * Creates a new {@link EndpointGroup} instance that loads the host names (or IP address) and the port
@@ -190,10 +192,10 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
         setEndpoints(endpoints);
 
         if (reloadable) {
-            PropertiesEndpointGroupRegistry.register(resourceUrl, () -> {
+            registry.register(resourceUrl, () -> {
                 setEndpoints(loadEndpoints(resourceUrl, endpointKeyPrefix, defaultPort));
             });
-            closeCallback = () -> PropertiesEndpointGroupRegistry.deregister(resourceUrl);
+            closeCallback = () -> registry.deregister(resourceUrl);
         }
     }
 
