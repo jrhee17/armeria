@@ -30,6 +30,9 @@ import java.util.Properties;
 
 import javax.annotation.Nullable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.Endpoint;
@@ -39,10 +42,11 @@ import com.linecorp.armeria.client.Endpoint;
  * {@link Properties}.
  */
 public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
+    private static final Logger logger = LoggerFactory.getLogger(PropertiesEndpointGroup.class);
+    private static final PropertiesFileWatcherRegistry registry = new PropertiesFileWatcherRegistry();
+
     @Nullable
     private Runnable closeCallback;
-    private static final PropertiesFileWatcherRegistry registry =
-            new PropertiesFileWatcherRegistry();
 
     /**
      * Creates a new {@link EndpointGroup} instance that loads the host names (or IP address) and the port
@@ -193,7 +197,11 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
 
         if (reloadable) {
             registry.register(resourceUrl, () -> {
-                setEndpoints(loadEndpoints(resourceUrl, endpointKeyPrefix, defaultPort));
+                try {
+                    setEndpoints(loadEndpoints(resourceUrl, endpointKeyPrefix, defaultPort));
+                } catch (IllegalArgumentException e) {
+                    logger.warn("unable to update endpoints: ", e);
+                }
             });
             closeCallback = () -> registry.deregister(resourceUrl);
         }
@@ -235,7 +243,6 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
                 newEndpoints.add(defaultPort == 0 ? endpoint : endpoint.withDefaultPort(defaultPort));
             }
         }
-        checkArgument(!newEndpoints.isEmpty(), "properties contains no hosts: %s", properties);
         return ImmutableList.copyOf(newEndpoints);
     }
 
