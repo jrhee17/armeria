@@ -43,6 +43,7 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
@@ -54,7 +55,6 @@ final class PropertiesFileWatcherRegistry {
 
     @Nullable
     private CompletableFuture<Void> future;
-
     private final Map<String, PropertiesFileWatcherContext> ctxRegistry = new ConcurrentHashMap<>();
     private final WatchService watchService;
     private final ExecutorService eventLoop =
@@ -72,56 +72,70 @@ final class PropertiesFileWatcherRegistry {
     }
 
     /**
-     * Registers a resourceUrl of the properties file to be watched.
+     * Registers a {@code resourceUrl} of the properties file to be watched.
      * @param resourceUrl url to be watched
      * @param reloader callback to be called on a file change event
      */
     void register(URL resourceUrl, Runnable reloader) {
         final File file = new File(resourceUrl.getFile());
-        final Path path = file.getParentFile().toPath();
+        final Path parentPath = file.getParentFile().toPath();
 
-        synchronized (ctxRegistry) {
+        synchronized (this) {
             checkArgument(!ctxRegistry.containsKey(resourceUrl.getFile()),
                           "file is already watched: %s", resourceUrl.getFile());
             try {
-                final WatchKey key = path.register(watchService,
-                                                   ENTRY_CREATE,
-                                                   ENTRY_MODIFY,
-                                                   ENTRY_DELETE,
-                                                   OVERFLOW);
+                final WatchKey key = parentPath.register(watchService,
+                                                         ENTRY_CREATE,
+                                                         ENTRY_MODIFY,
+                                                         ENTRY_DELETE,
+                                                         OVERFLOW);
                 ctxRegistry.put(resourceUrl.getFile(), new PropertiesFileWatcherContext(key, reloader));
             } catch (IOException e) {
                 throw new IllegalArgumentException("failed to watch file " + resourceUrl.getFile(), e);
             }
-        }
 
-        startFutureIfPossible();
+            startFutureIfPossible();
+        }
     }
 
     /**
-     * Stops watching a properties file corresponding to the resourceUrl.
+     * Stops watching a properties file corresponding to the {@code resourceUrl}.
      * @param resourceUrl url to stop watching
      */
     void deregister(@Nonnull URL resourceUrl) {
-        final PropertiesFileWatcherContext context = ctxRegistry.remove(resourceUrl.getFile());
-        context.key.cancel();
-        stopFutureIfPossible();
+        final File file = new File(resourceUrl.getFile());
+        final Path parentPath = file.getParentFile().toPath();
+
+        synchronized (this) {
+            final PropertiesFileWatcherContext context = ctxRegistry.remove(file.getAbsolutePath());
+            final boolean shouldCancel = ctxRegistry.keySet().stream().anyMatch(
+                    key -> key.contains(parentPath.toAbsolutePath().toString()));
+            if (shouldCancel) {
+                context.key.cancel();
+            }
+            stopFutureIfPossible();
+        }
     }
 
-    private synchronized void startFutureIfPossible() {
+    private void startFutureIfPossible() {
         if (!isRunning() && !ctxRegistry.isEmpty()) {
             future = CompletableFuture.runAsync(new PropertiesFileWatcherRunnable(), eventLoop);
         }
     }
 
-    private synchronized void stopFutureIfPossible() {
+    private void stopFutureIfPossible() {
         Preconditions.checkState(future != null, "tried to stop null future");
         if (isRunning() && ctxRegistry.isEmpty()) {
             future.cancel(true);
         }
     }
 
-    private boolean isRunning() {
+    /**
+     * Check if future for {@code watchService} is running
+     * @return true if future is running
+     */
+    @VisibleForTesting
+    boolean isRunning() {
         return future != null && !future.isDone();
     }
 
