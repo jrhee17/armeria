@@ -20,9 +20,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URL;
+import java.nio.file.FileSystems;
+import java.nio.file.WatchService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
@@ -43,7 +47,16 @@ import com.linecorp.armeria.client.Endpoint;
  */
 public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
     private static final Logger logger = LoggerFactory.getLogger(PropertiesEndpointGroup.class);
-    private static final PropertiesFileWatcherRegistry registry = new PropertiesFileWatcherRegistry();
+    private static final PropertiesFileWatcherRegistry registry;
+
+    static {
+        try {
+            final WatchService watchService = FileSystems.getDefault().newWatchService();
+            registry = new PropertiesFileWatcherRegistry(watchService);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
 
     @Nullable
     private Runnable closeCallback;
@@ -194,12 +207,13 @@ public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
                 requireNonNull(endpointKeyPrefix, "endpointKeyPrefix"),
                 0);
         setEndpoints(endpoints);
+        final File file = new File(resourceUrl.getFile());
 
         if (reloadable) {
-            registry.register(resourceUrl, () -> {
+            registry.register(file.toPath(), () -> {
                 setEndpoints(loadEndpoints(resourceUrl, endpointKeyPrefix, defaultPort));
             });
-            closeCallback = () -> registry.deregister(resourceUrl);
+            closeCallback = () -> registry.deregister(file.toPath());
         }
     }
 

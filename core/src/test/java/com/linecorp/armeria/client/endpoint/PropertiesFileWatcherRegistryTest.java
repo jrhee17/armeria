@@ -16,43 +16,84 @@
 
 package com.linecorp.armeria.client.endpoint;
 
+import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Path;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
+import java.nio.file.Watchable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.testng.collections.Lists;
 
 public class PropertiesFileWatcherRegistryTest {
-    @Rule
-    public TemporaryFolder folder = new TemporaryFolder();
+
+    WatchService watchService;
+    Path path;
+    Path path2;
+
+    @Before
+    public void before() throws Exception {
+        watchService = mock(WatchService.class);
+
+        path = mock(Path.class);
+        path2 = mock(Path.class);
+
+        when(path.toRealPath()).thenReturn(path);
+        when(path.getParent()).thenReturn(path);
+        when(path2.toRealPath()).thenReturn(path2);
+        when(path2.getParent()).thenReturn(path2);
+
+        final WatchKey key1 = mock(WatchKey.class);
+        final WatchKey key2 = mock(WatchKey.class);
+        when(path.register(any(), any())).thenReturn(key1);
+        when(path2.register(any(), any())).thenReturn(key2);
+    }
 
     @Test
     public void stopFutureCorrectly() throws Exception {
 
-        final File file = folder.newFile("temp-file.properties");
-        final File file2 = folder.newFile("temp-file2.properties");
+        when(watchService.take()).then(invocation -> {
+            Thread.sleep(60000);
+            return null;
+        });
+
+        when(path.startsWith(path2)).thenReturn(true);
+        when(path2.startsWith(path)).thenReturn(true);
 
         final PropertiesFileWatcherRegistry propertiesFileWatcherRegistry =
-                new PropertiesFileWatcherRegistry();
-        propertiesFileWatcherRegistry.register(file.toURI().toURL(), () -> {});
-        propertiesFileWatcherRegistry.register(file2.toURI().toURL(), () -> {});
+                new PropertiesFileWatcherRegistry(watchService);
+
+        propertiesFileWatcherRegistry.register(path, () -> {});
+        propertiesFileWatcherRegistry.register(path2, () -> {});
 
         assertThat(propertiesFileWatcherRegistry.isRunning()).isTrue();
 
-        propertiesFileWatcherRegistry.deregister(file.toURI().toURL());
+        propertiesFileWatcherRegistry.deregister(path);
 
         assertThat(propertiesFileWatcherRegistry.isRunning()).isTrue();
 
-        propertiesFileWatcherRegistry.deregister(file2.toURI().toURL());
+        propertiesFileWatcherRegistry.deregister(path2);
 
         assertThat(propertiesFileWatcherRegistry.isRunning()).isFalse();
     }
@@ -60,11 +101,14 @@ public class PropertiesFileWatcherRegistryTest {
     @Test
     public void closeStopsRegistry() throws Exception {
 
-        final File file = folder.newFile("temp-file.properties");
+        when(watchService.take()).then(invocation -> {
+            Thread.sleep(60000);
+            return null;
+        });
 
         final PropertiesFileWatcherRegistry propertiesFileWatcherRegistry =
-                new PropertiesFileWatcherRegistry();
-        propertiesFileWatcherRegistry.register(file.toURI().toURL(), () -> {});
+                new PropertiesFileWatcherRegistry(watchService);
+        propertiesFileWatcherRegistry.register(path, () -> {});
 
         assertThat(propertiesFileWatcherRegistry.isRunning()).isTrue();
 
@@ -76,36 +120,67 @@ public class PropertiesFileWatcherRegistryTest {
     @Test
     public void runnableWithException() throws Exception {
 
-        final File file = folder.newFile("temp-file.properties");
-
         final PropertiesFileWatcherRegistry propertiesFileWatcherRegistry =
-                new PropertiesFileWatcherRegistry();
+                new PropertiesFileWatcherRegistry(watchService);
 
         final AtomicInteger val = new AtomicInteger(0);
-        propertiesFileWatcherRegistry.register(file.toURI().toURL(), () -> {
-            try {
-                final BufferedReader bufferedReader = new BufferedReader(new FileReader(file ));
-                val.set(Integer.valueOf(bufferedReader.readLine()));
-            } catch (IOException e) {
-                // do nothing
-            }
+        propertiesFileWatcherRegistry.register(path, () -> {
+            val.set(1);
             throw new RuntimeException();
         });
 
-        PrintWriter printWriter = new PrintWriter(file);
-        printWriter.print(1);
-        printWriter.close();
+        when(path.resolve(any(Path.class))).thenReturn(path);
+
+        when(watchService.take()).thenReturn(new WatchKey() {
+            @Override
+            public boolean isValid() {
+                return true;
+            }
+
+            @Override
+            public List<WatchEvent<?>> pollEvents() {
+                final WatchEvent<Path> watchEvent = new WatchEvent<Path>() {
+                    @Override
+                    public Kind<Path> kind() {
+                        return ENTRY_MODIFY;
+                    }
+
+                    @Override
+                    public int count() {
+                        return 1;
+                    }
+
+                    @Override
+                    public Path context() {
+                        return path;
+                    }
+                };
+                return new ArrayList<WatchEvent<Path>>(watchEvent);
+            }
+
+            @Override
+            public boolean reset() {
+                return true;
+            }
+
+            @Override
+            public void cancel() {
+            }
+
+            @Override
+            public Watchable watchable() {
+                return path;
+            }
+        });
 
         await().atMost(20, TimeUnit.SECONDS).until(() -> val.get() == 1);
 
         assertThat(propertiesFileWatcherRegistry.isRunning()).isTrue();
 
-        printWriter = new PrintWriter(file);
-        printWriter.print(2);
-        printWriter.close();
-
         await().atMost(20, TimeUnit.SECONDS).until(() -> val.get() == 2);
 
         assertThat(propertiesFileWatcherRegistry.isRunning()).isTrue();
+
+        propertiesFileWatcherRegistry.close();
     }
 }

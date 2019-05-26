@@ -63,60 +63,48 @@ final class PropertiesFileWatcherRegistry implements AutoCloseable {
     /**
      * Create a registry using the default file system.
      */
-    PropertiesFileWatcherRegistry() {
-        try {
-            watchService = FileSystems.getDefault().newWatchService();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+    PropertiesFileWatcherRegistry(WatchService watchService) {
+        this.watchService = watchService;
     }
 
     /**
-     * Registers a {@code resourceUrl} of the properties file to be watched.
-     * @param resourceUrl url to be watched
+     * Registers a {@code path} of the properties file to be watched.
+     * @param path path to be watched
      * @param reloader callback to be called on a file change event
      */
-    void register(URL resourceUrl, Runnable reloader) {
-        final File file = new File(resourceUrl.getFile());
+    synchronized void register(Path path, Runnable reloader) {
 
-        synchronized (this) {
-            checkArgument(!ctxRegistry.containsKey(getRealPath(resourceUrl)),
-                          "file is already watched: %s", resourceUrl.getFile());
-            try {
-                final Path parentPath = file.getParentFile().toPath();
-                final WatchKey key = parentPath.register(watchService,
-                                                         ENTRY_CREATE,
-                                                         ENTRY_MODIFY,
-                                                         ENTRY_DELETE,
-                                                         OVERFLOW);
-                ctxRegistry.put(getRealPath(resourceUrl), new PropertiesFileWatcherContext(key, reloader));
-            } catch (IOException e) {
-                throw new IllegalArgumentException("failed to watch file " + resourceUrl.getFile(), e);
-            }
-            startFutureIfPossible();
+        checkArgument(!ctxRegistry.containsKey(getRealPath(path)),
+                      "file is already watched: %s", path);
+        try {
+            final WatchKey key = path.getParent().register(watchService,
+                                                     ENTRY_CREATE,
+                                                     ENTRY_MODIFY,
+                                                     ENTRY_DELETE,
+                                                     OVERFLOW);
+            ctxRegistry.put(getRealPath(path), new PropertiesFileWatcherContext(key, reloader));
+        } catch (IOException e) {
+            throw new IllegalArgumentException("failed to watch file " + path, e);
         }
+        startFutureIfPossible();
     }
 
     /**
-     * Stops watching a properties file corresponding to the {@code resourceUrl}.
-     * @param resourceUrl url to stop watching
+     * Stops watching a properties file corresponding to the {@code path}.
+     * @param path path to stop watching
      */
-    void deregister(URL resourceUrl) {
-        final File file = new File(resourceUrl.getFile());
-        final Path parentPath = file.getParentFile().toPath();
+    synchronized void deregister(Path path) {
 
-        synchronized (this) {
-            if (!ctxRegistry.containsKey(getRealPath(resourceUrl))) {
-                return;
-            }
-            final PropertiesFileWatcherContext context = ctxRegistry.remove(getRealPath(resourceUrl));
-            final boolean existsTargetFiles = ctxRegistry.keySet().stream().anyMatch(
-                    key -> key.startsWith(parentPath));
-            if (!existsTargetFiles) {
-                context.key.cancel();
-            }
-            stopFutureIfPossible();
+        if (!ctxRegistry.containsKey(getRealPath(path))) {
+            return;
         }
+        final PropertiesFileWatcherContext context = ctxRegistry.remove(getRealPath(path));
+        final boolean existsTargetFiles = ctxRegistry.keySet().stream().anyMatch(
+                key -> key.startsWith(path.getParent()));
+        if (!existsTargetFiles) {
+            context.key.cancel();
+        }
+        stopFutureIfPossible();
     }
 
     private void startFutureIfPossible() {
@@ -130,14 +118,6 @@ final class PropertiesFileWatcherRegistry implements AutoCloseable {
         if (isRunning() && ctxRegistry.isEmpty()) {
             future.cancel(true);
         }
-    }
-
-    private static Path getRealPath(URL url) {
-        return getRealPath(new File(url.getFile()));
-    }
-
-    private static Path getRealPath(File file) {
-        return getRealPath(file.toPath());
     }
 
     private static Path getRealPath(Path path) {
