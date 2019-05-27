@@ -16,7 +16,6 @@
 
 package com.linecorp.armeria.client.endpoint;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
@@ -36,8 +35,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import javax.annotation.Nullable;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,13 +49,32 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
  */
 final class PropertiesFileWatcherRegistry implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(PropertiesFileWatcherRegistry.class);
+    private static final int EXECUTOR_SHUTDOWN_TIMEOUT_SEC = 10;
 
-    @Nullable
-    private CompletableFuture<Void> future;
-    private final Map<Path, PropertiesFileWatcherContext> ctxRegistry = new ConcurrentHashMap<>();
+    private static class PropertiesFileWatcherContext {
+        private final WatchKey key;
+        private final Runnable reloader;
+        private final Path dirPath;
+
+        PropertiesFileWatcherContext(WatchKey key, Runnable reloader, Path dirPath) {
+            this.key = key;
+            this.reloader = reloader;
+            this.dirPath = dirPath;
+        }
+    }
+
+    private static Path getRealPath(Path path) {
+        try {
+            return path.toRealPath();
+        } catch (IOException e) {
+            throw new IllegalArgumentException("failed to locate file " + path, e);
+        }
+    }
+
+    private final AtomicReference<ExecutorService> executorRef = new AtomicReference<>();
+    private final Map<PropertiesEndpointGroup, PropertiesFileWatcherContext> ctxRegistry =
+            new ConcurrentHashMap<>();
     private final WatchService watchService;
-    private final ExecutorService executor =
-            Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setDaemon(true).build());
 
     /**
      * Create a registry using the default file system.
@@ -74,64 +92,59 @@ final class PropertiesFileWatcherRegistry implements AutoCloseable {
      * @param filePath path to be watched
      * @param reloader callback to be called on a file change event
      */
-    synchronized void register(Path filePath, Runnable reloader) {
-        final Path realFilePath = getRealPath(filePath);
-        checkArgument(!ctxRegistry.containsKey(realFilePath),
-                      "file is already watched: %s", realFilePath);
+    synchronized void register(PropertiesEndpointGroup group, Path filePath, Runnable reloader) {
+        final Path dirPath = getRealPath(filePath).getParent();
+        final WatchKey key;
         try {
-            final Path parentPath = realFilePath.getParent();
-            final WatchKey key = parentPath.register(watchService,
-                                                     ENTRY_CREATE,
-                                                     ENTRY_MODIFY,
-                                                     ENTRY_DELETE,
-                                                     OVERFLOW);
-            ctxRegistry.put(realFilePath, new PropertiesFileWatcherContext(key, reloader));
+            key = dirPath.register(watchService,
+                                   ENTRY_CREATE,
+                                   ENTRY_MODIFY,
+                                   ENTRY_DELETE,
+                                   OVERFLOW);
         } catch (IOException e) {
-            throw new IllegalArgumentException("failed to watch file " + realFilePath, e);
+            throw new IllegalArgumentException("failed to watch file " + filePath, e);
         }
-        startFutureIfPossible();
+        ctxRegistry.put(group, new PropertiesFileWatcherContext(key, reloader, dirPath));
+        startExecutor();
     }
 
     /**
      * Stops watching a properties file corresponding to the {@code resourceUrl}.
-     * @param filePath path to stop watching
+     * @param group group to stop watching
      */
-    void deregister(Path filePath) {
-        final Path realFilePath = getRealPath(filePath);
-        final Path parentPath = realFilePath.getParent();
-
-        synchronized (this) {
-            if (!ctxRegistry.containsKey(realFilePath)) {
-                return;
-            }
-            final PropertiesFileWatcherContext context = ctxRegistry.remove(realFilePath);
-            final boolean existsTargetFiles = ctxRegistry.keySet().stream().anyMatch(
-                    key -> key.startsWith(parentPath));
-            if (!existsTargetFiles) {
-                context.key.cancel();
-            }
-            stopFutureIfPossible();
+    synchronized void deregister(PropertiesEndpointGroup group) {
+        if (!ctxRegistry.containsKey(group)) {
+            return;
         }
+        final PropertiesFileWatcherContext removedCtx = ctxRegistry.remove(group);
+        final boolean existsDirWatcher = ctxRegistry.values().stream().anyMatch(
+                value -> value.dirPath.equals(removedCtx.dirPath));
+        if (!existsDirWatcher) {
+            removedCtx.key.cancel();
+        }
+        stopExecutor();
     }
 
-    private void startFutureIfPossible() {
+    private void startExecutor() {
         if (!isRunning() && !ctxRegistry.isEmpty()) {
-            future = CompletableFuture.runAsync(new PropertiesFileWatcherRunnable(), executor);
+            final ExecutorService executor = Executors.newSingleThreadExecutor(
+                    new ThreadFactoryBuilder().setDaemon(true).setNameFormat("armeria-file-watcher-%d").build());
+            CompletableFuture.runAsync(new PropertiesFileWatcherRunnable(), executor);
+            executorRef.set(executor);
         }
     }
 
-    private void stopFutureIfPossible() {
-        checkState(future != null, "tried to stop null future");
+    private void stopExecutor() {
+        checkState(executorRef.get() != null, "tried to stop null executor");
         if (isRunning() && ctxRegistry.isEmpty()) {
-            future.cancel(true);
-        }
-    }
-
-    private static Path getRealPath(Path path) {
-        try {
-            return path.toRealPath();
-        } catch (IOException e) {
-            throw new IllegalArgumentException("failed to locate file " + path, e);
+            final ExecutorService executor = executorRef.get();
+            executor.shutdownNow();
+            try {
+                executor.awaitTermination(EXECUTOR_SHUTDOWN_TIMEOUT_SEC, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                logger.debug("executor interrupted while shutdown");
+            }
+            executorRef.set(null);
         }
     }
 
@@ -141,7 +154,7 @@ final class PropertiesFileWatcherRegistry implements AutoCloseable {
      */
     @VisibleForTesting
     boolean isRunning() {
-        return future != null && !future.isDone();
+        return executorRef.get() != null;
     }
 
     /**
@@ -151,7 +164,7 @@ final class PropertiesFileWatcherRegistry implements AutoCloseable {
     @Override
     public void close() throws Exception {
         ctxRegistry.clear();
-        stopFutureIfPossible();
+        stopExecutor();
         watchService.close();
     }
 
@@ -165,26 +178,20 @@ final class PropertiesFileWatcherRegistry implements AutoCloseable {
                         @SuppressWarnings("unchecked")
                         final Path watchedPath = ((Path) key.watchable())
                                 .resolve(((WatchEvent<Path>) event).context());
-                        final Path realPath;
+                        final Path realFilePath;
                         try {
-                            realPath = watchedPath.toRealPath();
+                            realFilePath = watchedPath.toRealPath();
                         } catch (IOException e) {
                             logger.warn("skipping unable to get real path for {}", watchedPath);
                             continue;
                         }
-
                         if (event.kind().equals(ENTRY_MODIFY) || event.kind().equals(ENTRY_CREATE)) {
-                            if (ctxRegistry.keySet().contains(realPath)) {
-                                try {
-                                    ctxRegistry.get(realPath).reloader.run();
-                                } catch (Exception e) {
-                                    logger.warn("unexpected error from listener: {} ", realPath, e);
-                                }
-                            }
+                            reloadPath(realFilePath);
                         } else if (event.kind().equals(OVERFLOW)) {
-                            logger.info("failed to reload file: {}", realPath);
+                            reloadPath(realFilePath);
+                            logger.debug("watch event may have been lost: {}", realFilePath);
                         } else if (event.kind().equals(ENTRY_DELETE)) {
-                            logger.warn("ignoring deleted file: {}", realPath);
+                            logger.warn("ignoring deleted file: {}", realFilePath);
                         }
                     }
 
@@ -201,15 +208,16 @@ final class PropertiesFileWatcherRegistry implements AutoCloseable {
                 // do nothing
             }
         }
-    }
 
-    private static class PropertiesFileWatcherContext {
-        private final WatchKey key;
-        private final Runnable reloader;
-
-        PropertiesFileWatcherContext(WatchKey key, Runnable reloader) {
-            this.key = key;
-            this.reloader = reloader;
+        private void reloadPath(Path filePath) {
+            ctxRegistry.values().stream().filter(
+                    ctx -> filePath.startsWith(ctx.dirPath)).forEach(ctx -> {
+                try {
+                    ctx.reloader.run();
+                } catch (Exception e) {
+                    logger.warn("unexpected error from listener: {} ", filePath, e);
+                }
+            });
         }
     }
 }
