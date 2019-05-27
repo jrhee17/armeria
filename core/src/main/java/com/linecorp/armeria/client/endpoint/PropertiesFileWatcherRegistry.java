@@ -53,7 +53,7 @@ final class PropertiesFileWatcherRegistry implements AutoCloseable {
 
     @Nullable
     private CompletableFuture<Void> future;
-    private final Map<Path, PropertiesFileWatcherContext> ctxRegistry = new ConcurrentHashMap<>();
+    private final Map<PropertiesEndpointGroup, PropertiesFileWatcherContext> ctxRegistry = new ConcurrentHashMap<>();
     private final WatchService watchService;
     private final ExecutorService executor =
             Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setDaemon(true).build());
@@ -74,9 +74,9 @@ final class PropertiesFileWatcherRegistry implements AutoCloseable {
      * @param filePath path to be watched
      * @param reloader callback to be called on a file change event
      */
-    synchronized void register(Path filePath, Runnable reloader) {
+    synchronized void register(PropertiesEndpointGroup group, Path filePath, Runnable reloader) {
         final Path realFilePath = getRealPath(filePath);
-        checkArgument(!ctxRegistry.containsKey(realFilePath),
+        checkArgument(!ctxRegistry.containsKey(group),
                       "file is already watched: %s", realFilePath);
         try {
             final Path parentPath = realFilePath.getParent();
@@ -85,7 +85,7 @@ final class PropertiesFileWatcherRegistry implements AutoCloseable {
                                                      ENTRY_MODIFY,
                                                      ENTRY_DELETE,
                                                      OVERFLOW);
-            ctxRegistry.put(realFilePath, new PropertiesFileWatcherContext(key, reloader));
+            ctxRegistry.put(group, new PropertiesFileWatcherContext(key, reloader, realFilePath));
         } catch (IOException e) {
             throw new IllegalArgumentException("failed to watch file " + realFilePath, e);
         }
@@ -94,24 +94,19 @@ final class PropertiesFileWatcherRegistry implements AutoCloseable {
 
     /**
      * Stops watching a properties file corresponding to the {@code resourceUrl}.
-     * @param filePath path to stop watching
+     * @param group group to stop watching
      */
-    void deregister(Path filePath) {
-        final Path realFilePath = getRealPath(filePath);
-        final Path parentPath = realFilePath.getParent();
-
-        synchronized (this) {
-            if (!ctxRegistry.containsKey(realFilePath)) {
-                return;
-            }
-            final PropertiesFileWatcherContext context = ctxRegistry.remove(realFilePath);
-            final boolean existsTargetFiles = ctxRegistry.keySet().stream().anyMatch(
-                    key -> key.startsWith(parentPath));
-            if (!existsTargetFiles) {
-                context.key.cancel();
-            }
-            stopFutureIfPossible();
+    synchronized void deregister(PropertiesEndpointGroup group) {
+        if (!ctxRegistry.containsKey(group)) {
+            return;
         }
+        final PropertiesFileWatcherContext context = ctxRegistry.remove(group);
+        final boolean existsTargetFiles = ctxRegistry.values().stream().anyMatch(
+                value -> value.path.startsWith(context.path));
+        if (!existsTargetFiles) {
+            context.key.cancel();
+        }
+        stopFutureIfPossible();
     }
 
     private void startFutureIfPossible() {
@@ -174,13 +169,14 @@ final class PropertiesFileWatcherRegistry implements AutoCloseable {
                         }
 
                         if (event.kind().equals(ENTRY_MODIFY) || event.kind().equals(ENTRY_CREATE)) {
-                            if (ctxRegistry.keySet().contains(realPath)) {
-                                try {
-                                    ctxRegistry.get(realPath).reloader.run();
-                                } catch (Exception e) {
-                                    logger.warn("unexpected error from listener: {} ", realPath, e);
-                                }
-                            }
+                            ctxRegistry.values().stream().filter()
+//                            if (ctxRegistry.keySet().contains(realPath)) {
+//                                try {
+//                                    ctxRegistry.get(realPath).reloader.run();
+//                                } catch (Exception e) {
+//                                    logger.warn("unexpected error from listener: {} ", realPath, e);
+//                                }
+//                            }
                         } else if (event.kind().equals(OVERFLOW)) {
                             logger.info("failed to reload file: {}", realPath);
                         } else if (event.kind().equals(ENTRY_DELETE)) {
@@ -206,10 +202,12 @@ final class PropertiesFileWatcherRegistry implements AutoCloseable {
     private static class PropertiesFileWatcherContext {
         private final WatchKey key;
         private final Runnable reloader;
+        private final Path path;
 
-        PropertiesFileWatcherContext(WatchKey key, Runnable reloader) {
+        PropertiesFileWatcherContext(WatchKey key, Runnable reloader, Path path) {
             this.key = key;
             this.reloader = reloader;
+            this.path = path;
         }
     }
 }

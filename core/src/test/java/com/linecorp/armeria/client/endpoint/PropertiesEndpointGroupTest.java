@@ -175,11 +175,12 @@ public class PropertiesEndpointGroupTest {
     @Test
     public void duplicateResourceUrl() throws IOException {
         final File file = folder.newFile("temp-file.properties");
-        final PropertiesEndpointGroup propertiesEndpointGroup =
+        final PropertiesEndpointGroup propertiesEndpointGroupA =
                 PropertiesEndpointGroup.of(file.toPath(), "serverA.hosts");
-        assertThatThrownBy(() -> PropertiesEndpointGroup.of(file.toPath(), "serverA.hosts"))
-                .isInstanceOf(IllegalArgumentException.class);
-        propertiesEndpointGroup.close();
+        final PropertiesEndpointGroup propertiesEndpointGroupB =
+                PropertiesEndpointGroup.of(file.toPath(), "serverA.hosts");
+        propertiesEndpointGroupA.close();
+        propertiesEndpointGroupB.close();
     }
 
     @Test
