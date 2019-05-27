@@ -26,7 +26,6 @@ import java.io.PrintWriter;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -136,7 +135,7 @@ public class PropertiesEndpointGroupTest {
         final PropertiesEndpointGroup endpointGroupA = PropertiesEndpointGroup.of(
                 classLoader, file.getName(), "serverA.hosts", 80, true);
 
-        await().atMost(20, TimeUnit.SECONDS).until(() -> endpointGroupA.endpoints().size() == 1);
+        await().untilAsserted(() -> assertThat(endpointGroupA.endpoints()).hasSize(1));
 
         // Update resource
         printWriter = new PrintWriter(file);
@@ -146,7 +145,7 @@ public class PropertiesEndpointGroupTest {
         props.store(printWriter, "");
         printWriter.close();
 
-        await().atMost(20, TimeUnit.SECONDS).until(() -> endpointGroupA.endpoints().size() == 2);
+        await().untilAsserted(() -> assertThat(endpointGroupA.endpoints()).hasSize(2));
 
         endpointGroupA.close();
     }
@@ -177,13 +176,13 @@ public class PropertiesEndpointGroupTest {
         final PropertiesEndpointGroup endpointGroupA = PropertiesEndpointGroup.of(
                 classLoader, file.getName(), "serverA.hosts", 80, true);
 
-        await().atMost(20, TimeUnit.SECONDS).until(() -> endpointGroupA.endpoints().size() == 1);
+        await().untilAsserted(() -> assertThat(endpointGroupA.endpoints()).hasSize(1));
 
         endpointGroupA.close();
 
         final PropertiesEndpointGroup endpointGroupB = PropertiesEndpointGroup.of(
                 classLoader, file.getName(), "serverB.hosts", 80, true);
-        await().atMost(20, TimeUnit.SECONDS).until(() -> endpointGroupB.endpoints().isEmpty());
+        await().untilAsserted(() -> assertThat(endpointGroupB.endpoints()).isEmpty());
 
         // Update resource
         printWriter = new PrintWriter(file);
@@ -193,7 +192,7 @@ public class PropertiesEndpointGroupTest {
         props.store(printWriter, "");
         printWriter.close();
 
-        await().atMost(20, TimeUnit.SECONDS).until(() -> endpointGroupB.endpoints().size() == 2);
+        await().untilAsserted(() -> assertThat(endpointGroupB.endpoints()).hasSize(2));
         endpointGroupB.close();
     }
 
@@ -215,14 +214,14 @@ public class PropertiesEndpointGroupTest {
         final StaticEndpointGroup staticEndpointGroup = new StaticEndpointGroup(Endpoint.of("127.0.0.1", 8081));
         final EndpointGroup endpointGroup = propertiesEndpointGroup.orElse(staticEndpointGroup);
 
-        await().atMost(20, TimeUnit.SECONDS).until(() -> endpointGroup.endpoints().size() == 2);
+        await().untilAsserted(() -> assertThat(endpointGroup.endpoints()).hasSize(2));
 
         printWriter = new PrintWriter(file);
         props = new Properties();
         props.store(printWriter, "");
         printWriter.close();
 
-        await().atMost(20, TimeUnit.SECONDS).until(() -> endpointGroup.endpoints().size() == 1);
+        await().untilAsserted(() -> assertThat(endpointGroup.endpoints()).hasSize(1));
 
         printWriter = new PrintWriter(file);
         props = new Properties();
@@ -232,6 +231,6 @@ public class PropertiesEndpointGroupTest {
         props.store(printWriter, "");
         printWriter.close();
 
-        await().atMost(20, TimeUnit.SECONDS).until(() -> endpointGroup.endpoints().size() == 3);
+        await().untilAsserted(() -> assertThat(endpointGroup.endpoints()).hasSize(3));
     }
 }

@@ -24,7 +24,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Rule;
@@ -96,7 +95,7 @@ public class PropertiesFileWatcherRegistryTest {
         printWriter.print(1);
         printWriter.close();
 
-        await().atMost(20, TimeUnit.SECONDS).until(() -> val.get() == 1);
+        await().untilAsserted(() -> assertThat(val.get()).isEqualTo(1));
 
         assertThat(propertiesFileWatcherRegistry.isRunning()).isTrue();
 
@@ -104,7 +103,7 @@ public class PropertiesFileWatcherRegistryTest {
         printWriter.print(2);
         printWriter.close();
 
-        await().atMost(20, TimeUnit.SECONDS).until(() -> val.get() == 2);
+        await().untilAsserted(() -> assertThat(val.get()).isEqualTo(2));
 
         assertThat(propertiesFileWatcherRegistry.isRunning()).isTrue();
     }
