@@ -38,7 +38,7 @@ import com.linecorp.armeria.client.Endpoint;
  * A {@link Properties} backed {@link EndpointGroup}. The list of {@link Endpoint}s are loaded from the
  * {@link Properties}.
  */
-public final class PropertiesEndpointGroup extends DynamicEndpointGroup {
+public class PropertiesEndpointGroup extends DynamicEndpointGroup {
     private static final PropertiesFileWatcherRegistry registry = new PropertiesFileWatcherRegistry();
 
     /**

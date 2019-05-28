@@ -18,12 +18,16 @@ package com.linecorp.armeria.client.endpoint;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.FileSystem;
+import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -118,5 +122,31 @@ public class PropertiesFileWatcherRegistryTest {
         await().untilAsserted(() -> assertThat(val.get()).isEqualTo(2));
 
         assertThat(propertiesFileWatcherRegistry.isRunning()).isTrue();
+    }
+
+    @Test
+    public void testMultipleFileSystems() throws Exception {
+        final Path path1 = createMockPath();
+        final Path path2 = createMockPath();
+        final FileSystem fileSystem1 = mock(FileSystem.class);
+        final FileSystem fileSystem2 = mock(FileSystem.class);
+        when(path1.getFileSystem()).thenReturn(fileSystem1);
+        when(path2.getFileSystem()).thenReturn(fileSystem2);
+
+        final PropertiesEndpointGroup group = mock(PropertiesEndpointGroup.class);
+
+        final PropertiesFileWatcherRegistry propertiesFileWatcherRegistry =
+                new PropertiesFileWatcherRegistry();
+        propertiesFileWatcherRegistry.register(group, path1, () -> {});
+        propertiesFileWatcherRegistry.register(group, path2, () -> {});
+
+        assertThat(propertiesFileWatcherRegistry.watchedFileSystemCount()).isEqualTo(2);
+    }
+
+    private static Path createMockPath() throws Exception {
+        final Path path = mock(Path.class);
+        when(path.toRealPath()).thenReturn(path);
+        when(path.getParent()).thenReturn(path);
+        return path;
     }
 }

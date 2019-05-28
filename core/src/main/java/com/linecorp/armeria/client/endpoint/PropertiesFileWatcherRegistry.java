@@ -30,6 +30,9 @@ import java.nio.file.Path;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.nio.file.spi.FileSystemProvider;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -160,6 +163,12 @@ final class PropertiesFileWatcherRegistry implements AutoCloseable {
         ctxRegistry.clear();
         stopFuture();
         watchService.close();
+    }
+
+    private static final List<WatchService> watchServiceList = FileSystemProvider.installedProviders().stream().map(FileSystemProvider::getFileSystem);
+
+    int watchedFileSystemCount() {
+        return watchServiceList.size();
     }
 
     private class PropertiesFileWatcherRunnable implements Runnable {
