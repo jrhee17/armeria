@@ -76,7 +76,8 @@ final class FileWatcherRegistry implements AutoCloseable {
             try {
                 dirPath = watchRegisterKey.getFilePath().toRealPath().getParent();
             } catch (IOException e) {
-                throw new IllegalArgumentException("failed to locate file " + watchRegisterKey.getFilePath(), e);
+                throw new IllegalArgumentException("failed to locate file " +
+                                                   watchRegisterKey.getFilePath(), e);
             }
 
             final WatchKey watchKey;
@@ -131,7 +132,8 @@ final class FileWatcherRegistry implements AutoCloseable {
         }
     }
 
-    private final Map<FileSystem, FileWatchServiceContext> fileSystemWatchServiceMap = new ConcurrentHashMap<>();
+    private final Map<FileSystem, FileWatchServiceContext> fileSystemWatchServiceMap
+            = new ConcurrentHashMap<>();
 
     /**
      * Registers a {@code watchEventKey} and {@code callback} to the {@link WatchService}. When the
@@ -212,9 +214,11 @@ final class FileWatcherRegistry implements AutoCloseable {
         private FileWatchRegisterKey(Path filePath) {
             this.filePath = filePath;
         }
+
         /**
          * Returns the file path associated with the current key. The path is used to unregister
          * from the {@link WatchService}.
+         *
          * @return the path associated with the current key
          */
         Path getFilePath() {
