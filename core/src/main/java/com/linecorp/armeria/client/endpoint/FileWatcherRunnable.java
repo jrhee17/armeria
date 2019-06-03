@@ -55,44 +55,39 @@ class FileWatcherRunnable implements Runnable {
         try {
             WatchKey key;
             while ((key = watchService.take()) != null) {
+
+                final Path dirPath = (Path) key.watchable();
+
                 for (WatchEvent<?> event : key.pollEvents()) {
                     if (event.kind().type() == Path.class) {
                         @SuppressWarnings("unchecked")
-                        final Path watchedPath = ((Path) key.watchable())
-                                .resolve(((WatchEvent<Path>) event).context());
+                        final Path modifiedFilePath =
+                                dirPath.resolve(((WatchEvent<Path>) event).context());
 
                         if (event.kind().equals(ENTRY_DELETE)) {
-                            logger.warn("ignoring deleted file: {}", watchedPath);
+                            logger.warn("Ignoring deleted file: {}", modifiedFilePath);
                             continue;
                         }
 
-                        final Path realFilePath;
-                        try {
-                            realFilePath = watchedPath.toRealPath();
-                        } catch (IOException e) {
-                            logger.warn("skipping -- unable to get real path for {}", watchedPath, e);
-                            continue;
-                        }
-
-                        runCallback(realFilePath);
+                        runCallback(modifiedFilePath);
                     } else {
                         if (event.kind().equals(OVERFLOW)) {
-                            logger.debug("watch event may have been lost");
+                            logger.debug("Watch events may have been lost");
+                            runCallback(dirPath);
                         } else {
-                            logger.debug("ignoring unexpected event type: {}", event.kind().name());
+                            logger.debug("Ignoring unexpected event type: {}", event.kind().name());
                         }
                     }
                 }
 
                 final boolean reset = key.reset();
                 if (!reset) {
-                    logger.warn("aborting file watch due to unexpected error");
-                    break;
+                    logger.warn("Path will no longer be watched: " + key.watchable());
                 }
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.trace("file watching thread interrupted");
+            logger.trace("File watching thread interrupted");
         } catch (ClosedWatchServiceException e) {
             // do nothing
         }
@@ -104,7 +99,7 @@ class FileWatcherRunnable implements Runnable {
             try {
                 ctx.runCallback();
             } catch (Exception e) {
-                logger.warn("unexpected error from listener: {} ", filePath, e);
+                logger.warn("Unexpected error from listener: {} ", filePath, e);
             }
         });
     }
