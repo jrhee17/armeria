@@ -62,12 +62,12 @@ class FileWatcherRunnable implements Runnable {
                         @SuppressWarnings("unchecked")
                         final Path filePath = dirPath.resolve(((WatchEvent<Path>) event).context());
                         if (event.kind().equals(ENTRY_DELETE)) {
-                            logger.warn("Ignoring deleted file: {}", filePath);
+                            logger.warn("Ignoring a deleted file: {}", filePath);
                             continue;
                         }
                         runCallback(filePath);
                     } else if (event.kind().equals(OVERFLOW)) {
-                        logger.debug("Watch events may have been lost");
+                        logger.debug("Watch events may have been lost for path: {}", dirPath);
                         runCallback(dirPath);
                     } else {
                         logger.debug("Ignoring unexpected event type: {}", event.kind().name());
