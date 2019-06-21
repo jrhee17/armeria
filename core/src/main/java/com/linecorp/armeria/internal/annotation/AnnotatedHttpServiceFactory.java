@@ -105,6 +105,7 @@ import com.linecorp.armeria.server.annotation.Options;
 import com.linecorp.armeria.server.annotation.Order;
 import com.linecorp.armeria.server.annotation.Patch;
 import com.linecorp.armeria.server.annotation.Path;
+import com.linecorp.armeria.server.annotation.Paths;
 import com.linecorp.armeria.server.annotation.Post;
 import com.linecorp.armeria.server.annotation.ProduceType;
 import com.linecorp.armeria.server.annotation.Produces;
@@ -390,7 +391,7 @@ public final class AnnotatedHttpServiceFactory {
                 .filter(m -> getAnnotations(m, FindOption.LOOKUP_SUPER_CLASSES)
                         .stream()
                         .map(Annotation::annotationType)
-                        .anyMatch(a -> a == Path.class ||
+                        .anyMatch(a -> a == Path.class || a == Paths.class ||
                                        HTTP_METHOD_MAP.containsKey(a)))
                 .sorted(Comparator.comparingInt(AnnotatedHttpServiceFactory::order))
                 .collect(toImmutableList());

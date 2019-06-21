@@ -18,6 +18,8 @@ package com.linecorp.armeria.internal.annotation;
 
 import static java.util.Objects.requireNonNull;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Function;
 
 import com.google.common.base.MoreObjects;
@@ -32,7 +34,7 @@ import com.linecorp.armeria.server.Service;
  */
 public final class AnnotatedHttpServiceElement {
 
-    private final Route route;
+    private final List<Route> route;
 
     private final AnnotatedHttpService service;
 
@@ -43,7 +45,7 @@ public final class AnnotatedHttpServiceElement {
                                 AnnotatedHttpService service,
                                 Function<Service<HttpRequest, HttpResponse>,
                                         ? extends Service<HttpRequest, HttpResponse>> decorator) {
-        this.route = requireNonNull(route, "route");
+        this.route = Collections.singletonList(requireNonNull(route, "route"));
         this.service = requireNonNull(service, "service");
         this.decorator = requireNonNull(decorator, "decorator");
     }
@@ -51,7 +53,7 @@ public final class AnnotatedHttpServiceElement {
     /**
      * Returns the {@link Route}.
      */
-    public Route route() {
+    public List<Route> route() {
         return route;
     }
 

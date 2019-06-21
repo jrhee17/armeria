@@ -221,6 +221,20 @@ public class AnnotatedHttpServiceBuilderTest {
             @Get("/test")
             public void root(BeanB b) {}
         });
+
+        // Path mixed with mapping specific annotation succeeds
+        new ServerBuilder().annotatedService(new Object() {
+            @Get
+            @Path("/test")
+            public void root() {}
+        });
+
+        new ServerBuilder().annotatedService(new Object() {
+            @Get
+            @Path("/test")
+            @Path("/test2")
+            public void root() {}
+        });
     }
 
     @Test
