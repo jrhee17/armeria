@@ -27,7 +27,7 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
-@Repeatable(value = Paths.class)
+@Repeatable(Paths.class)
 public @interface Path {
 
     /**

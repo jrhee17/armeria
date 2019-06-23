@@ -39,6 +39,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -210,8 +211,8 @@ public final class AnnotatedHttpServiceFactory {
 
         final List<Method> methods = requestMappingMethods(object);
         return methods.stream()
-                      .map((Method method) -> create(pathPrefix, object, method, exceptionHandlerFunctions,
-                                                     requestConverterFunctions, responseConverterFunctions))
+                      .flatMap((Method method) -> create(pathPrefix, object, method, exceptionHandlerFunctions,
+                                                     requestConverterFunctions, responseConverterFunctions).stream())
                       .collect(toImmutableList());
     }
 
@@ -257,7 +258,7 @@ public final class AnnotatedHttpServiceFactory {
      * Returns an {@link AnnotatedHttpService} instance defined to {@code method} of {@code object} using
      * {@link Path} annotation.
      */
-    private static AnnotatedHttpServiceElement create(String pathPrefix, Object object, Method method,
+    private static List<AnnotatedHttpServiceElement> create(String pathPrefix, Object object, Method method,
                                                       List<ExceptionHandlerFunction> baseExceptionHandlers,
                                                       List<RequestConverterFunction> baseRequestConverters,
                                                       List<ResponseConverterFunction> baseResponseConverters) {
@@ -274,111 +275,113 @@ public final class AnnotatedHttpServiceFactory {
         }
 
         final Class<?> clazz = object.getClass();
-        final String pattern = findPattern(method, methodAnnotations);
-        final Route route = Route.builder()
-                                 .pathWithPrefix(pathPrefix, pattern)
-                                 .methods(methods)
-                                 .consumes(consumableMediaTypes(method, clazz))
-                                 .produces(producibleMediaTypes(method, clazz))
-                                 .build();
+        final List<String> patterns = findPattern(method, methodAnnotations);
+        return patterns.stream().map(pattern -> {
+            final Route route = Route.builder()
+                                     .pathWithPrefix(pathPrefix, pattern)
+                                     .methods(methods)
+                                     .consumes(consumableMediaTypes(method, clazz))
+                                     .produces(producibleMediaTypes(method, clazz))
+                                     .build();
 
-        final List<ExceptionHandlerFunction> eh =
-                getAnnotatedInstances(method, clazz, ExceptionHandler.class, ExceptionHandlerFunction.class)
-                        .addAll(baseExceptionHandlers).add(defaultExceptionHandler).build();
-        final List<RequestConverterFunction> req =
-                getAnnotatedInstances(method, clazz, RequestConverter.class, RequestConverterFunction.class)
-                        .addAll(baseRequestConverters).build();
-        final List<ResponseConverterFunction> res =
-                getAnnotatedInstances(method, clazz, ResponseConverter.class, ResponseConverterFunction.class)
-                        .addAll(baseResponseConverters).build();
+            final List<ExceptionHandlerFunction> eh =
+                    getAnnotatedInstances(method, clazz, ExceptionHandler.class, ExceptionHandlerFunction.class)
+                            .addAll(baseExceptionHandlers).add(defaultExceptionHandler).build();
+            final List<RequestConverterFunction> req =
+                    getAnnotatedInstances(method, clazz, RequestConverter.class, RequestConverterFunction.class)
+                            .addAll(baseRequestConverters).build();
+            final List<ResponseConverterFunction> res =
+                    getAnnotatedInstances(method, clazz, ResponseConverter.class, ResponseConverterFunction.class)
+                            .addAll(baseResponseConverters).build();
 
-        List<AnnotatedValueResolver> resolvers;
-        try {
-            resolvers = AnnotatedValueResolver.ofServiceMethod(method, route.paramNames(),
-                                                               toRequestObjectResolvers(req));
-        } catch (NoParameterException ignored) {
-            // Allow no parameter like below:
-            //
-            // @Get("/")
-            // public String method1() { ... }
-            //
-            resolvers = ImmutableList.of();
-        }
+            List<AnnotatedValueResolver> resolvers;
+            try {
+                resolvers = AnnotatedValueResolver.ofServiceMethod(method, route.paramNames(),
+                                                                   toRequestObjectResolvers(req));
+            } catch (NoParameterException ignored) {
+                // Allow no parameter like below:
+                //
+                // @Get("/")
+                // public String method1() { ... }
+                //
+                resolvers = ImmutableList.of();
+            }
 
-        final Set<String> expectedParamNames = route.paramNames();
-        final Set<String> requiredParamNames =
-                resolvers.stream()
-                         .filter(AnnotatedValueResolver::isPathVariable)
-                         .map(AnnotatedValueResolver::httpElementName)
-                         .collect(Collectors.toSet());
+            final Set<String> expectedParamNames = route.paramNames();
+            final Set<String> requiredParamNames =
+                    resolvers.stream()
+                             .filter(AnnotatedValueResolver::isPathVariable)
+                             .map(AnnotatedValueResolver::httpElementName)
+                             .collect(Collectors.toSet());
 
-        if (!expectedParamNames.containsAll(requiredParamNames)) {
-            final Set<String> missing = Sets.difference(requiredParamNames, expectedParamNames);
-            throw new IllegalArgumentException("cannot find path variables: " + missing);
-        }
+            if (!expectedParamNames.containsAll(requiredParamNames)) {
+                final Set<String> missing = Sets.difference(requiredParamNames, expectedParamNames);
+                throw new IllegalArgumentException("cannot find path variables: " + missing);
+            }
 
-        // Warn unused path variables only if there's no '@RequestObject' annotation.
-        if (resolvers.stream().noneMatch(r -> r.annotationType() == RequestObject.class) &&
-            !requiredParamNames.containsAll(expectedParamNames)) {
-            final Set<String> missing = Sets.difference(expectedParamNames, requiredParamNames);
-            logger.warn("Some path variables of the method '" + method.getName() +
-                        "' of the class '" + clazz.getName() +
-                        "' do not have their corresponding parameters annotated with @Param. " +
-                        "They would not be automatically injected: " + missing);
-        }
+            // Warn unused path variables only if there's no '@RequestObject' annotation.
+            if (resolvers.stream().noneMatch(r -> r.annotationType() == RequestObject.class) &&
+                !requiredParamNames.containsAll(expectedParamNames)) {
+                final Set<String> missing = Sets.difference(expectedParamNames, requiredParamNames);
+                logger.warn("Some path variables of the method '" + method.getName() +
+                            "' of the class '" + clazz.getName() +
+                            "' do not have their corresponding parameters annotated with @Param. " +
+                            "They would not be automatically injected: " + missing);
+            }
 
-        final Optional<HttpStatus> defaultResponseStatus = findFirst(method, StatusCode.class)
-                .map(code -> {
-                    final int statusCode = code.value();
-                    checkArgument(statusCode >= 0,
-                                  "invalid HTTP status code: %s (expected: >= 0)", statusCode);
-                    return HttpStatus.valueOf(statusCode);
-                });
-        final ResponseHeadersBuilder defaultHeaders =
-                ResponseHeaders.builder(defaultResponseStatus(defaultResponseStatus, method));
+            final Optional<HttpStatus> defaultResponseStatus = findFirst(method, StatusCode.class)
+                    .map(code -> {
+                        final int statusCode = code.value();
+                        checkArgument(statusCode >= 0,
+                                      "invalid HTTP status code: %s (expected: >= 0)", statusCode);
+                        return HttpStatus.valueOf(statusCode);
+                    });
+            final ResponseHeadersBuilder defaultHeaders =
+                    ResponseHeaders.builder(defaultResponseStatus(defaultResponseStatus, method));
 
-        final HttpHeadersBuilder defaultTrailers = HttpHeaders.builder();
-        final String classAlias = clazz.getName();
-        final String methodAlias = String.format("%s.%s()", classAlias, method.getName());
-        setAdditionalHeader(defaultHeaders, clazz, "header", classAlias, "class", AdditionalHeader.class,
-                            AdditionalHeader::name, AdditionalHeader::value);
-        setAdditionalHeader(defaultHeaders, method, "header", methodAlias, "method", AdditionalHeader.class,
-                            AdditionalHeader::name, AdditionalHeader::value);
-        setAdditionalHeader(defaultTrailers, clazz, "trailer", classAlias, "class",
-                            AdditionalTrailer.class, AdditionalTrailer::name, AdditionalTrailer::value);
-        setAdditionalHeader(defaultTrailers, method, "trailer", methodAlias, "method",
-                            AdditionalTrailer.class, AdditionalTrailer::name, AdditionalTrailer::value);
+            final HttpHeadersBuilder defaultTrailers = HttpHeaders.builder();
+            final String classAlias = clazz.getName();
+            final String methodAlias = String.format("%s.%s()", classAlias, method.getName());
+            setAdditionalHeader(defaultHeaders, clazz, "header", classAlias, "class", AdditionalHeader.class,
+                                AdditionalHeader::name, AdditionalHeader::value);
+            setAdditionalHeader(defaultHeaders, method, "header", methodAlias, "method", AdditionalHeader.class,
+                                AdditionalHeader::name, AdditionalHeader::value);
+            setAdditionalHeader(defaultTrailers, clazz, "trailer", classAlias, "class",
+                                AdditionalTrailer.class, AdditionalTrailer::name, AdditionalTrailer::value);
+            setAdditionalHeader(defaultTrailers, method, "trailer", methodAlias, "method",
+                                AdditionalTrailer.class, AdditionalTrailer::name, AdditionalTrailer::value);
 
-        if (ArmeriaHttpUtil.isContentAlwaysEmpty(defaultHeaders.status()) &&
-            !defaultTrailers.isEmpty()) {
-            logger.warn("A response with HTTP status code '{}' cannot have a content. " +
-                        "Trailers defined at '{}' might be ignored.",
-                        defaultHeaders.status().code(), methodAlias);
-        }
+            if (ArmeriaHttpUtil.isContentAlwaysEmpty(defaultHeaders.status()) &&
+                !defaultTrailers.isEmpty()) {
+                logger.warn("A response with HTTP status code '{}' cannot have a content. " +
+                            "Trailers defined at '{}' might be ignored.",
+                            defaultHeaders.status().code(), methodAlias);
+            }
 
-        // A CORS preflight request can be received because we handle it specially. The following
-        // decorator will prevent the service from an unexpected request which has OPTIONS method.
-        final Function<Service<HttpRequest, HttpResponse>,
-                ? extends Service<HttpRequest, HttpResponse>> initialDecorator;
-        if (methods.contains(HttpMethod.OPTIONS)) {
-            initialDecorator = Function.identity();
-        } else {
-            initialDecorator = delegate -> new SimpleDecoratingService<HttpRequest, HttpResponse>(delegate) {
-                @Override
-                public HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
-                    if (req.method() == HttpMethod.OPTIONS) {
-                        // This must be a CORS preflight request.
-                        throw HttpStatusException.of(HttpStatus.FORBIDDEN);
+            // A CORS preflight request can be received because we handle it specially. The following
+            // decorator will prevent the service from an unexpected request which has OPTIONS method.
+            final Function<Service<HttpRequest, HttpResponse>,
+                    ? extends Service<HttpRequest, HttpResponse>> initialDecorator;
+            if (methods.contains(HttpMethod.OPTIONS)) {
+                initialDecorator = Function.identity();
+            } else {
+                initialDecorator = delegate -> new SimpleDecoratingService<HttpRequest, HttpResponse>(delegate) {
+                    @Override
+                    public HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
+                        if (req.method() == HttpMethod.OPTIONS) {
+                            // This must be a CORS preflight request.
+                            throw HttpStatusException.of(HttpStatus.FORBIDDEN);
+                        }
+                        return delegate().serve(ctx, req);
                     }
-                    return delegate().serve(ctx, req);
-                }
-            };
-        }
-        return new AnnotatedHttpServiceElement(route, new AnnotatedHttpService(object, method, resolvers,
-                                                                               eh, res, route,
-                                                                               defaultHeaders.build(),
-                                                                               defaultTrailers.build()),
-                                               decorator(method, clazz, initialDecorator));
+                };
+            }
+            return new AnnotatedHttpServiceElement(route, new AnnotatedHttpService(object, method, resolvers,
+                                                                                   eh, res, route,
+                                                                                   defaultHeaders.build(),
+                                                                                   defaultTrailers.build()),
+                                                   decorator(method, clazz, initialDecorator));
+        }).collect(Collectors.toList());
     }
 
     /**
@@ -510,19 +513,20 @@ public final class AnnotatedHttpServiceFactory {
      * Returns a specified path pattern. The path pattern might be specified by {@link Path} or
      * HTTP method annotations such as {@link Get} and {@link Post}.
      */
-    private static String findPattern(Method method, Set<Annotation> methodAnnotations) {
-        String pattern = findFirst(method, Path.class).map(Path::value)
-                                                      .orElse(null);
+    private static List<String> findPattern(Method method, Set<Annotation> methodAnnotations) {
+        List<String> pattern = findAll(method, Path.class).stream()
+                                                          .map(Path::value)
+                                                          .collect(Collectors.toList());
         for (Annotation a : methodAnnotations) {
             final String p = (String) invokeValueMethod(a);
             if (DefaultValues.isUnspecified(p)) {
                 continue;
             }
-            checkArgument(pattern == null,
+            checkArgument(pattern.isEmpty(),
                           "Only one path can be specified. (" + pattern + ", " + p + ')');
-            pattern = p;
+            pattern = Collections.singletonList(p);
         }
-        if (pattern == null || pattern.isEmpty()) {
+        if (pattern.isEmpty()) {
             throw new IllegalArgumentException(
                     "A path pattern should be specified by @Path or HTTP method annotations.");
         }

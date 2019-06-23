@@ -229,12 +229,16 @@ public class AnnotatedHttpServiceBuilderTest {
             public void root() {}
         });
 
-        new ServerBuilder().annotatedService(new Object() {
+        new ServerBuilder().http(8080).annotatedService(new Object() {
             @Get
             @Path("/test")
             @Path("/test2")
             public void root() {}
-        });
+        }).build().start().join();
+        try {
+            Thread.sleep(1000 * 60 * 60);
+        } catch (InterruptedException e) {
+        }
     }
 
     @Test
