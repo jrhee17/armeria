@@ -32,6 +32,8 @@ import com.linecorp.armeria.common.HttpData;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.server.Server;
+import com.linecorp.armeria.common.RequestContext;
+import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.ServiceRequestContext;
 import com.linecorp.armeria.server.annotation.ByteArrayRequestConverterFunction;
 import com.linecorp.armeria.server.annotation.Default;
@@ -191,6 +193,52 @@ public class AnnotatedHttpServiceBuilderTest {
                              @Header("a") LinkedList<String> b) {}
         });
 
+        // Multiple paths are allowed
+        new ServerBuilder().annotatedService(new Object() {
+            @Get
+            @Post
+            @Path("/b")
+            @Path("/c")
+            @Path("/d")
+            public void root(BeanB b) {}
+        });
+
+        // Multiple paths with matching params
+        new ServerBuilder().annotatedService(new Object() {
+            @Get
+            @Path("/a/{param}")
+            @Path("/b/{param}")
+            public void root(@Param("param") String param) {}
+        });
+
+        // Multiple paths with non matching but optional path variables
+        new ServerBuilder().annotatedService(new Object() {
+            @Get
+            @Path("/a")
+            @Path("/b/{param}")
+            public void root(@Param("param") Optional<String> param) {}
+        });
+
+        // Multiple paths with same value
+        new ServerBuilder().annotatedService(new Object() {
+            @Get
+            @Path("/a")
+            @Path("/a")
+            public void root(BeanB b) {}
+        });
+
+        new ServerBuilder().annotatedService(new Object() {
+            @Path("/")
+            @Get("/")
+            public void root() {}
+        });
+
+        new ServerBuilder().annotatedService(new Object() {
+            @Post("/")
+            @Get("/")
+            public void root() {}
+        });
+
         // Optional is redundant, but we just warn.
         Server.builder().annotatedService(new Object() {
             @Get("/{name}")
@@ -244,18 +292,6 @@ public class AnnotatedHttpServiceBuilderTest {
 
     @Test
     public void failedOf() {
-        assertThatThrownBy(() -> Server.builder().annotatedService(new Object() {
-            @Path("/")
-            @Get("/")
-            public void root() {}
-        })).isInstanceOf(IllegalArgumentException.class);
-
-        assertThatThrownBy(() -> Server.builder().annotatedService(new Object() {
-            @Post("/")
-            @Get("/")
-            public void root() {}
-        })).isInstanceOf(IllegalArgumentException.class);
-
         assertThatThrownBy(() -> Server.builder().annotatedService(new Object() {
             @Get
             public void root() {}

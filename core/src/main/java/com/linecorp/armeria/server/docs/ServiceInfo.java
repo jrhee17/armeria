@@ -19,22 +19,28 @@ package com.linecorp.armeria.server.docs;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Sets;
 
 import com.linecorp.armeria.common.HttpHeaders;
+import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.server.Service;
 
 /**
@@ -42,8 +48,61 @@ import com.linecorp.armeria.server.Service;
  */
 public final class ServiceInfo {
 
+    private static final class MethodHeaderPair {
+        private final String name;
+        private final HttpMethod method;
+
+        private MethodHeaderPair(String name, HttpMethod method) {
+            this.name = name;
+            this.method = method;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof MethodHeaderPair)) {
+                return false;
+            }
+            final MethodHeaderPair other = (MethodHeaderPair) obj;
+            return Objects.equals(name, other.name) && method == other.method;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, method);
+        }
+    }
+
+    /**
+     * Duplicate {@link MethodInfo} with matching (name, httpMethod) are merged.
+     * Merge targets are endpoints, exampleHttpHeaders, exampleRequests.
+     * We still need to think about {@code docString}
+     */
+    @VisibleForTesting
+    static Iterable<MethodInfo> collectMethods(Iterable<MethodInfo> methodInfos) {
+        final Map<MethodHeaderPair, MethodInfo> methodInfoMap = new HashMap<>();
+        for (MethodInfo methodInfo: methodInfos) {
+            final MethodHeaderPair pair = new MethodHeaderPair(methodInfo.name(), methodInfo.httpMethod());
+            methodInfoMap.compute(pair, (key, value) -> {
+                if (value == null) {
+                    return methodInfo;
+                } else {
+                    final Set<EndpointInfo> endpointInfos =
+                            Sets.union(value.endpoints(), methodInfo.endpoints());
+                    return new MethodInfo(value.name(), value.returnTypeSignature(),
+                                          value.parameters(), value.exceptionTypeSignatures(),
+                                          endpointInfos, value.exampleHttpHeaders(),
+                                          value.exampleRequests(), value.httpMethod(),
+                                          value.docString());
+                }
+            });
+        }
+        return methodInfoMap.values().stream()
+                            .sorted(comparing(MethodInfo::name).thenComparing(MethodInfo::httpMethod))
+                            .collect(Collectors.toList());
+    }
+
     private final String name;
-    private final Set<MethodInfo> methods;
+    private final List<MethodInfo> methods;
     private final List<HttpHeaders> exampleHttpHeaders;
     @Nullable
     private final String docString;
@@ -74,11 +133,7 @@ public final class ServiceInfo {
                        @Nullable String docString) {
 
         this.name = requireNonNull(name, "name");
-
-        requireNonNull(methods, "methods");
-
-        this.methods = ImmutableSortedSet.copyOf(comparing(MethodInfo::name)
-                                                         .thenComparing(MethodInfo::httpMethod), methods);
+        this.methods = ImmutableList.copyOf(collectMethods(requireNonNull(methods)));
         this.exampleHttpHeaders = ImmutableList.copyOf(requireNonNull(exampleHttpHeaders,
                                                                       "exampleHttpHeaders"));
         this.docString = Strings.emptyToNull(docString);
@@ -96,7 +151,7 @@ public final class ServiceInfo {
      * Returns the metadata about the methods available in the service.
      */
     @JsonProperty
-    public Set<MethodInfo> methods() {
+    public List<MethodInfo> methods() {
         return methods;
     }
 
@@ -164,10 +219,10 @@ public final class ServiceInfo {
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-                .add("name", name)
-                .add("methods", methods)
-                .add("exampleHttpHeaders", exampleHttpHeaders)
-                .add("docstring", docString)
-                .toString();
+                          .add("name", name)
+                          .add("methods", methods)
+                          .add("exampleHttpHeaders", exampleHttpHeaders)
+                          .add("docstring", docString)
+                          .toString();
     }
 }

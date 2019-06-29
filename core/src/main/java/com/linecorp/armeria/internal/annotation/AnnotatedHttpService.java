@@ -128,6 +128,7 @@ public class AnnotatedHttpService implements HttpService {
         responseConverter = responseConverter(
                 method, requireNonNull(responseConverters, "responseConverters"), exceptionHandler);
         aggregationStrategy = AggregationStrategy.from(resolvers);
+
         this.route = requireNonNull(route, "route");
 
         this.defaultHttpHeaders = requireNonNull(defaultHttpHeaders, "defaultHttpHeaders");

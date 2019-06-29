@@ -158,13 +158,12 @@ public final class AnnotatedHttpDocServicePlugin implements DocServicePlugin {
         final TypeSignature returnTypeSignature = toTypeSignature(method.getGenericReturnType());
         final List<FieldInfo> fieldInfos = fieldInfos(service.annotatedValueResolvers());
         final Class<?> clazz = service.object().getClass();
-        route.methods().forEach(
-                httpMethod -> {
-                    final MethodInfo methodInfo = new MethodInfo(
-                            name, returnTypeSignature, fieldInfos, ImmutableList.of(), // Ignore exceptions.
-                            ImmutableList.of(endpoint), httpMethod, findDescription(method));
-                    methodInfos.computeIfAbsent(clazz, unused -> new HashSet<>()).add(methodInfo);
-                });
+        route.methods().forEach(httpMethod -> {
+            final MethodInfo methodInfo = new MethodInfo(
+                    name, returnTypeSignature, fieldInfos, ImmutableList.of(), // Ignore exceptions.
+                    ImmutableList.of(endpoint), httpMethod, findDescription(method));
+            methodInfos.computeIfAbsent(clazz, unused -> new HashSet<>()).add(methodInfo);
+        });
     }
 
     @VisibleForTesting

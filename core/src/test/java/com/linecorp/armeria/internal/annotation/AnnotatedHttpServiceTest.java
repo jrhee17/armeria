@@ -131,6 +131,9 @@ public class AnnotatedHttpServiceTest {
 
             sb.annotatedService("/11", new MyAnnotatedService11(),
                                 LoggingService.newDecorator());
+
+            sb.annotatedService("/12", new MyAnnotatedService12(),
+                                LoggingService.newDecorator());
         }
     };
 
@@ -672,6 +675,39 @@ public class AnnotatedHttpServiceTest {
         }
     }
 
+    @ResponseConverter(UnformattedStringConverterFunction.class)
+    public static class MyAnnotatedService12 {
+
+        @Get
+        @Path("/multiGet1")
+        @Path("/multiGet2")
+        public String multipleGet(RequestContext ctx) {
+            return "multiGet";
+        }
+
+        @Get
+        @Path("/duplicateGet")
+        @Path("/duplicateGet")
+        public String duplicateGet(RequestContext ctx) {
+            return "duplicateGet";
+        }
+
+        @Get
+        @Path("/multiGetWithParam1/{param}")
+        @Path("/multiGetWithParam2/{param}")
+        public String multiGetWithParam(RequestContext ctx, @Param String param) {
+            return param;
+        }
+
+        @Get
+        @Post
+        @Path("/multiGetPost1")
+        @Path("/multiGetPost2")
+        public String multiGetPost(RequestContext ctx) {
+            return "multiGetPost";
+        }
+    }
+
     @Test
     public void testAnnotatedHttpService() throws Exception {
         try (CloseableHttpClient hc = HttpClients.createMinimal()) {
@@ -982,6 +1018,24 @@ public class AnnotatedHttpServiceTest {
         try (CloseableHttpClient hc = HttpClients.createMinimal()) {
             testStatusCode(hc, get("/1/void/204"), 204);
             testBodyAndContentType(hc, get("/1/void/200"), "200 OK", MediaType.PLAIN_TEXT_UTF_8.toString());
+        }
+    }
+
+    @Test
+    public void testMultiplePaths() throws Exception {
+        try (CloseableHttpClient hc = HttpClients.createMinimal()) {
+            testStatusCode(hc, get("/12/multiGet1"), 200);
+            testStatusCode(hc, get("/12/multiGet2"), 200);
+
+            testStatusCode(hc, get("/12/duplicateGet"), 200);
+
+            testBody(hc, get("/12/multiGetWithParam1/param"), "param");
+            testBody(hc, get("/12/multiGetWithParam2/param"), "param");
+
+            testStatusCode(hc, get("/12/multiGetPost1"), 200);
+            testStatusCode(hc, post("/12/multiGetPost1"), 200);
+            testStatusCode(hc, get("/12/multiGetPost2"), 200);
+            testStatusCode(hc, post("/12/multiGetPost2"), 200);
         }
     }
 
