@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.util.function.Function;
@@ -60,7 +61,7 @@ public class ArmeriaConfigurationUtilTest {
         final DocServiceBuilder dsb1 = new DocServiceBuilder();
         configureAnnotatedHttpServices(sb1, dsb1, ImmutableList.of(bean),
                                        MeterIdPrefixFunctionFactory.DEFAULT, null);
-        verify(decorator).apply(any());
+        verify(decorator, times(2)).apply(any());
         assertThat(service(sb1).as(MetricCollectingService.class)).isPresent();
 
         reset(decorator);
@@ -69,7 +70,7 @@ public class ArmeriaConfigurationUtilTest {
         final DocServiceBuilder dsb2 = new DocServiceBuilder();
         configureAnnotatedHttpServices(sb2, dsb2, ImmutableList.of(bean),
                                        null, null);
-        verify(decorator).apply(any());
+        verify(decorator, times(2)).apply(any());
         assertThat(service(sb2)).isInstanceOf(AnnotatedHttpService.class);
     }
 
@@ -86,7 +87,7 @@ public class ArmeriaConfigurationUtilTest {
         final DocServiceBuilder dsb = new DocServiceBuilder();
         configureAnnotatedHttpServices(sb, dsb, ImmutableList.of(bean),
                                        null, null);
-        verify(decorator).apply(any());
+        verify(decorator, times(2)).apply(any());
         assertThat(service(sb).as(SimpleDecorator.class)).isPresent();
     }
 

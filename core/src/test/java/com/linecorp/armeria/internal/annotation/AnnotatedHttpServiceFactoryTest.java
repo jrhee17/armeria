@@ -181,6 +181,22 @@ public class AnnotatedHttpServiceFactoryTest {
         });
     }
 
+    @Test
+    public void testGetPathMappingsMapWithMultipleHttpMethods() {
+        final ServiceObject2 serviceObject = new ServiceObject2();
+
+        final List<AnnotatedHttpServiceElement> annotatedHttpServiceElements = getMethods(
+                ServiceObject2.class, HttpResponse.class).flatMap(method -> {
+            final List<AnnotatedHttpServiceElement> annotatedHttpServices = create(
+                    "/", serviceObject, method, Lists.emptyList(), Lists.emptyList(), Lists.emptyList());
+            return annotatedHttpServices.stream();
+        }).collect(Collectors.toList());
+
+        annotatedHttpServiceElements.forEach(element -> {
+            assertThat(element.route().methods()).hasSize(1);
+        });
+    }
+
     private static List<Class<?>> values(List<DecoratorAndOrder> list) {
         return list.stream()
                    .map(DecoratorAndOrder::annotation)
@@ -356,6 +372,15 @@ public class AnnotatedHttpServiceFactoryTest {
 
         @Trace
         public HttpResponse trace() {
+            return HttpResponse.of(HttpStatus.OK);
+        }
+    }
+
+    static class ServiceObject2 {
+
+        @Get("/get")
+        @Post("/post")
+        public HttpResponse getAndPost() {
             return HttpResponse.of(HttpStatus.OK);
         }
     }
