@@ -287,7 +287,7 @@ public final class AnnotatedHttpServiceFactory {
                                                 .consumes(consumableMediaTypes)
                                                 .produces(producibleMediaTypes)
                                                 .build());
-                }).collect(Collectors.toSet());
+                }).collect(ImmutableSet.toImmutableSet());
 
         final List<ExceptionHandlerFunction> eh =
                 getAnnotatedInstances(method, clazz, ExceptionHandler.class, ExceptionHandlerFunction.class)
@@ -338,7 +338,7 @@ public final class AnnotatedHttpServiceFactory {
                     new AnnotatedHttpService(object, method, resolvers, eh, res, route, responseHeaders,
                                              responseTrailers),
                     decorator(method, clazz, getInitialDecorator(route.methods())));
-        }).collect(Collectors.toList());
+        }).collect(toImmutableList());
     }
 
     /**
@@ -349,18 +349,17 @@ public final class AnnotatedHttpServiceFactory {
             getInitialDecorator(Set<HttpMethod> httpMethods) {
         if (httpMethods.contains(HttpMethod.OPTIONS)) {
             return Function.identity();
-        } else {
-            return delegate -> new SimpleDecoratingHttpService(delegate) {
-                @Override
-                public HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
-                    if (req.method() == HttpMethod.OPTIONS) {
-                        // This must be a CORS preflight request.
-                        throw HttpStatusException.of(HttpStatus.FORBIDDEN);
-                    }
-                    return delegate().serve(ctx, req);
-                }
-            };
         }
+        return delegate -> new SimpleDecoratingHttpService(delegate) {
+            @Override
+            public HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
+                if (req.method() == HttpMethod.OPTIONS) {
+                    // This must be a CORS preflight request.
+                    throw HttpStatusException.of(HttpStatus.FORBIDDEN);
+                }
+                return delegate().serve(ctx, req);
+            }
+        };
     }
 
     private static List<AnnotatedValueResolver> getAnnotatedValueResolvers(List<RequestConverterFunction> req,

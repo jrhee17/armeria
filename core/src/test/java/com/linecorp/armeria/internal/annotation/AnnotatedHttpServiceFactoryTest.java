@@ -185,17 +185,27 @@ public class AnnotatedHttpServiceFactoryTest {
     @Test
     public void testMultiPathSingleMappingService() {
         final MultiPathSingleMappingService serviceObject = new MultiPathSingleMappingService();
+        final String methodName = "pathOnHttpMethods";
 
-        final List<AnnotatedHttpServiceElement> annotatedHttpServiceElements = getMethods(
-                MultiPathSingleMappingService.class, HttpResponse.class).flatMap(method -> {
-            final List<AnnotatedHttpServiceElement> annotatedHttpServices = create(
-                    "/", serviceObject, method, Lists.emptyList(), Lists.emptyList(), Lists.emptyList());
-            return annotatedHttpServices.stream();
-        }).collect(Collectors.toList());
+        final List<AnnotatedHttpServiceElement> annotatedHttpServiceElements =
+                getServiceElementsForMethodName(serviceObject, methodName);
 
         annotatedHttpServiceElements.forEach(element -> {
             assertThat(element.route().methods()).hasSize(1);
         });
+    }
+
+    private static List<AnnotatedHttpServiceElement> getServiceElementsForMethodName(
+            Object service, String methodName) {
+        return getMethods(service.getClass(), HttpResponse.class)
+                .filter(method -> method.getName().equals(methodName)).flatMap(
+                        method -> {
+                            final List<AnnotatedHttpServiceElement> annotatedHttpServices = create(
+                                    "/", service, method, Lists.emptyList(), Lists.emptyList(),
+                                    Lists.emptyList());
+                            return annotatedHttpServices.stream();
+                        }
+                ).collect(Collectors.toList());
     }
 
     @Test
