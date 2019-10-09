@@ -297,7 +297,7 @@ public class AnnotatedHttpDocServicePluginTest {
         final Set<String> paths = methods.get("multiGet").endpoints()
                                          .stream().map(EndpointInfo::pathMapping)
                                          .collect(toImmutableSet());
-        assertThat(paths).isEqualTo(ImmutableSet.of("exact:/path1", "exact:/path2"));
+        assertThat(paths).containsOnly("exact:/path1", "exact:/path2");
     }
 
     private static void checkFooService(ServiceInfo fooServiceInfo) {
