@@ -31,10 +31,12 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntFunction;
 
 import javax.annotation.Nullable;
+import javax.net.ssl.SSLException;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -63,6 +65,7 @@ import com.linecorp.armeria.client.encoding.HttpDecodingClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointGroupRegistry;
 import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
+import com.linecorp.armeria.client.logging.LoggingClient;
 import com.linecorp.armeria.common.AggregatedHttpRequest;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpData;
@@ -94,6 +97,7 @@ import com.linecorp.armeria.unsafe.ByteBufHttpData;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufHolder;
+import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.util.AsciiString;
 import io.netty.util.ReferenceCountUtil;
 
@@ -765,6 +769,22 @@ class HttpClientIntegrationTest {
         assertThatThrownBy(() -> response.aggregate().join())
                 .isInstanceOf(CompletionException.class)
                 .hasCause(badState);
+    }
+
+    @Test
+    void sslRequstToPlainTextEndpoint() throws Exception {
+        server.start();
+        final int port = server.httpPort();
+        final ClientFactory clientFactory =
+                ClientFactory.builder()
+                             .sslContextCustomizer(
+                                     s -> s.trustManager(InsecureTrustManagerFactory.INSTANCE))
+                             .build();
+        final WebClient webClient = WebClient.builder(SessionProtocol.HTTPS, Endpoint.of("localhost", port))
+                                             .factory(clientFactory)
+                                             .decorator(LoggingClient.newDecorator()).build();
+        assertThatThrownBy(() -> webClient.get("/hello/world").aggregate().get(10, TimeUnit.SECONDS))
+                .hasRootCauseInstanceOf(SSLException.class);
     }
 
     @Nested

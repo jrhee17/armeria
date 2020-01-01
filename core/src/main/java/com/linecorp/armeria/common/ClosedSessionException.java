@@ -33,7 +33,16 @@ public final class ClosedSessionException extends RuntimeException {
                new ClosedSessionException() : INSTANCE;
     }
 
+    public static ClosedSessionException get(Exception cause) {
+        return Flags.verboseExceptionSampler().isSampled(ClosedSessionException.class) ?
+               new ClosedSessionException(cause) : INSTANCE;
+    }
+
     private ClosedSessionException() {}
+
+    private ClosedSessionException(Exception cause) {
+        super(cause);
+    }
 
     private ClosedSessionException(@SuppressWarnings("unused") boolean dummy) {
         super(null, null, false, false);
