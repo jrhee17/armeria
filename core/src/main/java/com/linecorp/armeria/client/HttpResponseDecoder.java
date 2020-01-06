@@ -76,7 +76,7 @@ abstract class HttpResponseDecoder {
 
         assert oldRes == null : "addResponse(" + id + ", " + res + ", " + responseTimeoutMillis + "): " +
                                 oldRes;
-
+        logger.info("adding response: {}", responses.size());
         return newRes;
     }
 

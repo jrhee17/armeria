@@ -22,6 +22,9 @@ import java.util.concurrent.CompletableFuture;
 
 import javax.annotation.Nullable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 
@@ -45,6 +48,7 @@ final class HttpClientDelegate implements HttpClient {
             ClientRequestContext.class.getSimpleName() + " initialization failed", null, false, false) {
         private static final long serialVersionUID = 837901495421033459L;
     };
+    private static final Logger logger = LoggerFactory.getLogger(HttpClientDelegate.class);
 
     private final HttpClientFactory factory;
     private final AddressResolverGroup<InetSocketAddress> addressResolverGroup;
@@ -134,11 +138,13 @@ final class HttpClientDelegate implements HttpClient {
         final PoolKey key = new PoolKey(host, ipAddr, port);
         final PooledChannel pooledChannel = pool.acquireNow(protocol, key);
         if (pooledChannel != null) {
+            logger.info("directly acquireNow");
             doExecute(pooledChannel, ctx, req, res);
         } else {
             pool.acquireLater(protocol, key, timingsBuilder).handle((newPooledChannel, cause) -> {
                 timingsBuilder.build().setTo(ctx);
 
+                logger.info("pooledChannel acquire complete");
                 if (cause == null) {
                     doExecute(newPooledChannel, ctx, req, res);
                 } else {

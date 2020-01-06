@@ -183,6 +183,11 @@ public class HttpClientMaxConcurrentStreamTest {
         clientFactory.eventLoopGroup().execute(() -> {
             for (int j = 0; j < MAX_CONCURRENT_STREAMS + 1; j++) {
                 receivedResponses.add(client.get(PATH).aggregate());
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
         });
 

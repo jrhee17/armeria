@@ -152,6 +152,7 @@ final class HttpSessionHandler extends ChannelDuplexHandler implements HttpSessi
             return true;
         }
 
+        logger.info("invoked...");
         final long writeTimeoutMillis = ctx.writeTimeoutMillis();
         final long responseTimeoutMillis = ctx.responseTimeoutMillis();
         final long maxContentLength = ctx.maxResponseLength();

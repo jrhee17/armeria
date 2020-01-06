@@ -198,6 +198,7 @@ final class HttpChannelPool implements AutoCloseable {
             }
 
             final HttpSession session = HttpSession.get(pooledChannel.get());
+            logger.info("acquireNowExact {}/{}", session.unfinishedResponses(), session.maxUnfinishedResponses());
             if (session.unfinishedResponses() >= session.maxUnfinishedResponses()) {
                 // The channel is full of streams so we cannot create a new one.
                 // Move the channel to the beginning of the queue so it has low priority.
@@ -237,8 +238,10 @@ final class HttpChannelPool implements AutoCloseable {
      */
     CompletableFuture<PooledChannel> acquireLater(SessionProtocol desiredProtocol, PoolKey key,
                                                   ClientConnectionTimingsBuilder timingsBuilder) {
+        logger.info("acquireLater");
         final CompletableFuture<PooledChannel> promise = new CompletableFuture<>();
         if (!usePendingAcquisition(desiredProtocol, key, promise, timingsBuilder)) {
+            logger.info("don't use pending acquisition");
             connect(desiredProtocol, key, promise, timingsBuilder);
         }
         return promise;
@@ -266,9 +269,11 @@ final class HttpChannelPool implements AutoCloseable {
             return false;
         }
 
+        logger.info("pending acquisition not null");
         timingsBuilder.pendingAcquisitionStart();
         pendingAcquisition.handle((pch, cause) -> {
             timingsBuilder.pendingAcquisitionEnd();
+            logger.info("pending complete");
 
             if (cause == null) {
                 final SessionProtocol actualProtocol = pch.protocol();
@@ -278,12 +283,13 @@ final class HttpChannelPool implements AutoCloseable {
                         logger.info("complete {}/{}", session.unfinishedResponses(), session.maxUnfinishedResponses());
                         promise.complete(pch);
                     } else {
-                        System.out.println("else...");
+                        logger.info("exceeds {}/{}", session.unfinishedResponses(), session.maxUnfinishedResponses());
                         final PooledChannel ch = acquireNow(actualProtocol, key);
                         if (ch != null) {
+                            logger.info("acquireNow succeeded");
                             promise.complete(ch);
                         } else {
-                            connect(actualProtocol, key, promise, timingsBuilder);
+                            logger.info("new connection");
                         }
 //                        promise.completeExceptionally(new NullPointerException());
 //                        connect(actualProtocol, key, promise, timingsBuilder);
