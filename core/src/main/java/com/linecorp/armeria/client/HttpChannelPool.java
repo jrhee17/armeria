@@ -273,7 +273,20 @@ final class HttpChannelPool implements AutoCloseable {
             if (cause == null) {
                 final SessionProtocol actualProtocol = pch.protocol();
                 if (actualProtocol.isMultiplex()) {
-                    promise.complete(pch);
+                    final HttpSession session = HttpSession.get(pch.get());
+                    if (session.unfinishedResponses() < session.maxUnfinishedResponses()) {
+                        promise.complete(pch);
+                    } else {
+                        System.out.println("else...");
+                        final PooledChannel ch = acquireNow(actualProtocol, key);
+                        if (ch != null) {
+                            promise.complete(ch);
+                        } else {
+                            connect(actualProtocol, key, promise, timingsBuilder);
+                        }
+//                        promise.completeExceptionally(new NullPointerException());
+//                        connect(actualProtocol, key, promise, timingsBuilder);
+                    }
                 } else {
                     // Try to acquire again because the connection was not HTTP/2.
                     // We use the exact protocol (H1 or H1C) instead of 'desiredProtocol' so that
