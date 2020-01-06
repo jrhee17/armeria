@@ -275,6 +275,7 @@ final class HttpChannelPool implements AutoCloseable {
                 if (actualProtocol.isMultiplex()) {
                     final HttpSession session = HttpSession.get(pch.get());
                     if (session.unfinishedResponses() < session.maxUnfinishedResponses()) {
+                        logger.info("complete {}/{}", session.unfinishedResponses(), session.maxUnfinishedResponses());
                         promise.complete(pch);
                     } else {
                         System.out.println("else...");
