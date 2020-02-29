@@ -19,15 +19,19 @@ package com.linecorp.armeria.client.proxy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.linecorp.armeria.common.HttpStatus.OK;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.equalTo;
 
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -36,9 +40,11 @@ import org.slf4j.LoggerFactory;
 
 import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.logging.LoggingClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
+import com.linecorp.armeria.common.ClosedSessionException;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.server.ServerBuilder;
@@ -93,7 +99,12 @@ public class ProxyClientIntegrationTest {
     private static final String PROXY_PATH = "/proxy";
     private static final InetSocketAddress SOCKS_PROXY_ADDRESS = new InetSocketAddress("127.0.0.1", 20080);
     private static final InetSocketAddress HTTP_PROXY_ADDRESS = new InetSocketAddress("127.0.0.1", 20081);
+    private static final InetSocketAddress INVALID_PROXY_ADDRESS = new InetSocketAddress("127.0.0.1", 20082);
     private static final InetSocketAddress BACKEND_ADDRESS = new InetSocketAddress("127.0.0.1", 1234);
+    private static final String SUCCESS_RESPONSE = "success";
+
+    private static volatile long serverWaitMillis;
+    private static volatile boolean proxySuccess;
 
     private static final class SocksProxyServerInitializer extends ChannelInitializer<SocketChannel> {
         @Override
@@ -126,7 +137,7 @@ public class ProxyClientIntegrationTest {
             sb.port(BACKEND_ADDRESS.getPort(), SessionProtocol.HTTP);
             sb.service(PROXY_PATH, (ctx, req) -> {
                 logger.info("received request {}", req);
-                return HttpResponse.of(200);
+                return HttpResponse.of("success");
             });
         }
     };
@@ -141,6 +152,12 @@ public class ProxyClientIntegrationTest {
     static NettyServerExtension httpProxyServer =
             new NettyServerExtension(HTTP_PROXY_ADDRESS, new HttpProxyServerInitializer());
 
+    @BeforeEach
+    void beforeEach() {
+        serverWaitMillis = 0;
+        proxySuccess = true;
+    }
+
     @Test
     void testSocks4BasicCase() throws Exception {
         final ClientFactory clientFactory =
@@ -154,9 +171,70 @@ public class ProxyClientIntegrationTest {
                                              .build();
         final CompletableFuture<AggregatedHttpResponse> responseFuture =
                 webClient.get(PROXY_PATH).aggregate();
-        assertThat(responseFuture).satisfies(CompletableFuture::isDone);
         final AggregatedHttpResponse response = responseFuture.join();
         assertThat(response.status()).isEqualByComparingTo(OK);
+        assertThat(response.contentUtf8()).isEqualTo(SUCCESS_RESPONSE);
+    }
+
+    @Test
+    void testProxy_connectionFailure_throwsException() throws Exception {
+        final ClientFactory clientFactory =
+                ClientFactory.builder()
+                             .proxyHandler(new Socks4ProxyHandler(INVALID_PROXY_ADDRESS))
+                             .build();
+        final Endpoint endpoint = Endpoint.of(BACKEND_ADDRESS.getHostString(), BACKEND_ADDRESS.getPort());
+        final WebClient webClient = WebClient.builder(SessionProtocol.H1C, endpoint)
+                                             .factory(clientFactory)
+                                             .decorator(LoggingClient.newDecorator())
+                                             .build();
+        final CompletableFuture<AggregatedHttpResponse> responseFuture =
+                webClient.get(PROXY_PATH).aggregate();
+
+        assertThatThrownBy(responseFuture::join).isInstanceOf(CompletionException.class)
+                                                .hasMessageContaining("Connection refused")
+                                                .hasCauseInstanceOf(UnprocessedRequestException.class)
+                                                .hasRootCauseInstanceOf(ConnectException.class);
+    }
+
+    @Test
+    void testProxy_connectionTimeoutFailure_throwsException() throws Exception {
+        serverWaitMillis = 500;
+        final Socks4ProxyHandler socks4ProxyHandler = new Socks4ProxyHandler(SOCKS_PROXY_ADDRESS);
+        socks4ProxyHandler.setConnectTimeoutMillis(1);
+        final ClientFactory clientFactory =
+                ClientFactory.builder()
+                             .proxyHandler(socks4ProxyHandler)
+                             .build();
+        final Endpoint endpoint = Endpoint.of(BACKEND_ADDRESS.getHostString(), BACKEND_ADDRESS.getPort());
+        final WebClient webClient = WebClient.builder(SessionProtocol.H1C, endpoint)
+                                             .factory(clientFactory)
+                                             .decorator(LoggingClient.newDecorator())
+                                             .build();
+        final CompletableFuture<AggregatedHttpResponse> responseFuture =
+                webClient.get(PROXY_PATH).aggregate();
+
+        assertThatThrownBy(responseFuture::join).isInstanceOf(CompletionException.class)
+                                                .hasCauseInstanceOf(ClosedSessionException.class);
+    }
+
+    @Test
+    void testProxy_responseFailure_throwsException() throws Exception {
+        proxySuccess = false;
+        final Socks4ProxyHandler socks4ProxyHandler = new Socks4ProxyHandler(SOCKS_PROXY_ADDRESS);
+        final ClientFactory clientFactory =
+                ClientFactory.builder()
+                             .proxyHandler(socks4ProxyHandler)
+                             .build();
+        final Endpoint endpoint = Endpoint.of(BACKEND_ADDRESS.getHostString(), BACKEND_ADDRESS.getPort());
+        final WebClient webClient = WebClient.builder(SessionProtocol.H1C, endpoint)
+                                             .factory(clientFactory)
+                                             .decorator(LoggingClient.newDecorator())
+                                             .build();
+        final CompletableFuture<AggregatedHttpResponse> responseFuture =
+                webClient.get(PROXY_PATH).aggregate();
+
+        assertThatThrownBy(responseFuture::join).isInstanceOf(CompletionException.class)
+                                                .hasCauseInstanceOf(ClosedSessionException.class);
     }
 
     @Test
@@ -172,9 +250,9 @@ public class ProxyClientIntegrationTest {
                                              .build();
         final CompletableFuture<AggregatedHttpResponse> responseFuture =
                 webClient.get(PROXY_PATH).aggregate();
-        assertThat(responseFuture).satisfies(CompletableFuture::isDone);
         final AggregatedHttpResponse response = responseFuture.join();
         assertThat(response.status()).isEqualByComparingTo(OK);
+        assertThat(response.contentUtf8()).isEqualTo(SUCCESS_RESPONSE);
     }
 
     @Test
@@ -190,9 +268,9 @@ public class ProxyClientIntegrationTest {
                                              .build();
         final CompletableFuture<AggregatedHttpResponse> responseFuture =
                 webClient.get(PROXY_PATH).aggregate();
-        assertThat(responseFuture).satisfies(CompletableFuture::isDone);
         final AggregatedHttpResponse response = responseFuture.join();
         assertThat(response.status()).isEqualByComparingTo(OK);
+        assertThat(response.contentUtf8()).isEqualTo(SUCCESS_RESPONSE);
     }
 
     @Test
@@ -310,9 +388,14 @@ public class ProxyClientIntegrationTest {
         protected void channelRead0(ChannelHandlerContext ctx, Socks4Message msg) throws Exception {
             if (msg instanceof DefaultSocks4CommandRequest) {
                 final DefaultSocks4CommandRequest req = (DefaultSocks4CommandRequest) msg;
+                final DefaultSocks4CommandResponse response;
+                if (proxySuccess) {
+                    response = new DefaultSocks4CommandResponse(Socks4CommandStatus.SUCCESS);
+                } else {
+                    response = new DefaultSocks4CommandResponse(Socks4CommandStatus.REJECTED_OR_FAILED);
+                }
                 ctx.fireUserEventTriggered(new ProxySuccessEvent(
-                        new InetSocketAddress(req.dstAddr(), req.dstPort()),
-                        new DefaultSocks4CommandResponse(Socks4CommandStatus.SUCCESS)));
+                        new InetSocketAddress(req.dstAddr(), req.dstPort()), response));
             } else {
                 throw new IllegalStateException("unexpected msg: " + msg);
             }
@@ -345,6 +428,7 @@ public class ProxyClientIntegrationTest {
         @Override
         public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
             if (evt instanceof ProxySuccessEvent) {
+                Thread.sleep(serverWaitMillis);
                 backendAddress = ((ProxySuccessEvent) evt).getBackendAddress();
                 connectBackend(ctx).addListener(f -> {
                     if (f.isSuccess()) {
@@ -376,6 +460,7 @@ public class ProxyClientIntegrationTest {
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
                 throws Exception {
             backend.close();
+            ctx.close();
         }
 
         private ChannelFuture connectBackend(final ChannelHandlerContext ctx) {
