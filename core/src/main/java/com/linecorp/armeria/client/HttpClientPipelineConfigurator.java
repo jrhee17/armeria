@@ -52,15 +52,18 @@ import com.linecorp.armeria.internal.common.TrafficLoggingHandler;
 import com.linecorp.armeria.internal.common.util.ChannelUtil;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.DecoderException;
+import io.netty.handler.codec.base64.Base64;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpClientCodec;
@@ -70,6 +73,7 @@ import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
@@ -85,6 +89,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslHandshakeCompletionEvent;
 import io.netty.util.AsciiString;
+import io.netty.util.CharsetUtil;
 import io.netty.util.ReferenceCountUtil;
 
 final class HttpClientPipelineConfigurator extends ChannelDuplexHandler {
@@ -341,6 +346,29 @@ final class HttpClientPipelineConfigurator extends ChannelDuplexHandler {
         if (idleTimeoutMillis > 0) {
             pipeline.addFirst(new HttpClientIdleTimeoutHandler(idleTimeoutMillis));
         }
+
+        addBeforeSessionHandler(pipeline, new ChannelOutboundHandlerAdapter() {
+            @Override
+            public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise)
+                    throws Exception {
+                if (msg instanceof HttpRequest) {
+                    final HttpRequest httpRequest = (HttpRequest) msg;
+                    if (httpRequest.uri().startsWith("/")) {
+                        httpRequest.setUri("http://"
+                                           + httpRequest.headers().get(HttpHeaderNames.HOST)
+                                           + httpRequest.uri());
+                    }
+//                    final ByteBuf authz = Unpooled.copiedBuffer("foo:bar", CharsetUtil.UTF_8);
+//                    final ByteBuf authzBase64 = Base64.encode(authz, false);
+//                    AsciiString authorization = new AsciiString(
+//                            "Basic " + authzBase64.toString(CharsetUtil.US_ASCII));
+//                    authz.release();
+//                    authzBase64.release();
+//                    httpRequest.headers().set(HttpHeaderNames.PROXY_AUTHORIZATION, authorization);
+                }
+                ctx.write(msg, promise);
+            }
+        });
 
         pipeline.channel().eventLoop().execute(() -> pipeline.fireUserEventTriggered(protocol));
     }

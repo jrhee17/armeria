@@ -23,6 +23,7 @@ import java.net.InetSocketAddress;
 import javax.annotation.Nullable;
 
 import com.linecorp.armeria.client.Proxy.ConnectProxy;
+import com.linecorp.armeria.client.Proxy.ForwardProxy;
 import com.linecorp.armeria.client.Proxy.Socks4Proxy;
 import com.linecorp.armeria.client.Proxy.Socks5Proxy;
 
@@ -172,6 +173,20 @@ abstract class ProxyBuilder {
             connectProxy.setPassword(getPassword());
             connectProxy.setUseSsl(getUseSsl());
             return connectProxy;
+        }
+    }
+
+    /**
+     * TODO: Update javadoc.
+     */
+    public static final class ForwardProxyBuilder extends ProxyBuilder {
+        ForwardProxyBuilder(InetSocketAddress proxyAddress, long connectTimeoutMillis) {
+            super(proxyAddress, connectTimeoutMillis);
+        }
+
+        @Override
+        public ForwardProxy build() {
+            return new ForwardProxy(getProxyAddress(), getConnectTimeoutMillis());
         }
     }
 }

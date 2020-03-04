@@ -24,6 +24,7 @@ import java.net.InetSocketAddress;
 import javax.annotation.Nullable;
 
 import com.linecorp.armeria.client.ProxyBuilder.ConnectProxyBuilder;
+import com.linecorp.armeria.client.ProxyBuilder.ForwardProxyBuilder;
 import com.linecorp.armeria.client.ProxyBuilder.Socks4ProxyBuilder;
 import com.linecorp.armeria.client.ProxyBuilder.Socks5ProxyBuilder;
 
@@ -94,6 +95,20 @@ public class Proxy {
         return new ConnectProxyBuilder(requireNonNull(proxyAddress), connectTimeoutMillis);
     }
 
+    /*
+     * TODO: Update javadoc.
+     */
+    public static ForwardProxyBuilder forward(InetSocketAddress proxyAddress) {
+        return new ForwardProxyBuilder(requireNonNull(proxyAddress), USE_DEFAULT_TIMEOUT_MILLIS);
+    }
+
+    /*
+     * TODO: Update javadoc.
+     */
+    public static ForwardProxyBuilder forward(InetSocketAddress proxyAddress, long connectTimeoutMillis) {
+        return new ForwardProxyBuilder(requireNonNull(proxyAddress), connectTimeoutMillis);
+    }
+
     ProxyType proxyType() {
         return proxyType;
     }
@@ -129,6 +144,7 @@ public class Proxy {
         SOCKS4,
         SOCKS5,
         CONNECT,
+        FORWARD,
     }
 
     /**
@@ -195,6 +211,15 @@ public class Proxy {
 
         boolean getUseSsl() {
             return useSsl;
+        }
+    }
+
+    /**
+     * TODO: Update javadoc.
+     */
+    public static class ForwardProxy extends Proxy {
+        ForwardProxy(InetSocketAddress proxyAddress, long connectTimeoutMillis) {
+            super(ProxyType.FORWARD, proxyAddress, connectTimeoutMillis);
         }
     }
 }

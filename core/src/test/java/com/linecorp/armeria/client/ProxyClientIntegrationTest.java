@@ -25,6 +25,8 @@ import static org.awaitility.Awaitility.await;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -51,6 +53,7 @@ import com.linecorp.armeria.testing.junit.server.ServerExtension;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -148,6 +151,18 @@ public class ProxyClientIntegrationTest {
         }
     };
 
+    @RegisterExtension
+    @Order(4)
+    static NettyServerExtension forwardProxyServer = new NettyServerExtension() {
+        @Override
+        protected void configure(Channel ch) throws Exception {
+            ch.pipeline().addLast(new LoggingHandler(getClass()));
+            ch.pipeline().addLast(new HttpServerCodec());
+            ch.pipeline().addLast(new HttpObjectAggregator(1024));
+            ch.pipeline().addLast(new ForwardProxyServerHandler());
+        }
+    };
+
     @BeforeEach
     void beforeEach() {
         SOCKS_DYNAMIC_HANDLER.reset();
@@ -204,6 +219,21 @@ public class ProxyClientIntegrationTest {
         final ClientFactory clientFactory =
                 ClientFactory.builder().tlsNoVerify().proxy(
                         Proxy.connect(httpsProxyServer.address()).useSsl(true).build()).build();
+        final WebClient webClient = WebClient.builder(SessionProtocol.H1C, backendServer.httpEndpoint())
+                                             .factory(clientFactory)
+                                             .decorator(LoggingClient.newDecorator())
+                                             .build();
+        final CompletableFuture<AggregatedHttpResponse> responseFuture =
+                webClient.get(PROXY_PATH).aggregate();
+        final AggregatedHttpResponse response = responseFuture.join();
+        assertThat(response.status()).isEqualByComparingTo(OK);
+        assertThat(response.contentUtf8()).isEqualTo(SUCCESS_RESPONSE);
+    }
+
+    @Test
+    void testForwardHttpProxyBasicCase() throws Exception {
+        final ClientFactory clientFactory = ClientFactory.builder().proxy(
+                Proxy.forward(forwardProxyServer.address()).build()).build();
         final WebClient webClient = WebClient.builder(SessionProtocol.H1C, backendServer.httpEndpoint())
                                              .factory(clientFactory)
                                              .decorator(LoggingClient.newDecorator())
@@ -401,6 +431,22 @@ public class ProxyClientIntegrationTest {
             ctx.fireUserEventTriggered(new ProxySuccessEvent(
                     new InetSocketAddress(split[0], Integer.parseInt(split[1])),
                     new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK)));
+        }
+    }
+
+    private static class ForwardProxyServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+        @Override
+        protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest msg) throws Exception {
+            final String uriStr = msg.uri();
+            final URI uri = URI.create(uriStr);
+            WebClient.of(uri).get("").aggregate().thenRun(() -> {
+                ctx.executor().execute(() -> {
+                    ctx.pipeline().writeAndFlush(new DefaultFullHttpResponse(
+                            HttpVersion.HTTP_1_1, HttpResponseStatus.OK, Unpooled.copiedBuffer(
+                            "success", StandardCharsets.UTF_8)));
+                    ctx.close();
+                });
+            });
         }
     }
 
