@@ -160,7 +160,9 @@ public class ProxyProtocolEnabledServerTest {
     public void proxyClient() throws Exception {
         ClientFactory clientFactory = ClientFactory.builder().proxyConfig(ProxyConfig.haProxy()).build();
         WebClient webClient = WebClient.builder(H1C, server.httpEndpoint())
-                                       .responseTimeoutMillis(Long.MAX_VALUE).factory(clientFactory).build();
+                                       .responseTimeoutMillis(Long.MAX_VALUE)
+                                       .writeTimeoutMillis(Long.MAX_VALUE)
+                                       .factory(clientFactory).build();
         AggregatedHttpResponse res = webClient.get("/").aggregate().join();
         assertThat(res.status().code()).isEqualTo(200);
         System.out.println(res.contentUtf8());
@@ -175,6 +177,7 @@ public class ProxyProtocolEnabledServerTest {
         AggregatedHttpResponse res = webClient.get("/proxy").aggregate().join();
         assertThat(res.status().code()).isEqualTo(200);
         assertThat(res.contentUtf8()).contains(String.valueOf(server2.httpPort()));
+        System.out.println(res.contentUtf8());
     }
 
     @Test

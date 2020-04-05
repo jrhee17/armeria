@@ -26,68 +26,37 @@ import com.linecorp.armeria.server.ProxiedAddresses;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
-import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
-import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.haproxy.HAProxyCommand;
 import io.netty.handler.codec.haproxy.HAProxyMessage;
 import io.netty.handler.codec.haproxy.HAProxyMessageEncoder;
-import io.netty.handler.codec.haproxy.HAProxyProtocolException;
 import io.netty.handler.codec.haproxy.HAProxyProtocolVersion;
 import io.netty.handler.codec.haproxy.HAProxyProxiedProtocol;
+import io.netty.util.AttributeKey;
 
-@Sharable
 public class HAProxyHandler extends ChannelDuplexHandler {
-    private static final HAProxyMessageEncoder encoder = new HAProxyMessageEncoder();
-    //    @Override
-//    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-//        final Channel ch = ctx.channel();
-//        final ChannelPipeline p = ch.pipeline();
-//        final InetSocketAddress inetLocalAddr = (InetSocketAddress) ch.localAddress();
-//        final InetSocketAddress inetRemoteAddr = (InetSocketAddress) ch.remoteAddress();
-//        // TODO: @jrhee17 add checks/fallbacks to determine if hostAddress, port can be null
-//        if (inetLocalAddr.getAddress() instanceof Inet4Address && inetRemoteAddr.getAddress() instanceof Inet4Address) {
-//            p.addLast(new HAProxyMessageEncoder());
-//            p.write(new HAProxyMessage(HAProxyProtocolVersion.V2, HAProxyCommand.PROXY, HAProxyProxiedProtocol.TCP4,
-//                                       inetLocalAddr.getAddress().getHostAddress(),
-//                                       inetRemoteAddr.getAddress().getHostAddress(),
-//                                       inetLocalAddr.getPort(), inetRemoteAddr.getPort())).addListener(f -> {
-//                if (f.isSuccess()) {
-//                    p.remove(HAProxyMessageEncoder.class);
-//                }
-//            });
-//        } else if (inetLocalAddr.getAddress() instanceof Inet6Address && inetRemoteAddr.getAddress() instanceof Inet6Address) {
-//            p.addLast(new HAProxyMessageEncoder());
-//            p.write(new HAProxyMessage(HAProxyProtocolVersion.V2, HAProxyCommand.PROXY, HAProxyProxiedProtocol.TCP4,
-//                                       inetLocalAddr.getAddress().getHostAddress(),
-//                                       inetRemoteAddr.getAddress().getHostAddress(),
-//                                       inetLocalAddr.getPort(), inetRemoteAddr.getPort())).addListener(f -> {
-//                if (f.isSuccess()) {
-//                    p.remove(HAProxyMessageEncoder.class);
-//                }
-//            });
-//        }
-//        super.channelActive(ctx);
-//    }
 
-    @Override
-    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
-        super.write(ctx, msg, promise);
-        if (msg instanceof HAProxyMessage) {
-            promise.addListener(f -> {
-                if (f.isSuccess()) {
-                    ctx.pipeline().remove(encoder);
-                } else {
-                    throw new HAProxyProtocolException();
-                }
-            });
-        }
-    }
+    private static final HAProxyMessageEncoder encoder = new HAProxyMessageEncoder();
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        ctx.pipeline().addBefore(ctx.name(), null, encoder);
+        final Channel ch = ctx.channel();
+        ChannelPipeline p = ch.pipeline();
+        final ProxiedAddresses proxy = (ProxiedAddresses) ch.attr(AttributeKey.valueOf("proxy")).get();
+        HAProxyMessage message = null;
+        if (proxy != null) {
+            message = message(proxy);
+        }
+        if (message == null) {
+            message = message(ch);
+        }
+        if (message != null) {
+            p.addAfter(ctx.name(), null, encoder);
+            p.write(message);
+            p.remove(encoder);
+        }
+        p.remove(this);
         super.channelActive(ctx);
     }
 

@@ -151,7 +151,7 @@ final class HttpClientPipelineConfigurator extends ChannelDuplexHandler {
         p.addLast(new FlushConsolidationHandler());
         p.addLast(ReadSuppressingAndChannelDeactivatingHandler.INSTANCE);
         if (clientFactory.proxyConfig().proxyType() == ProxyType.HAPROXY) {
-            p.addLast(HAPROXY_HANDLER);
+            p.addLast(new HAProxyHandler());
         }
 
         try {
@@ -403,6 +403,7 @@ final class HttpClientPipelineConfigurator extends ChannelDuplexHandler {
          */
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
+            logger.info("upgrade active");
             final FullHttpRequest upgradeReq =
                     new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.OPTIONS, "*");
 

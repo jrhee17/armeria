@@ -42,6 +42,7 @@ import com.linecorp.armeria.internal.client.ClientHttp2ObjectEncoder;
 import com.linecorp.armeria.internal.client.ClientHttpObjectEncoder;
 import com.linecorp.armeria.internal.common.InboundTrafficController;
 import com.linecorp.armeria.internal.common.RequestContextUtil;
+import com.linecorp.armeria.server.ProxiedAddresses;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
@@ -273,6 +274,7 @@ final class HttpSessionHandler extends ChannelDuplexHandler implements HttpSessi
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        logger.info("session userEventTriggered");
         if (evt instanceof SessionProtocol) {
             assert protocol == null;
             assert responseDecoder == null;
@@ -327,7 +329,8 @@ final class HttpSessionHandler extends ChannelDuplexHandler implements HttpSessi
         if (needsRetryWithH1C) {
             assert responseDecoder == null || !responseDecoder.hasUnfinishedResponses();
             sessionTimeoutFuture.cancel(false);
-            channelPool.connect(remoteAddress, H1C, sessionPromise);
+            final ProxiedAddresses proxy = (ProxiedAddresses) ctx.channel().attr(AttributeKey.valueOf("proxy")).get();
+            channelPool.connect(remoteAddress, H1C, sessionPromise, proxy);
         } else {
             // Fail all pending responses.
             final HttpResponseDecoder responseDecoder = this.responseDecoder;
