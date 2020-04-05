@@ -31,6 +31,7 @@ import com.linecorp.armeria.common.RequestContextWrapper;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.util.TimeoutMode;
+import com.linecorp.armeria.server.ProxiedAddresses;
 import com.linecorp.armeria.server.ServiceRequestContext;
 
 import io.netty.util.AttributeKey;
@@ -165,5 +166,10 @@ public class ClientRequestContextWrapper
     @Override
     public void mutateAdditionalRequestHeaders(Consumer<HttpHeadersBuilder> mutator) {
         delegate().additionalRequestHeaders();
+    }
+
+    @Override
+    public ProxiedAddresses proxiedAddresses() {
+        return delegate().proxiedAddresses();
     }
 }

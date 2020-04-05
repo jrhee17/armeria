@@ -32,6 +32,7 @@ import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.HttpHeadersBuilder;
 import com.linecorp.armeria.common.RequestId;
+import com.linecorp.armeria.server.ProxiedAddresses;
 
 /**
  * A skeletal builder implementation for {@link ClientOptions}.
@@ -170,6 +171,10 @@ public class AbstractClientOptionsBuilder {
      */
     public AbstractClientOptionsBuilder requestIdGenerator(Supplier<RequestId> requestIdGenerator) {
         return option(ClientOption.REQUEST_ID_GENERATOR, requestIdGenerator);
+    }
+
+    public AbstractClientOptionsBuilder proxiedAddresses(ProxiedAddresses proxiedAddresses) {
+        return option(ClientOption.PROXIED_ADDRESSES, proxiedAddresses);
     }
 
     /**

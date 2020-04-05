@@ -54,6 +54,7 @@ import com.linecorp.armeria.common.util.UnstableApi;
 import com.linecorp.armeria.internal.common.TimeoutController;
 import com.linecorp.armeria.internal.common.TimeoutScheduler;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
+import com.linecorp.armeria.server.ProxiedAddresses;
 import com.linecorp.armeria.server.ServiceRequestContext;
 
 import io.micrometer.core.instrument.MeterRegistry;
@@ -104,6 +105,8 @@ public final class DefaultClientRequestContext
     @Nullable
     private String strVal;
     private short strValAvailabilities;
+
+    private final ProxiedAddresses proxiedAddresses;
 
     // We use null checks which are faster than checking if a list is empty,
     // because it is more common to have no customizers than to have any.
@@ -179,6 +182,7 @@ public final class DefaultClientRequestContext
         maxResponseLength = options.maxResponseLength();
         additionalRequestHeaders = options.get(ClientOption.HTTP_HEADERS);
         customizers = copyThreadLocalCustomizers();
+        proxiedAddresses = options.proxiedAddresses();
     }
 
     @Nullable
@@ -314,6 +318,7 @@ public final class DefaultClientRequestContext
         writeTimeoutMillis = ctx.writeTimeoutMillis();
         maxResponseLength = ctx.maxResponseLength();
         additionalRequestHeaders = ctx.additionalRequestHeaders();
+        proxiedAddresses = ctx.proxiedAddresses();
 
         for (final Iterator<Entry<AttributeKey<?>, Object>> i = ctx.ownAttrs(); i.hasNext();) {
             addAttr(i.next());
@@ -340,6 +345,11 @@ public final class DefaultClientRequestContext
     @Override
     public ServiceRequestContext root() {
         return root;
+    }
+
+    @Override
+    public ProxiedAddresses proxiedAddresses() {
+        return proxiedAddresses;
     }
 
     @Override

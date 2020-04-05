@@ -15,6 +15,7 @@
  */
 package com.linecorp.armeria.client;
 
+import static com.linecorp.armeria.server.ProxiedAddresses.NULL_PROXIED_ADDRESSES;
 import static java.util.Objects.requireNonNull;
 
 import java.net.InetSocketAddress;
@@ -135,7 +136,7 @@ final class HttpClientDelegate implements HttpClient {
         final SessionProtocol protocol = ctx.sessionProtocol();
         final HttpChannelPool pool = factory.pool(ctx.eventLoop());
         ProxiedAddresses proxiedAddresses = null;
-        if (ctx.root() != null) {
+        if (ctx.proxiedAddresses() != NULL_PROXIED_ADDRESSES) {
             proxiedAddresses = requireNonNull(ctx.root()).proxiedAddresses();
         }
 

@@ -49,6 +49,7 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.CommonPools;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.server.ProxiedAddresses;
 
 import okhttp3.HttpUrl;
 import retrofit2.Call;
@@ -327,6 +328,11 @@ public final class ArmeriaRetrofitBuilder extends AbstractClientOptionsBuilder {
     @Override
     public ArmeriaRetrofitBuilder requestIdGenerator(Supplier<RequestId> requestIdGenerator) {
         return (ArmeriaRetrofitBuilder) super.requestIdGenerator(requestIdGenerator);
+    }
+
+    @Override
+    public ArmeriaRetrofitBuilder proxiedAddresses(ProxiedAddresses proxiedAddresses) {
+        return (ArmeriaRetrofitBuilder) super.proxiedAddresses(proxiedAddresses);
     }
 
     @Override

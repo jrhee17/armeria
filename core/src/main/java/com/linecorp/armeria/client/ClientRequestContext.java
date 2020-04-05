@@ -47,6 +47,7 @@ import com.linecorp.armeria.common.logging.RequestLog;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.internal.common.RequestContextUtil;
+import com.linecorp.armeria.server.ProxiedAddresses;
 import com.linecorp.armeria.server.Service;
 import com.linecorp.armeria.server.ServiceRequestContext;
 
@@ -762,4 +763,6 @@ public interface ClientRequestContext extends RequestContext {
      * @param mutator the {@link Consumer} that mutates the additional request headers
      */
     void mutateAdditionalRequestHeaders(Consumer<HttpHeadersBuilder> mutator);
+
+    ProxiedAddresses proxiedAddresses();
 }

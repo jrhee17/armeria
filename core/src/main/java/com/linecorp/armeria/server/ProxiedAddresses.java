@@ -29,6 +29,12 @@ import com.google.common.collect.ImmutableList;
  */
 public final class ProxiedAddresses {
 
+    public static final ProxiedAddresses NULL_PROXIED_ADDRESSES = new ProxiedAddresses();
+
+    private ProxiedAddresses() {
+        sourceAddress = null;
+        destinationAddresses = null;
+    }
     /**
      * Creates a new instance with the specified {@code sourceAddress}.
      * Note that {@linkplain InetSocketAddress#getPort() port} {@code 0} means that the port number is unknown.
