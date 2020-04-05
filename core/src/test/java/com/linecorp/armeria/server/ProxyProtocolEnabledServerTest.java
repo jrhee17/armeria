@@ -38,6 +38,10 @@ import javax.net.ssl.X509TrustManager;
 import org.junit.ClassRule;
 import org.junit.Test;
 
+import com.linecorp.armeria.client.ClientFactory;
+import com.linecorp.armeria.client.WebClient;
+import com.linecorp.armeria.client.proxy.ProxyConfig;
+import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
@@ -128,6 +132,15 @@ public class ProxyProtocolEnabledServerTest {
 
             checkResponse(reader);
         }
+    }
+
+    @Test
+    public void proxyClient() throws Exception {
+        ClientFactory clientFactory = ClientFactory.builder().proxyConfig(ProxyConfig.haProxy()).build();
+        WebClient webClient = WebClient.builder(server.httpUri()).factory(clientFactory).build();
+        AggregatedHttpResponse res = webClient.get("/").aggregate().join();
+        assertThat(res.status().code()).isEqualTo(200);
+        System.out.println(res.contentUtf8());
     }
 
     @Test

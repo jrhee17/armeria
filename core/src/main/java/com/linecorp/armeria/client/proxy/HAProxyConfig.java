@@ -16,30 +16,12 @@
 
 package com.linecorp.armeria.client.proxy;
 
-/**
- * The proxy protocol type.
- */
-public enum ProxyType {
+public final class HAProxyConfig extends ProxyConfig {
 
-    /**
-     * Proxy is absent.
-     */
-    DIRECT,
+    HAProxyConfig() {}
 
-    /**
-     * SOCKS4 proxy protocol.
-     */
-    SOCKS4,
-
-    /**
-     * SOCKS5 proxy protocol.
-     */
-    SOCKS5,
-
-    /**
-     * CONNECT proxy protocol.
-     */
-    CONNECT,
-
-    HAPROXY,
+    @Override
+    public ProxyType proxyType() {
+        return ProxyType.HAPROXY;
+    }
 }

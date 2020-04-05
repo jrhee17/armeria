@@ -25,6 +25,9 @@ import javax.annotation.Nullable;
 
 import com.linecorp.armeria.client.ClientFactory;
 
+import io.netty.handler.codec.haproxy.HAProxyMessage;
+import io.netty.handler.codec.haproxy.HAProxyProtocolVersion;
+
 /**
  * Base configuration for proxy settings used by {@link ClientFactory}.
  */
@@ -80,6 +83,10 @@ public abstract class ProxyConfig {
      */
     public static ConnectProxyConfig connect(InetSocketAddress proxyAddress) {
         return new ConnectProxyConfig(requireNonNull(proxyAddress, "proxyAddress"), null, null, false);
+    }
+
+    public static HAProxyConfig haProxy() {
+        return new HAProxyConfig();
     }
 
     /**
