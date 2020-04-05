@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.server;
 
+import static com.linecorp.armeria.common.SessionProtocol.H1C;
 import static com.linecorp.armeria.common.SessionProtocol.HTTP;
 import static com.linecorp.armeria.common.SessionProtocol.HTTPS;
 import static com.linecorp.armeria.common.SessionProtocol.PROXY;
@@ -70,7 +71,7 @@ public class ProxyProtocolEnabledServerTest {
     public static final ServerRule server = new ServerRule() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
-            sb.port(0, PROXY, HTTP);
+            sb.port(8000, PROXY, HTTP);
             sb.port(0, PROXY, HTTPS);
             sb.tlsSelfSigned();
             sb.service("/", new AbstractHttpService() {
@@ -88,6 +89,27 @@ public class ProxyProtocolEnabledServerTest {
             });
             sb.disableServerHeader();
             sb.disableDateHeader();
+            sb.idleTimeoutMillis(Long.MAX_VALUE);
+        }
+    };
+
+    @ClassRule
+    public static final ServerRule server2 = new ServerRule() {
+        @Override
+        protected void configure(ServerBuilder sb) throws Exception {
+            sb.port(8001, PROXY, HTTP);
+            sb.service("/proxy", new AbstractHttpService() {
+                @Override
+                protected HttpResponse doGet(ServiceRequestContext ctx, HttpRequest req) {
+                    System.out.println(ctx.proxiedAddresses());
+                    ClientFactory clientFactory = ClientFactory.builder().idleTimeoutMillis(Long.MAX_VALUE)
+                                                               .proxyConfig(ProxyConfig.haProxy()).build();
+                    WebClient client = WebClient.builder(H1C, server.httpEndpoint()).factory(clientFactory)
+                                                .responseTimeoutMillis(Long.MAX_VALUE).build();
+                    return HttpResponse.of(client.get("/"));
+                }
+            });
+            sb.idleTimeoutMillis(Long.MAX_VALUE);
         }
     };
 
@@ -137,10 +159,22 @@ public class ProxyProtocolEnabledServerTest {
     @Test
     public void proxyClient() throws Exception {
         ClientFactory clientFactory = ClientFactory.builder().proxyConfig(ProxyConfig.haProxy()).build();
-        WebClient webClient = WebClient.builder(server.httpUri()).factory(clientFactory).build();
+        WebClient webClient = WebClient.builder(H1C, server.httpEndpoint())
+                                       .responseTimeoutMillis(Long.MAX_VALUE).factory(clientFactory).build();
         AggregatedHttpResponse res = webClient.get("/").aggregate().join();
         assertThat(res.status().code()).isEqualTo(200);
         System.out.println(res.contentUtf8());
+    }
+
+    @Test
+    public void testMultiLayerProxy() throws Exception {
+        ClientFactory clientFactory = ClientFactory.builder().idleTimeoutMillis(Long.MAX_VALUE)
+                                                   .proxyConfig(ProxyConfig.haProxy()).build();
+        WebClient webClient = WebClient.builder(H1C, server2.httpEndpoint()).factory(clientFactory)
+                                       .responseTimeoutMillis(Long.MAX_VALUE).build();
+        AggregatedHttpResponse res = webClient.get("/proxy").aggregate().join();
+        assertThat(res.status().code()).isEqualTo(200);
+        assertThat(res.contentUtf8()).contains(String.valueOf(server2.httpPort()));
     }
 
     @Test

@@ -26,6 +26,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -55,6 +56,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoop;
+import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.proxy.HttpProxyHandler;
 import io.netty.handler.proxy.ProxyHandler;
 import io.netty.handler.proxy.Socks4ProxyHandler;
@@ -114,9 +116,11 @@ final class HttpChannelPool implements AsyncCloseable {
                     bootstrap.handler(new ChannelInitializer<Channel>() {
                         @Override
                         protected void initChannel(Channel ch) throws Exception {
+                            ch.pipeline().addLast(new LoggingHandler());
                             configureProxy(ch, clientFactory.proxyConfig(), sslCtx);
                             ch.pipeline().addLast(
                                     new HttpClientPipelineConfigurator(clientFactory, desiredProtocol, sslCtx));
+
                         }
                     });
                     return bootstrap;
@@ -600,12 +604,22 @@ final class HttpChannelPool implements AsyncCloseable {
         final String host;
         final String ipAddr;
         final int port;
+        final String proxy;
         final int hashCode;
 
         PoolKey(String host, String ipAddr, int port) {
             this.host = host;
             this.ipAddr = ipAddr;
             this.port = port;
+            this.proxy = null;
+            hashCode = (host.hashCode() * 31 + ipAddr.hashCode()) * 31 + port;
+        }
+
+        PoolKey(String host, String ipAddr, int port, String proxy) {
+            this.host = host;
+            this.ipAddr = ipAddr;
+            this.port = port;
+            this.proxy = proxy;
             hashCode = (host.hashCode() * 31 + ipAddr.hashCode()) * 31 + port;
         }
 
@@ -623,7 +637,8 @@ final class HttpChannelPool implements AsyncCloseable {
             // Compare IP address first, which is most likely to differ.
             return ipAddr.equals(that.ipAddr) &&
                    port == that.port &&
-                   host.equals(that.host);
+                   host.equals(that.host) &&
+                   Objects.equals(proxy, that.proxy);
         }
 
         @Override

@@ -25,6 +25,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 
 import com.linecorp.armeria.client.HttpChannelPool.PoolKey;
+import com.linecorp.armeria.client.proxy.ProxyType;
 import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
@@ -38,6 +39,7 @@ import com.linecorp.armeria.internal.common.RequestContextUtil;
 
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoop;
+import io.netty.handler.codec.haproxy.HAProxyMessage;
 import io.netty.resolver.AddressResolverGroup;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.FutureListener;
@@ -143,6 +145,9 @@ final class HttpClientDelegate implements HttpClient {
             pool.acquireLater(protocol, key, timingsBuilder).handle((newPooledChannel, cause) -> {
                 logSession(ctx, newPooledChannel, timingsBuilder.build());
                 if (cause == null) {
+                    if (factory.proxyConfig().proxyType() == ProxyType.HAPROXY) {
+                        writeHAProxyMessage(ctx, newPooledChannel);
+                    }
                     doExecute(newPooledChannel, ctx, req, res);
                 } else {
                     handleEarlyRequestException(ctx, req, cause);
@@ -151,6 +156,16 @@ final class HttpClientDelegate implements HttpClient {
                 return null;
             });
         }
+    }
+
+    private static void writeHAProxyMessage(ClientRequestContext ctx, PooledChannel newPooledChannel) {
+        final HAProxyMessage message;
+        if (ctx.root() != null) {
+            message = HAProxyHandler.message(requireNonNull(ctx.root()).proxiedAddresses());
+        } else {
+            message = HAProxyHandler.message(newPooledChannel.get());
+        }
+        newPooledChannel.get().writeAndFlush(message);
     }
 
     private static void logSession(ClientRequestContext ctx, @Nullable PooledChannel pooledChannel,

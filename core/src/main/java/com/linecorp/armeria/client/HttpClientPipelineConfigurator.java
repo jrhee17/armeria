@@ -27,8 +27,6 @@ import static io.netty.handler.codec.http.HttpClientUpgradeHandler.UpgradeEvent.
 import static io.netty.handler.codec.http2.Http2CodecUtil.DEFAULT_MAX_FRAME_SIZE;
 import static io.netty.handler.codec.http2.Http2CodecUtil.DEFAULT_WINDOW_SIZE;
 
-import java.net.Inet4Address;
-import java.net.Inet6Address;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.List;
@@ -65,11 +63,6 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.DecoderException;
-import io.netty.handler.codec.haproxy.HAProxyCommand;
-import io.netty.handler.codec.haproxy.HAProxyMessage;
-import io.netty.handler.codec.haproxy.HAProxyMessageEncoder;
-import io.netty.handler.codec.haproxy.HAProxyProtocolVersion;
-import io.netty.handler.codec.haproxy.HAProxyProxiedProtocol;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpClientCodec;
@@ -104,7 +97,7 @@ final class HttpClientPipelineConfigurator extends ChannelDuplexHandler {
      * The maximum allowed content length of an HTTP/1 to 2 upgrade response.
      */
     private static final long UPGRADE_RESPONSE_MAX_LENGTH = 16384;
-    private static final HAProxyHandler HAPROXY_HANDLER = new HAProxyHandler();
+    private static final ChannelHandler HAPROXY_HANDLER = new HAProxyHandler();
 
     private enum HttpPreference {
         HTTP1_REQUIRED,
@@ -709,37 +702,4 @@ final class HttpClientPipelineConfigurator extends ChannelDuplexHandler {
         }
     }
 
-    @Sharable
-    private static class HAProxyHandler extends ChannelDuplexHandler {
-        @Override
-        public void channelActive(ChannelHandlerContext ctx) throws Exception {
-            final Channel ch = ctx.channel();
-            final ChannelPipeline p = ch.pipeline();
-            final InetSocketAddress inetLocalAddr = (InetSocketAddress) ch.localAddress();
-            final InetSocketAddress inetRemoteAddr = (InetSocketAddress) ch.remoteAddress();
-            // TODO: @jrhee17 add checks/fallbacks to determine if hostAddress, port can be null
-            if (inetLocalAddr.getAddress() instanceof Inet4Address && inetRemoteAddr.getAddress() instanceof Inet4Address) {
-                p.addLast(new HAProxyMessageEncoder());
-                p.write(new HAProxyMessage(HAProxyProtocolVersion.V2, HAProxyCommand.PROXY, HAProxyProxiedProtocol.TCP4,
-                                           inetLocalAddr.getAddress().getHostAddress(),
-                                           inetRemoteAddr.getAddress().getHostAddress(),
-                                           inetLocalAddr.getPort(), inetRemoteAddr.getPort())).addListener(f -> {
-                    if (f.isSuccess()) {
-                        p.remove(HAProxyMessageEncoder.class);
-                    }
-                });
-            } else if (inetLocalAddr.getAddress() instanceof Inet6Address && inetRemoteAddr.getAddress() instanceof Inet6Address) {
-                p.addLast(new HAProxyMessageEncoder());
-                p.write(new HAProxyMessage(HAProxyProtocolVersion.V2, HAProxyCommand.PROXY, HAProxyProxiedProtocol.TCP4,
-                                           inetLocalAddr.getAddress().getHostAddress(),
-                                           inetRemoteAddr.getAddress().getHostAddress(),
-                                           inetLocalAddr.getPort(), inetRemoteAddr.getPort())).addListener(f -> {
-                    if (f.isSuccess()) {
-                        p.remove(HAProxyMessageEncoder.class);
-                    }
-                });
-            }
-            super.channelActive(ctx);
-        }
-    }
 }
