@@ -15,8 +15,6 @@
  */
 package com.linecorp.armeria.client;
 
-import static com.linecorp.armeria.server.ProxiedAddresses.NULL_PROXIED_ADDRESSES;
-
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -33,7 +31,6 @@ import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.util.AbstractOption;
 import com.linecorp.armeria.internal.common.ArmeriaHttpUtil;
-import com.linecorp.armeria.server.ProxiedAddresses;
 
 import io.netty.handler.codec.http2.HttpConversionUtil.ExtensionHeaderNames;
 import io.netty.util.AsciiString;
@@ -142,9 +139,6 @@ public final class ClientOption<T> extends AbstractOption<ClientOption<T>, Clien
      */
     public static final ClientOption<Function<? super Endpoint, ? extends EndpointGroup>> ENDPOINT_REMAPPER =
             define("ENDPOINT_REMAPPER", Function.identity());
-
-    public static final ClientOption<ProxiedAddresses> PROXIED_ADDRESSES =
-            define("PROXY_ADDRESSES", NULL_PROXIED_ADDRESSES);
 
     /**
      * Returns the all available {@link ClientOption}s.

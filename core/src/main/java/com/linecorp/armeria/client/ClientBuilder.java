@@ -29,7 +29,6 @@ import javax.annotation.Nullable;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.Scheme;
-import com.linecorp.armeria.server.ProxiedAddresses;
 
 /**
  * Creates a new client that connects to the specified {@link URI} using the builder pattern. Use the factory
@@ -176,11 +175,6 @@ public final class ClientBuilder extends AbstractClientOptionsBuilder {
     @Override
     public ClientBuilder requestIdGenerator(Supplier<RequestId> requestIdGenerator) {
         return (ClientBuilder) super.requestIdGenerator(requestIdGenerator);
-    }
-
-    @Override
-    public ClientBuilder proxiedAddresses(ProxiedAddresses proxiedAddresses) {
-        return (ClientBuilder) super.proxiedAddresses(proxiedAddresses);
     }
 
     @Override

@@ -36,7 +36,6 @@ import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
-import com.linecorp.armeria.server.ProxiedAddresses;
 
 /**
  * Creates a new web client that connects to the specified {@link URI} using the builder pattern.
@@ -226,11 +225,6 @@ public final class WebClientBuilder extends AbstractClientOptionsBuilder {
     @Override
     public WebClientBuilder requestIdGenerator(Supplier<RequestId> requestIdGenerator) {
         return (WebClientBuilder) super.requestIdGenerator(requestIdGenerator);
-    }
-
-    @Override
-    public WebClientBuilder proxiedAddresses(ProxiedAddresses proxiedAddresses) {
-        return (WebClientBuilder) super.proxiedAddresses(proxiedAddresses);
     }
 
     @Override

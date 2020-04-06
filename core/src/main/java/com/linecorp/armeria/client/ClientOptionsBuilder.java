@@ -22,7 +22,6 @@ import java.util.function.Supplier;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.RequestId;
-import com.linecorp.armeria.server.ProxiedAddresses;
 
 /**
  * Creates a new {@link ClientOptions} using the builder pattern.
@@ -104,11 +103,6 @@ public final class ClientOptionsBuilder extends AbstractClientOptionsBuilder {
     @Override
     public ClientOptionsBuilder requestIdGenerator(Supplier<RequestId> requestIdGenerator) {
         return (ClientOptionsBuilder) super.requestIdGenerator(requestIdGenerator);
-    }
-
-    @Override
-    public ClientOptionsBuilder proxiedAddresses(ProxiedAddresses proxiedAddresses) {
-        return (ClientOptionsBuilder) super.proxiedAddresses(proxiedAddresses);
     }
 
     @Override

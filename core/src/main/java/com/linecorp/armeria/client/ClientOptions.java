@@ -21,7 +21,6 @@ import static com.linecorp.armeria.client.ClientOption.ENDPOINT_REMAPPER;
 import static com.linecorp.armeria.client.ClientOption.FACTORY;
 import static com.linecorp.armeria.client.ClientOption.HTTP_HEADERS;
 import static com.linecorp.armeria.client.ClientOption.MAX_RESPONSE_LENGTH;
-import static com.linecorp.armeria.client.ClientOption.PROXIED_ADDRESSES;
 import static com.linecorp.armeria.client.ClientOption.REQUEST_ID_GENERATOR;
 import static com.linecorp.armeria.client.ClientOption.RESPONSE_TIMEOUT_MILLIS;
 import static com.linecorp.armeria.client.ClientOption.WRITE_TIMEOUT_MILLIS;
@@ -38,7 +37,6 @@ import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.util.AbstractOptions;
-import com.linecorp.armeria.server.ProxiedAddresses;
 
 /**
  * A set of {@link ClientOption}s and their respective values.
@@ -176,10 +174,6 @@ public final class ClientOptions
      */
     public Function<? super Endpoint, ? extends EndpointGroup> endpointRemapper() {
         return get(ENDPOINT_REMAPPER);
-    }
-
-    public ProxiedAddresses proxiedAddresses() {
-        return get(PROXIED_ADDRESSES);
     }
 
     /**
