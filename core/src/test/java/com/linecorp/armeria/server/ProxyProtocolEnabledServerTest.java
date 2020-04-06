@@ -71,7 +71,7 @@ public class ProxyProtocolEnabledServerTest {
     public static final ServerRule server = new ServerRule() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
-            sb.port(8000, PROXY, HTTP);
+            sb.port(0, PROXY, HTTP);
             sb.port(0, PROXY, HTTPS);
             sb.tlsSelfSigned();
             sb.service("/", new AbstractHttpService() {
@@ -97,7 +97,7 @@ public class ProxyProtocolEnabledServerTest {
     public static final ServerRule server2 = new ServerRule() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
-            sb.port(8001, PROXY, HTTP);
+            sb.port(0, PROXY, HTTP);
             sb.service("/proxy", new AbstractHttpService() {
                 @Override
                 protected HttpResponse doGet(ServiceRequestContext ctx, HttpRequest req) {

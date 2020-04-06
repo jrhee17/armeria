@@ -274,7 +274,6 @@ final class HttpSessionHandler extends ChannelDuplexHandler implements HttpSessi
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-        logger.info("session userEventTriggered");
         if (evt instanceof SessionProtocol) {
             assert protocol == null;
             assert responseDecoder == null;

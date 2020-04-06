@@ -97,7 +97,6 @@ final class HttpClientPipelineConfigurator extends ChannelDuplexHandler {
      * The maximum allowed content length of an HTTP/1 to 2 upgrade response.
      */
     private static final long UPGRADE_RESPONSE_MAX_LENGTH = 16384;
-    private static final ChannelHandler HAPROXY_HANDLER = new HAProxyHandler();
 
     private enum HttpPreference {
         HTTP1_REQUIRED,
@@ -403,7 +402,6 @@ final class HttpClientPipelineConfigurator extends ChannelDuplexHandler {
          */
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
-            logger.info("upgrade active");
             final FullHttpRequest upgradeReq =
                     new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.OPTIONS, "*");
 
@@ -702,5 +700,4 @@ final class HttpClientPipelineConfigurator extends ChannelDuplexHandler {
             super.write(ctx, msg, promise);
         }
     }
-
 }

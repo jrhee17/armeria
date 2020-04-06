@@ -22,6 +22,9 @@ import java.net.InetSocketAddress;
 
 import javax.annotation.Nullable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.linecorp.armeria.server.ProxiedAddresses;
 
 import io.netty.channel.Channel;
@@ -37,41 +40,48 @@ import io.netty.util.AttributeKey;
 
 public class HAProxyHandler extends ChannelDuplexHandler {
 
-    private static final HAProxyMessageEncoder encoder = new HAProxyMessageEncoder();
+    private static final Logger logger = LoggerFactory.getLogger(HAProxyHandler.class);
+
+    private static final HAProxyMessageEncoder ENCODER = new HAProxyMessageEncoder();
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         final Channel ch = ctx.channel();
-        ChannelPipeline p = ch.pipeline();
+        final ChannelPipeline p = ch.pipeline();
         final ProxiedAddresses proxy = (ProxiedAddresses) ch.attr(AttributeKey.valueOf("proxy")).get();
-        HAProxyMessage message = null;
+        HAProxyMessage proxyMessage = null;
         if (proxy != null) {
-            message = message(proxy);
+            // check if pre-configured proxy addresses exist
+            proxyMessage = proxyMessage(proxy);
         }
-        if (message == null) {
-            message = message(ch);
+        if (proxyMessage == null) {
+            // if pre-configured proxy address doesn't exist, use current channel
+            proxyMessage = proxyMessage(ch);
         }
-        if (message != null) {
-            p.addAfter(ctx.name(), null, encoder);
-            p.write(message);
-            p.remove(encoder);
+        if (proxyMessage != null) {
+            p.addAfter(ctx.name(), null, ENCODER);
+            p.write(proxyMessage).addListener(f -> {
+                p.remove(ENCODER);
+                p.remove(this);
+            });
         }
-        p.remove(this);
         super.channelActive(ctx);
     }
 
     @Nullable
-    public static HAProxyMessage message(Channel ch) {
+    public static HAProxyMessage proxyMessage(Channel ch) {
         final InetSocketAddress inetLocalAddr = (InetSocketAddress) ch.localAddress();
         final InetSocketAddress inetRemoteAddr = (InetSocketAddress) ch.remoteAddress();
         return getHAProxyMessage(inetLocalAddr, inetRemoteAddr);
     }
 
     @Nullable
-    public static HAProxyMessage message(@Nullable ProxiedAddresses addresses) {
+    public static HAProxyMessage proxyMessage(@Nullable ProxiedAddresses addresses) {
         if (addresses == null || addresses.destinationAddresses().isEmpty()) {
             return null;
         }
+        // FIXME: Add a field to {@link ProxiedAddresses} indicating type.
+        // Alternatively, think of how to process multiple destinationAddresses
         return getHAProxyMessage(addresses.sourceAddress(), addresses.destinationAddresses().get(0));
     }
 
@@ -79,6 +89,9 @@ public class HAProxyHandler extends ChannelDuplexHandler {
     @Nullable
     private static HAProxyMessage getHAProxyMessage(InetSocketAddress inetLocalAddr,
                                                     InetSocketAddress inetRemoteAddr) {
+        if (inetLocalAddr == null || inetRemoteAddr == null) {
+            logger.warn("Unable to propagate null address for HAProxy message <{}-{}>.", inetLocalAddr, inetRemoteAddr);
+        }
         if (inetLocalAddr.getAddress() instanceof Inet4Address && inetRemoteAddr.getAddress() instanceof Inet4Address) {
             return new HAProxyMessage(HAProxyProtocolVersion.V2, HAProxyCommand.PROXY, HAProxyProxiedProtocol.TCP4,
                                       inetLocalAddr.getAddress().getHostAddress(),
@@ -90,6 +103,7 @@ public class HAProxyHandler extends ChannelDuplexHandler {
                                       inetRemoteAddr.getAddress().getHostAddress(),
                                       inetLocalAddr.getPort(), inetRemoteAddr.getPort());
         } else {
+            logger.warn("Unable to propagate HAProxy message <{}-{}>.", inetLocalAddr, inetRemoteAddr);
             return null;
         }
     }

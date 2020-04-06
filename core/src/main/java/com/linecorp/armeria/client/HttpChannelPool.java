@@ -51,19 +51,12 @@ import com.linecorp.armeria.common.util.AsyncCloseableSupport;
 import com.linecorp.armeria.server.ProxiedAddresses;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPromise;
 import io.netty.channel.EventLoop;
-import io.netty.handler.logging.LogLevel;
-import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.proxy.HttpProxyHandler;
 import io.netty.handler.proxy.ProxyHandler;
 import io.netty.handler.proxy.Socks4ProxyHandler;
@@ -124,15 +117,6 @@ final class HttpChannelPool implements AsyncCloseable {
                     bootstrap.handler(new ChannelInitializer<Channel>() {
                         @Override
                         protected void initChannel(Channel ch) throws Exception {
-                            ch.pipeline().addLast(new LoggingHandler(HttpChannelPool.class, LogLevel.TRACE));
-                            ch.pipeline().addLast(new ChannelDuplexHandler() {
-                                @Override
-                                public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise)
-                                        throws Exception {
-                                    logger.info("logging write: {}", ByteBufUtil.prettyHexDump((ByteBuf) msg));
-                                    super.write(ctx, msg, promise);
-                                }
-                            });
                             configureProxy(ch, clientFactory.proxyConfig(), sslCtx);
                             ch.pipeline().addLast(
                                     new HttpClientPipelineConfigurator(clientFactory, desiredProtocol, sslCtx));
@@ -316,10 +300,10 @@ final class HttpChannelPool implements AsyncCloseable {
      */
     CompletableFuture<PooledChannel> acquireLater(SessionProtocol desiredProtocol, PoolKey key,
                                                   ClientConnectionTimingsBuilder timingsBuilder,
-                                                  ProxiedAddresses ctx) {
+                                                  @Nullable ProxiedAddresses proxiedAddresses) {
         final CompletableFuture<PooledChannel> promise = new CompletableFuture<>();
-        if (!usePendingAcquisition(desiredProtocol, key, promise, timingsBuilder, ctx)) {
-            connect(desiredProtocol, key, promise, timingsBuilder, ctx);
+        if (!usePendingAcquisition(desiredProtocol, key, promise, timingsBuilder, proxiedAddresses)) {
+            connect(desiredProtocol, key, promise, timingsBuilder, proxiedAddresses);
         }
         return promise;
     }
@@ -327,9 +311,9 @@ final class HttpChannelPool implements AsyncCloseable {
     private CompletableFuture<PooledChannel> acquireLater(SessionProtocol desiredProtocol, PoolKey key,
                                                           ClientConnectionTimingsBuilder timingsBuilder,
                                                           CompletableFuture<PooledChannel> promise,
-                                                          ProxiedAddresses ctx) {
-        if (!usePendingAcquisition(desiredProtocol, key, promise, timingsBuilder, ctx)) {
-            connect(desiredProtocol, key, promise, timingsBuilder, ctx);
+                                                          @Nullable ProxiedAddresses proxiedAddresses) {
+        if (!usePendingAcquisition(desiredProtocol, key, promise, timingsBuilder, proxiedAddresses)) {
+            connect(desiredProtocol, key, promise, timingsBuilder, proxiedAddresses);
         }
         return promise;
     }
@@ -342,7 +326,7 @@ final class HttpChannelPool implements AsyncCloseable {
     private boolean usePendingAcquisition(SessionProtocol desiredProtocol, PoolKey key,
                                           CompletableFuture<PooledChannel> promise,
                                           ClientConnectionTimingsBuilder timingsBuilder,
-                                          ProxiedAddresses ctx) {
+                                          @Nullable ProxiedAddresses proxiedAddresses) {
 
         if (desiredProtocol == SessionProtocol.H1 || desiredProtocol == SessionProtocol.H1C) {
             // Can't use HTTP/1 connections because they will not be available in the pool until
@@ -366,7 +350,7 @@ final class HttpChannelPool implements AsyncCloseable {
                 if (actualProtocol.isMultiplex()) {
                     final HttpSession session = HttpSession.get(pch.get());
                     if (session.maxUnfinishedResponses() - session.unfinishedResponses() <= 1) {
-                        acquireLater(actualProtocol, key, timingsBuilder, promise, ctx);
+                        acquireLater(actualProtocol, key, timingsBuilder, promise, proxiedAddresses);
                     } else {
                         promise.complete(pch);
                     }
@@ -379,12 +363,12 @@ final class HttpChannelPool implements AsyncCloseable {
                     if (ch != null) {
                         promise.complete(ch);
                     } else {
-                        connect(actualProtocol, key, promise, timingsBuilder, ctx);
+                        connect(actualProtocol, key, promise, timingsBuilder, proxiedAddresses);
                     }
                 }
             } else {
                 // The pending connection attempt has failed.
-                connect(desiredProtocol, key, promise, timingsBuilder, ctx);
+                connect(desiredProtocol, key, promise, timingsBuilder, proxiedAddresses);
             }
             return null;
         });
@@ -393,8 +377,7 @@ final class HttpChannelPool implements AsyncCloseable {
     }
 
     private void connect(SessionProtocol desiredProtocol, PoolKey key, CompletableFuture<PooledChannel> promise,
-                         ClientConnectionTimingsBuilder timingsBuilder,
-                         ProxiedAddresses ctx) {
+                         ClientConnectionTimingsBuilder timingsBuilder, @Nullable ProxiedAddresses proxiedAddresses) {
 
         setPendingAcquisition(desiredProtocol, key, promise);
         timingsBuilder.socketConnectStart();
@@ -419,7 +402,7 @@ final class HttpChannelPool implements AsyncCloseable {
 
         // Create a new connection.
         final Promise<Channel> sessionPromise = eventLoop.newPromise();
-        connect(remoteAddress, desiredProtocol, sessionPromise, ctx);
+        connect(remoteAddress, desiredProtocol, sessionPromise, proxiedAddresses);
 
         if (sessionPromise.isDone()) {
             notifyConnect(desiredProtocol, key, sessionPromise, promise, timingsBuilder);
@@ -439,11 +422,11 @@ final class HttpChannelPool implements AsyncCloseable {
      * </ul>
      */
     void connect(SocketAddress remoteAddress, SessionProtocol desiredProtocol,
-                 Promise<Channel> sessionPromise, ProxiedAddresses ctx) {
+                 Promise<Channel> sessionPromise, @Nullable ProxiedAddresses proxiedAddresses) {
         final Bootstrap bootstrap = getBootstrap(desiredProtocol);
-        ChannelFuture register = bootstrap.register();
-        Channel channel = register.channel();
-        channel.attr(AttributeKey.valueOf("proxy")).set(ctx);
+        final ChannelFuture register = bootstrap.register();
+        final Channel channel = register.channel();
+        channel.attr(AttributeKey.valueOf("proxy")).set(proxiedAddresses);
         final ChannelFuture connectFuture = channel.connect(remoteAddress);
 
         connectFuture.addListener((ChannelFuture future) -> {
@@ -627,6 +610,7 @@ final class HttpChannelPool implements AsyncCloseable {
         final String host;
         final String ipAddr;
         final int port;
+        @Nullable
         final String proxy;
         final int hashCode;
 
@@ -634,7 +618,7 @@ final class HttpChannelPool implements AsyncCloseable {
             this.host = host;
             this.ipAddr = ipAddr;
             this.port = port;
-            this.proxy = null;
+            proxy = null;
             hashCode = (host.hashCode() * 31 + ipAddr.hashCode()) * 31 + port;
         }
 
@@ -643,7 +627,7 @@ final class HttpChannelPool implements AsyncCloseable {
             this.ipAddr = ipAddr;
             this.port = port;
             this.proxy = proxy;
-            hashCode = (host.hashCode() * 31 + ipAddr.hashCode()) * 31 + port;
+            hashCode = ((host.hashCode() * 31 + ipAddr.hashCode()) * 31 + port) * 31 + proxy.hashCode();
         }
 
         @Override
@@ -675,6 +659,8 @@ final class HttpChannelPool implements AsyncCloseable {
                               .add("host", host)
                               .add("ipAddr", ipAddr)
                               .add("port", port)
+                              .add("proxy", proxy)
+                              .omitNullValues()
                               .toString();
         }
     }

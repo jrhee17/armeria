@@ -25,6 +25,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 
 import com.linecorp.armeria.client.HttpChannelPool.PoolKey;
+import com.linecorp.armeria.client.proxy.ProxyType;
 import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
@@ -139,13 +140,17 @@ final class HttpClientDelegate implements HttpClient {
             proxiedAddresses = requireNonNull(ctx.root()).proxiedAddresses();
         }
 
-        final PoolKey key = new PoolKey(host, ipAddr, port);
+        final PoolKey key;
+        if (factory.proxyConfig().proxyType() == ProxyType.HAPROXY && proxiedAddresses != null) {
+            key = new PoolKey(host, ipAddr, port, proxiedAddresses.toString());
+        } else {
+            key = new PoolKey(host, ipAddr, port);
+        }
         final PooledChannel pooledChannel = pool.acquireNow(protocol, key);
         if (pooledChannel != null) {
             logSession(ctx, pooledChannel, null);
             doExecute(pooledChannel, ctx, req, res);
         } else {
-
             pool.acquireLater(protocol, key, timingsBuilder, proxiedAddresses).handle((newPooledChannel, cause) -> {
                 logSession(ctx, newPooledChannel, timingsBuilder.build());
                 if (cause == null) {
