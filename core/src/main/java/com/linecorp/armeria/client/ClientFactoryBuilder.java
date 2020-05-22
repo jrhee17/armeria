@@ -44,6 +44,7 @@ import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 
+import com.linecorp.armeria.client.proxy.ConnectProxyConfig;
 import com.linecorp.armeria.client.proxy.ProxyConfig;
 import com.linecorp.armeria.common.CommonPools;
 import com.linecorp.armeria.common.Flags;
@@ -576,6 +577,14 @@ public final class ClientFactoryBuilder {
                         return builder.build(eventLoopGroup);
                     };
             return ClientFactoryOption.ADDRESS_RESOLVER_GROUP_FACTORY.newValue(addressResolverGroupFactory);
+        });
+
+        options.computeIfAbsent(ClientFactoryOption.PROXY_CONFIG, k -> {
+            final String httpProxyHost = System.getProperty("http.proxyHost");
+            final int httpProxyPort = Integer.parseInt(System.getProperty("http.proxyPort"));
+            final InetSocketAddress proxyAddress = new InetSocketAddress(httpProxyHost, httpProxyPort);
+            final ConnectProxyConfig proxyConfig = ProxyConfig.connect(proxyAddress);
+            return ClientFactoryOption.PROXY_CONFIG.newValue(proxyConfig);
         });
 
         final ClientFactoryOptions newOptions = ClientFactoryOptions.of(options.values());
