@@ -16,19 +16,28 @@
 
 package com.linecorp.armeria.client.proxy;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.linecorp.armeria.client.proxy.DirectProxyConfig.DIRECT_PROXY_CONFIG;
 import static java.util.Objects.requireNonNull;
 
 import java.net.InetSocketAddress;
+import java.net.Proxy;
 
 import javax.annotation.Nullable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.linecorp.armeria.client.ClientFactory;
+
+import sun.net.SocksProxy;
 
 /**
  * Base configuration for proxy settings used by {@link ClientFactory}.
  */
 public abstract class ProxyConfig {
+
+    private static final Logger logger = LoggerFactory.getLogger(ProxyConfig.class);
 
     /**
      * Creates a {@code ProxyConfig} configuration for SOCKS4 protocol.
@@ -114,6 +123,28 @@ public abstract class ProxyConfig {
      */
     public static ProxyConfig direct() {
         return DIRECT_PROXY_CONFIG;
+    }
+
+    public static ProxyConfig fromProxy(Proxy proxy) {
+        if(!(proxy.address() instanceof InetSocketAddress)) {
+            logger.warn("invalid proxy address for: {}", proxy);
+            return direct();
+        }
+
+        switch (proxy.type()) {
+            case HTTP:
+                return connect((InetSocketAddress) proxy.address());
+            case SOCKS:
+                final int socksProtocolVersion = ((SocksProxy) proxy).protocolVersion();
+                if (socksProtocolVersion == 4) {
+                    return socks4((InetSocketAddress) proxy.address());
+                } else if (socksProtocolVersion == 5) {
+                    return socks5((InetSocketAddress) proxy.address());
+                }
+            case DIRECT:
+            default:
+                return direct();
+        }
     }
 
     ProxyConfig() {
