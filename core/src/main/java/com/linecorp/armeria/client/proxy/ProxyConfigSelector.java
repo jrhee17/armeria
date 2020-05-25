@@ -26,18 +26,39 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * TODO: add javadocs.
+ */
 public abstract class ProxyConfigSelector {
     private static final Logger logger = LoggerFactory.getLogger(ProxyConfigSelector.class);
 
+    /**
+     * TODO: add javadocs.
+     */
     public abstract ProxyConfig select(URI uri);
 
-    public abstract void connectFailed(URI uri, SocketAddress sa, IOException ioe);
+    /**
+     * TODO: add javadocs.
+     */
+    public abstract void connectFailed(URI uri, SocketAddress sa, Throwable throwable);
 
-    static class WrappingProxyConfigSelector extends ProxyConfigSelector {
+    /**
+     * TODO: add javadocs.
+     * FIXME: find a way to hide this.
+     */
+    public static final class WrappingProxyConfigSelector extends ProxyConfigSelector {
+
+        /**
+         * TODO: add javadocs.
+         * FIXME: find a way to hide this.
+         */
+        public static WrappingProxyConfigSelector of(ProxySelector proxySelector) {
+            return new WrappingProxyConfigSelector(proxySelector);
+        }
 
         final ProxySelector proxySelector;
 
-        WrappingProxyConfigSelector(ProxySelector proxySelector) {
+        private WrappingProxyConfigSelector(ProxySelector proxySelector) {
             this.proxySelector = proxySelector;
         }
 
@@ -52,7 +73,7 @@ public abstract class ProxyConfigSelector {
                 final Proxy proxy = proxies.get(0);
 
                 if (proxies.size() > 1) {
-                    logger.debug("Using the first proxy <{}> out of <{}>.", proxy, proxies);
+                    logger.debug("Using the first proxy <{}> of <{}>.", proxy, proxies);
                 }
 
                 return ProxyConfig.fromProxy(proxy);
@@ -63,9 +84,9 @@ public abstract class ProxyConfigSelector {
         }
 
         @Override
-        public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {
+        public void connectFailed(URI uri, SocketAddress sa, Throwable throwable) {
             try {
-                proxySelector.connectFailed(uri, sa, ioe);
+                proxySelector.connectFailed(uri, sa, new IOException(throwable));
             } catch (Exception e) {
                 logger.warn("ProxySelector.connectFailed throws: ", e);
             }

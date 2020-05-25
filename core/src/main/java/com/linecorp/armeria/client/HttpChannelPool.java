@@ -19,6 +19,7 @@ import java.lang.reflect.Array;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.net.URI;
 import java.net.UnknownHostException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -44,6 +45,7 @@ import com.google.common.base.MoreObjects;
 
 import com.linecorp.armeria.client.proxy.ConnectProxyConfig;
 import com.linecorp.armeria.client.proxy.ProxyConfig;
+import com.linecorp.armeria.client.proxy.ProxyConfigSelector;
 import com.linecorp.armeria.client.proxy.Socks4ProxyConfig;
 import com.linecorp.armeria.client.proxy.Socks5ProxyConfig;
 import com.linecorp.armeria.common.ClosedSessionException;
@@ -120,7 +122,7 @@ final class HttpChannelPool implements AsyncCloseable {
                     bootstrap.handler(new ChannelInitializer<Channel>() {
                         @Override
                         protected void initChannel(Channel ch) throws Exception {
-                            configureProxy(ch, clientFactory.proxyConfig(), sslCtx);
+                            configureProxy(ch, clientFactory.proxyConfigSelector(), sslCtx);
                             ch.pipeline().addLast(
                                     new HttpClientPipelineConfigurator(clientFactory, desiredProtocol, sslCtx));
                         }
@@ -137,7 +139,11 @@ final class HttpChannelPool implements AsyncCloseable {
         pingIntervalMillis = clientFactory.pingIntervalMillis();
     }
 
-    private void configureProxy(Channel ch, ProxyConfig proxyConfig, SslContext sslCtx) {
+    private void configureProxy(Channel ch, ProxyConfigSelector proxyConfigSelector, SslContext sslCtx) {
+        // FIXME: we should actually use the user-input URI
+        final URI tempUri = URI.create(ch.remoteAddress().toString());
+        final ProxyConfig proxyConfig = proxyConfigSelector.select(tempUri);
+
         final ProxyHandler proxyHandler;
         switch (proxyConfig.proxyType()) {
             case DIRECT:

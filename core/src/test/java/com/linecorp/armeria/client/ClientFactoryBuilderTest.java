@@ -28,8 +28,6 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import com.linecorp.armeria.client.proxy.ConnectProxyConfig;
-import com.linecorp.armeria.client.proxy.ProxyType;
 import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.internal.common.util.BouncyCastleKeyFactoryProvider;
 
@@ -186,21 +184,5 @@ class ClientFactoryBuilderTest {
         } else {
             assertThat(factory1.options().pingIntervalMillis()).isEqualTo(pingIntervalMillis);
         }
-    }
-
-    @Test
-    void systemPropertyRespectedForHttpProxy() {
-        final String httpProxyHostKey = "http.proxyHost";
-        final String httpProxyHost = "1.1.1.1";
-        final String httpProxyPortKey = "http.proxyPort";
-        final String httpProxyPort = "8080";
-        System.setProperty(httpProxyHostKey, httpProxyHost);
-        System.setProperty(httpProxyPortKey, httpProxyPort);
-        final ClientFactory clientFactory = ClientFactory.builder().build();
-        final ConnectProxyConfig proxyConfig = (ConnectProxyConfig) clientFactory.options().proxyConfig();
-        assertThat(proxyConfig.proxyType()).isEqualTo(ProxyType.CONNECT);
-        assertThat(proxyConfig.proxyAddress().getHostString()).isEqualTo(httpProxyHost);
-        assertThat(proxyConfig.proxyAddress().getPort()).hasToString(httpProxyPort);
-        System.clearProperty(httpProxyHostKey);
     }
 }

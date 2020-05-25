@@ -44,8 +44,9 @@ import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 
-import com.linecorp.armeria.client.proxy.ConnectProxyConfig;
 import com.linecorp.armeria.client.proxy.ProxyConfig;
+import com.linecorp.armeria.client.proxy.ProxyConfigSelector;
+import com.linecorp.armeria.client.proxy.StaticProxyConfigSelector;
 import com.linecorp.armeria.common.CommonPools;
 import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.Request;
@@ -513,7 +514,16 @@ public final class ClientFactoryBuilder {
      * The {@link ProxyConfig} which contains proxy related configuration.
      */
     public ClientFactoryBuilder proxyConfig(ProxyConfig proxyConfig) {
-        option(ClientFactoryOption.PROXY_CONFIG, proxyConfig);
+        requireNonNull(proxyConfig, "proxyConfig");
+        option(ClientFactoryOption.PROXY_CONFIG_SELECTOR, StaticProxyConfigSelector.of(proxyConfig));
+        return this;
+    }
+
+    /**
+     * The {@link ProxyConfigSelector} which contains proxy related configuration.
+     */
+    public ClientFactoryBuilder proxyConfigSelector(ProxyConfigSelector proxyConfigSelector) {
+        option(ClientFactoryOption.PROXY_CONFIG_SELECTOR, proxyConfigSelector);
         return this;
     }
 
@@ -577,14 +587,6 @@ public final class ClientFactoryBuilder {
                         return builder.build(eventLoopGroup);
                     };
             return ClientFactoryOption.ADDRESS_RESOLVER_GROUP_FACTORY.newValue(addressResolverGroupFactory);
-        });
-
-        options.computeIfAbsent(ClientFactoryOption.PROXY_CONFIG, k -> {
-            final String httpProxyHost = System.getProperty("http.proxyHost");
-            final int httpProxyPort = Integer.parseInt(System.getProperty("http.proxyPort"));
-            final InetSocketAddress proxyAddress = new InetSocketAddress(httpProxyHost, httpProxyPort);
-            final ConnectProxyConfig proxyConfig = ProxyConfig.connect(proxyAddress);
-            return ClientFactoryOption.PROXY_CONFIG.newValue(proxyConfig);
         });
 
         final ClientFactoryOptions newOptions = ClientFactoryOptions.of(options.values());
