@@ -19,6 +19,7 @@ package com.linecorp.armeria.client.proxy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.linecorp.armeria.common.HttpStatus.OK;
 import static com.linecorp.armeria.common.SessionProtocol.H1C;
+import static com.linecorp.armeria.common.SessionProtocol.H2C;
 import static com.linecorp.armeria.common.SessionProtocol.HTTP;
 import static io.netty.buffer.Unpooled.EMPTY_BUFFER;
 import static io.netty.buffer.Unpooled.copiedBuffer;
@@ -30,7 +31,6 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.extension.ConditionEvaluationResult.disabled;
 import static org.junit.jupiter.api.extension.ConditionEvaluationResult.enabled;
@@ -44,13 +44,13 @@ import java.net.InetSocketAddress;
 import java.net.ProxySelector;
 import java.net.ServerSocket;
 import java.net.SocketAddress;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.annotation.Nullable;
@@ -58,6 +58,7 @@ import javax.annotation.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ConditionEvaluationResult;
 import org.junit.jupiter.api.extension.ExecutionCondition;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -72,7 +73,6 @@ import com.linecorp.armeria.client.logging.LoggingClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.HttpResponse;
-import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.internal.testing.DynamicBehaviorHandler;
 import com.linecorp.armeria.internal.testing.NettyServerExtension;
 import com.linecorp.armeria.server.ServerBuilder;
@@ -120,6 +120,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.util.ReferenceCountUtil;
 
+@Timeout(10)
 public class ProxyClientIntegrationTest {
     private static final String PROXY_PATH = "/proxy";
     private static final String SUCCESS_RESPONSE = "success";
@@ -135,7 +136,7 @@ public class ProxyClientIntegrationTest {
     static ServerExtension backendServer = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
-            sb.port(0, SessionProtocol.HTTP);
+            sb.port(0, HTTP);
             sb.service(PROXY_PATH, (ctx, req) -> HttpResponse.of(SUCCESS_RESPONSE));
         }
     };
@@ -289,7 +290,7 @@ public class ProxyClientIntegrationTest {
 
     @Test
     void testSelectFailureFallsBackToDirect() throws Exception {
-        final ProxyConfigSelector selector = new ProxyConfigSelector() {
+        final TestProxyConfigSelector selector = new TestProxyConfigSelector(new ProxyConfigSelector() {
             @Override
             public ProxyConfig select(Endpoint endpoint) {
                 throw new RuntimeException("select exception");
@@ -299,7 +300,7 @@ public class ProxyClientIntegrationTest {
             public void connectFailed(Endpoint endpoint, SocketAddress sa, Throwable throwable) {
                 fail("connectFailed should not be called");
             }
-        };
+        });
         try (ClientFactory clientFactory = ClientFactory.builder().proxyConfig(selector).build()) {
             final WebClient webClient = WebClient.builder(H1C, backendServer.httpEndpoint())
                                                  .factory(clientFactory)
@@ -311,12 +312,13 @@ public class ProxyClientIntegrationTest {
             assertThat(response.status()).isEqualTo(OK);
             assertThat(response.contentUtf8()).isEqualTo(SUCCESS_RESPONSE);
             assertThat(numSuccessfulProxyRequests).isEqualTo(0);
+            assertThat(selector.result()).isTrue();
         }
     }
 
     @Test
     void testNullProxyConfigFallsBackToDirect() throws Exception {
-        final ProxyConfigSelector selector = new ProxyConfigSelector() {
+        final TestProxyConfigSelector selector = new TestProxyConfigSelector(new ProxyConfigSelector() {
             @Override
             public ProxyConfig select(Endpoint endpoint) {
                 return null;
@@ -326,7 +328,7 @@ public class ProxyClientIntegrationTest {
             public void connectFailed(Endpoint endpoint, SocketAddress sa, Throwable throwable) {
                 fail("connectFailed should not be called");
             }
-        };
+        });
         try (ClientFactory clientFactory = ClientFactory.builder().proxyConfig(selector).build()) {
             final WebClient webClient = WebClient.builder(H1C, backendServer.httpEndpoint())
                                                  .factory(clientFactory)
@@ -338,15 +340,16 @@ public class ProxyClientIntegrationTest {
             assertThat(response.status()).isEqualTo(OK);
             assertThat(response.contentUtf8()).isEqualTo(SUCCESS_RESPONSE);
             assertThat(numSuccessfulProxyRequests).isEqualTo(0);
+            assertThat(selector.result()).isTrue();
         }
     }
 
     @Test
-    void testConnectFailedExceptionNotPropagated() throws Exception {
+    void testProxyServerImmediateClose() throws Exception {
         DYNAMIC_HANDLER.setChannelReadCustomizer((ctx, msg) -> {
             ctx.close();
         });
-        final ProxyConfigSelector selector = new ProxyConfigSelector() {
+        final TestProxyConfigSelector selector = new TestProxyConfigSelector(new ProxyConfigSelector() {
             @Override
             public ProxyConfig select(Endpoint endpoint) {
                 return ProxyConfig.socks4(socksProxyServer.address());
@@ -356,7 +359,8 @@ public class ProxyClientIntegrationTest {
             public void connectFailed(Endpoint endpoint, SocketAddress sa, Throwable throwable) {
                 throw new RuntimeException("connectFailed exception");
             }
-        };
+        });
+
         try (ClientFactory clientFactory = ClientFactory.builder().proxyConfig(selector).build()) {
             final WebClient webClient = WebClient.builder(H1C, backendServer.httpEndpoint())
                                                  .factory(clientFactory)
@@ -364,10 +368,10 @@ public class ProxyClientIntegrationTest {
                                                  .build();
             final CompletableFuture<AggregatedHttpResponse> responseFuture =
                     webClient.get(PROXY_PATH).aggregate();
-            await().timeout(Duration.ofSeconds(3)).until(responseFuture::isCompletedExceptionally);
             assertThatThrownBy(responseFuture::join).isInstanceOf(CompletionException.class)
                                                     .hasCauseInstanceOf(UnprocessedRequestException.class)
                                                     .hasRootCauseInstanceOf(ProxyConnectException.class);
+            assertThat(selector.result()).isTrue();
         }
     }
 
@@ -424,7 +428,7 @@ public class ProxyClientIntegrationTest {
         final ClientFactory clientFactory =
                 ClientFactory.builder().proxyConfig(ProxyConfig.connect(httpProxyServer.address()))
                              .useHttp2Preface(false).build();
-        final WebClient webClient = WebClient.builder(SessionProtocol.HTTP, http1Server.endpoint())
+        final WebClient webClient = WebClient.builder(HTTP, http1Server.endpoint())
                                              .factory(clientFactory)
                                              .decorator(LoggingClient.newDecorator())
                                              .build();
@@ -460,7 +464,7 @@ public class ProxyClientIntegrationTest {
 
         final ClientFactory clientFactory =
                 ClientFactory.builder().proxyConfig(ProxyConfig.connect(httpProxyServer.address())).build();
-        final WebClient webClient = WebClient.builder(SessionProtocol.HTTP, http1Server.endpoint())
+        final WebClient webClient = WebClient.builder(HTTP, http1Server.endpoint())
                                              .factory(clientFactory)
                                              .decorator(LoggingClient.newDecorator())
                                              .build();
@@ -496,7 +500,7 @@ public class ProxyClientIntegrationTest {
         final int numRequests = 5;
         final ClientFactory clientFactory = ClientFactory.builder().proxyConfig(
                 ProxyConfig.socks4(socksProxyServer.address())).build();
-        final WebClient webClient = WebClient.builder(SessionProtocol.H2C, backendServer.httpEndpoint())
+        final WebClient webClient = WebClient.builder(H2C, backendServer.httpEndpoint())
                                              .factory(clientFactory)
                                              .decorator(LoggingClient.newDecorator())
                                              .build();
@@ -549,21 +553,21 @@ public class ProxyClientIntegrationTest {
 
         final AtomicInteger failedAttempts = new AtomicInteger();
         final InetSocketAddress proxyAddress = new InetSocketAddress("127.0.0.1", unusedPort);
-        final ProxyConfigSelector selector = new ProxyConfigSelector() {
+        final TestProxyConfigSelector selector = new TestProxyConfigSelector(new ProxyConfigSelector() {
             @Override
             public ProxyConfig select(Endpoint endpoint) {
-                assertThat(endpoint).isEqualTo(backendServer.endpoint(HTTP));
+                assertThat(endpoint).isEqualTo(backendServer.httpEndpoint());
                 return ProxyConfig.socks4(proxyAddress);
             }
 
             @Override
             public void connectFailed(Endpoint endpoint, SocketAddress sa, Throwable throwable) {
-                assertThat(endpoint).isEqualTo(backendServer.endpoint(HTTP));
+                assertThat(endpoint).isEqualTo(backendServer.httpEndpoint());
                 assertThat(sa).isEqualTo(proxyAddress);
                 assertThat(throwable).isInstanceOf(ConnectException.class);
                 failedAttempts.incrementAndGet();
             }
-        };
+        });
         try (ClientFactory clientFactory = ClientFactory.builder().proxyConfig(selector).build()) {
             final WebClient webClient = WebClient.builder(H1C, backendServer.httpEndpoint())
                                                  .factory(clientFactory)
@@ -576,7 +580,8 @@ public class ProxyClientIntegrationTest {
                                                     .hasMessageContaining("Connection refused")
                                                     .hasCauseInstanceOf(UnprocessedRequestException.class)
                                                     .hasRootCauseInstanceOf(ConnectException.class);
-            await().timeout(Duration.ofSeconds(1)).untilAtomic(failedAttempts, is(1));
+            assertThat(failedAttempts).hasValue(1);
+            assertThat(selector.result()).isTrue();
         }
     }
 
@@ -593,21 +598,21 @@ public class ProxyClientIntegrationTest {
 
         final AtomicInteger failedAttempts = new AtomicInteger();
         final InetSocketAddress proxyAddress = socksProxyServer.address();
-        final ProxyConfigSelector selector = new ProxyConfigSelector() {
+        final TestProxyConfigSelector selector = new TestProxyConfigSelector(new ProxyConfigSelector() {
             @Override
             public ProxyConfig select(Endpoint endpoint) {
-                assertThat(endpoint).isEqualTo(backendServer.endpoint(HTTP));
+                assertThat(endpoint).isEqualTo(backendServer.httpEndpoint());
                 return ProxyConfig.socks4(proxyAddress);
             }
 
             @Override
             public void connectFailed(Endpoint endpoint, SocketAddress sa, Throwable throwable) {
-                assertThat(endpoint).isEqualTo(backendServer.endpoint(HTTP));
+                assertThat(endpoint).isEqualTo(backendServer.httpEndpoint());
                 assertThat(sa).isEqualTo(proxyAddress);
                 assertThat(throwable).isInstanceOf(ProxyConnectException.class);
                 failedAttempts.incrementAndGet();
             }
-        };
+        });
         try (ClientFactory clientFactory = ClientFactory.builder().proxyConfig(selector)
                                                         .connectTimeoutMillis(1).build()) {
 
@@ -620,7 +625,8 @@ public class ProxyClientIntegrationTest {
             assertThatThrownBy(responseFuture::join).isInstanceOf(CompletionException.class)
                                                     .hasCauseInstanceOf(UnprocessedRequestException.class)
                                                     .hasRootCauseInstanceOf(ProxyConnectException.class);
-            await().timeout(Duration.ofSeconds(1)).untilAtomic(failedAttempts, is(1));
+            assertThat(failedAttempts).hasValue(1);
+            assertThat(selector.result()).isTrue();
         }
     }
 
@@ -632,21 +638,21 @@ public class ProxyClientIntegrationTest {
 
         final AtomicInteger failedAttempts = new AtomicInteger();
         final InetSocketAddress proxyAddress = socksProxyServer.address();
-        final ProxyConfigSelector selector = new ProxyConfigSelector() {
+        final TestProxyConfigSelector selector = new TestProxyConfigSelector(new ProxyConfigSelector() {
             @Override
             public ProxyConfig select(Endpoint endpoint) {
-                assertThat(endpoint).isEqualTo(backendServer.endpoint(HTTP));
+                assertThat(endpoint).isEqualTo(backendServer.httpEndpoint());
                 return ProxyConfig.socks4(proxyAddress);
             }
 
             @Override
             public void connectFailed(Endpoint endpoint, SocketAddress sa, Throwable throwable) {
-                assertThat(endpoint).isEqualTo(backendServer.endpoint(HTTP));
+                assertThat(endpoint).isEqualTo(backendServer.httpEndpoint());
                 assertThat(sa).isEqualTo(proxyAddress);
                 assertThat(throwable).isInstanceOf(ConnectException.class);
                 failedAttempts.incrementAndGet();
             }
-        };
+        });
         try (ClientFactory clientFactory = ClientFactory.builder().proxyConfig(selector).build()) {
             final WebClient webClient = WebClient.builder(H1C, backendServer.httpEndpoint())
                                                  .factory(clientFactory)
@@ -658,7 +664,8 @@ public class ProxyClientIntegrationTest {
             assertThatThrownBy(responseFuture::join).isInstanceOf(CompletionException.class)
                                                     .hasCauseInstanceOf(UnprocessedRequestException.class)
                                                     .hasRootCauseInstanceOf(ProxyConnectException.class);
-            await().timeout(Duration.ofSeconds(1)).untilAtomic(failedAttempts, is(1));
+            assertThat(failedAttempts).hasValue(1);
+            assertThat(selector.result()).isTrue();
         }
     }
 
@@ -839,6 +846,43 @@ public class ProxyClientIntegrationTest {
                 if (wrote) {
                     backend.flush();
                 }
+            }
+        }
+    }
+
+    /**
+     * This test class ensures the test fails when an assertion fails.
+     */
+    private static class TestProxyConfigSelector implements ProxyConfigSelector {
+        final ProxyConfigSelector inner;
+        final AtomicBoolean result;
+
+        TestProxyConfigSelector(ProxyConfigSelector inner) {
+            this.inner = inner;
+            result = new AtomicBoolean(true);
+        }
+
+        boolean result() {
+            return result.get();
+        }
+
+        @Override
+        public ProxyConfig select(Endpoint endpoint) {
+            try {
+                return inner.select(endpoint);
+            } catch (AssertionError e) {
+                result.set(false);
+                throw e;
+            }
+        }
+
+        @Override
+        public void connectFailed(Endpoint endpoint, SocketAddress sa, Throwable throwable) {
+            try {
+                inner.connectFailed(endpoint, sa, throwable);
+            } catch (AssertionError e) {
+                result.set(false);
+                throw e;
             }
         }
     }
