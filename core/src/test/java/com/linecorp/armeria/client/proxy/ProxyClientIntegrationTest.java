@@ -425,20 +425,19 @@ public class ProxyClientIntegrationTest {
             ctx.close();
         });
 
-        final ClientFactory clientFactory =
-                ClientFactory.builder().proxyConfig(ProxyConfig.connect(httpProxyServer.address()))
-                             .useHttp2Preface(false).build();
-        final WebClient webClient = WebClient.builder(HTTP, http1Server.endpoint())
-                                             .factory(clientFactory)
-                                             .decorator(LoggingClient.newDecorator())
-                                             .build();
-        final CompletableFuture<AggregatedHttpResponse> responseFuture =
-                webClient.get(PROXY_PATH).aggregate();
-        final AggregatedHttpResponse response = responseFuture.join();
-        assertThat(response.status()).isEqualTo(OK);
-        assertThat(response.contentUtf8()).isEqualTo(GET.name());
-        assertThat(numSuccessfulProxyRequests).isEqualTo(2);
-        clientFactory.close();
+        try (ClientFactory clientFactory = ClientFactory.builder().proxyConfig(
+                ProxyConfig.connect(httpProxyServer.address())).useHttp2Preface(false).build()) {
+            final WebClient webClient = WebClient.builder(HTTP, http1Server.endpoint())
+                                                 .factory(clientFactory)
+                                                 .decorator(LoggingClient.newDecorator())
+                                                 .build();
+            final CompletableFuture<AggregatedHttpResponse> responseFuture =
+                    webClient.get(PROXY_PATH).aggregate();
+            final AggregatedHttpResponse response = responseFuture.join();
+            assertThat(response.status()).isEqualTo(OK);
+            assertThat(response.contentUtf8()).isEqualTo(GET.name());
+            assertThat(numSuccessfulProxyRequests).isEqualTo(2);
+        }
     }
 
     @Test
@@ -462,58 +461,57 @@ public class ProxyClientIntegrationTest {
             ctx.close();
         });
 
-        final ClientFactory clientFactory =
-                ClientFactory.builder().proxyConfig(ProxyConfig.connect(httpProxyServer.address())).build();
-        final WebClient webClient = WebClient.builder(HTTP, http1Server.endpoint())
-                                             .factory(clientFactory)
-                                             .decorator(LoggingClient.newDecorator())
-                                             .build();
-        final CompletableFuture<AggregatedHttpResponse> responseFuture =
-                webClient.get(PROXY_PATH).aggregate();
-        final AggregatedHttpResponse response = responseFuture.join();
-        assertThat(response.status()).isEqualTo(OK);
-        assertThat(response.contentUtf8()).isEqualTo(GET.name());
-        assertThat(numSuccessfulProxyRequests).isEqualTo(2);
-        clientFactory.close();
+        try (ClientFactory clientFactory = ClientFactory.builder().proxyConfig(
+                ProxyConfig.connect(httpProxyServer.address())).build()) {
+            final WebClient webClient = WebClient.builder(HTTP, http1Server.endpoint())
+                                                 .factory(clientFactory)
+                                                 .decorator(LoggingClient.newDecorator())
+                                                 .build();
+            final CompletableFuture<AggregatedHttpResponse> responseFuture =
+                    webClient.get(PROXY_PATH).aggregate();
+            final AggregatedHttpResponse response = responseFuture.join();
+            assertThat(response.status()).isEqualTo(OK);
+            assertThat(response.contentUtf8()).isEqualTo(GET.name());
+            assertThat(numSuccessfulProxyRequests).isEqualTo(2);
+        }
     }
 
     @Test
     void testHttpsProxyBasicCase() throws Exception {
-        final ClientFactory clientFactory =
-                ClientFactory.builder().tlsNoVerify().proxyConfig(
-                        ProxyConfig.connect(httpsProxyServer.address(), true)).build();
-        final WebClient webClient = WebClient.builder(H1C, backendServer.httpEndpoint())
-                                             .factory(clientFactory)
-                                             .decorator(LoggingClient.newDecorator())
-                                             .build();
-        final CompletableFuture<AggregatedHttpResponse> responseFuture =
-                webClient.get(PROXY_PATH).aggregate();
-        final AggregatedHttpResponse response = responseFuture.join();
-        assertThat(response.status()).isEqualTo(OK);
-        assertThat(response.contentUtf8()).isEqualTo(SUCCESS_RESPONSE);
-        assertThat(numSuccessfulProxyRequests).isEqualTo(1);
-        clientFactory.close();
+        try (ClientFactory clientFactory = ClientFactory.builder().tlsNoVerify().proxyConfig(
+                ProxyConfig.connect(httpsProxyServer.address(), true)).build()) {
+            final WebClient webClient = WebClient.builder(H1C, backendServer.httpEndpoint())
+                                                 .factory(clientFactory)
+                                                 .decorator(LoggingClient.newDecorator())
+                                                 .build();
+            final CompletableFuture<AggregatedHttpResponse> responseFuture =
+                    webClient.get(PROXY_PATH).aggregate();
+            final AggregatedHttpResponse response = responseFuture.join();
+            assertThat(response.status()).isEqualTo(OK);
+            assertThat(response.contentUtf8()).isEqualTo(SUCCESS_RESPONSE);
+            assertThat(numSuccessfulProxyRequests).isEqualTo(1);
+        }
     }
 
     @Test
     void testProxyWithH2C() throws Exception {
         final int numRequests = 5;
-        final ClientFactory clientFactory = ClientFactory.builder().proxyConfig(
-                ProxyConfig.socks4(socksProxyServer.address())).build();
-        final WebClient webClient = WebClient.builder(H2C, backendServer.httpEndpoint())
-                                             .factory(clientFactory)
-                                             .decorator(LoggingClient.newDecorator())
-                                             .build();
+        try (ClientFactory clientFactory = ClientFactory.builder().proxyConfig(
+                ProxyConfig.socks4(socksProxyServer.address())).build()) {
+            final WebClient webClient = WebClient.builder(H2C, backendServer.httpEndpoint())
+                                                 .factory(clientFactory)
+                                                 .decorator(LoggingClient.newDecorator())
+                                                 .build();
 
-        final List<CompletableFuture<AggregatedHttpResponse>> responseFutures = new ArrayList<>();
-        for (int i = 0; i < numRequests; i++) {
-            responseFutures.add(webClient.get(PROXY_PATH).aggregate());
+            final List<CompletableFuture<AggregatedHttpResponse>> responseFutures = new ArrayList<>();
+            for (int i = 0; i < numRequests; i++) {
+                responseFutures.add(webClient.get(PROXY_PATH).aggregate());
+            }
+            await().until(() -> responseFutures.stream().allMatch(CompletableFuture::isDone));
+            assertThat(responseFutures.stream().map(CompletableFuture::join))
+                    .allMatch(response -> response.contentUtf8().equals(SUCCESS_RESPONSE));
+            assertThat(numSuccessfulProxyRequests).isGreaterThanOrEqualTo(1);
         }
-        await().until(() -> responseFutures.stream().allMatch(CompletableFuture::isDone));
-        assertThat(responseFutures.stream().map(CompletableFuture::join))
-                .allMatch(response -> response.contentUtf8().equals(SUCCESS_RESPONSE));
-        assertThat(numSuccessfulProxyRequests).isGreaterThanOrEqualTo(1);
-        clientFactory.close();
     }
 
     @Test
@@ -525,23 +523,19 @@ public class ProxyClientIntegrationTest {
             }
             ctx.fireChannelRead(msg);
         });
-
-        final ClientFactory clientFactory =
-                ClientFactory.builder()
-                             .proxyConfig(ProxyConfig.socks4(socksProxyServer.address(), username))
-                             .build();
-
-        final WebClient webClient = WebClient.builder(H1C, backendServer.httpEndpoint())
-                                             .factory(clientFactory)
-                                             .decorator(LoggingClient.newDecorator())
-                                             .build();
-        final CompletableFuture<AggregatedHttpResponse> responseFuture =
-                webClient.get(PROXY_PATH).aggregate();
-        final AggregatedHttpResponse response = responseFuture.join();
-        assertThat(response.status()).isEqualTo(OK);
-        assertThat(response.contentUtf8()).isEqualTo(SUCCESS_RESPONSE);
-        assertThat(numSuccessfulProxyRequests).isEqualTo(1);
-        clientFactory.close();
+        try (ClientFactory clientFactory = ClientFactory.builder().proxyConfig(
+                ProxyConfig.socks4(socksProxyServer.address(), username)).build()) {
+            final WebClient webClient = WebClient.builder(H1C, backendServer.httpEndpoint())
+                                                 .factory(clientFactory)
+                                                 .decorator(LoggingClient.newDecorator())
+                                                 .build();
+            final CompletableFuture<AggregatedHttpResponse> responseFuture =
+                    webClient.get(PROXY_PATH).aggregate();
+            final AggregatedHttpResponse response = responseFuture.join();
+            assertThat(response.status()).isEqualTo(OK);
+            assertThat(response.contentUtf8()).isEqualTo(SUCCESS_RESPONSE);
+            assertThat(numSuccessfulProxyRequests).isEqualTo(1);
+        }
     }
 
     @Test
