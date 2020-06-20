@@ -19,6 +19,7 @@ package com.linecorp.armeria.client.proxy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.linecorp.armeria.common.HttpStatus.OK;
 import static com.linecorp.armeria.common.SessionProtocol.H1C;
+import static com.linecorp.armeria.common.SessionProtocol.HTTP;
 import static io.netty.buffer.Unpooled.EMPTY_BUFFER;
 import static io.netty.buffer.Unpooled.copiedBuffer;
 import static io.netty.handler.codec.http.HttpHeaderNames.CONNECTION;
@@ -43,7 +44,6 @@ import java.net.InetSocketAddress;
 import java.net.ProxySelector;
 import java.net.ServerSocket;
 import java.net.SocketAddress;
-import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -65,6 +65,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import com.linecorp.armeria.client.ClientFactory;
+import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.logging.LoggingClient;
@@ -290,12 +291,12 @@ public class ProxyClientIntegrationTest {
     void testSelectFailureFallsBackToDirect() throws Exception {
         final ProxyConfigSelector selector = new ProxyConfigSelector() {
             @Override
-            public ProxyConfig select(URI uri) {
+            public ProxyConfig select(Endpoint endpoint) {
                 throw new RuntimeException("select exception");
             }
 
             @Override
-            public void connectFailed(URI uri, SocketAddress sa, Throwable throwable) {
+            public void connectFailed(Endpoint endpoint, SocketAddress sa, Throwable throwable) {
                 fail("connectFailed should not be called");
             }
         };
@@ -317,12 +318,12 @@ public class ProxyClientIntegrationTest {
     void testNullProxyConfigFallsBackToDirect() throws Exception {
         final ProxyConfigSelector selector = new ProxyConfigSelector() {
             @Override
-            public ProxyConfig select(URI uri) {
+            public ProxyConfig select(Endpoint endpoint) {
                 return null;
             }
 
             @Override
-            public void connectFailed(URI uri, SocketAddress sa, Throwable throwable) {
+            public void connectFailed(Endpoint endpoint, SocketAddress sa, Throwable throwable) {
                 fail("connectFailed should not be called");
             }
         };
@@ -347,12 +348,12 @@ public class ProxyClientIntegrationTest {
         });
         final ProxyConfigSelector selector = new ProxyConfigSelector() {
             @Override
-            public ProxyConfig select(URI uri) {
+            public ProxyConfig select(Endpoint endpoint) {
                 return ProxyConfig.socks4(socksProxyServer.address());
             }
 
             @Override
-            public void connectFailed(URI uri, SocketAddress sa, Throwable throwable) {
+            public void connectFailed(Endpoint endpoint, SocketAddress sa, Throwable throwable) {
                 throw new RuntimeException("connectFailed exception");
             }
         };
@@ -550,16 +551,14 @@ public class ProxyClientIntegrationTest {
         final InetSocketAddress proxyAddress = new InetSocketAddress("127.0.0.1", unusedPort);
         final ProxyConfigSelector selector = new ProxyConfigSelector() {
             @Override
-            public ProxyConfig select(URI uri) {
-                assertThat(uri).hasHost(backendServer.httpSocketAddress().getHostString());
-                assertThat(uri).hasPort(backendServer.httpSocketAddress().getPort());
+            public ProxyConfig select(Endpoint endpoint) {
+                assertThat(endpoint).isEqualTo(backendServer.endpoint(HTTP));
                 return ProxyConfig.socks4(proxyAddress);
             }
 
             @Override
-            public void connectFailed(URI uri, SocketAddress sa, Throwable throwable) {
-                assertThat(uri).hasHost(backendServer.httpSocketAddress().getHostString());
-                assertThat(uri).hasPort(backendServer.httpSocketAddress().getPort());
+            public void connectFailed(Endpoint endpoint, SocketAddress sa, Throwable throwable) {
+                assertThat(endpoint).isEqualTo(backendServer.endpoint(HTTP));
                 assertThat(sa).isEqualTo(proxyAddress);
                 assertThat(throwable).isInstanceOf(ConnectException.class);
                 failedAttempts.incrementAndGet();
@@ -596,16 +595,14 @@ public class ProxyClientIntegrationTest {
         final InetSocketAddress proxyAddress = socksProxyServer.address();
         final ProxyConfigSelector selector = new ProxyConfigSelector() {
             @Override
-            public ProxyConfig select(URI uri) {
-                assertThat(uri).hasHost(backendServer.httpSocketAddress().getHostString());
-                assertThat(uri).hasPort(backendServer.httpSocketAddress().getPort());
+            public ProxyConfig select(Endpoint endpoint) {
+                assertThat(endpoint).isEqualTo(backendServer.endpoint(HTTP));
                 return ProxyConfig.socks4(proxyAddress);
             }
 
             @Override
-            public void connectFailed(URI uri, SocketAddress sa, Throwable throwable) {
-                assertThat(uri).hasHost(backendServer.httpSocketAddress().getHostString());
-                assertThat(uri).hasPort(backendServer.httpSocketAddress().getPort());
+            public void connectFailed(Endpoint endpoint, SocketAddress sa, Throwable throwable) {
+                assertThat(endpoint).isEqualTo(backendServer.endpoint(HTTP));
                 assertThat(sa).isEqualTo(proxyAddress);
                 assertThat(throwable).isInstanceOf(ProxyConnectException.class);
                 failedAttempts.incrementAndGet();
@@ -637,16 +634,14 @@ public class ProxyClientIntegrationTest {
         final InetSocketAddress proxyAddress = socksProxyServer.address();
         final ProxyConfigSelector selector = new ProxyConfigSelector() {
             @Override
-            public ProxyConfig select(URI uri) {
-                assertThat(uri).hasHost(backendServer.httpSocketAddress().getHostString());
-                assertThat(uri).hasPort(backendServer.httpSocketAddress().getPort());
+            public ProxyConfig select(Endpoint endpoint) {
+                assertThat(endpoint).isEqualTo(backendServer.endpoint(HTTP));
                 return ProxyConfig.socks4(proxyAddress);
             }
 
             @Override
-            public void connectFailed(URI uri, SocketAddress sa, Throwable throwable) {
-                assertThat(uri).hasHost(backendServer.httpSocketAddress().getHostString());
-                assertThat(uri).hasPort(backendServer.httpSocketAddress().getPort());
+            public void connectFailed(Endpoint endpoint, SocketAddress sa, Throwable throwable) {
+                assertThat(endpoint).isEqualTo(backendServer.endpoint(HTTP));
                 assertThat(sa).isEqualTo(proxyAddress);
                 assertThat(throwable).isInstanceOf(ConnectException.class);
                 failedAttempts.incrementAndGet();
