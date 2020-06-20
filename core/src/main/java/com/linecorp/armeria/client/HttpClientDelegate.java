@@ -164,13 +164,14 @@ final class HttpClientDelegate implements HttpClient {
     }
 
     private ProxyConfig selectProxyConfig(String host, int port) {
-        final Endpoint endpoint = Endpoint.of(host, port);
         ProxyConfig proxyConfig;
         try {
+            final Endpoint endpoint = Endpoint.of(host, port);
             proxyConfig = factory.proxyConfigSelector().select(endpoint);
             requireNonNull(proxyConfig, "proxyConfig");
         } catch (Throwable t) {
-            logger.warn("Failed to select ProxyConfig for <{}>; falling back to DIRECT ", endpoint, t);
+            logger.warn("Failed to select ProxyConfig for <{}:{}>; falling back to DIRECT ",
+                        host, port, t);
             proxyConfig = ProxyConfig.direct();
         }
         return proxyConfig;
