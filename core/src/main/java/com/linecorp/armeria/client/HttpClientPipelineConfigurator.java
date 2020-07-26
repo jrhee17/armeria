@@ -80,6 +80,7 @@ import io.netty.handler.codec.http2.Http2Connection;
 import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.flush.FlushConsolidationHandler;
+import io.netty.handler.proxy.ProxyConnectException;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
@@ -328,6 +329,18 @@ final class HttpClientPipelineConfigurator extends ChannelDuplexHandler {
                     ctx.pipeline().remove(this);
                     finishSuccessfully(pipeline, H1C);
                     ctx.fireChannelActive();
+                }
+
+                @Override
+                public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+                    if (cause instanceof ProxyConnectException) {
+                        // handles haproxy exceptions before a session is opened.
+                        ctx.pipeline().remove(this);
+                        pipeline.channel().eventLoop().execute(() -> pipeline.fireUserEventTriggered(cause));
+                        ctx.close();
+                        return;
+                    }
+                    super.exceptionCaught(ctx, cause);
                 }
             });
         }

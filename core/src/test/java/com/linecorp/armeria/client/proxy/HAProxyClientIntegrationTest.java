@@ -16,10 +16,14 @@
 package com.linecorp.armeria.client.proxy;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -27,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import com.linecorp.armeria.client.ClientFactory;
+import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.logging.LoggingClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
@@ -146,6 +151,59 @@ class HAProxyClientIntegrationTest {
             final String expectedResponse =
                     String.format("%s-%s", srcAddressRef.get(), backendServer.httpSocketAddress());
             assertThat(response.contentUtf8()).isEqualTo(expectedResponse);
+        }
+    }
+
+    @Test
+    void testDifferentIpFamilyFailure() throws Exception {
+        // in practice, this scenario shouldn't be possible
+        final InetSocketAddress destAddr = new InetSocketAddress("0:0:0:0:0:0:0:1", 83);
+        try (ClientFactory clientFactory =
+                     ClientFactory.builder()
+                                  .proxyConfig((protocol, endpoint) -> new HAProxyConfig(destAddr))
+                                  .useHttp2Preface(true)
+                                  .build()) {
+
+            final WebClient webClient = WebClient.builder(SessionProtocol.H1C, backendServer.httpEndpoint())
+                                                 .factory(clientFactory)
+                                                 .decorator(LoggingClient.newDecorator())
+                                                 .build();
+            final CompletableFuture<AggregatedHttpResponse> responseFuture =
+                    webClient.get(PROXY_PATH).aggregate();
+
+            assertThatThrownBy(() -> responseFuture.get(10, TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class)
+                    .hasCauseInstanceOf(UnprocessedRequestException.class)
+                    .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                    .hasRootCauseMessage("incompatible addresses");
+        }
+    }
+
+    @Test
+    void testConnectionFailure() throws Exception {
+        final int unusedPort;
+        try (ServerSocket ss = new ServerSocket(0)) {
+            unusedPort = ss.getLocalPort();
+        }
+        try (ClientFactory clientFactory =
+                     ClientFactory.builder()
+                                  .proxyConfig(ProxyConfig.haproxy())
+                                  .useHttp2Preface(true)
+                                  .build()) {
+
+            final WebClient webClient = WebClient.builder(SessionProtocol.H1C,
+                                                          backendServer.httpEndpoint().withPort(unusedPort))
+                                                 .factory(clientFactory)
+                                                 .decorator(LoggingClient.newDecorator())
+                                                 .build();
+            final CompletableFuture<AggregatedHttpResponse> responseFuture =
+                    webClient.get(PROXY_PATH).aggregate();
+
+            assertThatThrownBy(() -> responseFuture.get(10, TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class)
+                    .hasCauseInstanceOf(UnprocessedRequestException.class)
+                    .hasRootCauseInstanceOf(ConnectException.class)
+                    .hasRootCauseMessage("Connection refused");
         }
     }
 }
