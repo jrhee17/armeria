@@ -22,8 +22,10 @@ import static java.util.Objects.requireNonNull;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
@@ -56,6 +58,11 @@ import io.netty.channel.ChannelFactory;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoop;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.EpollChannelOption;
+import io.netty.channel.epoll.EpollSocketChannel;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioChannelOption;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.resolver.AddressResolverGroup;
@@ -117,10 +124,14 @@ final class HttpClientFactory implements ClientFactory {
         addressResolverGroup = group;
 
         final Bootstrap bootstrap = new Bootstrap();
-        bootstrap.channel(TransportType.socketChannelType(workerGroup));
+        final Class<? extends SocketChannel> socketChannelType = TransportType.socketChannelType(workerGroup);
+        bootstrap.channel(socketChannelType);
         bootstrap.resolver(addressResolverGroup);
 
         options.channelOptions().forEach((option, value) -> {
+            if (!channelOptionAppliable(socketChannelType, option)) {
+                return;
+            }
             @SuppressWarnings("unchecked")
             final ChannelOption<Object> castOption = (ChannelOption<Object>) option;
             bootstrap.option(castOption, value);
@@ -356,5 +367,30 @@ final class HttpClientFactory implements ClientFactory {
                                      e -> new HttpChannelPool(this, eventLoop,
                                                               sslCtxHttp1Or2, sslCtxHttp1Only,
                                                               connectionPoolListener()));
+    }
+
+    /**
+     * NOTE: general implementation since we may expand to [Server]Channel soon.
+     */
+    @SuppressWarnings("rawtypes")
+    private static final Map<Class<? extends SocketChannel>, Class<? extends ChannelOption>> CHANNEL_OPTION_MAP =
+            new IdentityHashMap<>();
+    static {
+        CHANNEL_OPTION_MAP.put(NioSocketChannel.class, NioChannelOption.class);
+        CHANNEL_OPTION_MAP.put(EpollSocketChannel.class, EpollChannelOption.class);
+    }
+
+    @SuppressWarnings("rawtypes")
+    static boolean channelOptionAppliable(Class<? extends SocketChannel> socketChannelType,
+                                          ChannelOption<?> channelOption) {
+        if (channelOption.getClass() == ChannelOption.class) {
+            return true;
+        }
+        final Class<? extends ChannelOption> allowedOptionClass = CHANNEL_OPTION_MAP.get(socketChannelType);
+        if (allowedOptionClass == null) {
+            return true;
+        } else {
+            return allowedOptionClass == channelOption.getClass();
+        }
     }
 }

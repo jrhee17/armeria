@@ -367,6 +367,10 @@ public final class Flags {
 
     private static final boolean VALIDATE_HEADERS = getBoolean("validateHeaders", true);
 
+    private static final int DEFAULT_TCP_USER_TIMEOUT_MILLIS = 10000;
+    private static final int TCP_USER_TIMEOUT_MILLIS =
+            getInt("tcpUserTimeoutMillis", DEFAULT_TCP_USER_TIMEOUT_MILLIS, value -> value > 0);
+
     static {
         if (!isEpollAvailable()) {
             final Throwable cause = Epoll.unavailabilityCause();
@@ -1066,6 +1070,13 @@ public final class Flags {
      */
     public static boolean validateHeaders() {
         return VALIDATE_HEADERS;
+    }
+
+    /**
+     * TODO: update javadocs.
+     */
+    public static int tcpUserTimeoutMillis() {
+        return TCP_USER_TIMEOUT_MILLIS;
     }
 
     @Nullable

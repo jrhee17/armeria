@@ -56,6 +56,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoop;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.EpollChannelOption;
 import io.netty.handler.codec.http2.Http2CodecUtil;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
@@ -106,6 +107,7 @@ public final class ClientFactoryBuilder {
 
     ClientFactoryBuilder() {
         connectTimeoutMillis(Flags.defaultConnectTimeoutMillis());
+        channelOption(EpollChannelOption.TCP_USER_TIMEOUT, Ints.saturatedCast(Flags.tcpUserTimeoutMillis()));
     }
 
     /**
