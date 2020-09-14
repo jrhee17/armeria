@@ -166,6 +166,9 @@ final class Http1ResponseDecoder extends HttpResponseDecoder implements ChannelI
                         }
 
                         final HttpResponseWrapper res = getResponse(resId);
+                        if (res == null) {
+                            logger.warn("logging to illustrate NPE is thrown here, ctx: {}", ctx);
+                        }
                         assert res != null;
                         this.res = res;
 
