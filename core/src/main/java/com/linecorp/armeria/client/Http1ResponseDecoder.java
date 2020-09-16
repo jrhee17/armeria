@@ -21,6 +21,8 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import com.linecorp.armeria.common.ClosedSessionException;
 import com.linecorp.armeria.common.ContentTooLargeException;
 import com.linecorp.armeria.common.HttpData;
@@ -50,7 +52,8 @@ final class Http1ResponseDecoder extends HttpResponseDecoder implements ChannelI
 
     private static final Logger logger = LoggerFactory.getLogger(Http1ResponseDecoder.class);
 
-    private enum State {
+    @VisibleForTesting
+    enum State {
         NEED_HEADERS,
         NEED_INFORMATIONAL_DATA,
         NEED_DATA_OR_TRAILERS,
@@ -64,7 +67,8 @@ final class Http1ResponseDecoder extends HttpResponseDecoder implements ChannelI
     private KeepAliveHandler keepAliveHandler;
     private int resId = 1;
     private int lastPingReqId = -1;
-    private State state = State.NEED_HEADERS;
+    @VisibleForTesting
+    State state = State.NEED_HEADERS;
 
     Http1ResponseDecoder(Channel channel) {
         super(channel, InboundTrafficController.ofHttp1(channel));
@@ -166,8 +170,10 @@ final class Http1ResponseDecoder extends HttpResponseDecoder implements ChannelI
                         }
 
                         final HttpResponseWrapper res = getResponse(resId);
-                        if (res == null) {
-                            logger.warn("logging to illustrate NPE is thrown here, ctx: {}", ctx);
+                        if (res == null && ArmeriaHttpUtil.isRequestTimeoutResponse(nettyRes)) {
+                            state = State.DISCARD;
+                            ctx.close();
+                            return;
                         }
                         assert res != null;
                         this.res = res;

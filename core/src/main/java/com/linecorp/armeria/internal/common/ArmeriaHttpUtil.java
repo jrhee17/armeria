@@ -81,6 +81,7 @@ import io.netty.handler.codec.UnsupportedValueConverter;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http2.DefaultHttp2Headers;
@@ -1118,6 +1119,11 @@ public final class ArmeriaHttpUtil {
             buf.append(port);
             return buf.toString();
         }
+    }
+
+    public static boolean isRequestTimeoutResponse(HttpResponse httpResponse) {
+        return httpResponse.status() == HttpResponseStatus.REQUEST_TIMEOUT &&
+               "close".equalsIgnoreCase(httpResponse.headers().get(HttpHeaderNames.CONNECTION));
     }
 
     private ArmeriaHttpUtil() {}
