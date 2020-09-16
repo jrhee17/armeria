@@ -170,14 +170,16 @@ final class Http1ResponseDecoder extends HttpResponseDecoder implements ChannelI
                         }
 
                         final HttpResponseWrapper res = getResponse(resId);
-                        if (res == null && ArmeriaHttpUtil.isRequestTimeoutResponse(nettyRes)) {
-                            state = State.DISCARD;
-                            ctx.close();
+                        if (res == null) {
+                            if (ArmeriaHttpUtil.isRequestTimeoutResponse(nettyRes)) {
+                                close(ctx);
+                            } else {
+                                fail(ctx, new ProtocolViolationException("unexpected response"));
+                            }
                             return;
                         }
-                        assert res != null;
-                        this.res = res;
 
+                        this.res = res;
                         res.logResponseFirstBytesTransferred();
 
                         if (nettyRes.status().codeClass() == HttpStatusClass.INFORMATIONAL) {
@@ -272,8 +274,6 @@ final class Http1ResponseDecoder extends HttpResponseDecoder implements ChannelI
     }
 
     private void fail(ChannelHandlerContext ctx, Throwable cause) {
-        state = State.DISCARD;
-
         final HttpResponseWrapper res = this.res;
         this.res = null;
 
@@ -282,7 +282,11 @@ final class Http1ResponseDecoder extends HttpResponseDecoder implements ChannelI
         } else {
             logger.warn("Unexpected exception:", cause);
         }
+        close(ctx);
+    }
 
+    private void close(ChannelHandlerContext ctx) {
+        state = State.DISCARD;
         ctx.close();
     }
 
