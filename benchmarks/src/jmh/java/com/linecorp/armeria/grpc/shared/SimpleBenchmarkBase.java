@@ -83,6 +83,9 @@ public abstract class SimpleBenchmarkBase {
     @Param
     private ClientType clientType;
 
+    @Param("1000")
+    private int batchSize;
+
     @Setup
     public void start() throws Exception {
         setUp();
@@ -126,6 +129,18 @@ public abstract class SimpleBenchmarkBase {
                 futureStub().empty(Empty.getDefaultInstance()),
                 counterIncrementingFutureCallback(counters),
                 MoreExecutors.directExecutor());
+    }
+
+    @Benchmark
+    public void simpleBatchedBlocking(AsyncCounters counters) throws Exception {
+        for (int i = 0; i < batchSize; i++) {
+            counters.incrementCurrentRequests();
+            Futures.addCallback(
+                    futureStub().empty(Empty.getDefaultInstance()),
+                    counterIncrementingFutureCallback(counters),
+                    MoreExecutors.directExecutor());
+        }
+        counters.waitForCurrentRequests();
     }
 
     private GithubServiceBlockingStub stub() {
