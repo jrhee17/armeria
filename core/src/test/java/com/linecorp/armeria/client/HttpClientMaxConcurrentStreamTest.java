@@ -15,6 +15,7 @@
  */
 package com.linecorp.armeria.client;
 
+import static io.netty.handler.logging.LogLevel.INFO;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.awaitility.Awaitility.await;
@@ -30,6 +31,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,16 +46,27 @@ import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.logging.ClientConnectionTimings;
 import com.linecorp.armeria.common.logging.RequestLogProperty;
+import com.linecorp.armeria.internal.testing.NettyServerExtension;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.EventLoopGroup;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http2.AbstractHttp2ConnectionHandlerBuilder;
+import io.netty.handler.codec.http2.Http2ConnectionDecoder;
+import io.netty.handler.codec.http2.Http2ConnectionEncoder;
+import io.netty.handler.codec.http2.Http2FrameLogger;
+import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AttributeMap;
 
 /**
  * Makes sure Armeria HTTP client respects {@code MAX_CONCURRENT_STREAMS} HTTP/2 setting.
  */
 public class HttpClientMaxConcurrentStreamTest {
+    private static final Http2FrameLogger http2FrameLogger = new Http2FrameLogger(INFO, HttpClientMaxConcurrentStreamTest.class);
 
     private static final String PATH = "/test";
     private static final int MAX_CONCURRENT_STREAMS = 3;
@@ -90,6 +104,51 @@ public class HttpClientMaxConcurrentStreamTest {
         }
     };
 
+    @RegisterExtension
+    static final NettyServerExtension dynamicMaxConcurrentStreamServer = new NettyServerExtension() {
+        @Override
+        protected void configure(Channel ch) throws Exception {
+            ch.pipeline().addLast(new H2CNettyHandlerBuilder().build());
+        }
+    };
+
+    static class H2CNettyHandler extends SimpleH2CServerHandler {
+        H2CNettyHandler(Http2ConnectionDecoder decoder, Http2ConnectionEncoder encoder,
+                        Http2Settings initialSettings) {
+            super(decoder, encoder, initialSettings);
+        }
+
+        @Override
+        protected void sendResponse(ChannelHandlerContext ctx, int streamId, HttpResponseStatus status,
+                                    ByteBuf payload) {
+            encoder().writeSettings(ctx, Http2Settings.defaultSettings()
+                                                      .maxConcurrentStreams(0), ctx.newPromise());
+            super.sendResponse(ctx, streamId, status, payload);
+        }
+    }
+
+    private static final class H2CNettyHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<
+            H2CNettyHandler, H2CNettyHandlerBuilder> {
+
+        H2CNettyHandlerBuilder() {
+            frameLogger(http2FrameLogger);
+        }
+
+        @Override
+        public H2CNettyHandler build() {
+            return super.build();
+        }
+
+        @Override
+        public H2CNettyHandler build(Http2ConnectionDecoder decoder, Http2ConnectionEncoder encoder,
+                                            Http2Settings initialSettings) {
+            final H2CNettyHandler handler =
+                    new H2CNettyHandler(decoder, encoder, initialSettings);
+            frameListener(handler);
+            return handler;
+        }
+    }
+
     private final ConnectionPoolListener connectionPoolListenerWrapper = new ConnectionPoolListener() {
         @Override
         public void connectionOpen(SessionProtocol protocol, InetSocketAddress remoteAddr,
@@ -108,6 +167,17 @@ public class HttpClientMaxConcurrentStreamTest {
                     HttpClientMaxConcurrentStreamTest.this.connectionPoolListener;
             if (connectionPoolListener != null) {
                 connectionPoolListener.connectionClosed(protocol, remoteAddr, localAddr, attrs);
+            }
+        }
+
+        @Override
+        public void connectionInfoChanged(SessionProtocol protocol, InetSocketAddress remoteAddr,
+                                          InetSocketAddress localAddr, AttributeMap attrs,
+                                          Http2Settings settings) throws Exception {
+            final ConnectionPoolListener connectionPoolListener =
+                    HttpClientMaxConcurrentStreamTest.this.connectionPoolListener;
+            if (connectionPoolListener != null) {
+                connectionPoolListener.connectionInfoChanged(protocol, remoteAddr, localAddr, attrs, settings);
             }
         }
     };
@@ -372,6 +442,22 @@ public class HttpClientMaxConcurrentStreamTest {
                 .hasSize(numRequests - 1);
     }
 
+    @Test
+    void dynamicMaxConcurrentStreamsValue() throws Exception {
+        final Queue<ClientConnectionTimings> connectionTimings = new ConcurrentLinkedQueue<>();
+
+        final WebClient client = WebClient.builder(SessionProtocol.H2C, dynamicMaxConcurrentStreamServer.endpoint())
+                                          .factory(clientFactory)
+                                          .decorator(connectionTimingsAccumulatingDecorator(connectionTimings))
+                                          .build();
+        final AtomicReference<Http2Settings> newSettings = new AtomicReference<>();
+        connectionPoolListener = newConnectionPoolListener(() -> {}, () -> {}, newSettings::set);
+
+        assertThat(client.get(PATH).aggregate().join().status().code()).isEqualTo(200);
+
+        await().untilAsserted(() -> assertThat(newSettings.get().maxConcurrentStreams()).isEqualTo(0));
+    }
+
     // running inside an event loop ensures requests are queued before an initial connect attempt completes.
     private static void runInsideEventLoop(EventLoopGroup eventLoopGroup, Runnable runnable) {
         eventLoopGroup.execute(runnable);
@@ -389,7 +475,7 @@ public class HttpClientMaxConcurrentStreamTest {
     }
 
     private static ConnectionPoolListener newConnectionPoolListener(
-            Runnable openRunnable, Runnable closeRunnable) {
+            Runnable openRunnable, Runnable closeRunnable, Consumer<Http2Settings> changedRunnable) {
         return new ConnectionPoolListener() {
             @Override
             public void connectionOpen(SessionProtocol protocol, InetSocketAddress remoteAddr,
@@ -402,6 +488,18 @@ public class HttpClientMaxConcurrentStreamTest {
                                          InetSocketAddress localAddr, AttributeMap attrs) throws Exception {
                 closeRunnable.run();
             }
+
+            @Override
+            public void connectionInfoChanged(SessionProtocol protocol, InetSocketAddress remoteAddr,
+                                              InetSocketAddress localAddr, AttributeMap attrs,
+                                              Http2Settings settings) throws Exception {
+                changedRunnable.accept(settings);
+            }
         };
+    }
+
+    private static ConnectionPoolListener newConnectionPoolListener(
+            Runnable openRunnable, Runnable closeRunnable) {
+        return newConnectionPoolListener(openRunnable, closeRunnable, changed -> {});
     }
 }
