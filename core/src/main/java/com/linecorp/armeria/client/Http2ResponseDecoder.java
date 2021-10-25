@@ -20,6 +20,8 @@ import static io.netty.handler.codec.http2.Http2Error.INTERNAL_ERROR;
 import static io.netty.handler.codec.http2.Http2Error.PROTOCOL_ERROR;
 import static io.netty.handler.codec.http2.Http2Exception.connectionError;
 
+import java.net.InetSocketAddress;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +30,7 @@ import com.google.common.math.LongMath;
 import com.linecorp.armeria.common.ContentTooLargeException;
 import com.linecorp.armeria.common.HttpData;
 import com.linecorp.armeria.common.HttpHeaders;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.stream.ClosedStreamException;
 import com.linecorp.armeria.internal.common.ArmeriaHttpUtil;
@@ -59,9 +62,11 @@ final class Http2ResponseDecoder extends HttpResponseDecoder implements Http2Con
     private final Http2ConnectionEncoder encoder;
     private final Http2GoAwayHandler goAwayHandler;
     private final KeepAliveHandler keepAliveHandler;
+    private final ConnectionPoolListener connectionPoolListener;
+    private final SessionProtocol protocol;
 
     Http2ResponseDecoder(Channel channel, Http2ConnectionEncoder encoder, HttpClientFactory clientFactory,
-                         KeepAliveHandler keepAliveHandler) {
+                         KeepAliveHandler keepAliveHandler, SessionProtocol protocol) {
         super(channel,
               InboundTrafficController.ofHttp2(channel, clientFactory.http2InitialConnectionWindowSize()));
         conn = encoder.connection();
@@ -70,6 +75,8 @@ final class Http2ResponseDecoder extends HttpResponseDecoder implements Http2Con
                keepAliveHandler instanceof NoopKeepAliveHandler;
         this.keepAliveHandler = keepAliveHandler;
         goAwayHandler = new Http2GoAwayHandler();
+        connectionPoolListener = clientFactory.connectionPoolListener();
+        this.protocol = protocol;
     }
 
     @Override
@@ -174,6 +181,18 @@ final class Http2ResponseDecoder extends HttpResponseDecoder implements Http2Con
 
     @Override
     public void onSettingsRead(ChannelHandlerContext ctx, Http2Settings settings) {
+        try {
+            connectionPoolListener.connectionInfoChanged(
+                    protocol,
+                    (InetSocketAddress) ctx.channel().remoteAddress(),
+                    (InetSocketAddress) ctx.channel().localAddress(),
+                    ctx.channel(), settings);
+        } catch (Exception e) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("{} Exception handling {}.connectionInfoChanged()",
+                            ctx.channel(), connectionPoolListener.getClass().getName(), e);
+            }
+        }
         ctx.fireChannelRead(settings);
     }
 

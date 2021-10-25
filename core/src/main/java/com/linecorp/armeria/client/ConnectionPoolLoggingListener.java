@@ -27,6 +27,7 @@ import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.util.TextFormatter;
 import com.linecorp.armeria.common.util.Ticker;
 
+import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AttributeKey;
 import io.netty.util.AttributeMap;
 
@@ -83,6 +84,16 @@ final class ConnectionPoolLoggingListener implements ConnectionPoolListener {
             logger.info("[L:{} ! R:{}][{}] CLOSED (lasted for: {}, active channels: {})",
                         localAddr, remoteAddr, protocol.uriText(),
                         TextFormatter.elapsed(elapsedNanos), activeChannels);
+        }
+    }
+
+    @Override
+    public void connectionInfoChanged(SessionProtocol protocol, InetSocketAddress remoteAddr,
+                                      InetSocketAddress localAddr, AttributeMap attrs,
+                                      Http2Settings settings) throws Exception {
+        if (logger.isInfoEnabled()) {
+            logger.info("[L:{} - R:{}][{}] CHANGED (settings: {})",
+                        localAddr, remoteAddr, protocol.uriText(), settings);
         }
     }
 }

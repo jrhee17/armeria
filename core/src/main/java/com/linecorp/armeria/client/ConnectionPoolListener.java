@@ -21,6 +21,7 @@ import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.util.Ticker;
 import com.linecorp.armeria.common.util.Unwrappable;
 
+import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AttributeMap;
 
 /**
@@ -65,6 +66,13 @@ public interface ConnectionPoolListener extends Unwrappable {
                           InetSocketAddress remoteAddr,
                           InetSocketAddress localAddr,
                           AttributeMap attrs) throws Exception;
+
+    /**
+     * Invoked when connection info has changed.
+     */
+    default void connectionInfoChanged(SessionProtocol protocol, InetSocketAddress remoteAddr,
+                                       InetSocketAddress localAddr, AttributeMap attrs,
+                                       Http2Settings settings) throws Exception {}
 
     @Override
     default ConnectionPoolListener unwrap() {
