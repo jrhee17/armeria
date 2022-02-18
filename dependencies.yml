@@ -231,6 +231,10 @@ io.dropwizard.metrics:
     javadocs:
     - https://metrics.dropwizard.io/4.1.0/apidocs/
 
+io.github.resilience4j:
+  resilience4j-circuitbreaker:
+    version: &RESILIENCE4j_VERSION '1.7.1'
+
 io.grpc:
   grpc-core:
     javadocs:
