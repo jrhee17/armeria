@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.client.circuitbreaker;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 import java.time.Duration;
@@ -35,10 +36,12 @@ public final class CircuitBreakerBuilder {
 
     private static final double DEFAULT_FAILURE_RATE_THRESHOLD = 0.5;
     private static final long DEFAULT_MINIMUM_REQUEST_THRESHOLD = 10;
+    private static final double DEFAULT_SLOW_RATE_THRESHOLD = 1;
     private static final int DEFAULT_TRIAL_REQUEST_INTERVAL_SECONDS = 3;
     private static final int DEFAULT_CIRCUIT_OPEN_WINDOW_SECONDS = 10;
     private static final int DEFAULT_COUNTER_SLIDING_WINDOW_SECONDS = 20;
     private static final int DEFAULT_COUNTER_UPDATE_INTERVAL_SECONDS = 1;
+    private static final int DEFAULT_SLOW_CALL_DURATION_THRESHOLD_SECONDS = 10;
     private static final Ticker DEFAULT_TICKER = Ticker.systemTicker();
 
     @Nullable
@@ -48,6 +51,8 @@ public final class CircuitBreakerBuilder {
 
     private long minimumRequestThreshold = DEFAULT_MINIMUM_REQUEST_THRESHOLD;
 
+    private double slowRateThreshold = DEFAULT_SLOW_RATE_THRESHOLD;
+
     private Duration trialRequestInterval = Duration.ofSeconds(DEFAULT_TRIAL_REQUEST_INTERVAL_SECONDS);
 
     private Duration circuitOpenWindow = Duration.ofSeconds(DEFAULT_CIRCUIT_OPEN_WINDOW_SECONDS);
@@ -55,6 +60,8 @@ public final class CircuitBreakerBuilder {
     private Duration counterSlidingWindow = Duration.ofSeconds(DEFAULT_COUNTER_SLIDING_WINDOW_SECONDS);
 
     private Duration counterUpdateInterval = Duration.ofSeconds(DEFAULT_COUNTER_UPDATE_INTERVAL_SECONDS);
+
+    private Duration slowCallDurationThreshold = Duration.ofSeconds(DEFAULT_SLOW_CALL_DURATION_THRESHOLD_SECONDS);
 
     private Ticker ticker = DEFAULT_TICKER;
 
@@ -84,6 +91,18 @@ public final class CircuitBreakerBuilder {
                     "failureRateThreshold: " + failureRateThreshold + " (expected: > 0 and <= 1)");
         }
         this.failureRateThreshold = failureRateThreshold;
+        return this;
+    }
+
+    /**
+     * TBU.
+     */
+    public CircuitBreakerBuilder slowRateThreshold(double slowRateThreshold) {
+        if (slowRateThreshold <= 0 || 1 < slowRateThreshold) {
+            throw new IllegalArgumentException(
+                    "slowRateThreshold: " + slowRateThreshold + " (expected: > 0 and <= 1)");
+        }
+        this.slowRateThreshold = slowRateThreshold;
         return this;
     }
 
@@ -193,6 +212,25 @@ public final class CircuitBreakerBuilder {
     }
 
     /**
+     * TBU.
+     */
+    public CircuitBreakerBuilder slowCallDurationThreshold(Duration slowCallDurationThreshold) {
+        requireNonNull(slowCallDurationThreshold, "slowCallDurationThreshold");
+        checkArgument(!slowCallDurationThreshold.isNegative() && !slowCallDurationThreshold.isZero(),
+                      "slowCallDurationThreshold: " + slowCallDurationThreshold + " (expected: > 0)");
+        this.slowCallDurationThreshold = slowCallDurationThreshold;
+        return this;
+    }
+
+    /**
+     * TBU.
+     */
+    public CircuitBreakerBuilder slowCallDurationThresholdMillis(long slowCallDurationThresholdMillis) {
+        slowCallDurationThreshold(Duration.ofMillis(slowCallDurationThresholdMillis));
+        return this;
+    }
+
+    /**
      * Adds a {@link CircuitBreakerListener}.
      */
     public CircuitBreakerBuilder listener(CircuitBreakerListener listener) {
@@ -220,9 +258,10 @@ public final class CircuitBreakerBuilder {
         }
         return new NonBlockingCircuitBreaker(
                 ticker,
-                new CircuitBreakerConfig(name, failureRateThreshold, minimumRequestThreshold,
+                new CircuitBreakerConfig(name, failureRateThreshold, slowRateThreshold, minimumRequestThreshold,
                                          circuitOpenWindow, trialRequestInterval,
                                          counterSlidingWindow, counterUpdateInterval,
+                                         slowCallDurationThreshold,
                                          Collections.unmodifiableList(listeners)));
     }
 }

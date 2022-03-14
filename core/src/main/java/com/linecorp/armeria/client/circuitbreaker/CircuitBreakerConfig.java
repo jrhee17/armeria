@@ -33,6 +33,8 @@ final class CircuitBreakerConfig {
 
     private final double failureRateThreshold;
 
+    private final double slowRateThreshold;
+
     private final long minimumRequestThreshold;
 
     private final Duration circuitOpenWindow;
@@ -43,20 +45,25 @@ final class CircuitBreakerConfig {
 
     private final Duration counterUpdateInterval;
 
+    private final Duration slowCallDurationThreshold;
+
     private final List<CircuitBreakerListener> listeners;
 
     CircuitBreakerConfig(@Nullable String name,
-                         double failureRateThreshold, long minimumRequestThreshold,
+                         double failureRateThreshold, double slowRateThreshold, long minimumRequestThreshold,
                          Duration circuitOpenWindow, Duration trialRequestInterval,
                          Duration counterSlidingWindow, Duration counterUpdateInterval,
+                         Duration slowCallDurationThreshold,
                          List<CircuitBreakerListener> listeners) {
         this.name = name;
         this.failureRateThreshold = failureRateThreshold;
+        this.slowRateThreshold = slowRateThreshold;
         this.minimumRequestThreshold = minimumRequestThreshold;
         this.circuitOpenWindow = circuitOpenWindow;
         this.trialRequestInterval = trialRequestInterval;
         this.counterSlidingWindow = counterSlidingWindow;
         this.counterUpdateInterval = counterUpdateInterval;
+        this.slowCallDurationThreshold = slowCallDurationThreshold;
         this.listeners = listeners;
     }
 
@@ -67,6 +74,10 @@ final class CircuitBreakerConfig {
 
     double failureRateThreshold() {
         return failureRateThreshold;
+    }
+
+    double slowRateThreshold() {
+        return slowRateThreshold;
     }
 
     long minimumRequestThreshold() {
@@ -89,6 +100,10 @@ final class CircuitBreakerConfig {
         return counterUpdateInterval;
     }
 
+    Duration slowCallDurationThreshold() {
+        return slowCallDurationThreshold;
+    }
+
     List<CircuitBreakerListener> listeners() {
         return listeners;
     }
@@ -99,11 +114,13 @@ final class CircuitBreakerConfig {
                 .toStringHelper(this)
                 .add("name", name)
                 .add("failureRateThreshold", failureRateThreshold)
+                .add("slowRateThreshold", slowRateThreshold)
                 .add("minimumRequestThreshold", minimumRequestThreshold)
                 .add("circuitOpenWindow", circuitOpenWindow)
                 .add("trialRequestInterval", trialRequestInterval)
                 .add("counterSlidingWindow", counterSlidingWindow)
                 .add("counterUpdateInterval", counterUpdateInterval)
+                .add("slowCallDurationThreshold", slowCallDurationThreshold)
                 .toString();
     }
 }

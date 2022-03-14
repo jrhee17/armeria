@@ -14,13 +14,20 @@
  * under the License.
  */
 
-package com.linecorp.armeria;
+package com.linecorp.armeria.resilience4j;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
-class ScratchPadTest {
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+
+class ResilienceCircuitBreakerTest {
 
     @Test
-    void test() {
+    void testNullName() {
+        final CircuitBreaker delegate = CircuitBreaker.ofDefaults(null);
+        assertThatThrownBy(() -> new ResilienceCircuitBreaker(delegate))
+                .hasCauseInstanceOf(NullPointerException.class);
     }
 }

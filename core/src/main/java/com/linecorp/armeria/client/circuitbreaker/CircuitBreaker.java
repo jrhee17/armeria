@@ -17,6 +17,7 @@
 package com.linecorp.armeria.client.circuitbreaker;
 
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A <a href="https://martinfowler.com/bliki/CircuitBreaker.html">circuit breaker</a>, which tracks the number of
@@ -67,9 +68,19 @@ public interface CircuitBreaker {
     void onSuccess();
 
     /**
+     * TBU.
+     */
+    void onSuccess(long duration, TimeUnit timeUnit);
+
+    /**
      * Reports a remote invocation failure.
      */
     void onFailure();
+
+    /**
+     * TBU.
+     */
+    void onFailure(long duration, TimeUnit timeUnit, Throwable throwable);
 
     /**
      * Decides whether a request should be sent or failed depending on the current circuit state.

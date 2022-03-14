@@ -19,6 +19,7 @@ package com.linecorp.armeria.client.circuitbreaker;
 import static java.util.Objects.requireNonNull;
 
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -39,6 +40,8 @@ final class NonBlockingCircuitBreaker implements CircuitBreaker {
     private static final Logger logger = LoggerFactory.getLogger(NonBlockingCircuitBreaker.class);
 
     private static final AtomicLong seqNo = new AtomicLong(0);
+
+    private static final RuntimeException PLACEHOLDER_EXCEPTION = new RuntimeException();
 
     private final String name;
 
@@ -69,6 +72,11 @@ final class NonBlockingCircuitBreaker implements CircuitBreaker {
 
     @Override
     public void onSuccess() {
+        onSuccess(0, TimeUnit.MILLISECONDS);
+    }
+
+    @Override
+    public void onSuccess(long duration, TimeUnit timeUnit) {
         final State currentState = state.get();
         if (currentState.isClosed()) {
             // fires success event
@@ -88,6 +96,11 @@ final class NonBlockingCircuitBreaker implements CircuitBreaker {
 
     @Override
     public void onFailure() {
+        onFailure(0, TimeUnit.MILLISECONDS, PLACEHOLDER_EXCEPTION);
+    }
+
+    @Override
+    public void onFailure(long duration, TimeUnit timeUnit, Throwable throwable) {
         final State currentState = state.get();
         if (currentState.isClosed()) {
             // fires failure event
@@ -113,9 +126,19 @@ final class NonBlockingCircuitBreaker implements CircuitBreaker {
     }
 
     private boolean checkIfExceedingFailureThreshold(EventCount count) {
-        return 0 < count.total() &&
-               config.minimumRequestThreshold() <= count.total() &&
-               config.failureRateThreshold() < count.failureRate();
+        if (count.total() <= 0) {
+            return false;
+        }
+        if (config.minimumRequestThreshold() > count.total()) {
+            return false;
+        }
+        if (config.failureRateThreshold() < count.failureRate()) {
+            return true;
+        }
+        if (config.slowRateThreshold() < count.slowRate()) {
+            return true;
+        }
+        return false;
     }
 
     @Deprecated
@@ -181,7 +204,7 @@ final class NonBlockingCircuitBreaker implements CircuitBreaker {
                 CircuitState.CLOSED,
                 Duration.ZERO,
                 new SlidingWindowCounter(ticker, config.counterSlidingWindow(),
-                                         config.counterUpdateInterval()));
+                                         config.counterUpdateInterval(), config.slowCallDurationThreshold()));
     }
 
     private State newForcedOpenState() {
@@ -348,7 +371,17 @@ final class NonBlockingCircuitBreaker implements CircuitBreaker {
         }
 
         @Override
+        public @Nullable EventCount onSuccess(long duration, TimeUnit timeUnit) {
+            return null;
+        }
+
+        @Override
         public EventCount onFailure() {
+            return null;
+        }
+
+        @Override
+        public @Nullable EventCount onFailure(long duration, TimeUnit timeUnit) {
             return null;
         }
     }

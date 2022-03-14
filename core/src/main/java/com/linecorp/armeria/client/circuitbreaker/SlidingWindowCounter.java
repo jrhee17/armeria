@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.util.Iterator;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 
@@ -39,6 +40,8 @@ final class SlidingWindowCounter implements EventCounter {
 
     private final long updateIntervalNanos;
 
+    private final long slowCallDurationThresholdInNanos;
+
     /**
      * The reference to the latest {@link Bucket}.
      */
@@ -54,10 +57,13 @@ final class SlidingWindowCounter implements EventCounter {
      */
     private final Queue<Bucket> reservoir = new ConcurrentLinkedQueue<>();
 
-    SlidingWindowCounter(Ticker ticker, Duration slidingWindow, Duration updateInterval) {
+    SlidingWindowCounter(Ticker ticker, Duration slidingWindow, Duration updateInterval,
+                         Duration slowCallDurationThreshold) {
         this.ticker = requireNonNull(ticker, "ticker");
         slidingWindowNanos = requireNonNull(slidingWindow, "slidingWindow").toNanos();
         updateIntervalNanos = requireNonNull(updateInterval, "updateInterval").toNanos();
+        slowCallDurationThresholdInNanos = requireNonNull(slowCallDurationThreshold,
+                                                          "slowCallDurationThreshold").toNanos();
         current = new AtomicReference<>(new Bucket(ticker.read()));
     }
 
@@ -68,12 +74,24 @@ final class SlidingWindowCounter implements EventCounter {
 
     @Override
     public EventCount onSuccess() {
-        return onEvent(Event.SUCCESS);
+        return onSuccess(0, TimeUnit.NANOSECONDS);
+    }
+
+    @Override
+    public EventCount onSuccess(long duration, TimeUnit timeUnit) {
+        final boolean isSlow = slowCallDurationThresholdInNanos <= timeUnit.toNanos(duration);
+        return onEvent(isSlow ? Event.SUCCESS_SLOW : Event.SUCCESS);
     }
 
     @Override
     public EventCount onFailure() {
-        return onEvent(Event.FAILURE);
+        return onFailure(0, TimeUnit.NANOSECONDS);
+    }
+
+    @Override
+    public EventCount onFailure(long duration, TimeUnit timeUnit) {
+        final boolean isSlow = slowCallDurationThresholdInNanos <= timeUnit.toNanos(duration);
+        return onEvent(isSlow ? Event.FAILURE_SLOW : Event.FAILURE);
     }
 
     @Nullable
@@ -126,6 +144,8 @@ final class SlidingWindowCounter implements EventCounter {
         final Iterator<Bucket> iterator = reservoir.iterator();
         long success = 0;
         long failure = 0;
+        long successSlow = 0;
+        long failureSlow = 0;
         while (iterator.hasNext()) {
             final Bucket bucket = iterator.next();
             if (bucket.timestamp < oldLimit) {
@@ -133,11 +153,13 @@ final class SlidingWindowCounter implements EventCounter {
                 iterator.remove();
             } else {
                 success += bucket.success();
+                successSlow += bucket.successSlow();
                 failure += bucket.failure();
+                failureSlow += bucket.failureSlow();
             }
         }
 
-        return EventCount.of(success, failure);
+        return EventCount.of(success, failure, successSlow, failureSlow);
     }
 
     private enum Event {
@@ -147,10 +169,22 @@ final class SlidingWindowCounter implements EventCounter {
                 bucket.success.increment();
             }
         },
+        SUCCESS_SLOW {
+            @Override
+            void increment(Bucket bucket) {
+                bucket.successSlow.increment();
+            }
+        },
         FAILURE {
             @Override
             void increment(Bucket bucket) {
                 bucket.failure.increment();
+            }
+        },
+        FAILURE_SLOW {
+            @Override
+            void increment(Bucket bucket) {
+                bucket.failureSlow.increment();
             }
         };
 
@@ -166,7 +200,11 @@ final class SlidingWindowCounter implements EventCounter {
 
         private final LongAdder success = new LongAdder();
 
+        private final LongAdder successSlow = new LongAdder();
+
         private final LongAdder failure = new LongAdder();
+
+        private final LongAdder failureSlow = new LongAdder();
 
         private Bucket(long timestamp) {
             this.timestamp = timestamp;
@@ -180,8 +218,16 @@ final class SlidingWindowCounter implements EventCounter {
             return success.sum();
         }
 
+        private long successSlow() {
+            return successSlow.sum();
+        }
+
         private long failure() {
             return failure.sum();
+        }
+
+        private long failureSlow() {
+            return failureSlow.sum();
         }
 
         @Override
@@ -190,6 +236,8 @@ final class SlidingWindowCounter implements EventCounter {
                    "timestamp=" + timestamp +
                    ", success=" + success +
                    ", failure=" + failure +
+                   ", successSlow=" + successSlow +
+                   ", failureSlow=" + failureSlow +
                    '}';
         }
     }

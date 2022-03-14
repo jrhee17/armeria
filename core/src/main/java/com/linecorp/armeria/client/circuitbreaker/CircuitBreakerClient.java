@@ -286,34 +286,29 @@ public final class CircuitBreakerClient extends AbstractCircuitBreakerClient<Htt
         try {
             response = unwrap().execute(ctx, req);
         } catch (Throwable cause) {
-            reportSuccessOrFailure(circuitBreaker, rule.shouldReportAsSuccess(ctx, cause));
+            reportSuccessOrFailure(circuitBreaker, rule.shouldReportAsSuccess(ctx, cause), ctx, cause);
             throw cause;
         }
 
-        final RequestLogProperty property =
-                rule.requiresResponseTrailers() ? RequestLogProperty.RESPONSE_TRAILERS
-                                                : RequestLogProperty.RESPONSE_HEADERS;
-
         if (!needsContentInRule) {
-            reportResult(ctx, circuitBreaker, property);
+            reportResult(ctx, circuitBreaker);
             return response;
         } else {
-            return reportResultWithContent(ctx, response, circuitBreaker, property);
+            return reportResultWithContent(ctx, response, circuitBreaker);
         }
     }
 
-    private void reportResult(ClientRequestContext ctx, CircuitBreaker circuitBreaker,
-                              RequestLogProperty logProperty) {
-        ctx.log().whenAvailable(logProperty).thenAccept(log -> {
+    private void reportResult(ClientRequestContext ctx, CircuitBreaker circuitBreaker) {
+        ctx.log().whenComplete().thenAccept(log -> {
             final Throwable resCause =
                     log.isAvailable(RequestLogProperty.RESPONSE_CAUSE) ? log.responseCause() : null;
-            reportSuccessOrFailure(circuitBreaker, rule().shouldReportAsSuccess(ctx, resCause));
+            reportSuccessOrFailure(circuitBreaker, rule().shouldReportAsSuccess(ctx, resCause),
+                                   ctx, resCause);
         });
     }
 
     private HttpResponse reportResultWithContent(ClientRequestContext ctx, HttpResponse response,
-                                                 CircuitBreaker circuitBreaker,
-                                                 RequestLogProperty logProperty) {
+                                                 CircuitBreaker circuitBreaker) {
 
         final HttpResponseDuplicator duplicator = response.toDuplicator(ctx.eventLoop().withoutContext(),
                                                                         ctx.maxResponseLength());
@@ -322,7 +317,7 @@ public final class CircuitBreakerClient extends AbstractCircuitBreakerClient<Htt
         final HttpResponse duplicate = duplicator.duplicate();
         duplicator.close();
 
-        ctx.log().whenAvailable(logProperty).thenAccept(log -> {
+        ctx.log().whenComplete().thenAccept(log -> {
             try {
                 final CompletionStage<CircuitBreakerDecision> f =
                         ruleWithContent().shouldReportAsSuccess(ctx, truncatingHttpResponse, null);
@@ -330,7 +325,7 @@ public final class CircuitBreakerClient extends AbstractCircuitBreakerClient<Htt
                     truncatingHttpResponse.abort();
                     return null;
                 });
-                reportSuccessOrFailure(circuitBreaker, f);
+                reportSuccessOrFailure(circuitBreaker, f, ctx, null);
             } catch (Throwable cause) {
                 duplicator.abort(cause);
             }

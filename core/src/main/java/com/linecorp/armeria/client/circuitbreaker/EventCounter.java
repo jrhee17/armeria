@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.client.circuitbreaker;
 
+import java.util.concurrent.TimeUnit;
+
 import com.linecorp.armeria.common.annotation.Nullable;
 
 interface EventCounter {
@@ -33,6 +35,9 @@ interface EventCounter {
     @Nullable
     EventCount onSuccess();
 
+    @Nullable
+    EventCount onSuccess(long duration, TimeUnit timeUnit);
+
     /**
      * Counts failure events.
      *
@@ -40,4 +45,7 @@ interface EventCounter {
      */
     @Nullable
     EventCount onFailure();
+
+    @Nullable
+    EventCount onFailure(long duration, TimeUnit timeUnit);
 }

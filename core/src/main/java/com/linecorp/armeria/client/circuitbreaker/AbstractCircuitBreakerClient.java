@@ -21,6 +21,7 @@ import static com.linecorp.armeria.client.circuitbreaker.CircuitBreakerRuleUtil.
 import static java.util.Objects.requireNonNull;
 
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -148,13 +149,15 @@ public abstract class AbstractCircuitBreakerClient<I extends Request, O extends 
      * this doesn't do anything.
      */
     protected static void reportSuccessOrFailure(CircuitBreaker circuitBreaker,
-                                                 CompletionStage<CircuitBreakerDecision> future) {
+                                                 CompletionStage<CircuitBreakerDecision> future,
+                                                 ClientRequestContext ctx, @Nullable Throwable cause) {
         future.handle((decision, unused) -> {
             if (decision != null) {
+                long duration = ctx.log().isComplete() ? ctx.log().ensureComplete().totalDurationNanos() : 0;
                 if (decision == CircuitBreakerDecision.success() || decision == CircuitBreakerDecision.next()) {
-                    circuitBreaker.onSuccess();
+                    circuitBreaker.onSuccess(duration, TimeUnit.NANOSECONDS);
                 } else if (decision == CircuitBreakerDecision.failure()) {
-                    circuitBreaker.onFailure();
+                    circuitBreaker.onFailure(duration, TimeUnit.NANOSECONDS, cause);
                 } else {
                     // Ignore, does not count as a success nor failure.
                 }

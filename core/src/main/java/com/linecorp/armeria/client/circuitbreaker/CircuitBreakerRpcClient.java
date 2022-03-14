@@ -136,13 +136,13 @@ public final class CircuitBreakerRpcClient extends AbstractCircuitBreakerClient<
             response = unwrap().execute(ctx, req);
         } catch (Throwable cause) {
             reportSuccessOrFailure(circuitBreaker, ruleWithContent().shouldReportAsSuccess(
-                    ctx, null, cause));
+                    ctx, null, cause), ctx, cause);
             throw cause;
         }
 
         response.handle((unused1, cause) -> {
             reportSuccessOrFailure(circuitBreaker,
-                                   ruleWithContent().shouldReportAsSuccess(ctx, response, cause));
+                                   ruleWithContent().shouldReportAsSuccess(ctx, response, cause), ctx, cause);
             return null;
         });
         return response;

@@ -37,16 +37,16 @@ class SlidingWindowCounterTest {
 
     @Test
     void testInitialState() {
-        final SlidingWindowCounter counter = new SlidingWindowCounter(ticker::get, Duration.ofSeconds(10),
-                                                                      Duration.ofSeconds(1));
+        final SlidingWindowCounter counter = new SlidingWindowCounter(
+                ticker::get, Duration.ofSeconds(10), Duration.ofSeconds(1), Duration.ofSeconds(10));
 
         assertThat(counter.count()).isEqualTo(EventCount.of(0, 0));
     }
 
     @Test
     void testOnSuccess() {
-        final SlidingWindowCounter counter = new SlidingWindowCounter(ticker::get, Duration.ofSeconds(10),
-                                                                      Duration.ofSeconds(1));
+        final SlidingWindowCounter counter = new SlidingWindowCounter(
+                ticker::get, Duration.ofSeconds(10), Duration.ofSeconds(1), Duration.ofSeconds(10));
 
         assertThat(counter.onSuccess()).isNull();
 
@@ -57,8 +57,8 @@ class SlidingWindowCounterTest {
 
     @Test
     void testOnFailure() {
-        final SlidingWindowCounter counter = new SlidingWindowCounter(ticker::get, Duration.ofSeconds(10),
-                                                                      Duration.ofSeconds(1));
+        final SlidingWindowCounter counter = new SlidingWindowCounter(
+                ticker::get, Duration.ofSeconds(10), Duration.ofSeconds(1), Duration.ofSeconds(10));
 
         assertThat(counter.onFailure()).isNull();
 
@@ -69,8 +69,8 @@ class SlidingWindowCounterTest {
 
     @Test
     void testTrim() {
-        final SlidingWindowCounter counter = new SlidingWindowCounter(ticker::get, Duration.ofSeconds(10),
-                                                                      Duration.ofSeconds(1));
+        final SlidingWindowCounter counter = new SlidingWindowCounter(
+                ticker::get, Duration.ofSeconds(10), Duration.ofSeconds(1), Duration.ofSeconds(10));
 
         assertThat(counter.onSuccess()).isNull();
         assertThat(counter.onFailure()).isNull();
@@ -87,7 +87,7 @@ class SlidingWindowCounterTest {
     @Test
     void testConcurrentAccess() throws InterruptedException {
         final SlidingWindowCounter counter = new SlidingWindowCounter(
-                Ticker.systemTicker(), Duration.ofMinutes(5), Duration.ofMillis(1));
+                Ticker.systemTicker(), Duration.ofMinutes(5), Duration.ofMillis(1), Duration.ofSeconds(10));
 
         final int worker = 6;
         final int batch = 100000;
@@ -137,8 +137,8 @@ class SlidingWindowCounterTest {
 
     @Test
     void testLateBucket() {
-        final SlidingWindowCounter counter = new SlidingWindowCounter(ticker::get, Duration.ofSeconds(10),
-                                                                      Duration.ofSeconds(1));
+        final SlidingWindowCounter counter = new SlidingWindowCounter(
+                ticker::get, Duration.ofSeconds(10), Duration.ofSeconds(1), Duration.ofSeconds(10));
 
         ticker.addAndGet(TimeUnit.SECONDS.toNanos(-1));
         assertThat(counter.onSuccess()).isNull();

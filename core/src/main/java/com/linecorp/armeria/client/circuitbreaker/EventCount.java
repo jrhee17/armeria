@@ -18,6 +18,8 @@ package com.linecorp.armeria.client.circuitbreaker;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import java.util.Objects;
+
 import com.linecorp.armeria.common.annotation.Nullable;
 
 /**
@@ -28,7 +30,7 @@ public final class EventCount {
     /**
      * An {@link EventCount} without any successes and failures.
      */
-    public static final EventCount ZERO = new EventCount(0, 0);
+    public static final EventCount ZERO = new EventCount(0, 0, 0, 0);
 
     /**
      * Returns a new {@link EventCount} with the specified number of successes and failures.
@@ -37,19 +39,33 @@ public final class EventCount {
         if (success == 0 && failure == 0) {
             return ZERO;
         }
+        return of(success, failure, 0, 0);
+    }
 
-        return new EventCount(success, failure);
+    /**
+     * Returns a new {@link EventCount} with the specified number of successes and failures.
+     */
+    public static EventCount of(long success, long failure, long successSlow, long failureSlow) {
+        if (success == 0 && failure == 0 && successSlow == 0 && failureSlow == 0) {
+            return ZERO;
+        }
+        return new EventCount(success, failure, successSlow, failureSlow);
     }
 
     private final long success;
-
     private final long failure;
+    private final long successSlow;
+    private final long failureSlow;
 
-    private EventCount(long success, long failure) {
+    private EventCount(long success, long failure, long successSlow, long failureSlow) {
         checkArgument(success >= 0, "success: %s (expected: >= 0)", success);
         checkArgument(failure >= 0, "failure: %s (expected: >= 0)", failure);
+        checkArgument(successSlow >= 0, "successSlow: %s (expected: >= 0)", successSlow);
+        checkArgument(failureSlow >= 0, "failureSlow: %s (expected: >= 0)", failureSlow);
         this.success = success;
         this.failure = failure;
+        this.successSlow = successSlow;
+        this.failureSlow = failureSlow;
     }
 
     /**
@@ -59,6 +75,10 @@ public final class EventCount {
         return success;
     }
 
+    public long successSlow() {
+        return successSlow;
+    }
+
     /**
      * Returns the number of failure events.
      */
@@ -66,11 +86,15 @@ public final class EventCount {
         return failure;
     }
 
+    public long failureSlow() {
+        return failureSlow;
+    }
+
     /**
      * Returns the total number of events.
      */
     public long total() {
-        return success + failure;
+        return success + failure + successSlow + failureSlow;
     }
 
     /**
@@ -81,7 +105,7 @@ public final class EventCount {
         if (total == 0) {
             throw new ArithmeticException("Failed to calculate success rate since total count is 0");
         }
-        return success / (double) total;
+        return (success + successSlow) / (double) total;
     }
 
     /**
@@ -92,12 +116,20 @@ public final class EventCount {
         if (total == 0) {
             throw new ArithmeticException("Failed to calculate failure rate since total count is 0");
         }
-        return failure / (double) total;
+        return (failure + failureSlow) / (double) total;
+    }
+
+    public double slowRate() {
+        final long total = total();
+        if (total == 0) {
+            throw new ArithmeticException("Failed to calculate failure rate since total count is 0");
+        }
+        return (successSlow + failureSlow) / (double) total;
     }
 
     @Override
     public int hashCode() {
-        return (int) (31 * success + failure);
+        return Objects.hash(success, failure, successSlow, failureSlow);
     }
 
     @Override
@@ -109,7 +141,8 @@ public final class EventCount {
             return false;
         }
         final EventCount that = (EventCount) o;
-        return success == that.success && failure == that.failure;
+        return success == that.success && failure == that.failure &&
+               successSlow == that.successSlow && failureSlow == that.failureSlow;
     }
 
     @Override
