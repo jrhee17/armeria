@@ -16,19 +16,17 @@
 
 package com.linecorp.armeria.internal.common;
 
-import static com.linecorp.armeria.internal.common.RequestContextUtil.newIllegalContextPushingException;
-import static java.lang.Thread.currentThread;
-import static java.util.Objects.requireNonNull;
-
-import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.common.RequestContext;
 import com.linecorp.armeria.common.RequestContextStorage;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.Sampler;
-import com.linecorp.armeria.server.ServiceRequestContext;
-
 import io.netty.util.concurrent.FastThreadLocal;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * A {@link RequestContextStorage} which keeps track of {@link RequestContext}s, reporting pushed thread
@@ -38,8 +36,10 @@ import io.netty.util.concurrent.FastThreadLocal;
 final class LeakTracingRequestContextStorage implements RequestContextStorage {
 
     private final RequestContextStorage delegate;
-    private final FastThreadLocal<PendingRequestContextStackTrace> pendingRequestCtx;
     private final Sampler<? super RequestContext> sampler;
+    private final FastThreadLocal<Deque<RequestContextLeakException>> threadLocalStack = new FastThreadLocal<>();
+    private final FastThreadLocal<Boolean> threadLocalSampled = new FastThreadLocal<>();
+
 
     /**
      * Creates a new instance.
@@ -47,9 +47,8 @@ final class LeakTracingRequestContextStorage implements RequestContextStorage {
      * @param sampler the {@link Sampler} that determines whether to retain the stacktrace of the context leaks
      */
     LeakTracingRequestContextStorage(RequestContextStorage delegate,
-                                            Sampler<? super RequestContext> sampler) {
+                                     Sampler<? super RequestContext> sampler) {
         this.delegate = requireNonNull(delegate, "delegate");
-        pendingRequestCtx = new FastThreadLocal<>();
         this.sampler = requireNonNull(sampler, "sampler");
     }
 
@@ -59,35 +58,38 @@ final class LeakTracingRequestContextStorage implements RequestContextStorage {
         requireNonNull(toPush, "toPush");
 
         final RequestContext prevContext = delegate.currentOrNull();
-        if (prevContext != null) {
-            if (prevContext == toPush) {
-                // Re-entrance
-            } else if (toPush instanceof ServiceRequestContext &&
-                       prevContext.root() == toPush) {
-                // The delegate has the ServiceRequestContext whose root() is toPush
-            } else if (toPush instanceof ClientRequestContext &&
-                       prevContext.root() == toPush.root()) {
-                // The delegate has the ClientRequestContext whose root() is the same as toPush.root()
-            } else {
-                throw newIllegalContextPushingException(prevContext, toPush, pendingRequestCtx.get());
+        if (prevContext == null) {
+            threadLocalSampled.set(sampler.isSampled(toPush));
+        }
+        if (threadLocalSampled.get()) {
+            if (!threadLocalStack.isSet()) {
+                threadLocalStack.set(new ArrayDeque<>());
             }
+            threadLocalStack.get().push(RequestContextLeakException.get(toPush));
         }
-
-        if (sampler.isSampled(toPush)) {
-            pendingRequestCtx.set(new PendingRequestContextStackTrace(toPush, true));
-        } else {
-            pendingRequestCtx.set(new PendingRequestContextStackTrace(toPush, false));
-        }
-
         return delegate.push(toPush);
     }
 
     @Override
     public void pop(RequestContext current, @Nullable RequestContext toRestore) {
+        if (!threadLocalSampled.get()) {
+            delegate.pop(current, toRestore);
+            return;
+        }
+        Deque<RequestContextLeakException> deque = threadLocalStack.get();
+        final RequestContextLeakException last = deque.peekLast();
+        if (last == null) {
+            // if this happens, there is a bug in this class since the stack is inconsistent
+            // with the structure of request contexts
+            throw new IllegalStateException("Inconsistent state between stack and trace");
+        }
+        if (last.ctx != current) {
+            throw RequestContextLeakException.get(current, deque);
+        }
         try {
             delegate.pop(current, toRestore);
         } finally {
-            pendingRequestCtx.remove();
+            deque.pop();
         }
     }
 
@@ -97,14 +99,27 @@ final class LeakTracingRequestContextStorage implements RequestContextStorage {
         return delegate.currentOrNull();
     }
 
-    static class PendingRequestContextStackTrace extends RuntimeException {
+    private static class RequestContextLeakException extends RuntimeException {
 
-        private static final long serialVersionUID = -689451606253441556L;
+        static RequestContextLeakException get(
+                RequestContext curr, Deque<RequestContextLeakException> requestContextLeakExceptions) {
+            final RequestContextLeakException requestContextLeakException =
+                    new RequestContextLeakException("Leak detected: ", curr);
+            for (RequestContextLeakException iter: requestContextLeakExceptions) {
+                requestContextLeakException.addSuppressed(iter);
+            }
+            return requestContextLeakException;
+        }
 
-        PendingRequestContextStackTrace(RequestContext context, boolean isSample) {
-            super("At thread [" + currentThread().getName() + "], previous RequestContext didn't popped : " +
-                  context + (isSample ? ", It is pushed at the following stacktrace" : ""), null,
-                  true, isSample);
+        static RequestContextLeakException get(RequestContext curr) {
+            return new RequestContextLeakException("Request context touched: ", curr);
+        }
+
+        private final RequestContext ctx;
+
+        RequestContextLeakException(String message, RequestContext ctx) {
+            super(message + ctx, null, true, true);
+            this.ctx = ctx;
         }
     }
 }
