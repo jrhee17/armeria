@@ -1,0 +1,3 @@
+dependencies {
+    api group: 'io.github.resilience4j', name: 'resilience4j-circuitbreaker'
+}

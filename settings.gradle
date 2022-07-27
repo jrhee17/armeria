@@ -25,6 +25,7 @@ includeWithFlags ':logback',                             'java', 'publish', 'rel
 includeWithFlags ':oauth2',                              'java', 'publish', 'relocate'
 includeWithFlags ':protobuf',                            'java', 'publish', 'relocate'
 includeWithFlags ':reactor3',                            'java', 'publish', 'relocate'
+includeWithFlags ':resilience4j',                        'java', 'publish', 'relocate'
 includeWithFlags ':resteasy',                            'java', 'publish', 'relocate'
 includeWithFlags ':retrofit2',                           'java', 'publish', 'relocate'
 includeWithFlags ':rxjava2',                             'java', 'publish', 'relocate'
@@ -150,3 +151,4 @@ includeWithFlags ':examples:thrift',                               'java'
 includeWithFlags ':examples:tutorials:rest-api-annotated-service', 'java'
 includeWithFlags ':examples:tutorials:grpc-tutorial',              'java'
 project(':examples:tutorials:grpc-tutorial').projectDir = file('examples/tutorials/grpc')
+
