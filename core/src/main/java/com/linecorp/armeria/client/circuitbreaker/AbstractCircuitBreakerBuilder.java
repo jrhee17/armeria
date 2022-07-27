@@ -14,17 +14,27 @@
  * under the License.
  */
 
-package com.linecorp.armeria.resilience4j.circuitbreaker;
+package com.linecorp.armeria.client.circuitbreaker;
 
-import com.linecorp.armeria.client.circuitbreaker.CircuitState;
+import static java.util.Objects.requireNonNull;
 
-import io.github.resilience4j.circuitbreaker.CircuitBreaker.State;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
-final class CircuitBreakerStateUtils {
+abstract class AbstractCircuitBreakerBuilder {
 
-    private CircuitBreakerStateUtils() {}
+    List<CircuitBreakerListener> listeners = Collections.emptyList();
 
-    static CircuitState convertToArmeria(State state) {
-        return CircuitState.valueOf(state.name());
+    /**
+     * Adds a {@link CircuitBreakerListener}.
+     */
+    public AbstractCircuitBreakerBuilder listener(CircuitBreakerListener listener) {
+        requireNonNull(listener, "listener");
+        if (listeners.isEmpty()) {
+            listeners = new ArrayList<>(3);
+        }
+        listeners.add(listener);
+        return this;
     }
 }

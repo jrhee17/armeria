@@ -14,9 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.resilience4j.circuitbreaker;
-
-import static java.util.Objects.requireNonNull;
+package com.linecorp.armeria.client.circuitbreaker;
 
 import java.util.Collections;
 import java.util.List;
@@ -26,55 +24,60 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.MoreObjects;
 
-import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerListener;
-import com.linecorp.armeria.client.circuitbreaker.CircuitState;
-import com.linecorp.armeria.client.circuitbreaker.EventCount;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Ticker;
 
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.circuitbreaker.CircuitBreaker.State;
-
-final class Resilience4jCircuitBreaker implements com.linecorp.armeria.client.circuitbreaker.CircuitBreaker {
+/**
+ * TBU.
+ */
+public final class Resilience4jCircuitBreaker implements CircuitBreaker {
 
     private static final Logger logger = LoggerFactory.getLogger(Resilience4jCircuitBreaker.class);
     private static final AtomicLong seqNo = new AtomicLong(0);
 
-    private final CircuitBreaker circuitBreaker;
+    private final io.github.resilience4j.circuitbreaker.CircuitBreaker circuitBreaker;
     private final String name;
 
-    static com.linecorp.armeria.client.circuitbreaker.CircuitBreaker of(CircuitBreaker circuitBreaker) {
-        return new Resilience4jCircuitBreaker(circuitBreaker, Collections.emptyList(), Ticker.systemTicker());
+    /**
+     * TBU.
+     */
+    public static CircuitBreaker of(io.github.resilience4j.circuitbreaker.CircuitBreaker circuitBreaker) {
+        return new Resilience4jCircuitBreaker(circuitBreaker.getName(), circuitBreaker,
+                                              Collections.emptyList(), Ticker.systemTicker());
     }
 
-    static com.linecorp.armeria.client.circuitbreaker.CircuitBreaker of(CircuitBreaker circuitBreaker,
-                                                                        Ticker ticker,
-                                                                        CircuitBreakerListener... listeners) {
-        requireNonNull(circuitBreaker, "circuitBreaker");
-        return new Resilience4jCircuitBreaker(circuitBreaker, ImmutableList.copyOf(listeners), ticker);
+    /**
+     * TBU.
+     */
+    public static Resilience4jCircuitBreakerBuilder builder(
+            io.github.resilience4j.circuitbreaker.CircuitBreaker circuitBreaker) {
+        return new Resilience4jCircuitBreakerBuilder(circuitBreaker);
     }
 
-    Resilience4jCircuitBreaker(CircuitBreaker circuitBreaker, List<CircuitBreakerListener> listeners, Ticker ticker) {
-        final String originalName = circuitBreaker.getName();
-        name = originalName != null ? originalName : "resilience4j-circuit-breaker-" + seqNo.getAndIncrement();
+    Resilience4jCircuitBreaker(@Nullable String name,
+                               io.github.resilience4j.circuitbreaker.CircuitBreaker circuitBreaker,
+                               List<CircuitBreakerListener> listeners, Ticker ticker) {
+        this.name = name != null ? name : "resilience4j-circuit-breaker-" + seqNo.getAndIncrement();
         this.circuitBreaker = circuitBreaker;
 
         listeners.forEach(listener -> {
             try {
-                listener.onInitialized(name, CircuitBreakerStateUtils.convertToArmeria(circuitBreaker.getState()));
+                listener.onInitialized(
+                        this.name, CircuitBreakerStateUtils.convertToArmeria(circuitBreaker.getState()));
             } catch (Exception e) {
                 logger.warn("An error occurred when notifying an Initialized event", e);
             }
             try {
-                listener.onEventCountUpdated(name, EventCount.ZERO);
+                listener.onEventCountUpdated(this.name, EventCount.ZERO);
             } catch (Exception e) {
                 logger.warn("An error occurred when notifying an EventCountUpdated event", e);
             }
         });
         listeners.forEach(listener -> {
             final EventConsumerAdapter adapter = new EventConsumerAdapter(
-                    name, listener, circuitBreaker, ticker);
+                    this.name, listener, circuitBreaker, ticker);
             circuitBreaker.getEventPublisher().onEvent(adapter);
         });
     }
@@ -95,25 +98,14 @@ final class Resilience4jCircuitBreaker implements com.linecorp.armeria.client.ci
     }
 
     @Override
+    @Deprecated
     public boolean canRequest() {
         return circuitBreaker.tryAcquirePermission();
     }
 
     @Override
     public CircuitState circuitState() {
-        final State state = circuitBreaker.getState();
-        if (state == State.CLOSED) {
-            return CircuitState.CLOSED;
-        } else if (state == State.OPEN) {
-            return CircuitState.OPEN;
-        } else if (state == State.HALF_OPEN) {
-            return CircuitState.HALF_OPEN;
-        } else if (state == State.FORCED_OPEN) {
-            return CircuitState.FORCED_OPEN;
-        } else {
-            // TODO: @jrhee17 handle this case
-            throw new RuntimeException();
-        }
+        return CircuitBreakerStateUtils.convertToArmeria(circuitBreaker.getState());
     }
 
     @Override
@@ -130,5 +122,13 @@ final class Resilience4jCircuitBreaker implements com.linecorp.armeria.client.ci
             // TODO: @jrhee17 handle this case
             throw new RuntimeException();
         }
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("circuitBreaker", circuitBreaker)
+                          .add("name", name)
+                          .toString();
     }
 }

@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.resilience4j.circuitbreaker;
+package com.linecorp.armeria.client.circuitbreaker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -27,9 +27,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.WebClient;
-import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerClient;
-import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerRule;
-import com.linecorp.armeria.client.circuitbreaker.FailFastException;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatusClass;
 import com.linecorp.armeria.server.ServerBuilder;
@@ -67,8 +64,9 @@ class Resilience4jCircuitBreakerTest {
         final com.linecorp.armeria.client.circuitbreaker.CircuitBreaker cb =
                 Resilience4jCircuitBreaker.of(CircuitBreaker.of("cb", config));
 
+        final CircuitBreakerRule rule = CircuitBreakerRule.onStatusClass(HttpStatusClass.SERVER_ERROR);
         final Function<? super HttpClient, CircuitBreakerClient> circuitBreakerDecorator =
-                CircuitBreakerClient.newDecorator(cb, CircuitBreakerRule.onStatusClass(HttpStatusClass.SERVER_ERROR));
+                CircuitBreakerClient.newDecorator(cb, rule);
         final WebClient client = WebClient.builder(server.httpUri())
                                           .decorator(circuitBreakerDecorator)
                                           .build();

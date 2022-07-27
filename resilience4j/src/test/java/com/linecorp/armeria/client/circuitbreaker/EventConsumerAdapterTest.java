@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.resilience4j.circuitbreaker;
+package com.linecorp.armeria.client.circuitbreaker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,9 +30,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.Test;
 
-import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerListener;
-import com.linecorp.armeria.client.circuitbreaker.CircuitState;
-import com.linecorp.armeria.client.circuitbreaker.EventCount;
 import com.linecorp.armeria.common.metric.MoreMeters;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
@@ -48,7 +45,10 @@ class EventConsumerAdapterTest {
         final CircuitBreaker delegate = CircuitBreaker.ofDefaults("name");
         final CircuitBreakerListener listener = mock(CircuitBreakerListener.class);
         final com.linecorp.armeria.client.circuitbreaker.CircuitBreaker cb =
-                Resilience4jCircuitBreaker.of(delegate, ticker::get, listener);
+                Resilience4jCircuitBreaker.builder(delegate)
+                                          .ticker(ticker::get)
+                                          .listener(listener)
+                                          .build();
 
         verify(listener).onInitialized(cb.name(), CircuitState.CLOSED);
         verify(listener).onEventCountUpdated(cb.name(), EventCount.ZERO);
@@ -62,7 +62,10 @@ class EventConsumerAdapterTest {
         final CircuitBreakerListener listener = mock(CircuitBreakerListener.class);
         final AtomicLong ticker = new AtomicLong();
         final com.linecorp.armeria.client.circuitbreaker.CircuitBreaker cb =
-                Resilience4jCircuitBreaker.of(delegate, ticker::get, listener);
+                Resilience4jCircuitBreaker.builder(delegate)
+                                          .ticker(ticker::get)
+                                          .listener(listener)
+                                          .build();
 
         reset(listener);
         ticker.addAndGet(TimeUnit.SECONDS.toNanos(1));
@@ -76,11 +79,12 @@ class EventConsumerAdapterTest {
     void testRequestRejected() throws Exception {
         final AtomicLong ticker = new AtomicLong();
         final CircuitBreaker delegate = CircuitBreaker.ofDefaults(null);
-
         final CircuitBreakerListener listener = mock(CircuitBreakerListener.class);
-
         final com.linecorp.armeria.client.circuitbreaker.CircuitBreaker cb =
-                Resilience4jCircuitBreaker.of(delegate, ticker::get, listener);
+                Resilience4jCircuitBreaker.builder(delegate)
+                                          .ticker(ticker::get)
+                                          .listener(listener)
+                                          .build();
         cb.enterState(CircuitState.OPEN);
 
         reset(listener);
@@ -101,8 +105,10 @@ class EventConsumerAdapterTest {
 
         final AtomicLong ticker = new AtomicLong();
         final com.linecorp.armeria.client.circuitbreaker.CircuitBreaker cb =
-                Resilience4jCircuitBreaker.of(delegate, ticker::get, listener);
-
+                Resilience4jCircuitBreaker.builder(delegate)
+                                          .ticker(ticker::get)
+                                          .listener(listener)
+                                          .build();
         reset(listener);
 
         for (int i = 0; i < successCalls; i++) {
@@ -138,8 +144,10 @@ class EventConsumerAdapterTest {
         final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
         final AtomicLong ticker = new AtomicLong();
         final com.linecorp.armeria.client.circuitbreaker.CircuitBreaker cb =
-                Resilience4jCircuitBreaker.of(delegate, ticker::get,
-                                     CircuitBreakerListener.metricCollecting(meterRegistry));
+                Resilience4jCircuitBreaker.builder(delegate)
+                                          .ticker(ticker::get)
+                                          .listener(CircuitBreakerListener.metricCollecting(meterRegistry))
+                                          .build();
         cb.onSuccess();
         cb.onFailure();
         cb.onFailure();
