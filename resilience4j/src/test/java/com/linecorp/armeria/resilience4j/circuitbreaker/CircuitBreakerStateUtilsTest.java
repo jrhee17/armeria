@@ -14,24 +14,23 @@
  * under the License.
  */
 
-package com.linecorp.armeria.client.circuitbreaker;
+package com.linecorp.armeria.resilience4j.circuitbreaker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Arrays;
+
 import org.junit.jupiter.api.Test;
 
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker.State;
 
-class Resilience4jCircuitBreakerBuilderTest {
+class CircuitBreakerStateUtilsTest {
 
     @Test
-    void customNameIsSetCorrectly() {
-        final String r4jName = "r4j";
-        final String armeriaName = "armeria";
-        final com.linecorp.armeria.client.circuitbreaker.CircuitBreaker cb =
-                Resilience4jCircuitBreaker.builder(CircuitBreaker.ofDefaults(r4jName))
-                                          .name(armeriaName)
-                                          .build();
-        assertThat(cb.name()).isEqualTo(armeriaName);
+    void testResilience4jStatesAreWellDefined() {
+        Arrays.stream(State.values()).forEach(state -> {
+            assertThat(CircuitBreakerStateUtils.convertToArmeria(state))
+                    .isNotNull();
+        });
     }
 }

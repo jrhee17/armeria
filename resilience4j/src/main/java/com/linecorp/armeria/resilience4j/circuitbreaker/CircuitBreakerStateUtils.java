@@ -14,13 +14,17 @@
  * under the License.
  */
 
-/**
- * {@code Resilience4j}'s {@link io.github.resilience4j.circuitbreaker.CircuitBreaker}
- * integration with Armeria.
- */
-@NonNullByDefault
-@UnstableApi
-package com.linecorp.armeria.client.circuitbreaker;
+package com.linecorp.armeria.resilience4j.circuitbreaker;
 
-import com.linecorp.armeria.common.annotation.NonNullByDefault;
-import com.linecorp.armeria.common.annotation.UnstableApi;
+import com.linecorp.armeria.client.circuitbreaker.CircuitState;
+
+import io.github.resilience4j.circuitbreaker.CircuitBreaker.State;
+
+final class CircuitBreakerStateUtils {
+
+    private CircuitBreakerStateUtils() {}
+
+    static CircuitState convertToArmeria(State state) {
+        return CircuitState.valueOf(state.name());
+    }
+}

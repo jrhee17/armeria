@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.client.circuitbreaker;
+package com.linecorp.armeria.resilience4j.circuitbreaker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,6 +30,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.Test;
 
+import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerListener;
+import com.linecorp.armeria.client.circuitbreaker.CircuitState;
+import com.linecorp.armeria.client.circuitbreaker.EventCount;
 import com.linecorp.armeria.common.metric.MoreMeters;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;

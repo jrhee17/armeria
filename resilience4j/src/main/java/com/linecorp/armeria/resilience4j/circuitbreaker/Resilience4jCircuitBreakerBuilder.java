@@ -14,13 +14,16 @@
  * under the License.
  */
 
-package com.linecorp.armeria.client.circuitbreaker;
+package com.linecorp.armeria.resilience4j.circuitbreaker;
 
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
+import com.linecorp.armeria.client.circuitbreaker.AbstractCircuitBreakerBuilder;
+import com.linecorp.armeria.client.circuitbreaker.CircuitBreaker;
+import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerListener;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.Ticker;
@@ -64,6 +67,6 @@ public final class Resilience4jCircuitBreakerBuilder extends AbstractCircuitBrea
      * TBU.
      */
     public CircuitBreaker build() {
-        return new Resilience4jCircuitBreaker(name, circuitBreaker, ImmutableList.copyOf(listeners), ticker);
+        return new Resilience4jCircuitBreaker(name, circuitBreaker, ImmutableList.copyOf(listeners()), ticker);
     }
 }

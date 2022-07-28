@@ -22,9 +22,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-abstract class AbstractCircuitBreakerBuilder {
+/**
+ * TBU.
+ */
+public abstract class AbstractCircuitBreakerBuilder {
 
-    List<CircuitBreakerListener> listeners = Collections.emptyList();
+    private List<CircuitBreakerListener> listeners = Collections.emptyList();
 
     /**
      * Adds a {@link CircuitBreakerListener}.
@@ -36,5 +39,12 @@ abstract class AbstractCircuitBreakerBuilder {
         }
         listeners.add(listener);
         return this;
+    }
+
+    /**
+     * TBU.
+     */
+    protected List<CircuitBreakerListener> listeners() {
+        return listeners;
     }
 }

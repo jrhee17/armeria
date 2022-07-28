@@ -40,4 +40,12 @@ public enum CircuitState {
      * via {@link CircuitBreaker#enterState(CircuitState)}.
      */
     FORCED_OPEN,
+    /**
+     * TBU.
+     */
+    DISABLED,
+    /**
+     * TBU.
+     */
+    METRICS_ONLY,
 }

@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.client.circuitbreaker;
+package com.linecorp.armeria.resilience4j.circuitbreaker;
 
 import java.util.Collections;
 import java.util.List;
@@ -26,6 +26,10 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.MoreObjects;
 
+import com.linecorp.armeria.client.circuitbreaker.CircuitBreaker;
+import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerListener;
+import com.linecorp.armeria.client.circuitbreaker.CircuitState;
+import com.linecorp.armeria.client.circuitbreaker.EventCount;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Ticker;
 

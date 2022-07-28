@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.client.circuitbreaker;
+package com.linecorp.armeria.resilience4j.circuitbreaker;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -22,6 +22,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerListener;
+import com.linecorp.armeria.client.circuitbreaker.EventCount;
 import com.linecorp.armeria.common.util.Ticker;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;

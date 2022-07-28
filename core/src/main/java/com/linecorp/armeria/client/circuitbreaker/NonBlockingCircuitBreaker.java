@@ -70,7 +70,7 @@ final class NonBlockingCircuitBreaker implements CircuitBreaker {
     @Override
     public void onSuccess() {
         final State currentState = state.get();
-        if (currentState.isClosed()) {
+        if (currentState.isClosed() || currentState.isMetricsOnly()) {
             // fires success event
             final EventCount updatedCount = currentState.counter().onSuccess();
             // notifies the count if it has been updated
@@ -109,6 +109,11 @@ final class NonBlockingCircuitBreaker implements CircuitBreaker {
                 logStateTransition(CircuitState.OPEN, null);
                 notifyStateChanged(CircuitState.OPEN);
             }
+        } else if (currentState.isMetricsOnly()) {
+            final EventCount updatedCount = currentState.counter().onFailure();
+            if (updatedCount != null) {
+                notifyCountUpdated(updatedCount);
+            }
         }
     }
 
@@ -127,8 +132,8 @@ final class NonBlockingCircuitBreaker implements CircuitBreaker {
     @Override
     public boolean tryRequest() {
         final State currentState = state.get();
-        if (currentState.isClosed()) {
-            // all requests are allowed during CLOSED
+        if (currentState.isClosed() || currentState.isDisabled() || currentState.isMetricsOnly()) {
+            // all requests are allowed during CLOSED, DISABLED or METRICS_ONLY
             return true;
         }
 
@@ -186,6 +191,16 @@ final class NonBlockingCircuitBreaker implements CircuitBreaker {
 
     private State newForcedOpenState() {
         return new State(CircuitState.FORCED_OPEN, Duration.ZERO, NoOpCounter.INSTANCE);
+    }
+
+    private State newDisabledState() {
+        return new State(CircuitState.DISABLED, Duration.ZERO, NoOpCounter.INSTANCE);
+    }
+
+    private State newMetricsOnlyState() {
+        return new State(CircuitState.METRICS_ONLY, Duration.ZERO,
+                         new SlidingWindowCounter(ticker, config.counterSlidingWindow(),
+                                                  config.counterUpdateInterval()));
     }
 
     private void logStateTransition(CircuitState circuitState, @Nullable EventCount count) {
@@ -270,6 +285,10 @@ final class NonBlockingCircuitBreaker implements CircuitBreaker {
                 return newClosedState();
             case FORCED_OPEN:
                 return newForcedOpenState();
+            case DISABLED:
+                return newDisabledState();
+            case METRICS_ONLY:
+                return newMetricsOnlyState();
             default:
                 throw new Error();
         }
@@ -326,6 +345,14 @@ final class NonBlockingCircuitBreaker implements CircuitBreaker {
 
         boolean isForcedOpen() {
             return circuitState == CircuitState.FORCED_OPEN;
+        }
+
+        boolean isDisabled() {
+            return circuitState == CircuitState.DISABLED;
+        }
+
+        public boolean isMetricsOnly() {
+            return circuitState == CircuitState.METRICS_ONLY;
         }
 
         CircuitState circuitState() {

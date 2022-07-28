@@ -17,6 +17,8 @@
 package com.linecorp.armeria.client.circuitbreaker;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -214,14 +216,14 @@ class NonBlockingCircuitBreakerTest {
         cb.onFailure();
 
         ticker.addAndGet(counterUpdateInterval.toNanos());
-        assertThat(cb.canRequest()).isTrue();
+        assertThat(cb.tryRequest()).isTrue();
         cb.onFailure();
         assertThat(cb.state().isOpen()).isTrue();
 
-        assertThat(cb.canRequest()).isFalse();
+        assertThat(cb.tryRequest()).isFalse();
         ticker.addAndGet(trialRequestInterval.toNanos());
 
-        assertThat(cb.canRequest()).isTrue();
+        assertThat(cb.tryRequest()).isTrue();
         cb.onSuccess();
         assertThat(cb.state().isClosed()).isTrue();
     }
@@ -293,7 +295,7 @@ class NonBlockingCircuitBreakerTest {
         cb.onFailure();
         assertThat(cb.state().isOpen()).isTrue();
         ticker.addAndGet(circuitOpenWindow.toNanos() - 1);
-        assertThat(cb.canRequest()).isFalse();
+        assertThat(cb.tryRequest()).isFalse();
 
         // transition open -> closed -> open
         cb.enterState(CircuitState.CLOSED);
@@ -303,7 +305,7 @@ class NonBlockingCircuitBreakerTest {
         cb.onFailure();
         assertThat(cb.state().isOpen()).isTrue();
         ticker.addAndGet(circuitOpenWindow.toNanos() - 1);
-        assertThat(cb.canRequest()).isFalse();
+        assertThat(cb.tryRequest()).isFalse();
     }
 
     @Test
@@ -319,17 +321,87 @@ class NonBlockingCircuitBreakerTest {
 
         // rejected requests should be notified
         reset(listener);
-        assertThat(cb.canRequest()).isFalse();
+        assertThat(cb.tryRequest()).isFalse();
         verify(listener).onRequestRejected(name);
 
         // even when circuitOpenWindow passes, the state isn't changed
         ticker.addAndGet(circuitOpenWindow.toNanos());
         assertThat(cb.state().isForcedOpen()).isTrue();
 
-        // canRequest should still be false
+        // tryRequest should still be false
         reset(listener);
-        assertThat(cb.canRequest()).isFalse();
+        assertThat(cb.tryRequest()).isFalse();
         verify(listener).onRequestRejected(name);
+    }
+
+    @Test
+    void testDisabled() throws Exception {
+        final NonBlockingCircuitBreaker cb = create(2, 0.5);
+
+        reset(listener);
+        cb.enterState(CircuitState.DISABLED);
+        assertThat(cb.state().isDisabled()).isTrue();
+        // state change event should be published
+        verify(listener).onStateChanged(cb.name(), CircuitState.DISABLED);
+
+        reset(listener);
+        assertThat(cb.tryRequest()).isTrue();
+
+        // onFailure shouldn't change the state
+        cb.onFailure();
+        cb.onFailure();
+        cb.onFailure();
+        ticker.addAndGet(counterUpdateInterval.toNanos());
+        cb.onFailure();
+
+        // requests should always be possible
+        assertThat(cb.tryRequest()).isTrue();
+
+        // no events are published during the DISABLED state
+        verify(listener, never()).onStateChanged(anyString(), any());
+        verify(listener, never()).onEventCountUpdated(anyString(), any());
+
+        // once the next state transition occurs, events are published correctly
+        cb.enterState(CircuitState.CLOSED);
+        verify(listener).onStateChanged(cb.name(), CircuitState.CLOSED);
+    }
+
+    @Test
+    void testMetricsOnly() throws Exception {
+        final NonBlockingCircuitBreaker cb = create(2, 0.5);
+
+        reset(listener);
+        cb.enterState(CircuitState.METRICS_ONLY);
+        assertThat(cb.state().isMetricsOnly()).isTrue();
+        verify(listener).onStateChanged(cb.name(), CircuitState.METRICS_ONLY);
+
+        reset(listener);
+
+        // requests should always be possible
+        assertThat(cb.tryRequest()).isTrue();
+
+        // onFailure shouldn't change the state
+        cb.onFailure();
+        cb.onFailure();
+        cb.onFailure();
+        ticker.addAndGet(counterUpdateInterval.toNanos());
+
+        // requests should always be possible
+        assertThat(cb.tryRequest()).isTrue();
+
+        cb.onSuccess();
+        cb.onSuccess();
+        ticker.addAndGet(counterUpdateInterval.toNanos());
+        cb.onFailure(); // to trigger an EventCount event
+
+        // EventCount events are published, but state change doesn't occur
+        verify(listener, never()).onStateChanged(anyString(), any());
+        verify(listener).onEventCountUpdated(cb.name(), EventCount.of(2, 3));
+
+        // once the next state transition occurs, metrics are reinitialized
+        cb.enterState(CircuitState.CLOSED);
+        verify(listener).onStateChanged(cb.name(), CircuitState.CLOSED);
+        verify(listener).onEventCountUpdated(cb.name(), EventCount.ZERO);
     }
 
     @Test

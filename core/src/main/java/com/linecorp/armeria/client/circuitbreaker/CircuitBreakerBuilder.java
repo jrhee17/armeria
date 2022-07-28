@@ -212,6 +212,6 @@ public final class CircuitBreakerBuilder extends AbstractCircuitBreakerBuilder {
                 new CircuitBreakerConfig(name, failureRateThreshold, minimumRequestThreshold,
                                          circuitOpenWindow, trialRequestInterval,
                                          counterSlidingWindow, counterUpdateInterval,
-                                         Collections.unmodifiableList(listeners)));
+                                         Collections.unmodifiableList(listeners())));
     }
 }
