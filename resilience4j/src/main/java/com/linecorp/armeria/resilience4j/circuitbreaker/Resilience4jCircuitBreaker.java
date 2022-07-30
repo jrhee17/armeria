@@ -122,9 +122,12 @@ public final class Resilience4jCircuitBreaker implements CircuitBreaker {
             circuitBreaker.transitionToForcedOpenState();
         } else if (circuitState == CircuitState.HALF_OPEN) {
             circuitBreaker.transitionToHalfOpenState();
+        } else if (circuitState == CircuitState.DISABLED) {
+            circuitBreaker.transitionToDisabledState();
+        } else if (circuitState == CircuitState.METRICS_ONLY) {
+            circuitBreaker.transitionToMetricsOnlyState();
         } else {
-            // TODO: @jrhee17 handle this case
-            throw new RuntimeException();
+            throw new Error();
         }
     }
 

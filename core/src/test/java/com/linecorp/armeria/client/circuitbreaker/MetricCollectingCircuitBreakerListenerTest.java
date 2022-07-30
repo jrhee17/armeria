@@ -72,6 +72,24 @@ class MetricCollectingCircuitBreakerListenerTest {
                 .containsEntry("foo.state#value{name=bar}", 0.0)
                 .containsEntry("foo.transitions#count{name=bar,state=FORCED_OPEN}", 1.0);
 
+        // Transit to DISABLED.
+        l.onStateChanged(cb.name(), CircuitState.DISABLED);
+        assertThat(MoreMeters.measureAll(registry))
+                .containsEntry("foo.state#value{name=bar}", 1.0)
+                .containsEntry("foo.transitions#count{name=bar,state=DISABLED}", 1.0);
+
+        // Transit to METRICS_ONLY.
+        l.onStateChanged(cb.name(), CircuitState.METRICS_ONLY);
+        assertThat(MoreMeters.measureAll(registry))
+                .containsEntry("foo.state#value{name=bar}", 1.0)
+                .containsEntry("foo.transitions#count{name=bar,state=METRICS_ONLY}", 1.0);
+
+        // Transit back to CLOSED.
+        l.onStateChanged(cb.name(), CircuitState.CLOSED);
+        assertThat(MoreMeters.measureAll(registry))
+                .containsEntry("foo.state#value{name=bar}", 1.0)
+                .containsEntry("foo.transitions#count{name=bar,state=CLOSED}", 2.0);
+
         // Reject a request.
         l.onRequestRejected(cb.name());
         assertThat(MoreMeters.measureAll(registry))

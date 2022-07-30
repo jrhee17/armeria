@@ -100,6 +100,18 @@ public interface CircuitBreakerListener {
      *   <td>The number of circuit breaker state transitions to {@link CircuitState#HALF_OPEN}.</td>
      * </tr>
      * <tr>
+     *   <td>{@code <name>.transitions{name="<circuit breaker name>",state="FORCED_OPEN"}}</td>
+     *   <td>The number of circuit breaker state transitions to {@link CircuitState#FORCED_OPEN}.</td>
+     * </tr>
+     * <tr>
+     *   <td>{@code <name>.transitions{name="<circuit breaker name>",state="DISABLED"}}</td>
+     *   <td>The number of circuit breaker state transitions to {@link CircuitState#DISABLED}.</td>
+     * </tr>
+     * <tr>
+     *   <td>{@code <name>.transitions{name="<circuit breaker name>",state="METRICS_ONLY"}}</td>
+     *   <td>The number of circuit breaker state transitions to {@link CircuitState#METRICS_ONLY}.</td>
+     * </tr>
+     * <tr>
      *   <td>{@code <name>.rejected.requests{name="<circuit breaker name>"}}</td>
      *   <td>The number of requests rejected by the circuit breaker.</td>
      * </tr>

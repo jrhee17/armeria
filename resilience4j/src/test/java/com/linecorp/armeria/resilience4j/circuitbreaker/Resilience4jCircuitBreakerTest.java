@@ -24,11 +24,14 @@ import java.util.function.Function;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerClient;
 import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerRule;
+import com.linecorp.armeria.client.circuitbreaker.CircuitState;
 import com.linecorp.armeria.client.circuitbreaker.FailFastException;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatusClass;
@@ -38,6 +41,7 @@ import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig.Builder;
+import io.github.resilience4j.circuitbreaker.IllegalStateTransitionException;
 
 class Resilience4jCircuitBreakerTest {
 
@@ -55,6 +59,24 @@ class Resilience4jCircuitBreakerTest {
         final com.linecorp.armeria.client.circuitbreaker.CircuitBreaker cb =
                 Resilience4jCircuitBreaker.of(delegate);
         assertThat(cb).isNotNull();
+    }
+
+    @ParameterizedTest
+    @EnumSource(CircuitState.class)
+    void enterState(CircuitState state) {
+        final CircuitBreaker delegate = CircuitBreaker.ofDefaults(null);
+        final com.linecorp.armeria.client.circuitbreaker.CircuitBreaker cb =
+                Resilience4jCircuitBreaker.of(delegate);
+        if (state == CircuitState.HALF_OPEN) {
+            // state transition from CLOSED to HALF_OPEN isn't allowed for Resilience4j
+            // Armeria re-initializes a state when forcing transition, so there is no need
+            // to apply this restriction.
+            assertThatThrownBy(() -> cb.enterState(state))
+                    .isInstanceOf(IllegalStateTransitionException.class);
+        } else {
+            cb.enterState(state);
+            assertThat(cb.circuitState()).isEqualTo(state);
+        }
     }
 
     @Test
