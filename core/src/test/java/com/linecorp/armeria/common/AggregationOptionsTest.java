@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -31,6 +32,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableList;
 
@@ -80,6 +83,49 @@ class AggregationOptionsTest {
         assertThatThrownBy(() -> stream.aggregate(options).join())
                 .isInstanceOf(CompletionException.class)
                 .hasCauseInstanceOf(IllegalStateException.class);
+    }
+
+    private static final Logger logger = LoggerFactory.getLogger(AggregationOptionsTest.class);
+
+    @Test
+    void testConcurrentAggregation() throws InterruptedException {
+        final StreamMessage<Integer> stream = StreamMessage.of(1,2,3,4);
+        final AtomicInteger counter = new AtomicInteger();
+        final Function<List<Integer>, Integer> aggregator = nums -> {
+            counter.incrementAndGet();
+            return nums.stream().reduce(0, Integer::sum);
+        };
+        final AggregationOptions<Integer, Integer> options = AggregationOptions.builder(aggregator)
+                                                                               .cacheResult(true)
+                                                                               .build();
+
+        final int n = 100;
+        final CountDownLatch startLatch = new CountDownLatch(n);
+        final CountDownLatch endLatch = new CountDownLatch(n);
+
+        final AtomicInteger atomicInteger = new AtomicInteger();
+        for (int i = 0; i < 100; i++) {
+            final Thread thread = new Thread(() -> {
+                try {
+                    startLatch.countDown();
+                    startLatch.await();
+                } catch (InterruptedException e) {
+                    logger.warn("interrupted: ", e);
+                }
+                try {
+                    final int sum = stream.aggregate(options).join();
+                    assertThat(sum).isEqualTo(10);
+                } catch (RuntimeException e) {
+                    logger.warn("exception while subscribing: ", e);
+                    atomicInteger.incrementAndGet();
+                } finally {
+                    endLatch.countDown();
+                }
+            });
+            thread.start();
+        }
+        endLatch.await();
+        logger.info("failed for: {}", atomicInteger);
     }
 
     @Test
