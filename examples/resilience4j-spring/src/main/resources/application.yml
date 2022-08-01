@@ -1,0 +1,52 @@
+resilience4j.circuitbreaker:
+  circuitBreakerAspectOrder: 400
+  tags:
+    tag1: tag1Value
+    tag2: tag2Value
+  configs:
+    default:
+      slidingWindowSize: 100
+      slidingWindowType: COUNT_BASED
+      permittedNumberOfCallsInHalfOpenState: 10
+      waitDurationInOpenState: 10s
+      failureRateThreshold: 60
+      eventConsumerBufferSize: 10
+      registerHealthIndicator: true
+      allowHealthIndicatorToFail: false
+  backends:
+    backendA:
+      registerHealthIndicator: true
+      allowHealthIndicatorToFail: false
+      slidingWindowSize: 6
+      permittedNumberOfCallsInHalfOpenState: 2
+      waitDurationInOpenState: 5s
+      failureRateThreshold: 70
+      eventConsumerBufferSize: 20
+    backendB:
+      slidingWindowSize: 10
+      slidingWindowType: TIME_BASED
+      permittedNumberOfCallsInHalfOpenState: 5
+      waitDurationInOpenState: 5000
+      failureRateThreshold: 50
+      eventConsumerBufferSize: 20
+      registerHealthIndicator: false
+    backendC:
+      slidingWindowSize: 10
+      enableExponentialBackoff: true
+      exponentialBackoffMultiplier: 2
+      exponentialMaxWaitDurationInOpenState: 1111ms
+      permittedNumberOfCallsInHalfOpenState: 5
+      waitDurationInOpenState: 1000
+      failureRateThreshold: 50
+      eventConsumerBufferSize: 20
+      registerHealthIndicator: false
+    backendSharedA:
+      baseConfig: default
+      slidingWindowSize: 6
+    backendSharedB:
+      baseConfig: default
+      slidingWindowType: TIME_BASED
+    dummyFeignClient:
+      baseConfig: default
+      slidingWindowSize: 18
+      permittedNumberOfCallsInHalfOpenState: 6

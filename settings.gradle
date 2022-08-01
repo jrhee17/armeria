@@ -140,6 +140,7 @@ includeWithFlags ':examples:grpc-kotlin',                          'java', 'kotl
 includeWithFlags ':examples:grpc-scala',                           'java', 'scala-grpc_2.13', 'scala_2.13'
 includeWithFlags ':examples:grpc-reactor',                         'java', 'reactor-grpc'
 includeWithFlags ':examples:proxy-server',                         'java'
+includeWithFlags ':examples:resilience4j-spring',                  'java'
 includeWithFlags ':examples:saml-service-provider',                'java'
 includeWithFlags ':examples:server-sent-events',                   'java'
 includeWithFlags ':examples:spring-boot-minimal',                  'java'

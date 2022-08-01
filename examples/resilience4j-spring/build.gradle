@@ -1,0 +1,7 @@
+dependencies {
+    implementation project(':resilience4j')
+    implementation project(':spring:boot2-starter')
+    implementation project(':spring:boot2-actuator-starter')
+    implementation ('io.github.resilience4j:resilience4j-spring-boot2')
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
