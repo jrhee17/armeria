@@ -1021,6 +1021,13 @@ exclusions = [
 module = "org.dmonix.junit:zookeeper-junit"
 version = "1.2"
 
+[libraries.resilience4j]
+module = "io.github.resilience4j:resilience4j-circuitbreaker"
+version = "1.7.1"
+[libraries.resilience4j-springboot]
+module = "io.github.resilience4j:resilience4j-spring-boot2"
+version = "1.7.1"
+
 [plugins]
 jmh = { id = "me.champeau.jmh", version = "0.6.6" }
 osdetector = { id = "com.google.osdetector", version = "1.6.2" }
