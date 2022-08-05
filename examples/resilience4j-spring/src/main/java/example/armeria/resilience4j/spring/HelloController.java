@@ -16,27 +16,14 @@
 
 package example.armeria.resilience4j.spring;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+@RestController
+public class HelloController {
 
-import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
-
-@SpringBootTest(classes = Main.class)
-public class CircuitBreakerTest {
-
-    @Autowired
-    CircuitBreakerRegistry circuitBreakerRegistry;
-
-    @Test
-    void circuitBreakerRegistry() {
-        assertThat(circuitBreakerRegistry).isNotNull();
-    }
-
-    @Test
-    void testAsdf() {
-
+    @GetMapping("/hello")
+    public String hello() {
+        return "world!";
     }
 }
