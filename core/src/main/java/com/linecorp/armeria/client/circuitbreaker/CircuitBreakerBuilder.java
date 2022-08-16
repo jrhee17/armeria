@@ -19,7 +19,9 @@ package com.linecorp.armeria.client.circuitbreaker;
 import static java.util.Objects.requireNonNull;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -29,7 +31,10 @@ import com.linecorp.armeria.common.util.Ticker;
 /**
  * Builds a {@link CircuitBreaker} instance using builder pattern.
  */
-public final class CircuitBreakerBuilder extends AbstractCircuitBreakerBuilder {
+/**
+ * Builds a {@link CircuitBreaker} instance using builder pattern.
+ */
+public final class CircuitBreakerBuilder {
 
     private static final double DEFAULT_FAILURE_RATE_THRESHOLD = 0.5;
     private static final long DEFAULT_MINIMUM_REQUEST_THRESHOLD = 10;
@@ -55,6 +60,8 @@ public final class CircuitBreakerBuilder extends AbstractCircuitBreakerBuilder {
     private Duration counterUpdateInterval = Duration.ofSeconds(DEFAULT_COUNTER_UPDATE_INTERVAL_SECONDS);
 
     private Ticker ticker = DEFAULT_TICKER;
+
+    private List<CircuitBreakerListener> listeners = Collections.emptyList();
 
     CircuitBreakerBuilder(String name) {
         requireNonNull(name, "name");
@@ -188,9 +195,16 @@ public final class CircuitBreakerBuilder extends AbstractCircuitBreakerBuilder {
         return this;
     }
 
-    @Override
+    /**
+     * Adds a {@link CircuitBreakerListener}.
+     */
     public CircuitBreakerBuilder listener(CircuitBreakerListener listener) {
-        return (CircuitBreakerBuilder) super.listener(listener);
+        requireNonNull(listener, "listener");
+        if (listeners.isEmpty()) {
+            listeners = new ArrayList<>(3);
+        }
+        listeners.add(listener);
+        return this;
     }
 
     @VisibleForTesting
@@ -212,6 +226,6 @@ public final class CircuitBreakerBuilder extends AbstractCircuitBreakerBuilder {
                 new CircuitBreakerConfig(name, failureRateThreshold, minimumRequestThreshold,
                                          circuitOpenWindow, trialRequestInterval,
                                          counterSlidingWindow, counterUpdateInterval,
-                                         Collections.unmodifiableList(listeners())));
+                                         Collections.unmodifiableList(listeners)));
     }
 }
