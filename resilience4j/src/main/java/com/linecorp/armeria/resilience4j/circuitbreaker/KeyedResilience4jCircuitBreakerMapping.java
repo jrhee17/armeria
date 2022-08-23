@@ -24,6 +24,8 @@ import static java.util.stream.Collectors.joining;
 import java.util.Objects;
 import java.util.stream.Stream;
 
+import com.google.common.base.MoreObjects;
+
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.common.Request;
 
@@ -58,5 +60,15 @@ final class KeyedResilience4jCircuitBreakerMapping implements Resilience4jCircui
                                  .filter(Objects::nonNull)
                                  .collect(joining("#"));
         return registry.circuitBreaker(key);
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("isPerHost", isPerHost)
+                          .add("isPerMethod", isPerMethod)
+                          .add("isPerPath", isPerPath)
+                          .add("registry", registry)
+                          .toString();
     }
 }
