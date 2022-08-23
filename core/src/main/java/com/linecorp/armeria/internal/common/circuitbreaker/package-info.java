@@ -14,21 +14,11 @@
  * under the License.
  */
 
-package com.linecorp.armeria.client.circuitbreaker;
-
-import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.common.Request;
-import com.linecorp.armeria.common.annotation.UnstableApi;
-
 /**
- * Returns a CircuitBreaker implementation from remote invocation parameters.
+ * CircuitBreaker related classes used internally.
+ * Anything in this package can be changed or removed at any time.
  */
-@FunctionalInterface
-@UnstableApi
-public interface ClientCircuitBreakerGenerator<T> {
+@NonNullByDefault
+package com.linecorp.armeria.internal.common.circuitbreaker;
 
-    /**
-     * Returns a CircuitBreaker implementation mapped to the given parameters.
-     */
-    T get(ClientRequestContext ctx, Request req) throws Exception;
-}
+import com.linecorp.armeria.common.annotation.NonNullByDefault;

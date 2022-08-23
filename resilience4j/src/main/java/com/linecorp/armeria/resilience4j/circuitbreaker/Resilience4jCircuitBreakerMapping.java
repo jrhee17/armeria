@@ -21,6 +21,7 @@ import com.linecorp.armeria.client.circuitbreaker.ClientCircuitBreakerGenerator;
 import com.linecorp.armeria.common.Request;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 
 /**
  * TBU.
@@ -28,7 +29,7 @@ import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 public interface Resilience4jCircuitBreakerMapping extends ClientCircuitBreakerGenerator<CircuitBreaker> {
 
     /**
-     * TBU.
+     * Returns the default {@link Resilience4jCircuitBreakerMapping}.
      */
     static Resilience4jCircuitBreakerMapping ofDefault() {
         return KeyedResilience4jCircuitBreakerMapping.hostMapping;
@@ -52,10 +53,30 @@ public interface Resilience4jCircuitBreakerMapping extends ClientCircuitBreakerG
 
     /**
      * Creates a new {@link Resilience4jCircuitBreakerMapping} which maps {@link CircuitBreaker}s
+     * with method name.
+     *
+     * @param registry the registry from which {@link CircuitBreaker} is fetched.
+     */
+    static Resilience4jCircuitBreakerMapping perMethod(CircuitBreakerRegistry registry) {
+        return builder().perMethod().registry(registry).build();
+    }
+
+    /**
+     * Creates a new {@link Resilience4jCircuitBreakerMapping} which maps {@link CircuitBreaker}s
      * with the remote host name.
      */
     static Resilience4jCircuitBreakerMapping perHost() {
         return builder().perHost().build();
+    }
+
+    /**
+     * Creates a new {@link Resilience4jCircuitBreakerMapping} which maps {@link CircuitBreaker}s
+     * with the remote host name.
+     *
+     * @param registry the registry from which {@link CircuitBreaker} is fetched.
+     */
+    static Resilience4jCircuitBreakerMapping perHost(CircuitBreakerRegistry registry) {
+        return builder().perHost().registry(registry).build();
     }
 
     /**
@@ -68,6 +89,16 @@ public interface Resilience4jCircuitBreakerMapping extends ClientCircuitBreakerG
 
     /**
      * Creates a new {@link Resilience4jCircuitBreakerMapping} which maps {@link CircuitBreaker}s
+     * with the request path.
+     *
+     * @param registry the registry from which {@link CircuitBreaker} is fetched.
+     */
+    static Resilience4jCircuitBreakerMapping perPath(CircuitBreakerRegistry registry) {
+        return builder().perPath().registry(registry).build();
+    }
+
+    /**
+     * Creates a new {@link Resilience4jCircuitBreakerMapping} which maps {@link CircuitBreaker}s
      * with the remote host and method name.
      */
     static Resilience4jCircuitBreakerMapping perHostAndMethod() {
@@ -75,7 +106,17 @@ public interface Resilience4jCircuitBreakerMapping extends ClientCircuitBreakerG
     }
 
     /**
-     * TBU.
+     * Creates a new {@link Resilience4jCircuitBreakerMapping} which maps {@link CircuitBreaker}s
+     * with the remote host and method name.
+     *
+     * @param registry the registry from which {@link CircuitBreaker} is fetched.
+     */
+    static Resilience4jCircuitBreakerMapping perHostAndMethod(CircuitBreakerRegistry registry) {
+        return builder().perHost().perMethod().registry(registry).build();
+    }
+
+    /**
+     * Returns the {@link CircuitBreaker} mapped to the given parameters.
      */
     @Override
     CircuitBreaker get(ClientRequestContext ctx, Request req);

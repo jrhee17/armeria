@@ -16,24 +16,21 @@
 
 package com.linecorp.armeria.resilience4j.circuitbreaker;
 
+import static com.linecorp.armeria.internal.common.circuitbreaker.CircuitBreakerMappingUtils.host;
+import static com.linecorp.armeria.internal.common.circuitbreaker.CircuitBreakerMappingUtils.method;
+import static com.linecorp.armeria.internal.common.circuitbreaker.CircuitBreakerMappingUtils.path;
 import static java.util.stream.Collectors.joining;
 
 import java.util.Objects;
 import java.util.stream.Stream;
 
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.Request;
-import com.linecorp.armeria.common.RpcRequest;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 
-/**
- * TBU.
- */
-public class KeyedResilience4jCircuitBreakerMapping implements Resilience4jCircuitBreakerMapping {
+final class KeyedResilience4jCircuitBreakerMapping implements Resilience4jCircuitBreakerMapping {
 
     static final KeyedResilience4jCircuitBreakerMapping hostMapping =
             new KeyedResilience4jCircuitBreakerMapping(true, false, false,
@@ -50,30 +47,6 @@ public class KeyedResilience4jCircuitBreakerMapping implements Resilience4jCircu
         isPerMethod = perMethod;
         isPerPath = perPath;
         this.registry = registry;
-    }
-
-    private static String host(ClientRequestContext ctx) {
-        final Endpoint endpoint = ctx.endpoint();
-        if (endpoint == null) {
-            return "UNKNOWN";
-        } else {
-            final String ipAddr = endpoint.ipAddr();
-            if (ipAddr == null || endpoint.isIpAddrOnly()) {
-                return endpoint.authority();
-            } else {
-                return endpoint.authority() + '/' + ipAddr;
-            }
-        }
-    }
-
-    private static String method(ClientRequestContext ctx) {
-        final RpcRequest rpcReq = ctx.rpcRequest();
-        return rpcReq != null ? rpcReq.method() : ctx.method().name();
-    }
-
-    private static String path(ClientRequestContext ctx) {
-        final HttpRequest request = ctx.request();
-        return request == null ? "" : request.path();
     }
 
     @Override
