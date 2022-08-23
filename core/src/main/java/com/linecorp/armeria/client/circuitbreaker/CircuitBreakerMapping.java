@@ -29,6 +29,7 @@ import com.linecorp.armeria.common.Request;
  */
 @FunctionalInterface
 public interface CircuitBreakerMapping extends ClientCircuitBreakerGenerator<CircuitBreaker> {
+
     /**
      * Returns the default {@link CircuitBreakerMapping}.
      */

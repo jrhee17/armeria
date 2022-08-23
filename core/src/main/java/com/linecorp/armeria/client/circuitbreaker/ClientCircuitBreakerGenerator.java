@@ -22,6 +22,7 @@ import com.linecorp.armeria.common.Request;
 /**
  * TBU.
  */
+@FunctionalInterface
 public interface ClientCircuitBreakerGenerator<T> {
 
     /**

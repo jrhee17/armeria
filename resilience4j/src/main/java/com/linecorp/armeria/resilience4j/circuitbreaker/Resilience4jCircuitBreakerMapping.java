@@ -17,14 +17,10 @@
 package com.linecorp.armeria.resilience4j.circuitbreaker;
 
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.circuitbreaker.ClientCircuitBreakerGenerator;
-import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.Request;
-import com.linecorp.armeria.common.RpcRequest;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 
 /**
  * TBU.
@@ -34,41 +30,48 @@ public interface Resilience4jCircuitBreakerMapping extends ClientCircuitBreakerG
     /**
      * TBU.
      */
-    static Resilience4jCircuitBreakerMapping perHost(String configName, CircuitBreakerRegistry registry) {
-        return (ctx, req) -> registry.circuitBreaker(host(ctx), configName);
+    static Resilience4jCircuitBreakerMapping ofDefault() {
+        return KeyedResilience4jCircuitBreakerMapping.hostMapping;
     }
 
     /**
-     * TBU.
+     * Returns a builder that builds a {@link Resilience4jCircuitBreakerMapping}
+     * by setting host, method and/or path.
      */
-    static String host(ClientRequestContext ctx) {
-        final Endpoint endpoint = ctx.endpoint();
-        if (endpoint == null) {
-            return "UNKNOWN";
-        } else {
-            final String ipAddr = endpoint.ipAddr();
-            if (ipAddr == null || endpoint.isIpAddrOnly()) {
-                return endpoint.authority();
-            } else {
-                return endpoint.authority() + '/' + ipAddr;
-            }
-        }
+    static Resilience4jCircuitBreakerMappingBuilder builder() {
+        return new Resilience4jCircuitBreakerMappingBuilder();
     }
 
     /**
-     * TBU.
+     * Creates a new {@link Resilience4jCircuitBreakerMapping} which maps {@link CircuitBreaker}s
+     * with method name.
      */
-    static String method(ClientRequestContext ctx) {
-        final RpcRequest rpcReq = ctx.rpcRequest();
-        return rpcReq != null ? rpcReq.method() : ctx.method().name();
+    static Resilience4jCircuitBreakerMapping perMethod() {
+        return builder().perMethod().build();
     }
 
     /**
-     * TBU.
+     * Creates a new {@link Resilience4jCircuitBreakerMapping} which maps {@link CircuitBreaker}s
+     * with the remote host name.
      */
-    static String path(ClientRequestContext ctx) {
-        final HttpRequest request = ctx.request();
-        return request == null ? "" : request.path();
+    static Resilience4jCircuitBreakerMapping perHost() {
+        return builder().perHost().build();
+    }
+
+    /**
+     * Creates a new {@link Resilience4jCircuitBreakerMapping} which maps {@link CircuitBreaker}s
+     * with the request path.
+     */
+    static Resilience4jCircuitBreakerMapping perPath() {
+        return builder().perPath().build();
+    }
+
+    /**
+     * Creates a new {@link Resilience4jCircuitBreakerMapping} which maps {@link CircuitBreaker}s
+     * with the remote host and method name.
+     */
+    static Resilience4jCircuitBreakerMapping perHostAndMethod() {
+        return builder().perHost().perMethod().build();
     }
 
     /**
