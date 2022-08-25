@@ -149,6 +149,13 @@ public final class CircuitBreakerReporter<CB> {
     public void reportSuccessOrFailure(CB circuitBreaker,
                                        ClientRequestContext ctx,
                                        CompletionStage<CircuitBreakerDecision> future) {
+        reportSuccessOrFailure(circuitBreaker, ctx, future, callbacks);
+    }
+
+    public static <CB> void reportSuccessOrFailure(CB circuitBreaker,
+                                                   ClientRequestContext ctx,
+                                                   CompletionStage<CircuitBreakerDecision> future,
+                                                   CircuitBreakerClientCallbacks<CB> callbacks) {
         future.handle((decision, unused) -> {
             if (decision != null) {
                 if (decision == CircuitBreakerDecision.success() || decision == CircuitBreakerDecision.next()) {

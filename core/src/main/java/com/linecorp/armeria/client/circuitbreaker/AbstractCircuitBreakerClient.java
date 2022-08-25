@@ -16,11 +16,8 @@
 
 package com.linecorp.armeria.client.circuitbreaker;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.linecorp.armeria.internal.common.circuitbreaker.CircuitBreakerConverterUtil.fromCircuitBreakerRuleWithContent;
 import static java.util.Objects.requireNonNull;
-
-import java.util.concurrent.CompletionStage;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +28,6 @@ import com.linecorp.armeria.client.SimpleDecoratingClient;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.common.util.CompletionActions;
 
 /**
  * A {@link Client} decorator that handles failures of remote invocation based on circuit breaker pattern.
@@ -78,6 +74,7 @@ public abstract class AbstractCircuitBreakerClient<I extends Request, O extends 
                                          @Nullable CircuitBreakerRule rule,
                                          @Nullable CircuitBreakerRuleWithContent<O> ruleWithContent) {
         super(delegate);
+
         this.mapping = requireNonNull(mapping, "mapping");
         this.rule = rule;
         this.ruleWithContent = ruleWithContent;
@@ -86,36 +83,6 @@ public abstract class AbstractCircuitBreakerClient<I extends Request, O extends 
         } else {
             fromRuleWithContent = null;
         }
-    }
-
-    /**
-     * Returns the {@link CircuitBreakerRule}.
-     *
-     * @throws IllegalStateException if the {@link CircuitBreakerRule} is not set
-     */
-    final CircuitBreakerRule rule() {
-        checkState(rule != null, "rule is not set.");
-        return rule;
-    }
-
-    /**
-     * Returns the {@link CircuitBreakerRuleWithContent}.
-     *
-     * @throws IllegalStateException if the {@link CircuitBreakerRuleWithContent} is not set
-     */
-    final CircuitBreakerRuleWithContent<O> ruleWithContent() {
-        checkState(ruleWithContent != null, "ruleWithContent is not set.");
-        return ruleWithContent;
-    }
-
-    /**
-     * Returns the {@link CircuitBreakerRule} derived from {@link #ruleWithContent()}.
-     *
-     * @throws IllegalStateException if the {@link CircuitBreakerRuleWithContent} is not set
-     */
-    final CircuitBreakerRule fromRuleWithContent() {
-        checkState(ruleWithContent != null, "ruleWithContent is not set.");
-        return fromRuleWithContent;
     }
 
     @Override
@@ -141,25 +108,4 @@ public abstract class AbstractCircuitBreakerClient<I extends Request, O extends 
      */
     protected abstract O doExecute(ClientRequestContext ctx, I req, CircuitBreaker circuitBreaker)
             throws Exception;
-
-    /**
-     * Reports a success or a failure to the specified {@link CircuitBreaker} according to the completed value
-     * of the specified {@code future}. If the completed value is {@link CircuitBreakerDecision#ignore()},
-     * this doesn't do anything.
-     */
-    protected static void reportSuccessOrFailure(CircuitBreaker circuitBreaker,
-                                                 CompletionStage<CircuitBreakerDecision> future) {
-        future.handle((decision, unused) -> {
-            if (decision != null) {
-                if (decision == CircuitBreakerDecision.success() || decision == CircuitBreakerDecision.next()) {
-                    circuitBreaker.onSuccess();
-                } else if (decision == CircuitBreakerDecision.failure()) {
-                    circuitBreaker.onFailure();
-                } else {
-                    // Ignore, does not count as a success nor failure.
-                }
-            }
-            return null;
-        }).exceptionally(CompletionActions::log);
-    }
 }
