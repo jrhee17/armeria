@@ -21,7 +21,7 @@ import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.RpcRequest;
 
-public final class CircuitBreakerMappingUtils {
+public final class CircuitBreakerMappingUtil {
 
     public static String host(ClientRequestContext ctx) {
         final Endpoint endpoint = ctx.endpoint();
@@ -47,5 +47,5 @@ public final class CircuitBreakerMappingUtils {
         return request == null ? "" : request.path();
     }
 
-    private CircuitBreakerMappingUtils() {}
+    private CircuitBreakerMappingUtil() {}
 }

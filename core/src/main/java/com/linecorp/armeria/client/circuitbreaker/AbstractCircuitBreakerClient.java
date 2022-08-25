@@ -17,7 +17,7 @@
 package com.linecorp.armeria.client.circuitbreaker;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.linecorp.armeria.client.circuitbreaker.CircuitBreakerRuleUtil.fromCircuitBreakerRuleWithContent;
+import static com.linecorp.armeria.internal.common.circuitbreaker.CircuitBreakerConverterUtil.fromCircuitBreakerRuleWithContent;
 import static java.util.Objects.requireNonNull;
 
 import java.util.concurrent.CompletionStage;

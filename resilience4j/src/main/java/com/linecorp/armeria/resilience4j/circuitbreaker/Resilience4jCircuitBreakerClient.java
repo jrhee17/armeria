@@ -19,36 +19,37 @@ package com.linecorp.armeria.resilience4j.circuitbreaker;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.SimpleDecoratingClient;
 import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerClientBuilder;
-import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerDecision;
+import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerClientCallbacks;
 import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerRule;
 import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerRuleWithContent;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
-import com.linecorp.armeria.common.HttpResponseDuplicator;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.common.logging.RequestLogProperty;
-import com.linecorp.armeria.common.util.CompletionActions;
-import com.linecorp.armeria.internal.client.TruncatingHttpResponse;
+import com.linecorp.armeria.internal.common.circuitbreaker.CircuitBreakerClientUtil;
+import com.linecorp.armeria.internal.common.circuitbreaker.CircuitBreakerReporter;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.netty.util.AttributeKey;
 
 /**
  * An {@link HttpClient} decorator that handles failures of HTTP requests based on circuit breaker pattern
  * using {@link CircuitBreaker}.
  */
-public final class Resilience4jCircuitBreakerClient extends SimpleDecoratingClient<HttpRequest, HttpResponse> {
+public final class Resilience4jCircuitBreakerClient extends SimpleDecoratingClient<HttpRequest, HttpResponse>
+        implements CircuitBreakerClientCallbacks<CircuitBreaker> {
 
     private static final int DEFAULT_MAX_CONTENT_LENGTH = Integer.MAX_VALUE;
+    private static final AttributeKey<Long> START_TIME
+            = AttributeKey.valueOf(Resilience4jCircuitBreakerClient.class, "START_TIME");
 
     /**
      * Creates a new decorator using the specified {@link CircuitBreaker} instance and
@@ -262,12 +263,7 @@ public final class Resilience4jCircuitBreakerClient extends SimpleDecoratingClie
     }
 
     private final Resilience4jCircuitBreakerMapping mapping;
-    @Nullable
-    private final CircuitBreakerRule rule;
-    private final boolean needsContentInRule;
-    private final int maxContentLength;
-    @Nullable
-    private final CircuitBreakerRuleWithContent<HttpResponse> ruleWithContent;
+    private final CircuitBreakerReporter<CircuitBreaker> reporter;
 
     Resilience4jCircuitBreakerClient(HttpClient delegate, Resilience4jCircuitBreakerMapping mapping,
                                      CircuitBreakerRuleWithContent<HttpResponse> ruleWithContent,
@@ -288,10 +284,8 @@ public final class Resilience4jCircuitBreakerClient extends SimpleDecoratingClie
             int maxContentLength) {
         super(delegate);
         this.mapping = mapping;
-        this.rule = rule;
-        this.ruleWithContent = ruleWithContent;
-        this.needsContentInRule = needsContentInRule;
-        this.maxContentLength = maxContentLength;
+        reporter = new CircuitBreakerReporter<>(rule, ruleWithContent, maxContentLength,
+                                                needsContentInRule, this);
     }
 
     @Override
@@ -301,86 +295,38 @@ public final class Resilience4jCircuitBreakerClient extends SimpleDecoratingClie
         circuitBreaker.acquirePermission();
 
         final long start = circuitBreaker.getCurrentTimestamp();
+        ctx.setAttr(START_TIME, start);
         final HttpResponse response;
         try {
             response = unwrap().execute(ctx, req);
         } catch (Throwable cause) {
-            reportSuccessOrFailure(circuitBreaker, rule.shouldReportAsSuccess(ctx, cause), start, cause);
+            reporter.reportSuccessOrFailure(circuitBreaker, ctx, cause);
             throw cause;
         }
-        final RequestLogProperty property =
-                rule.requiresResponseTrailers() ? RequestLogProperty.RESPONSE_TRAILERS
-                                                : RequestLogProperty.RESPONSE_HEADERS;
-        if (!needsContentInRule) {
-            reportResult(ctx, circuitBreaker, property, start);
-            return response;
-        } else {
-            return reportResultWithContent(ctx, response, circuitBreaker, property, start);
+        return reporter.report(ctx, circuitBreaker, response);
+    }
+
+    @Override
+    public void onSuccess(CircuitBreaker circuitBreaker, ClientRequestContext ctx) {
+        long duration = 0;
+        final Long startTime = ctx.attr(START_TIME);
+        if (startTime != null) {
+            duration = circuitBreaker.getCurrentTimestamp() - startTime;
         }
+        circuitBreaker.onSuccess(duration, circuitBreaker.getTimestampUnit());
     }
 
-    private void reportResult(ClientRequestContext ctx, CircuitBreaker circuitBreaker,
-                              RequestLogProperty logProperty, long start) {
-        ctx.log().whenAvailable(logProperty).thenAccept(log -> {
-            final Throwable resCause =
-                    log.isAvailable(RequestLogProperty.RESPONSE_CAUSE) ? log.responseCause() : null;
-            reportSuccessOrFailure(circuitBreaker, rule().shouldReportAsSuccess(ctx, resCause),
-                                   start, resCause);
-        });
-    }
-
-    private CircuitBreakerRule rule() {
-        return rule;
-    }
-
-    private HttpResponse reportResultWithContent(ClientRequestContext ctx, HttpResponse response,
-                                                 CircuitBreaker circuitBreaker,
-                                                 RequestLogProperty logProperty, long start) {
-
-        final HttpResponseDuplicator duplicator = response.toDuplicator(ctx.eventLoop().withoutContext(),
-                                                                        ctx.maxResponseLength());
-        final TruncatingHttpResponse truncatingHttpResponse =
-                new TruncatingHttpResponse(duplicator.duplicate(), maxContentLength);
-        final HttpResponse duplicate = duplicator.duplicate();
-        duplicator.close();
-
-        ctx.log().whenAvailable(logProperty).thenAccept(log -> {
-            try {
-                final Throwable resCause =
-                        log.isAvailable(RequestLogProperty.RESPONSE_CAUSE) ? log.responseCause() : null;
-                final CompletionStage<CircuitBreakerDecision> f =
-                        ruleWithContent().shouldReportAsSuccess(ctx, truncatingHttpResponse, resCause);
-                f.handle((unused1, unused2) -> {
-                    truncatingHttpResponse.abort();
-                    return null;
-                });
-                reportSuccessOrFailure(circuitBreaker, f, start, resCause);
-            } catch (Throwable cause) {
-                duplicator.abort(cause);
-            }
-        });
-
-        return duplicate;
-    }
-
-    private CircuitBreakerRuleWithContent<HttpResponse> ruleWithContent() {
-        return ruleWithContent;
-    }
-
-    private static void reportSuccessOrFailure(
-            CircuitBreaker circuitBreaker,
-            CompletionStage<CircuitBreakerDecision> future, long start, @Nullable Throwable cause) {
-        future.handle((decision, t) -> {
-            if (t != null) {
-                final long duration = circuitBreaker.getCurrentTimestamp() - start;
-                if (decision == CircuitBreakerDecision.success() || decision == CircuitBreakerDecision.next() ||
-                    cause == null) {
-                    circuitBreaker.onSuccess(duration, circuitBreaker.getTimestampUnit());
-                } else if (decision == CircuitBreakerDecision.failure()) {
-                    circuitBreaker.onError(duration, circuitBreaker.getTimestampUnit(), cause);
-                }
-            }
-            return null;
-        }).exceptionally(CompletionActions::log);
+    @Override
+    public void onFailure(CircuitBreaker circuitBreaker, ClientRequestContext ctx) {
+        long duration = 0;
+        final Long startTime = ctx.attr(START_TIME);
+        if (startTime != null) {
+            duration = circuitBreaker.getCurrentTimestamp() - startTime;
+        }
+        Throwable throwable = CircuitBreakerClientUtil.getThrowable(ctx);
+        if (throwable == null) {
+            throwable = new Throwable();
+        }
+        circuitBreaker.onError(duration, circuitBreaker.getTimestampUnit(), throwable);
     }
 }

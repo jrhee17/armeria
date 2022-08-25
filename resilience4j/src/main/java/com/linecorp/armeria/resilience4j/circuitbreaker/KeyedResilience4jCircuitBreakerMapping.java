@@ -16,9 +16,9 @@
 
 package com.linecorp.armeria.resilience4j.circuitbreaker;
 
-import static com.linecorp.armeria.internal.common.circuitbreaker.CircuitBreakerMappingUtils.host;
-import static com.linecorp.armeria.internal.common.circuitbreaker.CircuitBreakerMappingUtils.method;
-import static com.linecorp.armeria.internal.common.circuitbreaker.CircuitBreakerMappingUtils.path;
+import static com.linecorp.armeria.internal.common.circuitbreaker.CircuitBreakerMappingUtil.host;
+import static com.linecorp.armeria.internal.common.circuitbreaker.CircuitBreakerMappingUtil.method;
+import static com.linecorp.armeria.internal.common.circuitbreaker.CircuitBreakerMappingUtil.path;
 import static java.util.stream.Collectors.joining;
 
 import java.util.Objects;
