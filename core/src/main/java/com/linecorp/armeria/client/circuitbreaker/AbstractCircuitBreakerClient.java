@@ -16,7 +16,6 @@
 
 package com.linecorp.armeria.client.circuitbreaker;
 
-import static com.linecorp.armeria.internal.common.circuitbreaker.CircuitBreakerConverterUtil.fromCircuitBreakerRuleWithContent;
 import static java.util.Objects.requireNonNull;
 
 import org.slf4j.Logger;
@@ -39,15 +38,6 @@ public abstract class AbstractCircuitBreakerClient<I extends Request, O extends 
         extends SimpleDecoratingClient<I, O> {
 
     private static final Logger logger = LoggerFactory.getLogger(AbstractCircuitBreakerClient.class);
-
-    @Nullable
-    private final CircuitBreakerRule rule;
-
-    @Nullable
-    private final CircuitBreakerRule fromRuleWithContent;
-
-    @Nullable
-    private final CircuitBreakerRuleWithContent<O> ruleWithContent;
 
     private final CircuitBreakerMapping mapping;
 
@@ -76,13 +66,6 @@ public abstract class AbstractCircuitBreakerClient<I extends Request, O extends 
         super(delegate);
 
         this.mapping = requireNonNull(mapping, "mapping");
-        this.rule = rule;
-        this.ruleWithContent = ruleWithContent;
-        if (ruleWithContent != null) {
-            fromRuleWithContent = fromCircuitBreakerRuleWithContent(ruleWithContent);
-        } else {
-            fromRuleWithContent = null;
-        }
     }
 
     @Override
