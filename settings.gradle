@@ -115,6 +115,7 @@ includeWithFlags ':site'
 // Examples
 includeWithFlags ':examples:annotated-http-service',               'java'
 includeWithFlags ':examples:annotated-http-service-kotlin',        'java', 'kotlin'
+includeWithFlags ':examples:blocking-demo',                        'java'
 includeWithFlags ':examples:context-propagation-dagger-example',   'java'
 project(':examples:context-propagation-dagger-example').projectDir = file('examples/context-propagation/dagger')
 includeWithFlags ':examples:context-propagation-kotlin-example',   'java', 'kotlin'
@@ -152,3 +153,4 @@ includeWithFlags ':examples:thrift',                               'java'
 includeWithFlags ':examples:tutorials:rest-api-annotated-service', 'java'
 includeWithFlags ':examples:tutorials:grpc-tutorial',              'java'
 project(':examples:tutorials:grpc-tutorial').projectDir = file('examples/tutorials/grpc')
+
