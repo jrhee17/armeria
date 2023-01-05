@@ -1,10 +1,9 @@
 package example.armeria.server.files;
 
-import java.nio.file.Paths;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.linecorp.armeria.common.util.AppRootFinder;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.file.FileService;
@@ -39,7 +38,7 @@ public final class Main {
                            .asService())
           // Serve the files under the current user's home directory.
           .service("prefix:/",
-                   FileService.builder(Paths.get(System.getProperty("user.home")))
+                   FileService.builder(AppRootFinder.findCurrent())
                               .autoIndex(true)
                               .build())
           .build();
