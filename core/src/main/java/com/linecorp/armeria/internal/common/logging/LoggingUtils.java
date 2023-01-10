@@ -35,6 +35,7 @@ import com.linecorp.armeria.server.TransientServiceOption;
  * Utilities for logging decorators.
  */
 public final class LoggingUtils {
+    // need to update log format:
     private static final String REQUEST_FORMAT = "{} Request: {}";
     private static final String RESPONSE_FORMAT = "{} Response: {}";
 
@@ -93,7 +94,8 @@ public final class LoggingUtils {
 
         final LogLevel responseLogLevel = responseLogLevelMapper.apply(log);
         assert responseLogLevel != null;
-        final Throwable responseCause = log.responseCause();
+        final Throwable responseCause = logFormatter.formatException(log.context(), log.responseCause());
+        Throwable requestCause = logFormatter.formatException(log.context(), log.responseCause());
 
         if (responseLogLevel.isEnabled(logger)) {
             final RequestContext ctx = log.context();

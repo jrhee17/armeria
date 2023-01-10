@@ -21,11 +21,13 @@ import static java.util.Objects.requireNonNull;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.RequestContext;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.UnstableApi;
+import com.linecorp.armeria.common.util.Functions;
 import com.linecorp.armeria.common.util.TextFormatter;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
 
@@ -52,6 +54,7 @@ final class TextLogFormatter implements LogFormatter {
     private final BiFunction<? super RequestContext, Object, ? extends String> requestContentSanitizer;
 
     private final BiFunction<? super RequestContext, Object, ? extends String> responseContentSanitizer;
+    private final BiFunction<? super RequestContext, Throwable, Throwable> causeSanitizer = Functions.second();
 
     TextLogFormatter(
             BiFunction<? super RequestContext, ? super HttpHeaders, ? extends String> requestHeadersSanitizer,
@@ -67,6 +70,10 @@ final class TextLogFormatter implements LogFormatter {
         this.responseTrailersSanitizer = responseTrailersSanitizer;
         this.requestContentSanitizer = requestContentSanitizer;
         this.responseContentSanitizer = responseContentSanitizer;
+    }
+
+    public Throwable formatException(RequestContext ctx, Throwable e) {
+        return causeSanitizer.apply(ctx, e);
     }
 
     @Override

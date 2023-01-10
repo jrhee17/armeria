@@ -270,4 +270,8 @@ final class JsonLogFormatter implements LogFormatter {
             return "{}";
         }
     }
+
+    public Throwable formatException(RequestContext ctx, Throwable e) {
+//        return causeSanitizer.apply(ctx, e);
+    }
 }

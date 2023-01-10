@@ -18,6 +18,7 @@ package com.linecorp.armeria.common.logging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.linecorp.armeria.common.RequestContext;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
 /**
@@ -74,4 +75,6 @@ public interface LogFormatter {
      * Returns the formatted response log message that is constructed by {@link RequestLog}.
      */
     String formatResponse(RequestLog log);
+
+    Throwable formatException(RequestContext ctx, Throwable e);
 }
