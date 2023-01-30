@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import org.reactivestreams.Publisher;
@@ -77,7 +78,7 @@ public final class BlockingWebClientRequestPreparation
     public <U> TransformingRequestPreparation<AggregatedHttpResponse, U> as(
             ResponseAs<AggregatedHttpResponse, U> responseAs) {
         requireNonNull(responseAs, "responseAs");
-        return new TransformingRequestPreparation<>(this, responseAs);
+        return new BlockingTransformingRequestPreparation<>(this, responseAs, successFunction, errorHandler);
     }
 
     /**
@@ -166,7 +167,7 @@ public final class BlockingWebClientRequestPreparation
             Class<? extends T> clazz, HttpStatus httpStatus) {
         requireNonNull(clazz, "clazz");
         requireNonNull(httpStatus, "httpStatus");
-        return asJson(clazz, HttpStatusPredicate.of(httpStatus));
+        return asJson(clazz, successFunction);
     }
 
     /**
@@ -196,7 +197,7 @@ public final class BlockingWebClientRequestPreparation
             Class<? extends T> clazz, HttpStatusClass httpStatusClass) {
         requireNonNull(clazz, "clazz");
         requireNonNull(httpStatusClass, "httpStatusClass");
-        return asJson(clazz, HttpStatusClassPredicates.of(httpStatusClass));
+        return asJson(clazz, successFunction);
     }
 
     /**
@@ -228,7 +229,7 @@ public final class BlockingWebClientRequestPreparation
             Class<? extends T> clazz, Predicate<? super HttpStatus> predicate) {
         requireNonNull(clazz, "clazz");
         requireNonNull(predicate, "predicate");
-        return as(AggregatedResponseAs.json(clazz, predicate));
+        return as(AggregatedResponseAs.json(clazz, successFunction));
     }
 
     /**
@@ -822,6 +823,18 @@ public final class BlockingWebClientRequestPreparation
     @Override
     public <V> BlockingWebClientRequestPreparation attr(AttributeKey<V> key, @Nullable V value) {
         delegate.attr(key, value);
+        return this;
+    }
+
+    private Predicate<HttpStatus> successFunction;
+    private Function<? super Throwable, ?> errorHandler;
+    public BlockingWebClientRequestPreparation successFunction(Predicate<HttpStatus> successFunction) {
+        this.successFunction = successFunction;
+        return this;
+    }
+
+    public BlockingWebClientRequestPreparation errorHandler(Function<? super Throwable, ?> errorHandler) {
+        this.errorHandler = errorHandler;
         return this;
     }
 }

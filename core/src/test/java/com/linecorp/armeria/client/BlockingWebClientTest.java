@@ -172,8 +172,9 @@ class BlockingWebClientTest {
 
         final ResponseEntity<MyMessage> responseGeneric = client.prepare()
                                                          .get("/json")
-                                                         .asJson(new TypeReference<MyMessage>() {},
-                                                                 HttpStatus.valueOf(200))
+                                                                .successFunction(status -> true)
+                                                                .errorHandler(t -> new String("") /*Not typesafe*/)
+                                                         .asJson(new TypeReference<MyMessage>() {})
                                                          .execute();
         assertThat(responseGeneric.content()).isEqualTo(new MyMessage("hello"));
         assertThat(responseGeneric.headers().status()).isEqualTo(HttpStatus.OK);
