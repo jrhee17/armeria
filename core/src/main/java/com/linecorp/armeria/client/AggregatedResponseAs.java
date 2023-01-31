@@ -57,10 +57,6 @@ final class AggregatedResponseAs {
 
     private static <T> ResponseEntity<T> newJsonResponseEntity(AggregatedHttpResponse response,
                                                                JsonDecoder<T> decoder) {
-        if (!response.status().isSuccess()) {
-            throw newInvalidHttpResponseException(response);
-        }
-
         try {
             return ResponseEntity.of(response.headers(), decoder.decode(response.content().array()),
                                      response.trailers());
@@ -69,7 +65,7 @@ final class AggregatedResponseAs {
         }
     }
 
-    private static InvalidHttpResponseException newInvalidHttpResponseException(
+    public static InvalidHttpResponseException newInvalidHttpResponseException(
             AggregatedHttpResponse response) {
         return new InvalidHttpResponseException(
                 response, "status: " + response.status() +

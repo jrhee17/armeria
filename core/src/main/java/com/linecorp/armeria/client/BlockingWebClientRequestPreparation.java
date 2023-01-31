@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.client;
 
+import static com.linecorp.armeria.client.AggregatedResponseAs.newInvalidHttpResponseException;
 import static java.util.Objects.requireNonNull;
 
 import java.time.Duration;
@@ -52,6 +53,14 @@ import io.netty.util.AttributeKey;
 @UnstableApi
 public final class BlockingWebClientRequestPreparation
         implements WebRequestPreparationSetters<AggregatedHttpResponse> {
+
+    private static final ResponseAs<AggregatedHttpResponse, AggregatedHttpResponse> STATUS_CODE_CHECKER =
+            response -> {
+                if (!response.status().isSuccess()) {
+                    throw newInvalidHttpResponseException(response);
+                }
+                return response;
+            };
 
     private final WebClientRequestPreparation delegate;
 
@@ -188,7 +197,7 @@ public final class BlockingWebClientRequestPreparation
     public <T> TransformingRequestPreparation<AggregatedHttpResponse, ResponseEntity<T>> asJson(
             TypeReference<? extends T> typeRef) {
         requireNonNull(typeRef, "typeRef");
-        return as(AggregatedResponseAs.json(typeRef));
+        return as(STATUS_CODE_CHECKER.andThen(AggregatedResponseAs.json(typeRef)));
     }
 
     /**

@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -181,5 +182,38 @@ public interface ResponseAs<T, R> {
                 return after.requiresAggregation();
             }
         };
+    }
+
+    @UnstableApi
+    default <V> IfResponseAs<T, R, V> iff(Predicate<R> predicate) {
+        requireNonNull(predicate, "predicate");
+        return new IfResponseAs<>(this, predicate);
+    }
+
+    public class IfResponseAs<T, R, V>  {
+        private final Predicate<R> predicate;
+        private ResponseAs<R, V> then;
+        private ResponseAs<R, V> orElse;
+        private ResponseAs<T, R> delegate;
+        IfResponseAs(ResponseAs<T, R> delegate, Predicate<R> predicate) {
+            this.delegate = delegate;
+            this.predicate = predicate;
+        }
+
+        IfResponseAs<T, R, V> then(ResponseAs<R, V> then) {
+            this.then = then;
+            return this;
+        }
+
+        ResponseAs<T, V> orElse(ResponseAs<R, V> orElse) {
+            this.orElse = orElse;
+            return delegate.andThen(u -> {
+                if (predicate.test(u)) {
+                    return then.as(u);
+                } else {
+                    return orElse.as(u);
+                }
+            });
+        }
     }
 }
