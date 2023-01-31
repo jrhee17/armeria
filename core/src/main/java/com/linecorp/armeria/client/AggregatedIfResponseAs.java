@@ -16,28 +16,29 @@
 
 package com.linecorp.armeria.client;
 
-import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map.Entry;
+import static com.linecorp.armeria.client.AggregatedResponseAsUtil.fromJson;
+
 import java.util.function.Predicate;
 
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 
-public class AggregatedResponseAs<V> {
+public class AggregatedIfResponseAs<V> {
 
-    List<Entry<Predicate<AggregatedHttpResponse>, ResponseAs<AggregatedHttpResponse, V>>> list =
-            new ArrayList<>();
+    AggregatedResponseAs<V> delegate;
+    Predicate<AggregatedHttpResponse> predicate;
 
-    void add(Predicate<AggregatedHttpResponse> predicate, ResponseAs<AggregatedHttpResponse, V> responseAs) {
-        list.add(new SimpleEntry<>(predicate, responseAs));
+    AggregatedIfResponseAs(AggregatedResponseAs<V> delegate,
+                           Predicate<AggregatedHttpResponse> predicate) {
+        this.delegate = delegate;
+        this.predicate = predicate;
     }
 
-    AggregatedResponseAs() {
+    public AggregatedElseResponseAs<V> thenJson(Class<? extends V> clazz) {
+        return then(res -> fromJson(clazz, res));
     }
 
-    public AggregatedIfResponseAs<V> when(
-            Predicate<AggregatedHttpResponse> predicate) {
-        return new AggregatedIfResponseAs<>(this, predicate);
+    AggregatedElseResponseAs<V> then(ResponseAs<AggregatedHttpResponse, V> then) {
+        delegate.add(predicate, then);
+        return new AggregatedElseResponseAs<>(delegate);
     }
 }

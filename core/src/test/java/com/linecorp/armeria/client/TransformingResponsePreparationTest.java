@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
@@ -38,6 +39,7 @@ import com.linecorp.armeria.common.HttpEntity;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.ResponseEntity;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.server.HttpStatusException;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
@@ -54,6 +56,15 @@ class TransformingResponsePreparationTest {
             sb.service("/json", (ctx, req) -> HttpResponse.ofJson(new MyMessage("hello")));
             sb.service("/json_list",
                        (ctx, req) -> HttpResponse.ofJson(ImmutableList.of(new MyMessage("hello"))));
+
+            sb.service("/json/{code}", (ctx, req) -> {
+                final HttpStatus status = HttpStatus.valueOf(ctx.pathParam("code"));
+                if (status.isSuccess()) {
+                    return HttpResponse.ofJson(status, new MyMessage("hello"));
+                } else {
+                    return HttpResponse.ofJson(status, new MyError("an", "error"));
+                }
+            });
         }
     };
 
@@ -93,12 +104,65 @@ class TransformingResponsePreparationTest {
     @Test
     void futureResponseAs_json() {
         final WebClient client = WebClient.of(server.httpUri());
-        final ResponseEntity<MyMessage> response = client.prepare()
-                                                         .get("/json")
-                                                         .asJson(MyMessage.class)
-                                                         .execute()
-                                                         .join();
+        ResponseEntity<MyResponse> response = client
+                .prepare()
+                .get("/json/200")
+                .as(ResponseAs.aggregatingBuilder(MyResponse.class)
+                              .when(res -> res.status().code() == 404)
+                              .thenJson(MyError.class)
+                              .when(res -> res.status().code() == 403)
+                              .thenJson(MyError.class)
+                              .orElseJson(MyMessage.class)
+                              .toEntity())
+                .execute();
         assertThat(response.content()).isEqualTo(new MyMessage("hello"));
+
+        assertThatThrownBy(() -> client
+                                   .prepare()
+                                   .get("/json/200")
+                                   .as(ResponseAs.aggregatingBuilder(MyResponse.class)
+                                                 .when(res -> res.status().code() == 404)
+                                                 .thenJson(MyError.class)
+                                                 .when(res -> res.status().code() == 403)
+                                                 .thenJson(MyError.class))
+                                   .execute())
+                .isInstanceOf(InvalidHttpResponseException.class);
+
+        response = client
+                .prepare()
+                .get("/json/403")
+                .as(ResponseAs.aggregatingBuilder(MyResponse.class)
+                              .when(res -> res.status().code() == 404)
+                              .then(res -> new MyError("", ""))
+                              .when(res -> res.status().code() == 403)
+                              .thenJson(MyError.class)
+                              .orElseJson(MyMessage.class)
+                              .toEntity())
+                .execute();
+        assertThat(response.content()).isEqualTo(new MyError("an", "error"));
+
+        final MyResponse myResponse = client
+                .prepare()
+                .get("/json/403")
+                .as(ResponseAs.aggregatingBuilder(MyResponse.class)
+                              .when(res -> res.status().code() == 404)
+                              .then(res -> new MyError("", ""))
+                              .when(res -> res.status().code() == 403)
+                              .thenJson(MyError.class)
+                              .orElseJson(MyMessage.class))
+                .execute();
+        assertThat(myResponse).isEqualTo(new MyError("an", "error"));
+
+        final ResponseEntity<String> stringResponse = client
+                .prepare()
+                .get("/string")
+                .as(ResponseAs.aggregatingBuilder(String.class)
+                              .when(res -> true)
+                              .then(AggregatedHttpObject::contentUtf8)
+                              .orElseThrow()
+                              .toEntity())
+                .execute();
+        assertThat(stringResponse.content()).isEqualTo("hello");
     }
 
     @Test
@@ -250,12 +314,34 @@ class TransformingResponsePreparationTest {
     }
 
     static final class MyError implements MyResponse {
+        @JsonProperty("code")
         private final String code;
+
+        @JsonProperty("body")
         private final String body;
 
-        private MyError(String code, String body) {
+        @JsonCreator
+
+        MyError(@JsonProperty("code") String code, @JsonProperty("body") String body) {
             this.code = code;
             this.body = body;
+        }
+
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final MyError myError = (MyError) o;
+            return code.equals(myError.code) && body.equals(myError.body);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(code, body);
         }
     }
 }

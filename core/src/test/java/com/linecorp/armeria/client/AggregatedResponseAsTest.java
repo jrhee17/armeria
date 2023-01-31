@@ -44,7 +44,7 @@ class AggregatedResponseAsTest {
     void bytes() {
         final String content = "bytes";
         final AggregatedHttpResponse response = AggregatedHttpResponse.of(headers, HttpData.ofUtf8(content));
-        final ResponseEntity<byte[]> entity = AggregatedResponseAs.bytes().as(response);
+        final ResponseEntity<byte[]> entity = AggregatedResponseAsUtil.bytes().as(response);
         assertThat(entity.content()).isEqualTo(content.getBytes());
     }
 
@@ -52,7 +52,7 @@ class AggregatedResponseAsTest {
     void string() {
         final String content = "string";
         final AggregatedHttpResponse response = AggregatedHttpResponse.of(headers, HttpData.ofUtf8(content));
-        final ResponseEntity<String> entity = AggregatedResponseAs.string().as(response);
+        final ResponseEntity<String> entity = AggregatedResponseAsUtil.string().as(response);
         assertThat(entity.content()).isEqualTo(content);
     }
 
@@ -63,7 +63,7 @@ class AggregatedResponseAsTest {
         final byte[] content = JacksonUtil.writeValueAsBytes(myObject);
         final AggregatedHttpResponse response = AggregatedHttpResponse.of(headers, HttpData.wrap(content));
 
-        final ResponseEntity<MyObject> entity = AggregatedResponseAs.json(MyObject.class).as(response);
+        final ResponseEntity<MyObject> entity = AggregatedResponseAsUtil.json(MyObject.class).as(response);
         assertThat(entity.content()).isEqualTo(myObject);
     }
 
@@ -75,7 +75,7 @@ class AggregatedResponseAsTest {
         final AggregatedHttpResponse response =
                 AggregatedHttpResponse.of(ResponseHeaders.of(500), HttpData.wrap(content));
 
-        assertThatThrownBy(() -> AggregatedResponseAs.json(MyObject.class).as(response))
+        assertThatThrownBy(() -> AggregatedResponseAsUtil.json(MyObject.class).as(response))
                 .isInstanceOf(InvalidHttpResponseException.class)
                 .hasMessageContaining("(expect: the success class (2xx)");
     }
@@ -85,7 +85,7 @@ class AggregatedResponseAsTest {
         final AggregatedHttpResponse response =
                 AggregatedHttpResponse.of(headers, HttpData.ofUtf8("{ 'id': 10 }"));
 
-        assertThatThrownBy(() -> AggregatedResponseAs.json(MyObject.class).as(response))
+        assertThatThrownBy(() -> AggregatedResponseAsUtil.json(MyObject.class).as(response))
                 .isInstanceOf(InvalidHttpResponseException.class)
                 .hasCauseInstanceOf(JsonProcessingException.class);
     }
@@ -98,7 +98,7 @@ class AggregatedResponseAsTest {
         final JsonMapper mapper = JsonMapper.builder()
                                             .enable(JsonReadFeature.ALLOW_SINGLE_QUOTES)
                                             .build();
-        final ResponseEntity<MyObject> entity = AggregatedResponseAs.json(MyObject.class, mapper).as(response);
+        final ResponseEntity<MyObject> entity = AggregatedResponseAsUtil.json(MyObject.class, mapper).as(response);
         final MyObject myObject = new MyObject();
         myObject.setId(10);
         assertThat(entity.content()).isEqualTo(myObject);
@@ -112,7 +112,7 @@ class AggregatedResponseAsTest {
         final AggregatedHttpResponse response = AggregatedHttpResponse.of(headers, HttpData.wrap(content));
 
         final ResponseEntity<List<MyObject>> entity =
-                AggregatedResponseAs.json(new TypeReference<List<MyObject>>() {}).as(response);
+                AggregatedResponseAsUtil.json(new TypeReference<List<MyObject>>() {}).as(response);
         final List<MyObject> objects = entity.content();
         assertThat(objects).containsExactly(myObject);
     }
@@ -125,7 +125,7 @@ class AggregatedResponseAsTest {
                                             .enable(JsonReadFeature.ALLOW_SINGLE_QUOTES)
                                             .build();
         final ResponseEntity<List<MyObject>> entity =
-                AggregatedResponseAs.json(new TypeReference<List<MyObject>>() {}, mapper).as(response);
+                AggregatedResponseAsUtil.json(new TypeReference<List<MyObject>>() {}, mapper).as(response);
         final List<MyObject> content = entity.content();
         final MyObject myObject = new MyObject();
         myObject.setId(10);
