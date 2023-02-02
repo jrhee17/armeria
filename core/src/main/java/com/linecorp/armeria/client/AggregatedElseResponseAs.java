@@ -24,7 +24,6 @@ import java.util.function.Predicate;
 import com.linecorp.armeria.client.AggregatedResponseAs.AggregatedContext;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpResponse;
-import com.linecorp.armeria.common.ResponseEntity;
 
 class AggregatedElseResponseAs<V> implements ResponseAs<HttpResponse, V> {
     AggregatedResponseAs delegate;
@@ -40,18 +39,20 @@ class AggregatedElseResponseAs<V> implements ResponseAs<HttpResponse, V> {
         return new AggregatedIfResponseAs<>(delegate, predicate, context);
     }
 
-    public ResponseAs<HttpResponse, ResponseEntity<V>> orElse(ResponseAs<AggregatedHttpResponse, V> responseAs) {
-        return delegate.andThen(res -> {
-            for (Entry<Predicate<AggregatedHttpResponse>, ResponseAs<AggregatedHttpResponse, V>> r : context.list) {
-                if (r.getKey().test(res)) {
-                    return ResponseEntity.of(res.headers(), r.getValue().as(res));
-                }
-            }
-            return ResponseEntity.of(res.headers(), responseAs.as(res));
-        });
+    public ToEntityResponseAs<V> orElse(ResponseAs<AggregatedHttpResponse, V> responseAs) {
+        ResponseAs<AggregatedHttpResponse, V> composite =
+                res -> {
+                    for (Entry<Predicate<AggregatedHttpResponse>, ResponseAs<AggregatedHttpResponse, V>> r : context.list) {
+                        if (r.getKey().test(res)) {
+                            return r.getValue().as(res);
+                        }
+                    }
+                    return responseAs.as(res);
+                };
+        return new ToEntityResponseAs<>(delegate, context, composite);
     }
 
-    public ResponseAs<HttpResponse, ResponseEntity<V>> orElseJson(Class<? extends V> clazz) {
+    public ToEntityResponseAs<V> orElseJson(Class<? extends V> clazz) {
         return orElse(res -> fromJson(clazz, res));
     }
 
@@ -59,6 +60,7 @@ class AggregatedElseResponseAs<V> implements ResponseAs<HttpResponse, V> {
     public V as(HttpResponse response) {
         return orElse(res -> {
             throw new InvalidHttpResponseException(res, "None of the specified conditions were satisifed", null);
-        }).as(response).content();
+        }).as(response);
     }
+
 }

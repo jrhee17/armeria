@@ -24,7 +24,6 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Predicate;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -183,10 +182,4 @@ public interface ResponseAs<T, R> {
             }
         };
     }
-
-//    @UnstableApi
-//    default <V> IfResponseAs<T, R, V> when(Predicate<R> predicate) {
-//        requireNonNull(predicate, "predicate");
-//        return new IfResponseAs<>(this, predicate);
-//    }
 }

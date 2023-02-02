@@ -17,7 +17,6 @@
 package com.linecorp.armeria.client;
 
 import java.nio.charset.StandardCharsets;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.function.Predicate;
 
 import com.linecorp.armeria.client.AggregatedResponseAs.AggregatedContext;
@@ -49,14 +48,13 @@ public class AggregatedIfResponseAs<V> extends IfResponseAs<HttpResponse, Aggreg
         try {
             return JacksonUtil.readValue(res.contentUtf8().getBytes(StandardCharsets.UTF_8), clazz);
         } catch (Exception e) {
-            // need a new exception type
             return Exceptions.throwUnsafely(new InvalidHttpResponseException(res, e));
         }
     }
 
     @Override
     AggregatedElseResponseAs<V> then(ResponseAs<AggregatedHttpResponse, V> then) {
-        context.list.add(new SimpleEntry<>(predicate, then));
+        context.add(predicate, then);
         return new AggregatedElseResponseAs<>(delegate, context);
     }
 }

@@ -112,30 +112,53 @@ class TransformingResponsePreparationTest {
                               .thenJson(MyError.class)
                               .when(res -> res.status().code() == 403)
                               .thenJson(MyError.class)
-                              .orElseJson(MyMessage.class))
+                              .orElseJson(MyMessage.class)
+                              .toEntity())
                 .execute();
         assertThat(response.content()).isEqualTo(new MyMessage("hello"));
 
+        assertThatThrownBy(() -> client
+                                   .prepare()
+                                   .get("/json/200")
+                                   .as(ResponseAs.blocking()
+                                                 .<MyResponse>when(res -> res.status().code() == 404)
+                                                 .thenJson(MyError.class)
+                                                 .when(res -> res.status().code() == 403)
+                                                 .thenJson(MyError.class))
+                                   .execute())
+                .isInstanceOf(InvalidHttpResponseException.class);
+
         response = client
                 .prepare()
-                .get("/json/404")
+                .get("/json/403")
                 .as(ResponseAs.blocking()
-                              .<ResponseEntity<MyResponse>>when(res -> res.status().code() == 404)
-                              .then(res -> ResponseEntity.of(res.headers(), new MyMessage(res.contentUtf8()))))
+                              .<MyResponse>when(res -> res.status().code() == 404)
+                              .then(res -> new MyError("", ""))
+                              .when(res -> res.status().code() == 403)
+                              .thenJson(MyError.class)
+                              .orElseJson(MyMessage.class)
+                              .toEntity())
                 .execute();
         assertThat(response.content()).isEqualTo(new MyError("an", "error"));
 
+        final MyResponse myResponse = client
+                .prepare()
+                .get("/json/403")
+                .as(ResponseAs.blocking()
+                              .<MyResponse>when(res -> res.status().code() == 404)
+                              .then(res -> new MyError("", ""))
+                              .when(res -> res.status().code() == 403)
+                              .thenJson(MyError.class)
+                              .orElseJson(MyMessage.class))
+                .execute();
+        assertThat(myResponse).isEqualTo(new MyError("an", "error"));
+
         final ResponseEntity<String> stringResponse = client
                 .prepare()
-                .get("/json/404")
+                .get("/string")
                 .as(ResponseAs.blocking().string())
                 .execute();
-
-        final ResponseEntity<String> nonblocking = client
-                .prepare()
-                .get("/json/404")
-                .as(ResponseAs)
-                .execute();
+        assertThat(stringResponse.content()).isEqualTo("hello");
     }
 
     @Test

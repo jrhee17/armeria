@@ -18,6 +18,7 @@ package com.linecorp.armeria.client;
 
 import static java.util.Objects.requireNonNull;
 
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
@@ -33,6 +34,10 @@ public class AggregatedResponseAs implements ResponseAs<HttpResponse, Aggregated
     static class AggregatedContext<V> {
         List<Entry<Predicate<AggregatedHttpResponse>, ResponseAs<AggregatedHttpResponse, V>>> list =
                 new ArrayList<>();
+
+        void add(Predicate<AggregatedHttpResponse> predicate, ResponseAs<AggregatedHttpResponse, V> responseAs) {
+            list.add(new SimpleEntry<>(predicate, responseAs));
+        }
     }
 
     AggregatedResponseAs() {
@@ -48,7 +53,6 @@ public class AggregatedResponseAs implements ResponseAs<HttpResponse, Aggregated
         }
     }
 
-    @Override
     public <V> AggregatedIfResponseAs<V> when(
             Predicate<AggregatedHttpResponse> predicate) {
         final AggregatedContext<V> context = new AggregatedContext<>();
