@@ -104,24 +104,38 @@ class TransformingResponsePreparationTest {
     @Test
     void futureResponseAs_json() {
         final WebClient client = WebClient.of(server.httpUri());
-        final ResponseAs<HttpResponse, ResponseEntity<MyResponse>> transformation =
-                ResponseAs.blocking()
-                          .<ResponseEntity<MyResponse>>iff(res -> res.status().code() == 404)
-                          .then(AggregatedResponseAs.json(MyError.class))
-                          .orElse(AggregatedResponseAs.json(MyMessage.class));
         ResponseEntity<MyResponse> response = client
                 .prepare()
                 .get("/json/200")
-                .as(transformation)
+                .as(ResponseAs.blocking()
+                              .<MyResponse>when(res -> res.status().code() == 404)
+                              .thenJson(MyError.class)
+                              .when(res -> res.status().code() == 403)
+                              .thenJson(MyError.class)
+                              .orElseJson(MyMessage.class))
                 .execute();
         assertThat(response.content()).isEqualTo(new MyMessage("hello"));
 
         response = client
                 .prepare()
                 .get("/json/404")
-                .as(transformation)
+                .as(ResponseAs.blocking()
+                              .<ResponseEntity<MyResponse>>when(res -> res.status().code() == 404)
+                              .then(res -> ResponseEntity.of(res.headers(), new MyMessage(res.contentUtf8()))))
                 .execute();
         assertThat(response.content()).isEqualTo(new MyError("an", "error"));
+
+        final ResponseEntity<String> stringResponse = client
+                .prepare()
+                .get("/json/404")
+                .as(ResponseAs.blocking().string())
+                .execute();
+
+        final ResponseEntity<String> nonblocking = client
+                .prepare()
+                .get("/json/404")
+                .as(ResponseAs)
+                .execute();
     }
 
     @Test

@@ -16,7 +16,7 @@
 
 package com.linecorp.armeria.client;
 
-import static com.linecorp.armeria.client.AggregatedResponseAs.newInvalidHttpResponseException;
+import static com.linecorp.armeria.client.AggregatedResponseAsUtil.newInvalidHttpResponseException;
 import static java.util.Objects.requireNonNull;
 
 import java.time.Duration;
@@ -100,7 +100,7 @@ public final class BlockingWebClientRequestPreparation
      */
     @UnstableApi
     public TransformingRequestPreparation<AggregatedHttpResponse, ResponseEntity<byte[]>> asBytes() {
-        return as(AggregatedResponseAs.bytes());
+        return as(AggregatedResponseAsUtil.bytes());
     }
 
     /**
@@ -116,7 +116,7 @@ public final class BlockingWebClientRequestPreparation
      */
     @UnstableApi
     public TransformingRequestPreparation<AggregatedHttpResponse, ResponseEntity<String>> asString() {
-        return as(AggregatedResponseAs.string());
+        return as(AggregatedResponseAsUtil.string());
     }
 
     /**
@@ -143,7 +143,7 @@ public final class BlockingWebClientRequestPreparation
     public <T> TransformingRequestPreparation<AggregatedHttpResponse, ResponseEntity<T>> asJson(
             Class<? extends T> clazz) {
         requireNonNull(clazz, "clazz");
-        return as(AggregatedResponseAs.json(clazz));
+        return as(AggregatedResponseAsUtil.json(clazz));
     }
 
     /**
@@ -171,7 +171,7 @@ public final class BlockingWebClientRequestPreparation
             Class<? extends T> clazz, ObjectMapper mapper) {
         requireNonNull(clazz, "clazz");
         requireNonNull(mapper, "mapper");
-        return as(AggregatedResponseAs.json(clazz, mapper));
+        return as(AggregatedResponseAsUtil.json(clazz, mapper));
     }
 
     /**
@@ -197,7 +197,7 @@ public final class BlockingWebClientRequestPreparation
     public <T> TransformingRequestPreparation<AggregatedHttpResponse, ResponseEntity<T>> asJson(
             TypeReference<? extends T> typeRef) {
         requireNonNull(typeRef, "typeRef");
-        return as(STATUS_CODE_CHECKER.andThen(AggregatedResponseAs.json(typeRef)));
+        return as(STATUS_CODE_CHECKER.andThen(AggregatedResponseAsUtil.json(typeRef)));
     }
 
     /**
@@ -223,7 +223,7 @@ public final class BlockingWebClientRequestPreparation
             TypeReference<? extends T> typeRef, ObjectMapper mapper) {
         requireNonNull(typeRef, "typeRef");
         requireNonNull(mapper, "mapper");
-        return as(AggregatedResponseAs.json(typeRef, mapper));
+        return as(AggregatedResponseAsUtil.json(typeRef, mapper));
     }
 
     @Override

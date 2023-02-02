@@ -51,8 +51,8 @@ public interface ResponseAs<T, R> {
      * Aggregates an {@link HttpResponse} and waits the result of {@link HttpResponse#aggregate()}.
      */
     @UnstableApi
-    static ResponseAs<HttpResponse, AggregatedHttpResponse> blocking() {
-        return ResponseAsUtil.BLOCKING;
+    static AggregatedResponseAs blocking() {
+        return new AggregatedResponseAs();
     }
 
     /**
@@ -60,7 +60,7 @@ public interface ResponseAs<T, R> {
      */
     @UnstableApi
     static FutureResponseAs<ResponseEntity<byte[]>> bytes() {
-        return aggregateAndConvert(AggregatedResponseAs.bytes());
+        return aggregateAndConvert(AggregatedResponseAsUtil.bytes());
     }
 
     /**
@@ -69,7 +69,7 @@ public interface ResponseAs<T, R> {
      */
     @UnstableApi
     static FutureResponseAs<ResponseEntity<String>> string() {
-        return aggregateAndConvert(AggregatedResponseAs.string());
+        return aggregateAndConvert(AggregatedResponseAsUtil.string());
     }
 
     /**
@@ -103,7 +103,7 @@ public interface ResponseAs<T, R> {
     @UnstableApi
     static <T> FutureResponseAs<ResponseEntity<T>> json(Class<? extends T> clazz) {
         requireNonNull(clazz, "clazz");
-        return aggregateAndConvert(AggregatedResponseAs.json(clazz));
+        return aggregateAndConvert(AggregatedResponseAsUtil.json(clazz));
     }
 
     /**
@@ -117,7 +117,7 @@ public interface ResponseAs<T, R> {
     static <T> FutureResponseAs<ResponseEntity<T>> json(Class<? extends T> clazz, ObjectMapper mapper) {
         requireNonNull(clazz, "clazz");
         requireNonNull(mapper, "mapper");
-        return aggregateAndConvert(AggregatedResponseAs.json(clazz, mapper));
+        return aggregateAndConvert(AggregatedResponseAsUtil.json(clazz, mapper));
     }
 
     /**
@@ -129,7 +129,7 @@ public interface ResponseAs<T, R> {
     @UnstableApi
     static <T> FutureResponseAs<ResponseEntity<T>> json(TypeReference<? extends T> typeRef) {
         requireNonNull(typeRef, "typeRef");
-        return aggregateAndConvert(AggregatedResponseAs.json(typeRef));
+        return aggregateAndConvert(AggregatedResponseAsUtil.json(typeRef));
     }
 
     /**
@@ -141,7 +141,7 @@ public interface ResponseAs<T, R> {
                                                         ObjectMapper mapper) {
         requireNonNull(typeRef, "typeRef");
         requireNonNull(mapper, "mapper");
-        return aggregateAndConvert(AggregatedResponseAs.json(typeRef, mapper));
+        return aggregateAndConvert(AggregatedResponseAsUtil.json(typeRef, mapper));
     }
 
     /**
@@ -184,36 +184,9 @@ public interface ResponseAs<T, R> {
         };
     }
 
-    @UnstableApi
-    default <V> IfResponseAs<T, R, V> iff(Predicate<R> predicate) {
-        requireNonNull(predicate, "predicate");
-        return new IfResponseAs<>(this, predicate);
-    }
-
-    public class IfResponseAs<T, R, V>  {
-        private final Predicate<R> predicate;
-        private ResponseAs<R, V> then;
-        private ResponseAs<R, V> orElse;
-        private ResponseAs<T, R> delegate;
-        IfResponseAs(ResponseAs<T, R> delegate, Predicate<R> predicate) {
-            this.delegate = delegate;
-            this.predicate = predicate;
-        }
-
-        IfResponseAs<T, R, V> then(ResponseAs<R, V> then) {
-            this.then = then;
-            return this;
-        }
-
-        ResponseAs<T, V> orElse(ResponseAs<R, V> orElse) {
-            this.orElse = orElse;
-            return delegate.andThen(u -> {
-                if (predicate.test(u)) {
-                    return then.as(u);
-                } else {
-                    return orElse.as(u);
-                }
-            });
-        }
-    }
+//    @UnstableApi
+//    default <V> IfResponseAs<T, R, V> when(Predicate<R> predicate) {
+//        requireNonNull(predicate, "predicate");
+//        return new IfResponseAs<>(this, predicate);
+//    }
 }

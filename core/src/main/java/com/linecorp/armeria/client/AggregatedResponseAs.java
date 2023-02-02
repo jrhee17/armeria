@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 LINE Corporation
+ * Copyright 2023 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -16,66 +16,51 @@
 
 package com.linecorp.armeria.client;
 
-import java.io.IOException;
+import static java.util.Objects.requireNonNull;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.function.Predicate;
 
 import com.linecorp.armeria.common.AggregatedHttpResponse;
+import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.ResponseEntity;
 import com.linecorp.armeria.common.util.Exceptions;
-import com.linecorp.armeria.internal.common.JacksonUtil;
 
-final class AggregatedResponseAs {
+public class AggregatedResponseAs implements ResponseAs<HttpResponse, AggregatedHttpResponse> {
 
-    static ResponseAs<AggregatedHttpResponse, ResponseEntity<byte[]>> bytes() {
-        return response -> ResponseEntity.of(response.headers(), response.content().array(),
-                                             response.trailers());
+    static class AggregatedContext<V> {
+        List<Entry<Predicate<AggregatedHttpResponse>, ResponseAs<AggregatedHttpResponse, V>>> list =
+                new ArrayList<>();
     }
 
-    static ResponseAs<AggregatedHttpResponse, ResponseEntity<String>> string() {
-        return response -> ResponseEntity.of(response.headers(), response.contentUtf8(), response.trailers());
+    AggregatedResponseAs() {
     }
 
-    static <T> ResponseAs<AggregatedHttpResponse, ResponseEntity<T>> json(Class<? extends T> clazz) {
-        return response -> newJsonResponseEntity(response, bytes -> JacksonUtil.readValue(bytes, clazz));
-    }
-
-    static <T> ResponseAs<AggregatedHttpResponse, ResponseEntity<T>> json(Class<? extends T> clazz,
-                                                                          ObjectMapper mapper) {
-        return response -> newJsonResponseEntity(response, bytes -> mapper.readValue(bytes, clazz));
-    }
-
-    static <T> ResponseAs<AggregatedHttpResponse, ResponseEntity<T>> json(TypeReference<? extends T> typeRef) {
-        return response -> newJsonResponseEntity(response, bytes -> JacksonUtil.readValue(bytes, typeRef));
-    }
-
-    static <T> ResponseAs<AggregatedHttpResponse, ResponseEntity<T>> json(TypeReference<? extends T> typeRef,
-                                                                          ObjectMapper mapper) {
-        return response -> newJsonResponseEntity(response, bytes -> mapper.readValue(bytes, typeRef));
-    }
-
-    private static <T> ResponseEntity<T> newJsonResponseEntity(AggregatedHttpResponse response,
-                                                               JsonDecoder<T> decoder) {
+    @Override
+    public AggregatedHttpResponse as(HttpResponse response) {
+        requireNonNull(response, "response");
         try {
-            return ResponseEntity.of(response.headers(), decoder.decode(response.content().array()),
-                                     response.trailers());
-        } catch (IOException e) {
-            return Exceptions.throwUnsafely(new InvalidHttpResponseException(response, e));
+            return response.aggregate().join();
+        } catch (Exception ex) {
+            return Exceptions.throwUnsafely(Exceptions.peel(ex));
         }
     }
 
-    public static InvalidHttpResponseException newInvalidHttpResponseException(
-            AggregatedHttpResponse response) {
-        return new InvalidHttpResponseException(
-                response, "status: " + response.status() +
-                          " (expect: the success class (2xx). response: " + response, null);
+    @Override
+    public <V> AggregatedIfResponseAs<V> when(
+            Predicate<AggregatedHttpResponse> predicate) {
+        final AggregatedContext<V> context = new AggregatedContext<>();
+        return new AggregatedIfResponseAs<>(this, predicate, context);
     }
 
-    @FunctionalInterface
-    private interface JsonDecoder<T> {
-        T decode(byte[] bytes) throws IOException;
+    public ResponseAs<HttpResponse, ResponseEntity<String>> string() {
+        return andThen(AggregatedResponseAsUtil.string());
     }
 
-    private AggregatedResponseAs() {}
+    @Override
+    public boolean requiresAggregation() {
+        return true;
+    }
 }
