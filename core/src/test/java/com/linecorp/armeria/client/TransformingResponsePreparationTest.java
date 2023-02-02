@@ -107,8 +107,8 @@ class TransformingResponsePreparationTest {
         ResponseEntity<MyResponse> response = client
                 .prepare()
                 .get("/json/200")
-                .as(ResponseAs.blocking()
-                              .<MyResponse>when(res -> res.status().code() == 404)
+                .as(ResponseAs.aggregatingBuilder(MyResponse.class)
+                              .when(res -> res.status().code() == 404)
                               .thenJson(MyError.class)
                               .when(res -> res.status().code() == 403)
                               .thenJson(MyError.class)
@@ -120,8 +120,8 @@ class TransformingResponsePreparationTest {
         assertThatThrownBy(() -> client
                                    .prepare()
                                    .get("/json/200")
-                                   .as(ResponseAs.blocking()
-                                                 .<MyResponse>when(res -> res.status().code() == 404)
+                                   .as(ResponseAs.aggregatingBuilder(MyResponse.class)
+                                                 .when(res -> res.status().code() == 404)
                                                  .thenJson(MyError.class)
                                                  .when(res -> res.status().code() == 403)
                                                  .thenJson(MyError.class))
@@ -131,8 +131,8 @@ class TransformingResponsePreparationTest {
         response = client
                 .prepare()
                 .get("/json/403")
-                .as(ResponseAs.blocking()
-                              .<MyResponse>when(res -> res.status().code() == 404)
+                .as(ResponseAs.aggregatingBuilder(MyResponse.class)
+                              .when(res -> res.status().code() == 404)
                               .then(res -> new MyError("", ""))
                               .when(res -> res.status().code() == 403)
                               .thenJson(MyError.class)
@@ -144,8 +144,8 @@ class TransformingResponsePreparationTest {
         final MyResponse myResponse = client
                 .prepare()
                 .get("/json/403")
-                .as(ResponseAs.blocking()
-                              .<MyResponse>when(res -> res.status().code() == 404)
+                .as(ResponseAs.aggregatingBuilder(MyResponse.class)
+                              .when(res -> res.status().code() == 404)
                               .then(res -> new MyError("", ""))
                               .when(res -> res.status().code() == 403)
                               .thenJson(MyError.class)
@@ -156,7 +156,11 @@ class TransformingResponsePreparationTest {
         final ResponseEntity<String> stringResponse = client
                 .prepare()
                 .get("/string")
-                .as(ResponseAs.blocking().string())
+                .as(ResponseAs.aggregatingBuilder(String.class)
+                              .when(res -> true)
+                              .then(AggregatedHttpObject::contentUtf8)
+                              .orElseThrow()
+                              .toEntity())
                 .execute();
         assertThat(stringResponse.content()).isEqualTo("hello");
     }

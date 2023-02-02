@@ -50,8 +50,12 @@ public interface ResponseAs<T, R> {
      * Aggregates an {@link HttpResponse} and waits the result of {@link HttpResponse#aggregate()}.
      */
     @UnstableApi
-    static AggregatedResponseAs blocking() {
-        return new AggregatedResponseAs();
+    static ResponseAs<HttpResponse, AggregatedHttpResponse> blocking() {
+        return ResponseAsUtil.BLOCKING;
+    }
+
+    static <T> AggregatedResponseAs<T> aggregatingBuilder(Class<T> unused) {
+        return new AggregatedResponseAs<>();
     }
 
     /**

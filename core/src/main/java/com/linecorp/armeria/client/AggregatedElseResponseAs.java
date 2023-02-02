@@ -16,44 +16,46 @@
 
 package com.linecorp.armeria.client;
 
-import static com.linecorp.armeria.client.AggregatedIfResponseAs.fromJson;
+import static com.linecorp.armeria.client.AggregatedResponseAsUtil.fromJson;
 
 import java.util.Map.Entry;
 import java.util.function.Predicate;
 
-import com.linecorp.armeria.client.AggregatedResponseAs.AggregatedContext;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpResponse;
 
 class AggregatedElseResponseAs<V> implements ResponseAs<HttpResponse, V> {
-    AggregatedResponseAs delegate;
-    AggregatedContext<V> context;
+    AggregatedResponseAs<V> delegate;
 
-    AggregatedElseResponseAs(AggregatedResponseAs delegate,
-                             AggregatedContext<V> context) {
+    AggregatedElseResponseAs(AggregatedResponseAs<V> delegate) {
         this.delegate = delegate;
-        this.context = context;
     }
 
     public AggregatedIfResponseAs<V> when(Predicate<AggregatedHttpResponse> predicate) {
-        return new AggregatedIfResponseAs<>(delegate, predicate, context);
+        return new AggregatedIfResponseAs<>(delegate, predicate);
     }
 
     public ToEntityResponseAs<V> orElse(ResponseAs<AggregatedHttpResponse, V> responseAs) {
-        ResponseAs<AggregatedHttpResponse, V> composite =
+        final ResponseAs<AggregatedHttpResponse, V> composite =
                 res -> {
-                    for (Entry<Predicate<AggregatedHttpResponse>, ResponseAs<AggregatedHttpResponse, V>> r : context.list) {
+                    for (Entry<Predicate<AggregatedHttpResponse>, ResponseAs<AggregatedHttpResponse, V>> r : delegate.list) {
                         if (r.getKey().test(res)) {
                             return r.getValue().as(res);
                         }
                     }
                     return responseAs.as(res);
                 };
-        return new ToEntityResponseAs<>(delegate, context, composite);
+        return new ToEntityResponseAs<>(delegate, composite);
     }
 
     public ToEntityResponseAs<V> orElseJson(Class<? extends V> clazz) {
         return orElse(res -> fromJson(clazz, res));
+    }
+
+    public ToEntityResponseAs<V> orElseThrow() {
+        return orElse(res -> {
+            throw new InvalidHttpResponseException(res, "None of the specified conditions were satisifed", null);
+        });
     }
 
     @Override

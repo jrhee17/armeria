@@ -16,8 +16,6 @@
 
 package com.linecorp.armeria.client;
 
-import static java.util.Objects.requireNonNull;
-
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,46 +23,21 @@ import java.util.Map.Entry;
 import java.util.function.Predicate;
 
 import com.linecorp.armeria.common.AggregatedHttpResponse;
-import com.linecorp.armeria.common.HttpResponse;
-import com.linecorp.armeria.common.ResponseEntity;
-import com.linecorp.armeria.common.util.Exceptions;
 
-public class AggregatedResponseAs implements ResponseAs<HttpResponse, AggregatedHttpResponse> {
+public class AggregatedResponseAs<V> {
 
-    static class AggregatedContext<V> {
-        List<Entry<Predicate<AggregatedHttpResponse>, ResponseAs<AggregatedHttpResponse, V>>> list =
-                new ArrayList<>();
+    List<Entry<Predicate<AggregatedHttpResponse>, ResponseAs<AggregatedHttpResponse, V>>> list =
+            new ArrayList<>();
 
-        void add(Predicate<AggregatedHttpResponse> predicate, ResponseAs<AggregatedHttpResponse, V> responseAs) {
-            list.add(new SimpleEntry<>(predicate, responseAs));
-        }
+    void add(Predicate<AggregatedHttpResponse> predicate, ResponseAs<AggregatedHttpResponse, V> responseAs) {
+        list.add(new SimpleEntry<>(predicate, responseAs));
     }
 
     AggregatedResponseAs() {
     }
 
-    @Override
-    public AggregatedHttpResponse as(HttpResponse response) {
-        requireNonNull(response, "response");
-        try {
-            return response.aggregate().join();
-        } catch (Exception ex) {
-            return Exceptions.throwUnsafely(Exceptions.peel(ex));
-        }
-    }
-
-    public <V> AggregatedIfResponseAs<V> when(
+    public AggregatedIfResponseAs<V> when(
             Predicate<AggregatedHttpResponse> predicate) {
-        final AggregatedContext<V> context = new AggregatedContext<>();
-        return new AggregatedIfResponseAs<>(this, predicate, context);
-    }
-
-    public ResponseAs<HttpResponse, ResponseEntity<String>> string() {
-        return andThen(AggregatedResponseAsUtil.string());
-    }
-
-    @Override
-    public boolean requiresAggregation() {
-        return true;
+        return new AggregatedIfResponseAs<>(this, predicate);
     }
 }

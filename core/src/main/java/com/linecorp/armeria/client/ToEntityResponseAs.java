@@ -19,26 +19,23 @@ package com.linecorp.armeria.client;
 import java.util.Map.Entry;
 import java.util.function.Predicate;
 
-import com.linecorp.armeria.client.AggregatedResponseAs.AggregatedContext;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.ResponseEntity;
 
 class ToEntityResponseAs<V> implements ResponseAs<HttpResponse, V> {
-    private final AggregatedResponseAs delegate;
-    private final AggregatedContext<V> context;
+    private final AggregatedResponseAs<V> delegate;
     private final ResponseAs<AggregatedHttpResponse, V> fallback;
 
-    ToEntityResponseAs(AggregatedResponseAs delegate, AggregatedContext<V> context,
+    ToEntityResponseAs(AggregatedResponseAs<V> delegate,
                        ResponseAs<AggregatedHttpResponse, V> fallback) {
         this.delegate = delegate;
-        this.context = context;
         this.fallback = fallback;
     }
 
     public ResponseAs<HttpResponse, ResponseEntity<V>> toEntity() {
-        return delegate.andThen(res -> {
-            for (Entry<Predicate<AggregatedHttpResponse>, ResponseAs<AggregatedHttpResponse, V>> r : context.list) {
+        return ResponseAsUtil.BLOCKING.andThen(res -> {
+            for (Entry<Predicate<AggregatedHttpResponse>, ResponseAs<AggregatedHttpResponse, V>> r : delegate.list) {
                 if (r.getKey().test(res)) {
                     return ResponseEntity.of(res.headers(), r.getValue().as(res));
                 }
@@ -49,6 +46,6 @@ class ToEntityResponseAs<V> implements ResponseAs<HttpResponse, V> {
 
     @Override
     public V as(HttpResponse response) {
-        return delegate.andThen(fallback).as(response);
+        return ResponseAsUtil.BLOCKING.andThen(fallback).as(response);
     }
 }

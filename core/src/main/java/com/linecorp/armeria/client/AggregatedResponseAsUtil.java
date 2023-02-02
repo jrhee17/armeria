@@ -17,6 +17,7 @@
 package com.linecorp.armeria.client;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -70,6 +71,14 @@ final class AggregatedResponseAsUtil {
         return new InvalidHttpResponseException(
                 response, "status: " + response.status() +
                           " (expect: the success class (2xx). response: " + response, null);
+    }
+
+    public static <T> T fromJson(Class<? extends T> clazz, AggregatedHttpResponse res) {
+        try {
+            return JacksonUtil.readValue(res.contentUtf8().getBytes(StandardCharsets.UTF_8), clazz);
+        } catch (Exception e) {
+            return Exceptions.throwUnsafely(new InvalidHttpResponseException(res, e));
+        }
     }
 
     @FunctionalInterface

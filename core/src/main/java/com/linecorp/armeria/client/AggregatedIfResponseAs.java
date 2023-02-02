@@ -16,45 +16,29 @@
 
 package com.linecorp.armeria.client;
 
-import java.nio.charset.StandardCharsets;
+import static com.linecorp.armeria.client.AggregatedResponseAsUtil.fromJson;
+
 import java.util.function.Predicate;
 
-import com.linecorp.armeria.client.AggregatedResponseAs.AggregatedContext;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
-import com.linecorp.armeria.common.HttpResponse;
-import com.linecorp.armeria.common.util.Exceptions;
-import com.linecorp.armeria.internal.common.JacksonUtil;
 
-public class AggregatedIfResponseAs<V> extends IfResponseAs<HttpResponse, AggregatedHttpResponse, V> {
+public class AggregatedIfResponseAs<V> {
 
-    AggregatedResponseAs delegate;
+    AggregatedResponseAs<V> delegate;
     Predicate<AggregatedHttpResponse> predicate;
-    AggregatedContext<V> context;
 
-    AggregatedIfResponseAs(AggregatedResponseAs delegate,
-                           Predicate<AggregatedHttpResponse> predicate,
-                           AggregatedContext<V> context) {
-        super(delegate, predicate);
+    AggregatedIfResponseAs(AggregatedResponseAs<V> delegate,
+                           Predicate<AggregatedHttpResponse> predicate) {
         this.delegate = delegate;
         this.predicate = predicate;
-        this.context = context;
     }
 
     public AggregatedElseResponseAs<V> thenJson(Class<? extends V> clazz) {
         return then(res -> fromJson(clazz, res));
     }
 
-    static <T> T fromJson(Class<? extends T> clazz, AggregatedHttpResponse res) {
-        try {
-            return JacksonUtil.readValue(res.contentUtf8().getBytes(StandardCharsets.UTF_8), clazz);
-        } catch (Exception e) {
-            return Exceptions.throwUnsafely(new InvalidHttpResponseException(res, e));
-        }
-    }
-
-    @Override
     AggregatedElseResponseAs<V> then(ResponseAs<AggregatedHttpResponse, V> then) {
-        context.add(predicate, then);
-        return new AggregatedElseResponseAs<>(delegate, context);
+        delegate.add(predicate, then);
+        return new AggregatedElseResponseAs<>(delegate);
     }
 }
