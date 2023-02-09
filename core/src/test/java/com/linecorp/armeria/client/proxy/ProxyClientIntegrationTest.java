@@ -30,7 +30,11 @@ import java.net.ServerSocket;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.security.cert.CertificateException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -50,6 +54,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import com.google.common.collect.ImmutableList;
 
+import com.linecorp.armeria.client.BlockingWebClient;
 import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.UnprocessedRequestException;
@@ -60,6 +65,7 @@ import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.internal.common.util.SelfSignedCertificate;
 import com.linecorp.armeria.internal.testing.NettyServerExtension;
 import com.linecorp.armeria.internal.testing.SimpleChannelHandlerFactory;
 import com.linecorp.armeria.server.ServerBuilder;
@@ -98,6 +104,17 @@ class ProxyClientIntegrationTest {
     private static final SimpleChannelHandlerFactory NOOP_CHANNEL_HANDLER_FACTORY =
             new SimpleChannelHandlerFactory(null, null);
 
+    private static final SelfSignedCertificate oldCert;
+
+    static {
+        try {
+            oldCert = new SelfSignedCertificate(Date.from(Instant.parse("2022-01-01T00:00:00.00Z")),
+                                                Date.from(Instant.now().plus(10, ChronoUnit.DAYS)));
+        } catch (CertificateException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private static SimpleChannelHandlerFactory channelHandlerFactory;
 
     @RegisterExtension
@@ -111,7 +128,7 @@ class ProxyClientIntegrationTest {
         protected void configure(ServerBuilder sb) throws Exception {
             sb.port(0, SessionProtocol.HTTP);
             sb.port(0, SessionProtocol.HTTPS);
-            sb.tlsSelfSigned();
+            sb.tls(oldCert.certificate(), oldCert.privateKey());
             sb.service(PROXY_PATH, (ctx, req) -> HttpResponse.of(SUCCESS_RESPONSE));
         }
     };
@@ -147,7 +164,7 @@ class ProxyClientIntegrationTest {
         @Override
         protected void configure(Channel ch) throws Exception {
             final SslContext sslContext = SslContextBuilder
-                    .forServer(ssc.privateKey(), ssc.certificate()).build();
+                    .forServer(oldCert.certificate(), oldCert.privateKey()).build();
             ch.pipeline().addLast(sslContext.newHandler(ch.alloc()));
             ch.pipeline().addLast(new HttpServerCodec());
             ch.pipeline().addLast(new HttpObjectAggregator(1024));
@@ -470,6 +487,22 @@ class ProxyClientIntegrationTest {
         final CompletableFuture<AggregatedHttpResponse> responseFuture =
                 webClient.get(PROXY_PATH).aggregate();
         final AggregatedHttpResponse response = responseFuture.join();
+        assertThat(response.status()).isEqualTo(HttpStatus.OK);
+        assertThat(response.contentUtf8()).isEqualTo(SUCCESS_RESPONSE);
+        assertThat(numSuccessfulProxyRequests).isEqualTo(1);
+        clientFactory.closeAsync();
+    }
+
+    @Test
+    void testHttpsToHttps() throws Exception {
+
+        final ClientFactory clientFactory =
+                ClientFactory.builder().tlsNoVerify().proxyConfig(
+                        ProxyConfig.connect(httpsProxyServer.address(), true)).build();
+        final BlockingWebClient client = backendServer
+                .blockingWebClient(b -> b.factory(clientFactory)
+                                         .decorator(LoggingClient.newDecorator()));
+        final AggregatedHttpResponse response = client.get(PROXY_PATH);
         assertThat(response.status()).isEqualTo(HttpStatus.OK);
         assertThat(response.contentUtf8()).isEqualTo(SUCCESS_RESPONSE);
         assertThat(numSuccessfulProxyRequests).isEqualTo(1);
