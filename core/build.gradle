@@ -120,6 +120,8 @@ dependencies {
     api libs.netty.resolver.dns
     implementation(variantOf(libs.netty.transport.native.unix.common) { classifier("linux-x86_64") })
     implementation(variantOf(libs.netty.transport.native.epoll) { classifier("linux-x86_64") })
+    implementation(libs.netty.transport.classes.kqueue)
+    implementation(variantOf(libs.netty.transport.native.kqueue) { classifier("osx-x86_64") })
     implementation(variantOf(libs.netty.resolver.dns.native.macos) { classifier("osx-x86_64") })
     implementation(variantOf(libs.netty.resolver.dns.native.macos) { classifier("osx-aarch_64") })
 
