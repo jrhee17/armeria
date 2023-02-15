@@ -18,6 +18,7 @@ package com.linecorp.armeria.server.thrift;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.linecorp.armeria.server.thrift.THttpDecoratingService.RPC_REQUEST_KEY;
 import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
@@ -47,7 +48,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 
 import com.linecorp.armeria.common.AggregatedHttpRequest;
-import com.linecorp.armeria.common.AggregationOptions;
 import com.linecorp.armeria.common.ExchangeType;
 import com.linecorp.armeria.common.HttpData;
 import com.linecorp.armeria.common.HttpHeaders;
@@ -81,6 +81,7 @@ import com.linecorp.armeria.server.RpcService;
 import com.linecorp.armeria.server.Service;
 import com.linecorp.armeria.server.ServiceConfig;
 import com.linecorp.armeria.server.ServiceRequestContext;
+import com.linecorp.armeria.server.thrift.THttpDecoratingService.ThriftRequestContainer;
 
 import io.netty.buffer.ByteBuf;
 
@@ -90,7 +91,7 @@ import io.netty.buffer.ByteBuf;
  * @see ThriftProtocolFactories
  */
 public final class THttpService extends DecoratingService<RpcRequest, RpcResponse, HttpRequest, HttpResponse>
-        implements HttpService {
+        implements HttpService, THttpServiceHelper {
 
     private static final Logger logger = LoggerFactory.getLogger(THttpService.class);
 
@@ -353,6 +354,10 @@ public final class THttpService extends DecoratingService<RpcRequest, RpcRespons
 
     @Override
     public HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
+        return handleRequest(ctx, req, this);
+    }
+
+    HttpResponse handleRequest(ServiceRequestContext ctx, HttpRequest req, THttpServiceHelper helper) {
         if (req.method() != HttpMethod.POST) {
             return HttpResponse.of(HttpStatus.METHOD_NOT_ALLOWED);
         }
@@ -370,9 +375,16 @@ public final class THttpService extends DecoratingService<RpcRequest, RpcRespons
 
         final CompletableFuture<HttpResponse> responseFuture = new CompletableFuture<>();
         final HttpResponse res = HttpResponse.from(responseFuture);
+        if (ctx.hasAttr(RPC_REQUEST_KEY)) {
+            final ThriftRequestContainer container = ctx.attr(RPC_REQUEST_KEY);
+            assert container != null;
+            helper.invoke(ctx, container.serializationFormat, container.seqId, container.func, container.call, responseFuture, req);
+            return res;
+        }
+
         ctx.logBuilder().serializationFormat(serializationFormat);
         ctx.logBuilder().defer(RequestLogProperty.REQUEST_CONTENT);
-        req.aggregate(AggregationOptions.usePooledObjects(ctx.alloc(), ctx.eventLoop()))
+        req.aggregate()
            .handle((aReq, cause) -> {
                if (cause != null) {
                    final HttpResponse errorRes;
@@ -542,7 +554,7 @@ public final class THttpService extends DecoratingService<RpcRequest, RpcRespons
             ctx.logBuilder().requestContent(null, null);
         }
 
-        invoke(ctx, serializationFormat, seqId, f, decodedReq, httpRes);
+        invoke(ctx, serializationFormat, seqId, f, decodedReq, httpRes, req.toHttpRequest());
     }
 
     private static String typeString(byte typeValue) {
@@ -560,9 +572,10 @@ public final class THttpService extends DecoratingService<RpcRequest, RpcRespons
         }
     }
 
-    private void invoke(
-            ServiceRequestContext ctx, SerializationFormat serializationFormat, int seqId,
-            ThriftFunction func, RpcRequest call, CompletableFuture<HttpResponse> res) {
+    @Override
+    public void invoke(ServiceRequestContext ctx, SerializationFormat serializationFormat, int seqId,
+                       ThriftFunction func, RpcRequest call, CompletableFuture<HttpResponse> res,
+                       HttpRequest req) {
 
         final RpcResponse reply;
 
