@@ -33,6 +33,7 @@ import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.thrift.ThriftSerializationFormats;
 import com.linecorp.armeria.common.util.UnmodifiableFuture;
+import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.ServiceRequestContext;
 import com.linecorp.armeria.server.SimpleDecoratingRpcService;
@@ -54,7 +55,7 @@ class THttpServiceBuilderTest {
             final AsyncIface service2 = mock(AsyncIface.class);
             doThrow(new FooServiceException("Foo Bar Qux")).when(service2).bar1(any());
 
-            final THttpService httpService1 = THttpService
+            final HttpService httpService1 = THttpService
                     .builder()
                     .addService(service1)
                     .exceptionHandler((ctx, cause) -> {
@@ -69,7 +70,7 @@ class THttpServiceBuilderTest {
                     })
                     .build();
 
-            final THttpService httpService2 = THttpService
+            final HttpService httpService2 = THttpService
                     .builder()
                     .addService(service2)
                     .decorate(delegate -> new SimpleDecoratingRpcService(delegate) {
@@ -117,21 +118,21 @@ class THttpServiceBuilderTest {
 
     @Test
     void testOtherSerializations_WhenUserSpecifies_ShouldNotUseDefaults() {
-        final THttpService service = THttpService.builder().addService((HelloService.Iface) name -> name)
+        final HttpService service = THttpService.builder().addService((HelloService.Iface) name -> name)
                                                  .defaultSerializationFormat(BINARY)
                                                  .otherSerializationFormats(JSON)
                                                  .build();
 
-        assertThat(service.supportedSerializationFormats()).containsExactly(BINARY, JSON);
+        assertThat(service.as(THttpService.class).supportedSerializationFormats()).containsExactly(BINARY, JSON);
     }
 
     @Test
     void testOtherSerializations_WhenUserDoesNotSpecify_ShouldUseDefaults() {
-        final THttpService service = THttpService.builder().addService((HelloService.Iface) name -> name)
+        final HttpService service = THttpService.builder().addService((HelloService.Iface) name -> name)
                                                  .defaultSerializationFormat(JSON)
                                                  .build();
 
-        assertThat(service.supportedSerializationFormats())
+        assertThat(service.as(THttpService.class).supportedSerializationFormats())
                 .containsExactlyInAnyOrderElementsOf(ThriftSerializationFormats.values());
     }
 }

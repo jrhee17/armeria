@@ -50,6 +50,7 @@ import com.linecorp.armeria.common.logging.RequestOnlyLog;
 import com.linecorp.armeria.common.metric.MeterIdPrefix;
 import com.linecorp.armeria.common.metric.MeterIdPrefixFunction;
 import com.linecorp.armeria.common.metric.PrometheusMeterRegistries;
+import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.metric.MetricCollectingService;
 import com.linecorp.armeria.server.metric.PrometheusExpositionService;
@@ -73,7 +74,7 @@ public class PrometheusMetricsIntegrationTest {
         protected void configure(ServerBuilder sb) throws Exception {
             sb.meterRegistry(registry);
 
-            final THttpService helloService = THttpService.of((Iface) name -> {
+            final HttpService helloService = THttpService.of((Iface) name -> {
                 if ("world".equals(name)) {
                     return "success";
                 }

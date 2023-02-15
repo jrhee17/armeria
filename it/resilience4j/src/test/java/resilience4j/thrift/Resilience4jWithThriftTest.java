@@ -34,6 +34,7 @@ import com.linecorp.armeria.client.thrift.ThriftClients;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.resilience4j.circuitbreaker.client.Resilience4JCircuitBreakerClientHandler;
 import com.linecorp.armeria.resilience4j.circuitbreaker.client.Resilience4jCircuitBreakerMapping;
+import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.thrift.THttpService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
@@ -52,7 +53,7 @@ class Resilience4jWithThriftTest {
     static ServerExtension server = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
-            final THttpService thriftService =
+            final HttpService thriftService =
                     THttpService.builder()
                                 .addService(new HelloServiceImpl())
                                 .build();

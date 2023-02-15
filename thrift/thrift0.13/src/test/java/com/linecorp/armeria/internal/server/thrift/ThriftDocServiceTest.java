@@ -49,6 +49,7 @@ import com.linecorp.armeria.common.thrift.ThriftSerializationFormats;
 import com.linecorp.armeria.internal.server.thrift.ThriftDocServicePlugin.Entry;
 import com.linecorp.armeria.internal.server.thrift.ThriftDocServicePlugin.EntryBuilder;
 import com.linecorp.armeria.internal.testing.TestUtil;
+import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.docs.DocService;
 import com.linecorp.armeria.server.docs.DocServiceFilter;
@@ -87,20 +88,20 @@ public class ThriftDocServiceTest {
             if (TestUtil.isDocServiceDemoMode()) {
                 sb.http(8080);
             }
-            final THttpService helloAndSleepService =
+            final HttpService helloAndSleepService =
                     THttpService.builder()
                                 .addService("hello", HELLO_SERVICE_HANDLER)
                                 .addService("sleep", SLEEP_SERVICE_HANDLER)
                                 .build();
-            final THttpService fooService =
+            final HttpService fooService =
                     THttpService.ofFormats(mock(FooService.AsyncIface.class), COMPACT);
-            final THttpService cassandraService =
+            final HttpService cassandraService =
                     THttpService.ofFormats(mock(Cassandra.AsyncIface.class), BINARY);
-            final THttpService cassandraServiceDebug =
+            final HttpService cassandraServiceDebug =
                     THttpService.ofFormats(mock(Cassandra.AsyncIface.class), TEXT);
-            final THttpService hbaseService =
+            final HttpService hbaseService =
                     THttpService.of(mock(Hbase.AsyncIface.class));
-            final THttpService onewayHelloService =
+            final HttpService onewayHelloService =
                     THttpService.of(mock(OnewayHelloService.AsyncIface.class));
 
             sb.service("/", helloAndSleepService);

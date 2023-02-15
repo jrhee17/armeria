@@ -39,6 +39,7 @@ import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.thrift.ThriftProtocolFactoryProvider;
 import com.linecorp.armeria.common.thrift.ThriftSerializationFormats;
+import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.RpcService;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.ServiceRequestContext;
@@ -224,7 +225,7 @@ public final class THttpServiceBuilder {
     /**
      * Builds a new instance of {@link THttpService}.
      */
-    public THttpService build() {
+    public HttpService build() {
         @SuppressWarnings("UnstableApiUsage")
         final Map<String, List<Object>> implementations = Multimaps.asMap(implementationsBuilder.build());
 
@@ -235,11 +236,11 @@ public final class THttpServiceBuilder {
     /**
      * Returns a newly-created {@link THttpService} decorator with the properties of this builder.
      */
-    public Function<? super RpcService, THttpService> newDecorator() {
+    public Function<? super RpcService, HttpService> newDecorator() {
         return this::build0;
     }
 
-    private THttpService build0(RpcService tcs) {
+    private HttpService build0(RpcService tcs) {
         final ImmutableSet.Builder<SerializationFormat> builder = ImmutableSet.builder();
         builder.add(defaultSerializationFormat);
         builder.addAll(otherSerializationFormats);
@@ -247,7 +248,6 @@ public final class THttpServiceBuilder {
         THttpService tHttpService = new THttpService(decorate(tcs), defaultSerializationFormat, builder.build(),
                                                      maxRequestStringLength, maxRequestContainerLength,
                                                      exceptionHandler);
-        THttpDecoratingService decoratingService = new THttpDecoratingService(tHttpService);
-        return tHttpService;
+        return new THttpDecoratingService(tHttpService);
     }
 }

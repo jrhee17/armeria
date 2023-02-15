@@ -29,5 +29,5 @@ interface THttpServiceHelper  {
 
     void invoke(ServiceRequestContext ctx, SerializationFormat serializationFormat, int seqId,
                 ThriftFunction func, RpcRequest call, CompletableFuture<HttpResponse> res,
-                HttpRequest req);
+                HttpRequest req, String serviceName, String methodName);
 }
