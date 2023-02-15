@@ -352,7 +352,7 @@ final class HttpServerHandler extends ChannelInboundHandlerAdapter implements Ht
 
         final DefaultServiceRequestContext reqCtx = new DefaultServiceRequestContext(
                 serviceCfg, channel, config.meterRegistry(), protocol,
-                nextRequestId(), routingCtx, routingResult, req.exchangeType(),
+                nextRequestId(routingCtx), routingCtx, routingResult, req.exchangeType(),
                 req, sslSession, proxiedAddresses, clientAddress,
                 req.requestStartTimeNanos(), req.requestStartTimeMicros());
 
@@ -641,13 +641,13 @@ final class HttpServerHandler extends ChannelInboundHandlerAdapter implements Ht
         return new DefaultServiceRequestContext(
                 serviceConfig,
                 channel, NoopMeterRegistry.get(), protocol(),
-                nextRequestId(), routingCtx, routingResult, req.exchangeType(),
+                nextRequestId(routingCtx), routingCtx, routingResult, req.exchangeType(),
                 req, sslSession, proxiedAddresses, clientAddress,
                 System.nanoTime(), SystemInfo.currentTimeMicros());
     }
 
-    private RequestId nextRequestId() {
-        final RequestId id = config.requestIdGenerator().get();
+    private RequestId nextRequestId(RoutingContext routingContext) {
+        final RequestId id = config.requestIdGenerator().apply(routingContext);
         if (id == null) {
             if (!warnedNullRequestId) {
                 warnedNullRequestId = true;

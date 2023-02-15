@@ -265,7 +265,7 @@ final class UpdatableServerConfig implements ServerConfig {
     }
 
     @Override
-    public Supplier<RequestId> requestIdGenerator() {
+    public Function<? super RoutingContext, ? extends RequestId> requestIdGenerator() {
         return delegate.requestIdGenerator();
     }
 

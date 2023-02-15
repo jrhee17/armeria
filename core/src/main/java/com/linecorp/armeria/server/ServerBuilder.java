@@ -207,7 +207,7 @@ public final class ServerBuilder implements TlsSetters {
             ProxiedAddresses::sourceAddress;
     private boolean enableServerHeader = true;
     private boolean enableDateHeader = true;
-    private Supplier<? extends RequestId> requestIdGenerator = RequestId::random;
+    private Function<? super RoutingContext, ? extends RequestId> requestIdGenerator = unused -> RequestId.random();
     private Http1HeaderNaming http1HeaderNaming = Http1HeaderNaming.ofDefault();
     @Nullable
     private DependencyInjector dependencyInjector;
@@ -1714,6 +1714,11 @@ public final class ServerBuilder implements TlsSetters {
      * @see RequestContext#id()
      */
     public ServerBuilder requestIdGenerator(Supplier<? extends RequestId> requestIdGenerator) {
+        this.requestIdGenerator = unused -> requestIdGenerator.get();
+        return this;
+    }
+
+    public ServerBuilder requestIdGenerator(Function<? super RoutingContext, ? extends RequestId> requestIdGenerator) {
         this.requestIdGenerator = requireNonNull(requestIdGenerator, "requestIdGenerator");
         return this;
     }
