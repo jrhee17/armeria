@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
+import com.linecorp.armeria.common.HttpObject;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponseWriter;
 import com.linecorp.armeria.common.RequestHeaders;
@@ -212,10 +213,20 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
         }
 
         final StatusAndMetadata statusAndMetadata = new StatusAndMetadata(status, metadata);
+        final HttpObject trailers;
+        try {
+            trailers = responseTrailers(ctx, status, metadata, trailersOnly);
+        } catch (Exception e) {
+            ctx.logBuilder().endResponse(e);
+            res.abort(e);
+            closeListener(statusAndMetadata, false, false);
+            return;
+        }
+
         // Set responseContent before closing stream to use responseCause in error handling
         ctx.logBuilder().responseContent(GrpcLogUtil.rpcResponse(statusAndMetadata, firstResponse), null);
         try {
-            if (res.tryWrite(responseTrailers(ctx, status, metadata, trailersOnly))) {
+            if (res.tryWrite(trailers)) {
                 res.close();
             }
         } finally {
