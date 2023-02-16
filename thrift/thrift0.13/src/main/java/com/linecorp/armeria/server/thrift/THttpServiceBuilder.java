@@ -244,10 +244,8 @@ public final class THttpServiceBuilder {
         builder.add(defaultSerializationFormat);
         builder.addAll(otherSerializationFormats);
 
-        THttpService tHttpService = new THttpService(decorate(tcs), defaultSerializationFormat, builder.build(),
+        return new THttpService(decorate(tcs), defaultSerializationFormat, builder.build(),
                                                      maxRequestStringLength, maxRequestContainerLength,
                                                      exceptionHandler);
-        THttpDecoratingService decoratingService = new THttpDecoratingService(tHttpService);
-        return tHttpService;
     }
 }
