@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Test;
 import com.linecorp.armeria.common.CompletableRpcResponse;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
-import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServiceConfig;
 import com.linecorp.armeria.server.ServiceRequestContext;
@@ -37,7 +36,7 @@ class THttpClientTest {
     @Test
     void serviceAddedIsCalled() {
         final AtomicReference<ServiceConfig> cfgHolder = new AtomicReference<>();
-        final HttpService tHttpService =
+        final THttpService tHttpService =
                 ThriftCallService.of((AsyncIface) (name, cb) -> cb.onComplete("name"))
                                  .decorate(delegate -> new SimpleDecoratingRpcService(delegate) {
                                      @Override

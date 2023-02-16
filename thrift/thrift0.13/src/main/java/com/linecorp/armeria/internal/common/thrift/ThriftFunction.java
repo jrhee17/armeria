@@ -16,7 +16,6 @@
 
 package com.linecorp.armeria.internal.common.thrift;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 import java.lang.reflect.Method;
@@ -24,7 +23,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.function.Function;
 
 import org.apache.thrift.AsyncProcessFunction;
 import org.apache.thrift.ProcessFunction;
@@ -35,14 +33,9 @@ import org.apache.thrift.TFieldIdEnum;
 import org.apache.thrift.meta_data.FieldMetaData;
 import org.apache.thrift.protocol.TMessageType;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import com.linecorp.armeria.common.DependencyInjector;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.internal.server.annotation.DecoratorAnnotationUtil;
-import com.linecorp.armeria.internal.server.annotation.DecoratorAnnotationUtil.DecoratorAndOrder;
-import com.linecorp.armeria.server.HttpService;
 
 /**
  * Provides the metadata of a Thrift service function.
@@ -68,25 +61,22 @@ public final class ThriftFunction {
     private final Map<Class<Throwable>, TFieldIdEnum> exceptionFields;
     private final Class<?>[] declaredExceptions;
 
-    final List<DecoratorAndOrder> decoratorAndOrders;
-
     ThriftFunction(Class<?> serviceType, ProcessFunction<?, ?> func,
-                   @Nullable Object implementation, @Nullable Method method) throws Exception {
+                   @Nullable Object implementation) throws Exception {
         this(serviceType, func.getMethodName(), func, Type.SYNC,
-             getArgFields(func), getResult(func), getDeclaredExceptions(func), implementation, method);
+             getArgFields(func), getResult(func), getDeclaredExceptions(func), implementation);
     }
 
     ThriftFunction(Class<?> serviceType, AsyncProcessFunction<?, ?, ?> func,
-                   @Nullable Object implementation, @Nullable Method method) throws Exception {
+                   @Nullable Object implementation) throws Exception {
         this(serviceType, func.getMethodName(), func, Type.ASYNC,
-             getArgFields(func), getResult(func), getDeclaredExceptions(func), implementation, method);
+             getArgFields(func), getResult(func), getDeclaredExceptions(func), implementation);
     }
 
     private <T extends TBase<T, F>, F extends TFieldIdEnum> ThriftFunction(
             Class<?> serviceType, String name, Object func, Type type,
             TFieldIdEnum[] argFields, @Nullable TBase<?, ?> result,
-            Class<?>[] declaredExceptions, @Nullable Object implementation,
-            @Nullable Method method) throws Exception {
+            Class<?>[] declaredExceptions, @Nullable Object implementation) throws Exception {
 
         this.func = func;
         this.type = type;
@@ -96,11 +86,6 @@ public final class ThriftFunction {
         this.result = result;
         this.declaredExceptions = declaredExceptions;
         this.implementation = implementation;
-        if (implementation != null && method != null) {
-            decoratorAndOrders = DecoratorAnnotationUtil.collectDecorators(implementation.getClass(), method);
-        } else {
-            decoratorAndOrders = ImmutableList.of();
-        }
 
         // Determine the success and exception fields of the function.
         final ImmutableMap.Builder<Class<Throwable>, TFieldIdEnum> exceptionFieldsBuilder =
@@ -135,34 +120,6 @@ public final class ThriftFunction {
 
         this.successField = successField;
         exceptionFields = exceptionFieldsBuilder.build();
-    }
-
-    private static HttpService applyDecorators(
-            Iterable<? extends Function<? super HttpService, ? extends HttpService>> decorators,
-            HttpService delegate) {
-        Function<? super HttpService, ? extends HttpService> decorator = Function.identity();
-        for (Function<? super HttpService, ? extends HttpService> function : decorators) {
-            decorator = decorator.compose(function);
-        }
-        return decorator.apply(delegate);
-    }
-
-    private static Function<? super HttpService, ? extends HttpService> combineDecorators(
-            Iterable<? extends Function<? super HttpService, ? extends HttpService>> decorators) {
-        Function<? super HttpService, ? extends HttpService> decorator = Function.identity();
-        for (Function<? super HttpService, ? extends HttpService> function : decorators) {
-            decorator = decorator.compose(function);
-        }
-        return decorator;
-    }
-
-    public Function<? super HttpService, ? extends HttpService> decorator(DependencyInjector dependencyInjector) {
-        final ImmutableList<? extends Function<? super HttpService, ? extends HttpService>> decorators =
-                decoratorAndOrders
-                        .stream()
-                        .map(decoratorAndOrder -> decoratorAndOrder.decorator(dependencyInjector))
-                        .collect(toImmutableList());
-        return combineDecorators(decorators);
     }
 
     /**

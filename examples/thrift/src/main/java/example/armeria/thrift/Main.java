@@ -5,7 +5,6 @@ import java.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.Server;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.docs.DocService;
@@ -41,7 +40,7 @@ public final class Main {
 
     static void configureServices(ServerBuilder sb) {
         final HelloRequest exampleRequest = new HelloRequest("Armeria");
-        final HttpService thriftService =
+        final THttpService thriftService =
                 THttpService.builder()
                             .addService(new HelloServiceImpl())
                             .build();

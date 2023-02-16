@@ -100,24 +100,22 @@ public final class ThriftServiceMetadata {
             final Map<String, AsyncProcessFunction<?, ?, ?>> asyncProcessMap;
             asyncProcessMap = getThriftAsyncProcessMap(implementation, iface);
             if (asyncProcessMap != null) {
-                final Map<String, Method> methodMap = getMethodMap(implementation, iface.getMethods(), asyncProcessMap.keySet());
                 final Map<String, String> camelNameMap = getCamelNameMap(asyncProcessMap.keySet(),
                                                                          iface.getMethods());
                 asyncProcessMap.forEach(
                         (name, func) -> registerFunction(iface, name, camelNameMap.get(name),
-                                                         func, implementation, methodMap.get(name)));
+                                                         func, implementation));
                 interfaces.add(iface);
             }
 
             final Map<String, ProcessFunction<?, ?>> processMap;
             processMap = getThriftProcessMap(implementation, iface);
             if (processMap != null) {
-                final Map<String, Method> methodMap = getMethodMap(implementation, iface.getMethods(), processMap.keySet());
                 final Map<String, String> camelNameMap = getCamelNameMap(processMap.keySet(),
                                                                          iface.getMethods());
                 processMap.forEach(
                         (name, func) -> registerFunction(iface, name, camelNameMap.get(name), func,
-                                                         implementation, methodMap.get(name)));
+                                                         implementation));
                 interfaces.add(iface);
             }
         }
@@ -217,30 +215,9 @@ public final class ThriftServiceMetadata {
         return camelNameMap;
     }
 
-    private static Map<String, Method> getMethodMap(@Nullable Object implementation, Method[] methods,
-                                                    Set<String> asyncProcessKeys) {
-        final Map<String, Method> ret = new HashMap<>();
-        if (implementation == null) {
-            return ret;
-        }
-        for (Method method: methods) {
-            if (!asyncProcessKeys.contains(method.getName())) {
-                continue;
-            }
-            try {
-                ret.put(method.getName(), implementation.getClass().getDeclaredMethod(
-                        method.getName(), method.getParameterTypes()));
-            } catch (NoSuchMethodException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return ret;
-    }
-
     @SuppressWarnings("rawtypes")
     private void registerFunction(Class<?> iface, String name, @Nullable String camelName,
-                                  Object func, @Nullable Object implementation,
-                                  @Nullable Method method) {
+                                  Object func, @Nullable Object implementation) {
         if (functions.containsKey(name)) {
             logger.warn("duplicate Thrift method name: " + name);
             return;
@@ -249,9 +226,9 @@ public final class ThriftServiceMetadata {
         try {
             final ThriftFunction f;
             if (func instanceof ProcessFunction) {
-                f = new ThriftFunction(iface, (ProcessFunction) func, implementation, method);
+                f = new ThriftFunction(iface, (ProcessFunction) func, implementation);
             } else {
-                f = new ThriftFunction(iface, (AsyncProcessFunction) func, implementation, method);
+                f = new ThriftFunction(iface, (AsyncProcessFunction) func, implementation);
             }
             functions.put(name, f);
             if (camelName != null) {
@@ -278,9 +255,5 @@ public final class ThriftServiceMetadata {
     @Nullable
     public ThriftFunction function(String method) {
         return functions.get(method);
-    }
-
-    public Map<String, ThriftFunction> functions() {
-        return functions;
     }
 }

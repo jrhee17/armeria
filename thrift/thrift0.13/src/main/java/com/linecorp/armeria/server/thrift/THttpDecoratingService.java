@@ -16,12 +16,8 @@
 
 package com.linecorp.armeria.server.thrift;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 
-import com.linecorp.armeria.common.DependencyInjector;
 import com.linecorp.armeria.common.ExchangeType;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
@@ -29,7 +25,6 @@ import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.internal.common.thrift.ThriftFunction;
-import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.RoutingContext;
 import com.linecorp.armeria.server.ServiceConfig;
 import com.linecorp.armeria.server.ServiceRequestContext;
@@ -49,20 +44,9 @@ public class THttpDecoratingService extends SimpleDecoratingHttpService implemen
         this.delegate = delegate;
     }
 
-    final Map<String, Map<String, HttpService>> decoratedMapping = new HashMap<>();
-
     @Override
     public void serviceAdded(ServiceConfig cfg) throws Exception {
         delegate.serviceAdded(cfg);
-
-        final DependencyInjector dependencyInjector = cfg.server().config().dependencyInjector();
-        for (Entry<String, ThriftServiceEntry> entry: delegate.entries().entrySet()) {
-            final HashMap<String, HttpService> decorated = new HashMap<>();
-            entry.getValue().metadata.functions().forEach((k, v) -> {
-                decorated.put(k, v.decorator(dependencyInjector).apply(delegate));
-            });
-            decoratedMapping.put(entry.getKey(), decorated);
-        }
     }
 
     @Override
@@ -78,14 +62,13 @@ public class THttpDecoratingService extends SimpleDecoratingHttpService implemen
     @Override
     public void invoke(ServiceRequestContext ctx, SerializationFormat serializationFormat, int seqId,
                        ThriftFunction func, RpcRequest call, CompletableFuture<HttpResponse> res,
-                       HttpRequest req, String serviceName, String methodName) {
+                       HttpRequest req) {
         final ThriftRequestContainer container = new ThriftRequestContainer(serializationFormat, seqId, func, call);
         ctx.setAttr(RPC_REQUEST_KEY, container);
-        final HttpService delegate = decoratedMapping.get(serviceName).get(methodName);
 
         final HttpResponse response;
         try (SafeCloseable ignored = ctx.push()) {
-            response = delegate.serve(ctx, req);
+            response = unwrap().serve(ctx, req);
             res.complete(response);
         } catch (Throwable cause) {
             res.completeExceptionally(cause);

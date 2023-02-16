@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.internal.server.thrift;
+package com.linecorp.armeria.it.thrift;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -55,7 +55,7 @@ class ThriftDecoratorTest {
         @Override
         public HttpResponse serve(HttpService delegate, ServiceRequestContext ctx, HttpRequest req)
                 throws Exception {
-            queue.add("method");
+            queue.add("class");
             return delegate.serve(ctx, req);
         }
     }
@@ -86,7 +86,7 @@ class ThriftDecoratorTest {
         final Iface client = ThriftClients.builder(server.httpUri()).path("/echo").build(Iface.class);
         assertThat(client.hello("world")).isEqualTo("world");
         assertThat(queue).hasSize(2);
-        assertThat(queue.poll()).isEqualTo("class");
-        assertThat(queue.poll()).isEqualTo("method");
+        assertThat(queue.poll()).isEqualTo("server");
+        assertThat(queue.poll()).isEqualTo("client");
     }
 }
