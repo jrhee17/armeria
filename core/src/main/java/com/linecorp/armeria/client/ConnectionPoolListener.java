@@ -66,6 +66,15 @@ public interface ConnectionPoolListener extends Unwrappable {
                           InetSocketAddress localAddr,
                           AttributeMap attrs) throws Exception;
 
+    default void connectionAttemptStarted(SessionProtocol protocol,
+                                         InetSocketAddress remoteAddr) throws Exception {
+    }
+
+    default void connectionAttemptFailed(SessionProtocol protocol,
+                                         InetSocketAddress remoteAddr,
+                                         Throwable throwable) throws Exception {
+    }
+
     @Override
     default ConnectionPoolListener unwrap() {
         return this;

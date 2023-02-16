@@ -368,6 +368,13 @@ final class HttpChannelPool implements AsyncCloseable {
             return;
         }
 
+        // notify about a new connection attempt
+        try {
+            listener.connectionAttemptStarted(desiredProtocol, remoteAddress);
+        } catch (Exception e) {
+            // log and ignore
+        }
+
         // Create a new connection.
         final Promise<Channel> sessionPromise = eventLoop.newPromise();
         connect(remoteAddress, desiredProtocol, key, sessionPromise);
@@ -547,6 +554,7 @@ final class HttpChannelPool implements AsyncCloseable {
                     maybeHandleProxyFailure(desiredProtocol, key, throwable);
                 }
                 promise.completeExceptionally(UnprocessedRequestException.of(throwable));
+                listener.connectionAttemptFailed(desiredProtocol, key.toRemoteAddress(), throwable);
             }
         } catch (Exception e) {
             promise.completeExceptionally(UnprocessedRequestException.of(e));
