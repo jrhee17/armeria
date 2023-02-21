@@ -1,0 +1,10 @@
+dependencies {
+    implementation libs.micrometer.tracing
+    implementation libs.micrometer.tracing.reporter.wavefront
+    implementation 'io.zipkin.reporter2:zipkin-reporter-brave:2.16.3'
+    implementation 'io.opentelemetry:opentelemetry-exporter-zipkin:1.23.1'
+    implementation 'io.zipkin.reporter2:zipkin-sender-urlconnection:2.16.3'
+
+    testImplementation libs.micrometer.tracing.test
+    testImplementation libs.micrometer.tracing.integration.test
+}

@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.MDC;
 
+import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ClientRequestContextCaptor;
 import com.linecorp.armeria.client.Clients;
@@ -60,7 +61,8 @@ class SpanPropagationTest {
     static ServerExtension server = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) {
-
+            sb.requestTimeoutMillis(Long.MAX_VALUE);
+            sb.idleTimeoutMillis(Long.MAX_VALUE);
             sb.service("/trace", (ctx, req) -> {
                 ctx.log().whenComplete()
                    .thenAcceptAsync(log -> {
@@ -84,9 +86,13 @@ class SpanPropagationTest {
 
     @Test
     void mdcScopeDecorator() throws InterruptedException {
+        final ClientFactory factory = ClientFactory.builder().idleTimeoutMillis(Long.MAX_VALUE).build();
         final WebClient client = WebClient.builder(server.httpUri())
                                           .decorator(BraveClient.newDecorator(tracing))
                                           .decorator(LoggingClient.newDecorator())
+                                          .responseTimeoutMillis(Long.MAX_VALUE)
+                                          .writeTimeoutMillis(Long.MAX_VALUE)
+                                          .factory(factory)
                                           .build();
 
         final AtomicReference<Map<String, String>> clientMdcContextRef = new AtomicReference<>();
@@ -113,5 +119,6 @@ class SpanPropagationTest {
         final String clientSpanId = clientMdcContext.get(BaggageFields.SPAN_ID.name());
         assertThat(clientTraceId).isEqualTo(serviceTraceId);
         assertThat(clientSpanId).isEqualTo(serviceSpanId);
+        factory.close();
     }
 }

@@ -21,6 +21,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
@@ -318,6 +319,11 @@ public final class ThriftDescriptiveTypeInfoProvider implements DescriptiveTypeI
     static <T extends TBase<T, F>, F extends TFieldIdEnum> StructInfo newStructInfo(Class<?> structClass) {
         final String name = structClass.getName();
 
+        try {
+            Object o = structClass.getConstructors()[0].newInstance();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         //noinspection unchecked
         final Map<?, FieldMetaData> metaDataMap = FieldMetaData.getStructMetaDataMap((Class<T>) structClass);
         final List<FieldInfo> fields =

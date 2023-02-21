@@ -671,6 +671,9 @@ javadocs = "https://www.javadoc.io/doc/io.micrometer/micrometer-registry-prometh
 [libraries.micrometer-tracing]
 module = "io.micrometer:micrometer-tracing"
 version = "1.0.2"
+[libraries.micrometer-tracing-reporter-wavefront]
+module = "io.micrometer:micrometer-tracing-reporter-wavefront"
+version = "1.0.2"
 [libraries.micrometer-tracing-test]
 module = "io.micrometer:micrometer-tracing-test"
 version = "1.0.2"

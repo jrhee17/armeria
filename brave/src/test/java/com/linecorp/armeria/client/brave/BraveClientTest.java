@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -48,13 +49,25 @@ import com.linecorp.armeria.common.brave.RequestContextCurrentTraceContext;
 import com.linecorp.armeria.common.brave.SpanCollector;
 import com.linecorp.armeria.common.logging.RequestLog;
 import com.linecorp.armeria.common.util.SafeCloseable;
+import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 
+import brave.ScopedSpan;
+import brave.Span;
 import brave.Span.Kind;
+import brave.Tracer.SpanInScope;
 import brave.Tracing;
+import brave.baggage.BaggageField;
+import brave.baggage.BaggagePropagation;
+import brave.baggage.BaggagePropagationConfig;
+import brave.baggage.BaggagePropagationConfig.SingleBaggageField;
 import brave.handler.MutableSpan;
 import brave.http.HttpTracing;
+import brave.propagation.B3Propagation;
 import brave.propagation.CurrentTraceContext;
+import brave.propagation.CurrentTraceContext.Scope;
 import brave.propagation.CurrentTraceContext.ScopeDecorator;
+import brave.propagation.Propagation.Factory;
+import brave.propagation.TraceContext;
 import brave.sampler.Sampler;
 
 class BraveClientTest {
@@ -85,11 +98,31 @@ class BraveClientTest {
     void shouldSubmitSpanWhenSampled() throws Exception {
         final SpanCollector collector = new SpanCollector();
 
+        final BaggageField field1 = BaggageField.create("x-baggage-1");
+        final Factory factory = BaggagePropagation
+                .newFactoryBuilder(B3Propagation.FACTORY)
+                .add(SingleBaggageField.remote(field1))
+                .add(SingleBaggageField.remote(BaggageField.create("x-baggage-2")))
+                .build();
         final Tracing tracing = Tracing.newBuilder()
+                                       .currentTraceContext(RequestContextCurrentTraceContext.ofDefault())
                                        .localServiceName(TEST_SERVICE)
+                                       .sampler(Sampler.ALWAYS_SAMPLE)
                                        .addSpanHandler(collector)
-                                       .sampler(Sampler.create(1.0f))
+                                       .propagationFactory(factory)
                                        .build();
+
+        final Span nextSpan = tracing.tracer().nextSpan();
+        try (Scope scope = tracing.currentTraceContext().newScope(nextSpan.context()))  {
+            final Span nextSpan2 = tracing.tracer().nextSpan();
+            field1.updateValue("field 1");
+            try (Scope scope2 = tracing.currentTraceContext().newScope(nextSpan2.context())) {
+                field1.updateValue("field 2");
+            }
+            nextSpan2.finish();
+        }
+        nextSpan.finish();
+
         final RequestLog requestLog = testRemoteInvocation(tracing, null);
 
         // check span name
@@ -209,7 +242,9 @@ class BraveClientTest {
         // prepare parameters
         final HttpRequest req = HttpRequest.of(RequestHeaders.of(HttpMethod.POST, "/hello/armeria",
                                                                  HttpHeaderNames.SCHEME, "http",
-                                                                 HttpHeaderNames.AUTHORITY, "foo.com"));
+                                                                 HttpHeaderNames.AUTHORITY, "foo.com",
+                                                                 "x-baggage-1", "value1",
+                                                                 "x-baggage-2", "value2"));
         final RpcRequest rpcReq = RpcRequest.of(HelloService.Iface.class, "hello", "Armeria");
         final HttpResponse res = HttpResponse.of(HttpStatus.OK);
         final RpcResponse rpcRes = RpcResponse.of("Hello, Armeria!");
@@ -253,5 +288,50 @@ class BraveClientTest {
                                .containsEntry("http.path", "/hello/armeria")
                                .containsEntry("http.url", "http://foo.com/hello/armeria")
                                .containsEntry("http.protocol", "h2c");
+    }
+
+    @Test
+    void testAsdf() throws Exception {
+        final SpanCollector collector = new SpanCollector();
+        final BaggageField baggage1 = BaggageField.create("x-baggage-1");
+        final BaggageField baggage2 = BaggageField.create("x-baggage-2");
+        final Factory factory = BaggagePropagation
+                .newFactoryBuilder(B3Propagation.FACTORY)
+                .add(SingleBaggageField.remote(baggage1))
+                .add(SingleBaggageField.remote(baggage2))
+                .build();
+        final Tracing tracing = Tracing.newBuilder()
+                                       .currentTraceContext(RequestContextCurrentTraceContext.ofDefault())
+                                       .localServiceName(TEST_SERVICE)
+                                       .sampler(Sampler.ALWAYS_SAMPLE)
+                                       .addSpanHandler(collector)
+                                       .propagationFactory(factory)
+                                       .build();
+
+        final HttpClient delegate = mock(HttpClient.class);
+        final HttpRequest req = HttpRequest.of(RequestHeaders.of(HttpMethod.POST, "/hello/armeria",
+                                                                 HttpHeaderNames.SCHEME, "http",
+                                                                 HttpHeaderNames.AUTHORITY, "foo.com"));
+        final ClientRequestContext ctx = ClientRequestContext.of(req);
+        final HttpResponse res = HttpResponse.of(200);
+        when(delegate.execute(any(), any())).thenReturn(res);
+
+        final BraveClient braveClient = BraveClient.newDecorator(tracing).apply(delegate);
+
+        final HttpResponse response;
+        try (SafeCloseable ignored = ctx.push()) {
+            final Span span = tracing.tracer().nextSpan();
+            try (Scope scope = tracing.currentTraceContext().newScope(span.context())) {
+                baggage1.updateValue("hello");
+                final Span span2 = tracing.tracer().nextSpan();
+                try (Scope scope2 = tracing.currentTraceContext().newScope(span2.context())) {
+                    baggage2.updateValue("world");
+                    response = braveClient.execute(ctx, req);
+                }
+                span2.finish();
+            }
+            span.finish();
+        }
+        assertThat(response).isSameAs(res);
     }
 }

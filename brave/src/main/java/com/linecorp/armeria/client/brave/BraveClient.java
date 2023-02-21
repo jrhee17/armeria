@@ -40,6 +40,7 @@ import brave.Span;
 import brave.Tracer;
 import brave.Tracer.SpanInScope;
 import brave.Tracing;
+import brave.baggage.BaggageField;
 import brave.http.HttpClientHandler;
 import brave.http.HttpClientRequest;
 import brave.http.HttpClientResponse;

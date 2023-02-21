@@ -28,6 +28,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import com.linecorp.armeria.client.BlockingWebClient;
+import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpResponse;
@@ -131,18 +132,28 @@ class TraceContextPropagationTest {
             });
             sb.decorator(BraveService.newDecorator(tracing));
             sb.decorator(LoggingService.newDecorator());
+            
+            sb.requestTimeoutMillis(Long.MAX_VALUE)
+              .idleTimeoutMillis(Long.MAX_VALUE);
         }
     };
 
     @CsvSource({ "manual", "auto", "blocking" })
     @ParameterizedTest
     void propagation(String type) {
+        ClientFactory factory = ClientFactory.builder()
+                                             .idleTimeoutMillis(Long.MAX_VALUE)
+                                             .connectTimeoutMillis(Long.MAX_VALUE)
+                                             .build();
         final BlockingWebClient client = server.webClient(cb -> {
             cb.decorator((delegate, ctx, req) -> {
                 traceContexts.put("foo-client", currentTraceContext.get());
                 return delegate.execute(ctx, req);
             });
             cb.decorator(BraveClient.newDecorator(tracing));
+            cb.writeTimeoutMillis(Long.MAX_VALUE);
+            cb.responseTimeoutMillis(Long.MAX_VALUE);
+            cb.factory(factory);
         }).blocking();
 
         final AggregatedHttpResponse response = client.get("/foo/" + type);
@@ -163,5 +174,7 @@ class TraceContextPropagationTest {
         assertThat(barServiceTraceContext.traceId()).isEqualTo(traceId);
         assertThat(barServiceTraceContext.parentId()).isEqualTo(fooServiceTraceContext.spanId());
         assertThat(barServiceTraceContext.spanId()).isEqualTo(barClientTraceContext.spanId());
+
+        factory.close();
     }
 }

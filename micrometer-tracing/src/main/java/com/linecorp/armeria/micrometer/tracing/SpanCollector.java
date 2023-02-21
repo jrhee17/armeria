@@ -16,24 +16,22 @@
 
 package com.linecorp.armeria.micrometer.tracing;
 
-import org.junit.jupiter.api.Test;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedTransferQueue;
 
-import io.micrometer.tracing.Span;
-import io.micrometer.tracing.Tracer;
-import io.micrometer.tracing.test.simple.SimpleTracer;
+import io.micrometer.tracing.exporter.FinishedSpan;
+import io.micrometer.tracing.exporter.SpanReporter;
 
-class TracingTest {
+public final class SpanCollector implements SpanReporter {
 
-    @Test
-    void example1() {
-        final Tracer tracer = new SimpleTracer();
-        final Span newSpan = tracer.nextSpan().name("calculateText");
-        final String taxValue = "123";
-        try (Tracer.SpanInScope ws = tracer.withSpan(newSpan.start())) {
-            newSpan.tag("taxValue", taxValue);
-            newSpan.event("taxCalculated");
-        } finally {
-            newSpan.end();
-        }
+    private final BlockingQueue<FinishedSpan> spans = new LinkedTransferQueue<>();
+
+    public BlockingQueue<FinishedSpan> spans() {
+        return spans;
+    }
+
+    @Override
+    public void report(FinishedSpan span) {
+        spans.add(span);
     }
 }
