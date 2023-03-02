@@ -16,30 +16,42 @@
 
 package com.linecorp.armeria.server;
 
-import com.linecorp.armeria.client.WebClient;
-import com.linecorp.armeria.common.*;
-import com.linecorp.armeria.server.logging.LoggingService;
-import com.linecorp.armeria.testing.junit4.server.ServerRule;
-import org.apache.http.Header;
-import org.apache.http.client.methods.*;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
-import org.junit.ClassRule;
-import org.junit.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assume.assumeThat;
+import org.apache.http.Header;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpHead;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
-public class HttpServiceTest {
+import com.linecorp.armeria.client.WebClient;
+import com.linecorp.armeria.common.AggregatedHttpResponse;
+import com.linecorp.armeria.common.HttpData;
+import com.linecorp.armeria.common.HttpHeaderNames;
+import com.linecorp.armeria.common.HttpHeaders;
+import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.HttpStatus;
+import com.linecorp.armeria.common.MediaType;
+import com.linecorp.armeria.common.ResponseHeaders;
+import com.linecorp.armeria.server.logging.LoggingService;
+import com.linecorp.armeria.testing.junit5.server.ServerExtension;
+import com.linecorp.armeria.testing.server.ServiceRequestContextCaptor;
 
-    @ClassRule
-    public static final ServerRule rule = new ServerRule() {
+class HttpServiceTest {
+
+    @RegisterExtension
+    static final ServerExtension server = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
             sb.service(
@@ -98,32 +110,23 @@ public class HttpServiceTest {
                             return HttpResponse.of(HttpStatus.NO_CONTENT);
                         }
                     }.decorate(LoggingService.newDecorator()));
-
-            sb.service(Route.builder().glob("/uri-valid/**").build(), (ctx, req) -> {
-                try {
-                    req.uri();
-                    return HttpResponse.of(HttpStatus.NO_CONTENT);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    throw e;
-                }
-            });
+            sb.service(Route.builder().glob("/uri-valid/**").build(), (ctx, req) -> HttpResponse.of(204));
         }
     };
 
     @Test
-    public void testHello() throws Exception {
+    void testHello() throws Exception {
         try (CloseableHttpClient hc = HttpClients.createMinimal()) {
-            try (CloseableHttpResponse res = hc.execute(new HttpGet(rule.httpUri() + "/hello/foo"))) {
+            try (CloseableHttpResponse res = hc.execute(new HttpGet(server.httpUri() + "/hello/foo"))) {
                 assertThat(res.getStatusLine().toString()).isEqualTo("HTTP/1.1 200 OK");
                 assertThat(EntityUtils.toString(res.getEntity())).isEqualTo("Hello, foo!");
             }
 
-            try (CloseableHttpResponse res = hc.execute(new HttpGet(rule.httpUri() + "/hello/foo/bar"))) {
+            try (CloseableHttpResponse res = hc.execute(new HttpGet(server.httpUri() + "/hello/foo/bar"))) {
                 assertThat(res.getStatusLine().toString()).isEqualTo("HTTP/1.1 404 Not Found");
             }
 
-            try (CloseableHttpResponse res = hc.execute(new HttpDelete(rule.httpUri() + "/hello/bar"))) {
+            try (CloseableHttpResponse res = hc.execute(new HttpDelete(server.httpUri() + "/hello/bar"))) {
                 assertThat(res.getStatusLine().toString()).isEqualTo(
                         "HTTP/1.1 405 Method Not Allowed");
                 assertThat(EntityUtils.toString(res.getEntity())).isEqualTo(
@@ -133,11 +136,11 @@ public class HttpServiceTest {
     }
 
     @Test
-    public void testContentLength() throws Exception {
+    void testContentLength() throws Exception {
         // Test if the server responds with the 'content-length' header
         // even if it is the last response of the connection.
         try (CloseableHttpClient hc = HttpClients.createMinimal()) {
-            final HttpUriRequest req = new HttpGet(rule.httpUri() + "/200");
+            final HttpUriRequest req = new HttpGet(server.httpUri() + "/200");
             req.setHeader("Connection", "Close");
             try (CloseableHttpResponse res = hc.execute(req)) {
                 assertThat(res.getStatusLine().toString()).isEqualTo("HTTP/1.1 200 OK");
@@ -150,13 +153,13 @@ public class HttpServiceTest {
 
         try (CloseableHttpClient hc = HttpClients.createMinimal()) {
             // Ensure the HEAD response does not have content.
-            try (CloseableHttpResponse res = hc.execute(new HttpHead(rule.httpUri() + "/200"))) {
+            try (CloseableHttpResponse res = hc.execute(new HttpHead(server.httpUri() + "/200"))) {
                 assertThat(res.getStatusLine().toString()).isEqualTo("HTTP/1.1 200 OK");
                 assertThat(res.getEntity()).isNull();
             }
 
             // Ensure the 204 response does not have content.
-            try (CloseableHttpResponse res = hc.execute(new HttpGet(rule.httpUri() + "/204"))) {
+            try (CloseableHttpResponse res = hc.execute(new HttpGet(server.httpUri() + "/204"))) {
                 assertThat(res.getStatusLine().toString()).isEqualTo("HTTP/1.1 204 No Content");
                 assertThat(res.getEntity()).isNull();
             }
@@ -164,8 +167,8 @@ public class HttpServiceTest {
     }
 
     @Test
-    public void contentLengthIsNotSetWhenTrailerExists() {
-        final WebClient client = WebClient.of(rule.httpUri());
+    void contentLengthIsNotSetWhenTrailerExists() {
+        final WebClient client = WebClient.of(server.httpUri());
         AggregatedHttpResponse res = client.get("/trailersWithoutData").aggregate().join();
         assertThat(res.headers().get(HttpHeaderNames.CONTENT_LENGTH)).isNull();
         assertThat(res.trailers().get(HttpHeaderNames.of("foo"))).isEqualTo("bar");
@@ -182,14 +185,13 @@ public class HttpServiceTest {
     }
 
     @Test
-    public void testBracketPathnames() throws IOException {
-        final URI uri = rule.httpUri();
-
-        int port = uri.getPort();
+    void testBracketPathnames() throws Exception {
+        final URI uri = server.httpUri();
+        final int port = uri.getPort();
         final String path = "/uri-valid/foobar/[..foobar]";
         final String uriString = "http://127.0.0.1:" + port + path;
-        final HttpURLConnection conn = (HttpURLConnection) new URL(uriString)
-                .openConnection();
+        final HttpURLConnection conn =
+                (HttpURLConnection) new URL(uriString).openConnection();
         conn.setRequestMethod("GET");
         try {
             conn.connect();
@@ -197,17 +199,9 @@ public class HttpServiceTest {
         } finally {
             conn.disconnect();
         }
-
-        try (final CloseableHttpClient httpclient = HttpClients.createDefault()) {
-            final HttpGet httpget = new HttpGet(uri);
-            httpclient.execute(httpget, response -> {
-                assertThat(response.getStatusLine().getStatusCode()).isEqualTo(204);
-                EntityUtils.consume(response.getEntity());
-                return null;
-            });
-        }
-        final WebClient client = WebClient.of(uri);
-        final AggregatedHttpResponse response = client.get(path).aggregate().join();
-        assertThat(response.status()).isEqualTo(HttpStatus.NO_CONTENT);
+        final ServiceRequestContextCaptor captor = server.requestContextCaptor();
+        assertThat(captor.size()).isEqualTo(1);
+        final ServiceRequestContext ctx = captor.poll();
+        assertThat(ctx.request().uri()).isEqualTo(server.httpUri());
     }
 }
