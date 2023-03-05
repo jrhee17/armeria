@@ -261,7 +261,7 @@ class ArmeriaHttpUtilTest {
         in.add(HttpHeaderNames.COOKIE, "i=j");
         in.add(HttpHeaderNames.COOKIE, "k=l;");
 
-        final RequestHeaders out = ArmeriaHttpUtil.toArmeriaRequestHeaders(null, in, false, "http", null);
+        final RequestHeaders out = ArmeriaHttpUtil.toArmeriaRequestHeaders(null, in, false, "http", null, "/");
 
         assertThat(out.getAll(HttpHeaderNames.COOKIE))
                 .containsExactly("a=b; c=d; e=f;g=h; i=j; k=l;");
@@ -282,7 +282,7 @@ class ArmeriaHttpUtilTest {
         final ChannelHandlerContext ctx = mock(ChannelHandlerContext.class);
         when(ctx.channel()).thenReturn(channel);
 
-        RequestHeaders armeriaHeaders = toArmeria(ctx, originReq, serverConfig(), "http");
+        RequestHeaders armeriaHeaders = toArmeria(ctx, originReq, serverConfig(), "http", "/");
         assertThat(armeriaHeaders.get(HttpHeaderNames.HOST)).isEqualTo("bar");
         assertThat(armeriaHeaders.authority()).isEqualTo("bar");
         assertThat(armeriaHeaders.scheme()).isEqualTo("http");
@@ -290,7 +290,7 @@ class ArmeriaHttpUtilTest {
 
         // Remove Host header.
         headers.remove(HttpHeaderNames.HOST);
-        armeriaHeaders = toArmeria(ctx, originReq, serverConfig(), "https");
+        armeriaHeaders = toArmeria(ctx, originReq, serverConfig(), "https", "/");
         assertThat(armeriaHeaders.get(HttpHeaderNames.HOST)).isEqualTo("foo:36462"); // The default hostname.
         assertThat(armeriaHeaders.authority()).isEqualTo("foo:36462");
         assertThat(armeriaHeaders.scheme()).isEqualTo("https");
@@ -310,27 +310,27 @@ class ArmeriaHttpUtilTest {
         final HttpRequest doubleQuoteReq =
                 new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/\"?\"",
                                        new DefaultHttpHeaders());
-        RequestHeaders armeriaHeaders = toArmeria(ctx, doubleQuoteReq, serverConfig(), "http");
+        RequestHeaders armeriaHeaders = toArmeria(ctx, doubleQuoteReq, serverConfig(), "http", "/");
         assertThat(armeriaHeaders.path()).isEqualTo("/\"?\"");
 
         // Should accept an asterisk request.
         final HttpRequest asteriskReq =
                 new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "*", new DefaultHttpHeaders());
-        armeriaHeaders = toArmeria(ctx, asteriskReq, serverConfig(), "http");
+        armeriaHeaders = toArmeria(ctx, asteriskReq, serverConfig(), "http", "/");
         assertThat(armeriaHeaders.path()).isEqualTo("*");
 
         // Should reject an absolute URI.
         final HttpRequest absoluteUriReq =
                 new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET,
                                        "http://example.com/hello", new DefaultHttpHeaders());
-        assertThatThrownBy(() -> toArmeria(ctx, absoluteUriReq, serverConfig(), "http"))
+        assertThatThrownBy(() -> toArmeria(ctx, absoluteUriReq, serverConfig(), "http", "/"))
                 .isInstanceOf(URISyntaxException.class)
                 .hasMessageContaining("neither origin form nor asterisk form");
 
         // Should not accept a path that starts with an asterisk.
         final HttpRequest badAsteriskReq =
                 new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "*/", new DefaultHttpHeaders());
-        assertThatThrownBy(() -> toArmeria(ctx, badAsteriskReq, serverConfig(), "http"))
+        assertThatThrownBy(() -> toArmeria(ctx, badAsteriskReq, serverConfig(), "http", "/"))
                 .isInstanceOf(URISyntaxException.class)
                 .hasMessageContaining("neither origin form nor asterisk form");
     }
@@ -569,7 +569,7 @@ class ArmeriaHttpUtilTest {
           .set(HttpHeaderNames.PATH, "/");
         // Request headers without pseudo headers.
         final RequestHeaders headers =
-                ArmeriaHttpUtil.toArmeriaRequestHeaders(ctx, in, false, "https", serverConfig());
+                ArmeriaHttpUtil.toArmeriaRequestHeaders(ctx, in, false, "https", serverConfig(), "/");
         assertThat(headers.scheme()).isEqualTo("https");
         assertThat(headers.authority()).isEqualTo("foo:36462");
     }

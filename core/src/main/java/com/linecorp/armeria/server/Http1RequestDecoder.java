@@ -33,6 +33,7 @@ import com.linecorp.armeria.common.HttpRequestWriter;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.ProtocolViolationException;
 import com.linecorp.armeria.common.RequestHeaders;
+import com.linecorp.armeria.common.RequestHeadersBuilder;
 import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.common.ArmeriaHttpUtil;
@@ -41,6 +42,7 @@ import com.linecorp.armeria.internal.common.InboundTrafficController;
 import com.linecorp.armeria.internal.common.InitiateConnectionShutdown;
 import com.linecorp.armeria.internal.common.KeepAliveHandler;
 import com.linecorp.armeria.internal.common.NoopKeepAliveHandler;
+import com.linecorp.armeria.internal.common.PathAndQuery;
 import com.linecorp.armeria.server.HttpServerUpgradeHandler.UpgradeEvent;
 
 import io.netty.buffer.ByteBuf;
@@ -174,9 +176,18 @@ final class Http1RequestDecoder extends ChannelDuplexHandler {
                     // immutability.
                     final boolean hasInvalidExpectHeader = !handle100Continue(id, nettyReq);
 
+                    final String nettyPath = nettyReq.uri();
+                    if (nettyPath.charAt(0) != '/' && !"*".equals(nettyPath)) {
+                        // We support only origin form and asterisk form.
+                        throw new URISyntaxException(nettyPath, "neither origin form nor asterisk form");
+                    }
+                    final PathAndQuery pathAndQuery = PathAndQuery.parse(nettyPath);
+                    // fallback to netty path since path should not be null
+                    final String encodedPath = pathAndQuery != null ? pathAndQuery.path() : nettyPath;
+
                     // Convert the Netty HttpHeaders into Armeria RequestHeaders.
                     final RequestHeaders headers =
-                            ArmeriaHttpUtil.toArmeria(ctx, nettyReq, cfg, scheme.toString());
+                            ArmeriaHttpUtil.toArmeria(ctx, nettyReq, cfg, scheme.toString(), encodedPath);
 
                     // Do not accept a CONNECT request.
                     if (headers.method() == HttpMethod.CONNECT) {
@@ -212,7 +223,8 @@ final class Http1RequestDecoder extends ChannelDuplexHandler {
                     }
 
                     // Close the request early when it is certain there will be neither content nor trailers.
-                    final RoutingContext routingCtx = newRoutingContext(cfg, ctx.channel(), headers);
+
+                    final RoutingContext routingCtx = newRoutingContext(cfg, ctx.channel(), headers, pathAndQuery);
                     if (routingCtx.status().routeMustExist()) {
                         try {
                             // Find the service that matches the path.

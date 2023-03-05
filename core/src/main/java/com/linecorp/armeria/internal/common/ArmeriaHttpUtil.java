@@ -551,10 +551,11 @@ public final class ArmeriaHttpUtil {
      */
     public static RequestHeaders toArmeriaRequestHeaders(ChannelHandlerContext ctx, Http2Headers headers,
                                                          boolean endOfStream, String scheme,
-                                                         ServerConfig cfg) {
+                                                         ServerConfig cfg, String path) {
         assert headers instanceof ArmeriaHttp2Headers;
         final HttpHeadersBuilder builder = ((ArmeriaHttp2Headers) headers).delegate();
         builder.endOfStream(endOfStream);
+        builder.add(HttpHeaderNames.PATH, path);
         // A CONNECT request might not have ":scheme". See https://datatracker.ietf.org/doc/html/rfc7540#section-8.1.2.3
         if (!builder.contains(HttpHeaderNames.SCHEME)) {
             builder.add(HttpHeaderNames.SCHEME, scheme);
@@ -605,15 +606,9 @@ public final class ArmeriaHttpUtil {
      * </ul>
      * {@link ExtensionHeaderNames#PATH} is ignored and instead extracted from the {@code Request-Line}.
      */
-    public static RequestHeaders toArmeria(ChannelHandlerContext ctx, HttpRequest in,
-                                           ServerConfig cfg, String scheme) throws URISyntaxException {
-
-        final String path = in.uri();
-        if (path.charAt(0) != '/' && !"*".equals(path)) {
-            // We support only origin form and asterisk form.
-            throw new URISyntaxException(path, "neither origin form nor asterisk form");
-        }
-
+    public static RequestHeaders toArmeria(
+            ChannelHandlerContext ctx, HttpRequest in,
+            ServerConfig cfg, String scheme, String path) throws URISyntaxException {
         final io.netty.handler.codec.http.HttpHeaders inHeaders = in.headers();
         final RequestHeadersBuilder out = RequestHeaders.builder();
         out.sizeHint(inHeaders.size());

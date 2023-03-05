@@ -44,6 +44,7 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.MediaType;
 import com.linecorp.armeria.common.ResponseHeaders;
+import com.linecorp.armeria.internal.common.PathAndQuery;
 import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import com.linecorp.armeria.testing.server.ServiceRequestContextCaptor;
@@ -202,6 +203,6 @@ class HttpServiceTest {
         final ServiceRequestContextCaptor captor = server.requestContextCaptor();
         assertThat(captor.size()).isEqualTo(1);
         final ServiceRequestContext ctx = captor.poll();
-        assertThat(ctx.request().uri()).isEqualTo(server.httpUri());
+        assertThat(ctx.request().uri().getPath()).isEqualTo(path);
     }
 }
