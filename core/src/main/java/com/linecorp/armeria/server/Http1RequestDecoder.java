@@ -33,9 +33,9 @@ import com.linecorp.armeria.common.HttpRequestWriter;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.ProtocolViolationException;
 import com.linecorp.armeria.common.RequestHeaders;
-import com.linecorp.armeria.common.RequestHeadersBuilder;
 import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.ClientUtil;
 import com.linecorp.armeria.internal.common.ArmeriaHttpUtil;
 import com.linecorp.armeria.internal.common.Http1ObjectEncoder;
 import com.linecorp.armeria.internal.common.InboundTrafficController;
@@ -183,7 +183,10 @@ final class Http1RequestDecoder extends ChannelDuplexHandler {
                     }
                     final PathAndQuery pathAndQuery = PathAndQuery.parse(nettyPath);
                     // fallback to netty path since path should not be null
-                    final String encodedPath = pathAndQuery != null ? pathAndQuery.path() : nettyPath;
+                    String encodedPath = nettyPath;
+                    if (pathAndQuery != null) {
+                        encodedPath = ClientUtil.pathWithQuery(pathAndQuery.path(), pathAndQuery.query());
+                    }
 
                     // Convert the Netty HttpHeaders into Armeria RequestHeaders.
                     final RequestHeaders headers =
@@ -224,7 +227,8 @@ final class Http1RequestDecoder extends ChannelDuplexHandler {
 
                     // Close the request early when it is certain there will be neither content nor trailers.
 
-                    final RoutingContext routingCtx = newRoutingContext(cfg, ctx.channel(), headers, pathAndQuery);
+                    final RoutingContext routingCtx =
+                            newRoutingContext(cfg, ctx.channel(), headers, pathAndQuery);
                     if (routingCtx.status().routeMustExist()) {
                         try {
                             // Find the service that matches the path.

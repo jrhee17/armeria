@@ -34,6 +34,7 @@ import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.stream.ClosedStreamException;
+import com.linecorp.armeria.internal.client.ClientUtil;
 import com.linecorp.armeria.internal.common.ArmeriaHttpUtil;
 import com.linecorp.armeria.internal.common.Http2GoAwayHandler;
 import com.linecorp.armeria.internal.common.InboundTrafficController;
@@ -131,11 +132,15 @@ final class Http2RequestDecoder extends Http2EventAdapter {
             if (originalPath.charAt(0) == '/') {
                 pathAndQuery = PathAndQuery.parse(originalPath);
             }
-            final String encodedPath = pathAndQuery != null ? pathAndQuery.path() : originalPath;
+            String encodedPath = originalPath;
+            if (pathAndQuery != null) {
+                encodedPath = ClientUtil.pathWithQuery(pathAndQuery.path(), pathAndQuery.query());
+            }
 
             // Convert the Netty Http2Headers into Armeria RequestHeaders.
             final RequestHeaders headers =
-                    ArmeriaHttpUtil.toArmeriaRequestHeaders(ctx, nettyHeaders, endOfStream, scheme, cfg, encodedPath);
+                    ArmeriaHttpUtil.toArmeriaRequestHeaders(ctx, nettyHeaders, endOfStream, scheme, cfg,
+                                                            encodedPath);
 
             // Accept a CONNECT request only when it has a :protocol header, as defined in:
             // https://datatracker.ietf.org/doc/html/rfc8441#section-4
