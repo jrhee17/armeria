@@ -20,17 +20,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.HttpURLConnection;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.http.Header;
+import org.apache.http.HttpHost;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.client.utils.URIUtils;
+import org.apache.http.conn.routing.HttpRoute;
+import org.apache.http.conn.routing.RouteInfo;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -43,12 +51,16 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.MediaType;
+import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.ResponseHeaders;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import com.linecorp.armeria.testing.server.ServiceRequestContextCaptor;
 
 class HttpServiceTest {
+
+    private static final LoggingErrorHandler errorHandler = new LoggingErrorHandler();
 
     @RegisterExtension
     static final ServerExtension server = new ServerExtension() {
@@ -111,8 +123,14 @@ class HttpServiceTest {
                         }
                     }.decorate(LoggingService.newDecorator()));
             sb.service(Route.builder().glob("/uri-valid/**").build(), (ctx, req) -> HttpResponse.of(204));
+            sb.errorHandler(errorHandler);
         }
     };
+
+    @BeforeEach
+    void beforeEach() {
+        errorHandler.queue.clear();
+    }
 
     @Test
     void testHello() throws Exception {
@@ -203,5 +221,47 @@ class HttpServiceTest {
         assertThat(captor.size()).isEqualTo(1);
         final ServiceRequestContext ctx = captor.poll();
         assertThat(ctx.request().uri().getPath()).isEqualTo(path);
+    }
+
+    @Test
+    void testRejectedPaths() throws Exception {
+        URI uri = new URIBuilder().setHost("http://www.example.org").build();
+        URI rewriteURI = URIUtils.rewriteURIForRoute(uri, new HttpRoute(HttpHost.create(server.httpUri().toString()), HttpHost.create(server.httpUri().toString())));
+        System.out.println(rewriteURI.toString());
+        try (CloseableHttpClient hc = HttpClients.createMinimal()) {
+            try (CloseableHttpResponse res = hc.execute(new HttpGet(rewriteURI))) {
+                assertThat(res.getStatusLine().toString()).isEqualTo("HTTP/1.1 400 Bad Request");
+                assertThat(errorHandler.queue).hasSize(1);
+                assertThat(errorHandler.queue.poll())
+                        .isInstanceOf(URISyntaxException.class)
+                        .hasMessage("neither origin form nor asterisk form: */");
+            }
+        }
+    }
+
+    private static class LoggingErrorHandler implements ServerErrorHandler {
+
+        private final ConcurrentLinkedQueue<Throwable> queue = new ConcurrentLinkedQueue<>();
+
+        @Override
+        @Nullable
+        public HttpResponse onServiceException(ServiceRequestContext ctx, Throwable cause) {
+            queue.add(cause);
+            return DefaultServerErrorHandler.INSTANCE.onServiceException(ctx, cause);
+        }
+
+        @Override
+        @Nullable
+        public AggregatedHttpResponse onProtocolViolation(ServiceConfig config,
+                                                          @Nullable RequestHeaders headers,
+                                                          HttpStatus status,
+                                                          @Nullable String description,
+                                                          @Nullable Throwable cause) {
+            if (cause != null) {
+                queue.add(cause);
+            }
+            return DefaultServerErrorHandler.INSTANCE.onProtocolViolation(
+                    config, headers, status, description, cause);
+        }
     }
 }

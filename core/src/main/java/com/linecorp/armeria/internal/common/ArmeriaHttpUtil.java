@@ -70,6 +70,7 @@ import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.ResponseHeadersBuilder;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Version;
+import com.linecorp.armeria.internal.client.ClientUtil;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
 import com.linecorp.armeria.server.ServerConfig;
 
@@ -608,12 +609,17 @@ public final class ArmeriaHttpUtil {
      */
     public static RequestHeaders toArmeria(
             ChannelHandlerContext ctx, HttpRequest in,
-            ServerConfig cfg, String scheme, String path) throws URISyntaxException {
+            ServerConfig cfg, String scheme, @Nullable PathAndQuery pathAndQuery) throws URISyntaxException {
+        String encodedPath = in.uri();
+        if (pathAndQuery != null) {
+            encodedPath = ClientUtil.pathWithQuery(pathAndQuery.path(), pathAndQuery.query());
+        }
+
         final io.netty.handler.codec.http.HttpHeaders inHeaders = in.headers();
         final RequestHeadersBuilder out = RequestHeaders.builder();
         out.sizeHint(inHeaders.size());
         out.method(HttpMethod.valueOf(in.method().name()))
-           .path(path)
+           .path(encodedPath)
            .scheme(scheme);
 
         // Add the HTTP headers which have not been consumed above

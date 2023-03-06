@@ -182,15 +182,10 @@ final class Http1RequestDecoder extends ChannelDuplexHandler {
                         throw new URISyntaxException(nettyPath, "neither origin form nor asterisk form");
                     }
                     final PathAndQuery pathAndQuery = PathAndQuery.parse(nettyPath);
-                    // fallback to netty path since path should not be null
-                    String encodedPath = nettyPath;
-                    if (pathAndQuery != null) {
-                        encodedPath = ClientUtil.pathWithQuery(pathAndQuery.path(), pathAndQuery.query());
-                    }
 
                     // Convert the Netty HttpHeaders into Armeria RequestHeaders.
                     final RequestHeaders headers =
-                            ArmeriaHttpUtil.toArmeria(ctx, nettyReq, cfg, scheme.toString(), encodedPath);
+                            ArmeriaHttpUtil.toArmeria(ctx, nettyReq, cfg, scheme.toString(), pathAndQuery);
 
                     // Do not accept a CONNECT request.
                     if (headers.method() == HttpMethod.CONNECT) {
