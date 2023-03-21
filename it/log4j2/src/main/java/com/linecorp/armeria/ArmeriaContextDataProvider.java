@@ -14,31 +14,27 @@
  * under the License.
  */
 
-package com.linecorp.armeria.log4j2;
+package com.linecorp.armeria;
 
-import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
+import java.util.Collections;
+import java.util.Map;
 
-import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.common.HttpMethod;
-import com.linecorp.armeria.common.HttpRequest;
+import org.apache.logging.log4j.core.util.ContextDataProvider;
+
 import com.linecorp.armeria.common.RequestContext;
 import com.linecorp.armeria.common.logging.RequestScopedMdc;
-import com.linecorp.armeria.common.util.SafeCloseable;
+import com.linecorp.armeria.internal.common.FlagsLoaded;
 
-class MDCTest {
-
-    private static final Logger logger = LoggerFactory.getLogger(MDCTest.class);
-
-    @Test
-    void testMdcPropagation() {
-        MDC.put("a", "b");
-        final RequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
-        RequestScopedMdc.put(ctx, "c", "d");
-        try (SafeCloseable ignored = ctx.push()) {
-            logger.info("hello");
+public class ArmeriaContextDataProvider implements ContextDataProvider {
+    @Override
+    public Map<String, String> supplyContextData() {
+        if (!FlagsLoaded.get()) {
+            return Collections.emptyMap();
         }
+        RequestContext currentOrNull = RequestContext.currentOrNull();
+        if (currentOrNull == null) {
+            return Collections.emptyMap();
+        }
+        return RequestScopedMdc.getAll(currentOrNull);
     }
 }

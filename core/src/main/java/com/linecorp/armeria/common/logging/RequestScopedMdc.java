@@ -131,7 +131,7 @@ public final class RequestScopedMdc {
             try {
                 oldAdapterGetPropertyMap =
                         MethodHandles.publicLookup()
-                                     .findVirtual(oldAdapter.getClass(), "getPropertyMap",
+                                     .findVirtual(oldAdapter.getClass(), "getCopyOfContextMap",
                                                   MethodType.methodType(Map.class))
                                      .bindTo(delegate);
                 @SuppressWarnings("unchecked")
