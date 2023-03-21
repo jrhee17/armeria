@@ -98,6 +98,7 @@ includeWithFlags ':it:grpc:reactor',                'java', 'relocate', 'reactor
 includeWithFlags ':it:flags-provider',              'java', 'relocate'
 includeWithFlags ':it:jackson-provider',            'java', 'relocate'
 includeWithFlags ':it:kotlin',                      'java', 'relocate', 'kotlin'
+includeWithFlags ':it:log4j2',                      'java', 'relocate'
 includeWithFlags ':it:micrometer1.3',               'java', 'relocate'
 includeWithFlags ':it:multipart',                   'java', 'relocate'
 includeWithFlags ':it:nio',                         'java', 'relocate'
@@ -166,3 +167,4 @@ includeWithFlags ':examples:tutorials:grpc-tutorial',              'java11'
 project(':examples:tutorials:grpc-tutorial').projectDir = file('examples/tutorials/grpc')
 includeWithFlags ':examples:tutorials:rest-api-annotated-service', 'java11'
 includeWithFlags ':examples:tutorials:thrift',                     'java11'
+
