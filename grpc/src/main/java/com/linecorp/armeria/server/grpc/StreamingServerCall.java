@@ -25,16 +25,20 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
+import com.linecorp.armeria.common.HttpHeadersBuilder;
+import com.linecorp.armeria.common.HttpObject;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponseWriter;
 import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.ResponseHeaders;
+import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.grpc.GrpcJsonMarshaller;
 import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
 import com.linecorp.armeria.common.grpc.GrpcStatusFunction;
 import com.linecorp.armeria.common.grpc.protocol.DeframedMessage;
+import com.linecorp.armeria.common.grpc.protocol.GrpcHeaderNames;
 import com.linecorp.armeria.common.stream.AbortedStreamException;
 import com.linecorp.armeria.common.stream.StreamMessage;
 import com.linecorp.armeria.common.stream.SubscriptionOption;
@@ -42,6 +46,7 @@ import com.linecorp.armeria.internal.common.grpc.GrpcLogUtil;
 import com.linecorp.armeria.internal.common.grpc.HttpStreamDeframer;
 import com.linecorp.armeria.internal.common.grpc.StatusAndMetadata;
 import com.linecorp.armeria.internal.common.grpc.TransportStatusListener;
+import com.linecorp.armeria.internal.common.util.StringUtil;
 import com.linecorp.armeria.internal.server.grpc.AbstractServerCall;
 import com.linecorp.armeria.server.ServiceRequestContext;
 
@@ -212,11 +217,24 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
             }
         }
 
-        final StatusAndMetadata statusAndMetadata = new StatusAndMetadata(status, metadata);
-        // Set responseContent before closing stream to use responseCause in error handling
-        ctx.logBuilder().responseContent(GrpcLogUtil.rpcResponse(statusAndMetadata, firstResponse), null);
+        final HttpHeadersBuilder trailersBuilder = defaultTrailers(trailersOnly);
+        HttpObject trailers;
+        StatusAndMetadata statusAndMetadata;
         try {
-            if (res.tryWrite(responseTrailers(ctx, status, metadata, trailersOnly))) {
+            trailers = responseTrailers(trailersBuilder, ctx, status, metadata, trailersOnly);
+            statusAndMetadata = new StatusAndMetadata(status, metadata);
+            ctx.logBuilder().responseContent(GrpcLogUtil.rpcResponse(statusAndMetadata, firstResponse), null);
+        } catch (Exception e) {
+            trailers = trailersBuilder.set(GrpcHeaderNames.GRPC_STATUS,
+                                           StringUtil.toString(Status.INTERNAL.getCode().value()))
+                                      .build();
+            statusAndMetadata = new StatusAndMetadata(Status.INTERNAL, metadata);
+            ctx.logBuilder().responseContent(RpcResponse.ofFailure(e), null);
+        }
+
+        // Set responseContent before closing stream to use responseCause in error handling
+        try {
+            if (res.tryWrite(trailers)) {
                 res.close();
             }
         } finally {

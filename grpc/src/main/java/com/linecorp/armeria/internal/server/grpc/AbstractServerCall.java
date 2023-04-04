@@ -521,10 +521,9 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
         return responseFramer.writePayload(marshaller.serializeResponse(message));
     }
 
-    protected final HttpObject responseTrailers(ServiceRequestContext ctx, Status status,
+    protected final HttpObject responseTrailers(HttpHeadersBuilder defaultTrailers,
+                                                ServiceRequestContext ctx, Status status,
                                                 Metadata metadata, boolean trailersOnly) {
-        final HttpHeadersBuilder defaultTrailers =
-                trailersOnly ? defaultResponseHeaders.toBuilder() : HttpHeaders.builder();
         final HttpHeaders trailers = statusToTrailers(ctx, defaultTrailers, status, metadata);
         if (!trailersOnly && GrpcSerializationFormats.isGrpcWeb(serializationFormat)) {
             GrpcWebTrailers.set(ctx, trailers);
@@ -536,22 +535,16 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
         }
     }
 
+    protected HttpHeadersBuilder defaultTrailers(boolean trailersOnly) {
+        return trailersOnly ? defaultResponseHeaders.toBuilder() : HttpHeaders.builder();
+    }
+
     // Returns ResponseHeaders if headersSent == false or HttpHeaders otherwise.
     public static HttpHeaders statusToTrailers(
             ServiceRequestContext ctx, HttpHeadersBuilder trailersBuilder, Status status, Metadata metadata) {
-        try {
-            MetadataUtil.fillHeaders(metadata, trailersBuilder);
-        } catch (Exception e) {
-            // Continue by squashing Exception by catch,
-            // because server implementer could have set corrupted metadata.
-            logger.warn("{} {} status: {}", ctx, "Error at filling header with metadata.", status);
-            // Catching exception is necessary, because server implementer could have set corrupted metadata.
-            return trailersBuilder
-                    .set(GrpcHeaderNames.GRPC_STATUS, GRPC_STATUS_CODE_INTERNAL)
-                    .build();
-        }
         GrpcTrailersUtil.addStatusMessageToTrailers(
                 trailersBuilder, status.getCode().value(), status.getDescription());
+        MetadataUtil.fillHeaders(metadata, trailersBuilder);
 
         if (ctx.config().verboseResponses() && status.getCause() != null) {
             final ThrowableProto proto = GrpcStatus.serializeThrowable(status.getCause());

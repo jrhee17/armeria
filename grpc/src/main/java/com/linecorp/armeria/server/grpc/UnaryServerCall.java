@@ -26,19 +26,23 @@ import java.util.concurrent.Executor;
 import com.linecorp.armeria.common.AggregationOptions;
 import com.linecorp.armeria.common.HttpData;
 import com.linecorp.armeria.common.HttpHeaders;
+import com.linecorp.armeria.common.HttpHeadersBuilder;
 import com.linecorp.armeria.common.HttpObject;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.ResponseHeadersBuilder;
+import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.grpc.GrpcJsonMarshaller;
 import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
 import com.linecorp.armeria.common.grpc.GrpcStatusFunction;
+import com.linecorp.armeria.common.grpc.protocol.GrpcHeaderNames;
 import com.linecorp.armeria.internal.common.grpc.GrpcLogUtil;
 import com.linecorp.armeria.internal.common.grpc.StatusAndMetadata;
+import com.linecorp.armeria.internal.common.util.StringUtil;
 import com.linecorp.armeria.internal.server.grpc.AbstractServerCall;
 import com.linecorp.armeria.server.ServiceRequestContext;
 
@@ -142,14 +146,16 @@ final class UnaryServerCall<I, O> extends AbstractServerCall<I, O> {
     public void doClose(Status status, Metadata metadata, boolean completed) {
         final ResponseHeaders responseHeaders = responseHeaders();
         final StatusAndMetadata statusAndMetadata = new StatusAndMetadata(status, metadata);
-        final HttpResponse response;
+        HttpResponse response;
         try {
             if (status.isOk()) {
                 assert responseHeaders != null;
                 assert responseMessage != null;
                 final HttpData responseBody = toPayload(responseMessage);
 
-                final HttpObject responseTrailers = responseTrailers(ctx, status, metadata, false);
+                final HttpHeadersBuilder trailersBuilder = defaultTrailers(false);
+                final HttpObject responseTrailers = responseTrailers(trailersBuilder, ctx, status, metadata,
+                                                                     false);
                 if (responseTrailers instanceof HttpData) {
                     // gRPC-Web encodes response trailers as response body.
                     final HttpData httpData =
@@ -168,12 +174,19 @@ final class UnaryServerCall<I, O> extends AbstractServerCall<I, O> {
                 response = HttpResponse.of((ResponseHeaders) statusToTrailers(ctx, trailersBuilder,
                                                                               status, metadata));
             }
+            ctx.logBuilder().responseContent(GrpcLogUtil.rpcResponse(statusAndMetadata, responseMessage), null);
+        } catch (Exception e) {
+            final ResponseHeadersBuilder trailersBuilder =
+                    responseHeaders != null ? responseHeaders.toBuilder()
+                                            : defaultResponseHeaders().toBuilder();
+            trailersBuilder.set(GrpcHeaderNames.GRPC_STATUS, StringUtil.toString(Status.INTERNAL.getCode().value()));
+            response = HttpResponse.of(trailersBuilder.build());
+            ctx.logBuilder().responseContent(RpcResponse.ofFailure(e), null);
+        }
 
             // Set responseContent before closing stream to use responseCause in error handling
-            ctx.logBuilder().responseContent(GrpcLogUtil.rpcResponse(statusAndMetadata, responseMessage), null);
+        try {
             resFuture.complete(response);
-        } catch (Exception ex) {
-            resFuture.completeExceptionally(ex);
         } finally {
             closeListener(statusAndMetadata, completed, false);
         }

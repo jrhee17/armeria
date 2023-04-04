@@ -107,7 +107,7 @@ class GrpcServiceImplErrorTest {
     // Normal case of #onError at Unary RPC, but metadata set in server interceptor is corrupted.
     // Client cannot expect corrupted metadata is returned from server.
     @Test
-    void clientUnaryCall2ForServerUsingCorruptedInterceptor() throws InterruptedException {
+    void unaryCallInvalidMetadataFromInterceptor() throws InterruptedException {
         try (ClientRequestContextCaptor clientCaptor = Clients.newContextCaptor()) {
             assertThatThrownBy(() -> {
                 final TestServiceBlockingStub client =
@@ -145,24 +145,13 @@ class GrpcServiceImplErrorTest {
             assertThat(serviceCaptor.size()).isEqualTo(1);
             final ServiceRequestContext serviceCtx = serviceCaptor.take();
             assertThat(serviceCtx.log().ensureComplete().responseCause())
-                    .isInstanceOf(StatusRuntimeException.class)
-                    .satisfies(cause -> {
-                        assertThat(Status.fromThrowable(cause).getCode()).isEqualTo(
-                                Status.ABORTED.getCode());
-                        assertThat(Status.trailersFromThrowable(cause)).satisfies(metadata -> {
-                            // metadata.keys() throws IndexOutOfBoundsException as metadata is corrupted.
-                            assertThat(metadata.containsKey(
-                                    InternalMetadata.keyOf(KEY_OF_CORRUPTED_METADATA,
-                                                           Metadata.ASCII_STRING_MARSHALLER)
-                            )).isTrue();
-                        });
-                    });
+                    .isInstanceOf(ArrayIndexOutOfBoundsException.class);
         }
     }
 
     // Normal case of #onError at Unary RPC.
     @Test
-    void clientUnaryCall2() throws InterruptedException {
+    void unaryCallValidMetadata() throws InterruptedException {
         try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
             assertThatThrownBy(() -> {
                 final TestServiceBlockingStub client =
@@ -203,7 +192,7 @@ class GrpcServiceImplErrorTest {
     // Error inside #onError at Unary RPC.
     // Client cannot expect corrupted metadata is returned from server.
     @Test
-    void clientUnaryCall() throws InterruptedException {
+    void unaryCallInvalidMetadata() throws InterruptedException {
         try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
             assertThatThrownBy(() -> {
                 final TestServiceBlockingStub client =
@@ -232,13 +221,18 @@ class GrpcServiceImplErrorTest {
                             assertThat(metadata.keys()).doesNotContain(KEY_OF_CORRUPTED_METADATA);
                         });
                     });
+            final ServiceRequestContextCaptor serviceCaptor = server.requestContextCaptor();
+            assertThat(serviceCaptor.size()).isEqualTo(1);
+            final ServiceRequestContext serviceCtx = serviceCaptor.take();
+            assertThat(serviceCtx.log().ensureComplete().responseCause())
+                    .isInstanceOf(ArrayIndexOutOfBoundsException.class);
         }
     }
 
     // Error inside #onError at server streaming RPC
     // Client cannot expect corrupted metadata is returned from server.
     @Test
-    void clientUnaryCallServerStreamingOutputCall() throws InterruptedException {
+    void streamingCallInvalidMetadata() throws InterruptedException {
         try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
             assertThatThrownBy(() -> {
                 final TestServiceBlockingStub client =
@@ -273,6 +267,11 @@ class GrpcServiceImplErrorTest {
                             assertThat(metadata.keys()).doesNotContain(KEY_OF_CORRUPTED_METADATA);
                         });
                     });
+            final ServiceRequestContextCaptor serviceCaptor = server.requestContextCaptor();
+            assertThat(serviceCaptor.size()).isEqualTo(1);
+            final ServiceRequestContext serviceCtx = serviceCaptor.take();
+            assertThat(serviceCtx.log().ensureComplete().responseCause())
+                    .isInstanceOf(ArrayIndexOutOfBoundsException.class);
         }
     }
 
