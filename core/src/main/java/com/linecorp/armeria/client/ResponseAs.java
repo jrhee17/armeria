@@ -50,7 +50,7 @@ public interface ResponseAs<T, R> {
      * Aggregates an {@link HttpResponse} and waits the result of {@link HttpResponse#aggregate()}.
      */
     @UnstableApi
-    static ResponseAs<HttpResponse, AggregatedHttpResponse> blocking() {
+    static BlockingResponseAs blocking() {
         return ResponseAsUtil.BLOCKING;
     }
 
@@ -181,5 +181,9 @@ public interface ResponseAs<T, R> {
                 return after.requiresAggregation();
             }
         };
+    }
+
+    default <V> ConditionalResponseAs<T, R, V> andThen(ResponseAs<R, V> responseAs, Predicate<R> predicate) {
+        return new ConditionalResponseAs<>(this, responseAs, predicate);
     }
 }
