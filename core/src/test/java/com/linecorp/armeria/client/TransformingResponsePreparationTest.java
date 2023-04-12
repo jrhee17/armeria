@@ -221,6 +221,8 @@ class TransformingResponsePreparationTest {
 
     interface MyResponse {}
 
+    static final class EmptyMessage implements MyResponse {}
+
     static final class MyMessage implements MyResponse {
         @JsonProperty("message")
         private String message;
@@ -257,5 +259,28 @@ class TransformingResponsePreparationTest {
             this.code = code;
             this.body = body;
         }
+    }
+
+    @Test
+    void testAsdf() {
+        final String res1 =
+                WebClient.of().prepare()
+                         .as(ResponseAs.blocking()
+                                       .andThen(res -> "Unexpected server error", res -> res.status().isServerError())
+                                       .andThen(res -> "missing header", res -> !res.headers().contains("x-header"))
+                                       .orElse(AggregatedHttpObject::contentUtf8)).execute();
+
+        final MyResponse res2 =
+                WebClient.of().prepare()
+                         .as(ResponseAs.blocking()
+                                       .<MyResponse>andThen(res -> new MyError(res.status().codeAsText(), res.contentUtf8()), res -> res.status().isError())
+                                       .andThen(res -> new EmptyMessage(), res -> !res.headers().contains("x-header"))
+                                       .orElse(res -> new MyMessage(res.contentUtf8()))).execute();
+
+        final ResponseEntity<MyResponse> res3 =
+                WebClient.of().prepare().as(ResponseAs.blocking()
+                                                      .<MyResponse>andThenJson(MyError.class, res -> res.status().isError())
+                                                      .andThenJson(EmptyMessage.class, res -> res.status().isInformational())
+                                                      .orElseJson(MyMessage.class)).execute();
     }
 }
