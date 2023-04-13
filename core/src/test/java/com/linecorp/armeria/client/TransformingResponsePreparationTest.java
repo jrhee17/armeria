@@ -282,5 +282,11 @@ class TransformingResponsePreparationTest {
                                                       .<MyResponse>andThenJson(MyError.class, res -> res.status().isError())
                                                       .andThenJson(EmptyMessage.class, res -> res.status().isInformational())
                                                       .orElseJson(MyMessage.class)).execute();
+
+        CompletableFuture<ResponseEntity<MyResponse>> res4 =
+                WebClient.of().prepare().as(ResponseAs.aggregated()
+                                                      .<MyResponse>andThenJson(MyError.class, res -> res.status().isClientError())
+                                                      .andThenJson(EmptyMessage.class, res -> res.status().isInformational())
+                                                      .orElseJson(MyMessage.class)).execute();
     }
 }

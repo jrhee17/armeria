@@ -55,6 +55,11 @@ public interface ResponseAs<T, R> {
         return ResponseAsUtil.BLOCKING;
     }
 
+    @UnstableApi
+    static AggregatedFutureResponseAs aggregated() {
+        return new AggregatedFutureResponseAs();
+    }
+
     /**
      * Aggregates an {@link HttpResponse} and converts the {@link AggregatedHttpResponse#content()} into bytes.
      */
