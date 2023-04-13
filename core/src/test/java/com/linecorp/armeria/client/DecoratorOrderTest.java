@@ -54,11 +54,14 @@ class DecoratorOrderTest {
     void testAsdf() {
         final CircuitBreaker circuitBreaker = CircuitBreaker.of("default");
         final WebClient client = server.webClient(cb -> {
-            cb.decorator(LoggingClient.newDecorator())
-              .decorator(CircuitBreakerClient.newDecorator(circuitBreaker, CircuitBreakerRule.builder()
-                                                                                             .onServerErrorStatus()
-                                                                                             .onException()
-                                                                                             .thenFailure()))
+            cb.responseTimeoutMillis(Long.MAX_VALUE);
+            cb.decorator((delegate, ctx, req) -> {
+                  if (true) {
+                      throw new RuntimeException("hi");
+                  }
+                  return delegate.execute(ctx, req);
+              })
+              .decorator(LoggingClient.newDecorator())
               .decorator(ConcurrencyLimitingClient.newDecorator(3))
               .decorator(RetryingClient.newDecorator(RetryRule.failsafe()))
               .decorator(MetricCollectingClient.newDecorator(MeterIdPrefixFunction.ofDefault("my.test")));
