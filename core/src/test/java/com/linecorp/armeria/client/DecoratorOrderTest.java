@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.client;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -28,7 +29,6 @@ import com.spotify.futures.CompletableFutures;
 import com.linecorp.armeria.client.circuitbreaker.CircuitBreaker;
 import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerClient;
 import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerRule;
-import com.linecorp.armeria.client.limit.ConcurrencyLimit;
 import com.linecorp.armeria.client.limit.ConcurrencyLimitingClient;
 import com.linecorp.armeria.client.logging.LoggingClient;
 import com.linecorp.armeria.client.metric.MetricCollectingClient;
@@ -36,7 +36,6 @@ import com.linecorp.armeria.client.retry.RetryRule;
 import com.linecorp.armeria.client.retry.RetryingClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpResponse;
-import com.linecorp.armeria.common.logging.RequestLog;
 import com.linecorp.armeria.common.metric.MeterIdPrefixFunction;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
@@ -65,14 +64,20 @@ class DecoratorOrderTest {
               .decorator(MetricCollectingClient.newDecorator(MeterIdPrefixFunction.ofDefault("my.test")));
         });
         try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
+            final List<HttpResponse> responses = new ArrayList<>();
             for (int i = 0; i < 5; i++) {
-                final HttpResponse response = client.get("/");
+                responses.add(client.get("/"));
             }
-            final List<ClientRequestContext> contexts = captor.getAll();
-            final List<CompletableFuture<RequestLog>> futures = contexts.stream().map(ctx -> ctx.log().whenComplete())
-                                                                        .collect(Collectors.toList());
-            List<RequestLog> logs = CompletableFutures.allAsList(futures).join();
-            System.out.println(logs);
+
+            final List<CompletableFuture<AggregatedHttpResponse>> futures = responses.stream().map(
+                    HttpResponse::aggregate).collect(Collectors.toList());
+            final List<AggregatedHttpResponse> aggregatedHttpResponses = CompletableFutures.allAsList(futures).join();
+            System.out.println(aggregatedHttpResponses);
+//            final List<ClientRequestContext> contexts = captor.getAll();
+//            final List<CompletableFuture<RequestLog>> futures = contexts.stream().map(ctx -> ctx.log().whenComplete())
+//                                                                        .collect(Collectors.toList());
+//            List<RequestLog> logs = CompletableFutures.allAsList(futures).join();
+//            System.out.println(logs);
         }
     }
 }
