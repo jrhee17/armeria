@@ -42,9 +42,8 @@ class SimpleTest {
             sb.annotatedService(new Object() {
 
                 @Post("/")
-                @RequestConverter(MyRequestConverterFunction.class)
                 @ExceptionHandler(MyExceptionHandlerFunction.class)
-                public HttpResponse post(SimpleRequest simpleRequest) {
+                public HttpResponse post(MySimpleRequest simpleRequest) {
                     return HttpResponse.of(200);
                 };
             });
@@ -53,6 +52,14 @@ class SimpleTest {
 
     private static final AtomicReference<Throwable> throwableRef = new AtomicReference<>();
     private static final Exception throwable = new Exception();
+
+    static class MySimpleRequest {
+        @Param
+        String string;
+
+        @RequestConverter(MyRequestConverterFunction.class)
+        SimpleRequest simpleRequest;
+    }
 
     static class SimpleRequest {}
 

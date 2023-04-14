@@ -15,7 +15,9 @@
  */
 package com.linecorp.armeria.internal.server.annotation;
 
-import static java.util.Objects.requireNonNull;
+import com.google.common.collect.ImmutableMap;
+import com.linecorp.armeria.internal.server.annotation.AnnotatedBeanFactoryRegistry.BeanFactoryId;
+import com.linecorp.armeria.internal.server.annotation.AnnotatedValueResolver.ResolverContext;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -26,10 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import com.google.common.collect.ImmutableMap;
-
-import com.linecorp.armeria.internal.server.annotation.AnnotatedBeanFactoryRegistry.BeanFactoryId;
-import com.linecorp.armeria.internal.server.annotation.AnnotatedValueResolver.ResolverContext;
+import static java.util.Objects.requireNonNull;
 
 final class AnnotatedBeanFactory<T> {
 
@@ -55,7 +54,7 @@ final class AnnotatedBeanFactory<T> {
         return new SimpleImmutableEntry<>(entry);
     }
 
-    T create(ResolverContext resolverContext) {
+    T create(ResolverContext resolverContext) throws Exception {
         try {
             final Object[] constructorArgs = AnnotatedValueResolver.toArguments(
                     constructor.getValue(), resolverContext);
@@ -74,8 +73,7 @@ final class AnnotatedBeanFactory<T> {
 
             return instance;
         } catch (Throwable cause) {
-            throw new IllegalArgumentException(
-                    "cannot instantiate a new object: " + beanFactoryId, cause);
+            throw cause;
         }
     }
 
