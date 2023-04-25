@@ -268,6 +268,11 @@ final class Http1RequestDecoder extends ChannelDuplexHandler implements WebSocke
                                 webSocketUpgradeContext.setLastWebSocketUpgradeRequestId(id);
                                 WebSocketUtil.setWebSocketInboundStream(ctx.channel(), (HttpRequestWriter) req);
                                 ctx.fireChannelRead(req);
+
+                                // relay input messages from this point
+                                ctx.pipeline().replace(this, null,
+                                                       new WebSocketHandler((StreamingDecodedHttpRequest) req, encoder, serviceConfig));
+                                ctx.pipeline().remove(HttpServerCodec.class);
                                 return;
                             }
                         } catch (Throwable cause) {

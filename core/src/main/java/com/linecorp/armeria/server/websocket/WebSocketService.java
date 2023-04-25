@@ -156,19 +156,21 @@ public final class WebSocketService extends AbstractHttpService {
     @Override
     protected HttpResponse doGet(ServiceRequestContext ctx, HttpRequest req) throws Exception {
         if (!ctx.sessionProtocol().isHttp1()) {
-            return HttpResponse.of(HttpStatus.METHOD_NOT_ALLOWED);
+            return HttpResponse.of(ResponseHeaders.of(HttpStatus.METHOD_NOT_ALLOWED, "Connection", "Close"));
         }
         final RequestHeaders headers = req.headers();
         if (!isHttp1WebSocketUpgradeRequest(headers)) {
             logger.trace("RequestHeaders does not contain headers for WebSocket upgrade. headers: {}", headers);
-            return missingHttp1WebSocketUpgradeHeader.toHttpResponse();
+            return HttpResponse.of(ResponseHeaders.of(HttpStatus.BAD_REQUEST, "Connection", "Close"));
+//            return missingHttp1WebSocketUpgradeHeader.toHttpResponse();
         }
 
         if (!allowedOrigins.isEmpty()) {
             final String origin = headers.get(HttpHeaderNames.ORIGIN);
             if (isNullOrEmpty(origin) || !allowedOrigins.contains(origin)) {
                 logger.trace("not allowed origin: {}, allowed: {}", origin, allowedOrigins);
-                return HttpResponse.of(HttpStatus.FORBIDDEN);
+//                return HttpResponse.of(HttpStatus.FORBIDDEN);
+                return HttpResponse.of(ResponseHeaders.of(HttpStatus.FORBIDDEN, "Connection", "Close"));
             }
         }
 
@@ -176,13 +178,17 @@ public final class WebSocketService extends AbstractHttpService {
         final String version = headers.get(HttpHeaderNames.SEC_WEBSOCKET_VERSION);
         if (!WebSocketVersion.V13.toHttpHeaderValue().equalsIgnoreCase(version)) {
             logger.trace("not supported WebSocket version: {} (expected: 13)", version);
-            return HttpResponse.of(unsupportedWebSocketVersion);
+            ctx.initiateConnectionShutdown();
+            return HttpResponse.of(ResponseHeaders.of(HttpStatus.BAD_REQUEST, "Connection", "Close"));
+//            return HttpResponse.of(unsupportedWebSocketVersion);
         }
 
         final String webSocketKey = headers.get(HttpHeaderNames.SEC_WEBSOCKET_KEY);
         if (isNullOrEmpty(webSocketKey)) {
             logger.trace("missing Sec-WebSocket-Key. headers: {}", headers);
-            return missingWebSocketKeyHeader.toHttpResponse();
+            ctx.initiateConnectionShutdown();
+//            return missingWebSocketKeyHeader.toHttpResponse();
+            return HttpResponse.of(ResponseHeaders.of(HttpStatus.BAD_REQUEST, "Connection", "Close"));
         }
 
         final String accept = generateSecWebSocketAccept(webSocketKey);
