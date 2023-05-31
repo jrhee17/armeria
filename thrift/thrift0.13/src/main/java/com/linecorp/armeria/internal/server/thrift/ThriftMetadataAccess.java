@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 
-final class ThriftMetadataAccess {
+public final class ThriftMetadataAccess {
 
     private static final Logger logger = LoggerFactory.getLogger(ThriftMetadataAccess.class);
 

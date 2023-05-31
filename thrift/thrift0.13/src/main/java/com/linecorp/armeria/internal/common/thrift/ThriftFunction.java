@@ -36,6 +36,7 @@ import org.apache.thrift.protocol.TMessageType;
 import com.google.common.collect.ImmutableMap;
 
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.server.thrift.ThriftMetadataAccess;
 
 /**
  * Provides the metadata of a Thrift service function.
@@ -98,7 +99,7 @@ public final class ThriftFunction {
             //noinspection RedundantCast
             @SuppressWarnings("unchecked")
             final Map<TFieldIdEnum, FieldMetaData> metaDataMap =
-                    (Map<TFieldIdEnum, FieldMetaData>) FieldMetaData.getStructMetaDataMap(
+                    (Map<TFieldIdEnum, FieldMetaData>) ThriftMetadataAccess.getStructMetaDataMap(
                             (Class<T>) resultType);
 
             for (Entry<TFieldIdEnum, FieldMetaData> e : metaDataMap.entrySet()) {
