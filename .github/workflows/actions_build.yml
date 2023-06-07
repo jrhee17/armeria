@@ -157,7 +157,7 @@ jobs:
           retention-days: 3
 
   lint:
-    if: github.repository == 'hannam-rhee/armeria'
+    if: github.repository == 'jrhee17/armeria'
     runs-on: self-hosted
     timeout-minutes: 60
     steps:
