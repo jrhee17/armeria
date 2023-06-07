@@ -6,7 +6,7 @@ on:
     tags-ignore:
       # The release versions will be verified by 'publish-release.yml'
       - armeria-*
-  pull_request:
+  pull_request_target:
   merge_group:
 
 concurrency:
@@ -18,6 +18,7 @@ concurrency:
 env:
   LC_ALL: "en_US.UTF-8"
   BUILD_JDK_VERSION: "19"
+  GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GRADLE_ENTERPRISE_ACCESS_KEY }}
 
 jobs:
   build:
@@ -156,8 +157,8 @@ jobs:
           retention-days: 3
 
   lint:
-    if: github.repository == 'line/armeria'
-    runs-on: self-hosted
+    if: github.repository == 'jrhee17/armeria'
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
