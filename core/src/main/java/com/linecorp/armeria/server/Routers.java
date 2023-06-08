@@ -16,8 +16,6 @@
 
 package com.linecorp.armeria.server;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.linecorp.armeria.server.RouteBuilder.FALLBACK_ROUTE;
 import static com.linecorp.armeria.server.RouteCache.wrapRouteDecoratingServiceRouter;
 import static com.linecorp.armeria.server.RouteCache.wrapVirtualHostRouter;
@@ -28,16 +26,13 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.stream.StreamSupport;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -105,14 +100,9 @@ final class Routers {
                     newServiceConfigs.put(newRoute, newConfig);
                     return newConfig;
                 };
-        final Set<Route> ambiguousRoutes =
-                resolveAmbiguousRoutes(StreamSupport.stream(configs.spliterator(), false)
-                                                    .map(ServiceConfig::route)
-                                                    .collect(toImmutableList()));
         return wrapVirtualHostRouter(
                 defaultRouter(configs, virtualHost.fallbackServiceConfig(), fallbackValueConfigurator,
-                              ServiceConfig::route, rejectionConsumer, false),
-                ambiguousRoutes);
+                              ServiceConfig::route, rejectionConsumer, false));
     }
 
     /**
@@ -122,38 +112,7 @@ final class Routers {
             List<RouteDecoratingService> routeDecoratingServices) {
         return wrapRouteDecoratingServiceRouter(
                 sequentialRouter(routeDecoratingServices, null, null, RouteDecoratingService::route,
-                                 (route1, route2) -> {/* noop */}, true),
-                resolveAmbiguousRoutes(routeDecoratingServices.stream()
-                                                              .map(RouteDecoratingService::route)
-                                                              .collect(toImmutableList())));
-    }
-
-    /**
-     * Finds the {@link Route}s that are not unique based on the following properties.
-     * <ul>
-     *     <li>{@link Route#pathType()}</li>
-     *     <li>{@link Route#paths()}</li>
-     *     <li>{@link Route#methods()}</li>
-     *     <li>{@link Route#consumes()}</li>
-     *     <li>{@link Route#produces()}</li>
-     * </ul>
-     */
-    private static Set<Route> resolveAmbiguousRoutes(List<Route> allRoutes) {
-        final Map<List<Object>, List<Route>> dup = new HashMap<>();
-        allRoutes.forEach(route -> {
-            final List<Object> key = ImmutableList.builder()
-                                                  .add(route.pathType())
-                                                  .addAll(route.paths())
-                                                  .addAll(route.methods())
-                                                  .addAll(route.consumes())
-                                                  .addAll(route.produces())
-                                                  .build();
-            dup.computeIfAbsent(key, unused -> new ArrayList<>())
-               .add(route);
-        });
-        return dup.values().stream()
-                  .filter(routes -> routes.size() > 1)  // ambiguous routes
-                  .flatMap(Collection::stream).collect(toImmutableSet());
+                                 (route1, route2) -> {/* noop */}, true));
     }
 
     /**
