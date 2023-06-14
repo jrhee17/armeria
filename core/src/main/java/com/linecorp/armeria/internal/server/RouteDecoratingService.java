@@ -28,6 +28,7 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.Route;
+import com.linecorp.armeria.server.RouteTraverseOrder;
 import com.linecorp.armeria.server.Router;
 import com.linecorp.armeria.server.RoutingContext;
 import com.linecorp.armeria.server.ServiceRequestContext;
@@ -143,7 +144,7 @@ public final class RouteDecoratingService implements HttpService {
         @Override
         public HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
             final Queue<HttpService> serviceChain = new ArrayDeque<>(4);
-            router.findAll(ctx.routingContext()).forEach(routed -> {
+            router.findAll(ctx.routingContext(), RouteTraverseOrder.CLOSE_TO_ROOT).forEach(routed -> {
                 if (routed.isPresent()) {
                     serviceChain.add(routed.value().decorator());
                 }

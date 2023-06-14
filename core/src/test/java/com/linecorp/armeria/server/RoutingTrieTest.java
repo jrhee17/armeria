@@ -189,7 +189,7 @@ class RoutingTrieTest {
         assertThat(found).containsExactly(values.get(findFirst));
         found = trie.find(path);
         assertThat(found).containsExactly(values.get(findFirst));
-        found = trie.findAll(path);
+        found = trie.findAll(path, RouteTraverseOrder.CLOSE_TO_ROOT);
         final List<Object> greedyExpect = findAll.stream().map(values::get).collect(toImmutableList());
         assertThat(found).containsAll(greedyExpect);
     }

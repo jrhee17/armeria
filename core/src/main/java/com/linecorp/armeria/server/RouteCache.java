@@ -108,10 +108,9 @@ final class RouteCache {
         @Override
         public Routed<V> find(RoutingContext routingCtx) {
             List<Routed<V>> routed = new ArrayList<>();
-            List<V> allRoutes = findAll0(routingCtx);
+            List<V> allRoutes = findAll0(routingCtx, RouteTraverseOrder.SPECIFIC);
 
-            for (int i = allRoutes.size() - 1; i >= 0; i--) {
-                final V v = allRoutes.get(i);
+            for (V v: allRoutes) {
                 final Route route = routeResolver.apply(v);
                 final RoutingResult routingResult = route.apply(routingCtx, false);
                 if (!routingResult.isPresent()) {
@@ -123,11 +122,11 @@ final class RouteCache {
         }
 
         @Override
-        public List<Routed<V>> findAll(RoutingContext routingCtx) {
-            return filterRoutes(findAll0(routingCtx), routingCtx);
+        public List<Routed<V>> findAll(RoutingContext routingCtx, RouteTraverseOrder order) {
+            return filterRoutes(findAll0(routingCtx, order), routingCtx);
         }
 
-        private List<V> findAll0(RoutingContext routingCtx) {
+        private List<V> findAll0(RoutingContext routingCtx, RouteTraverseOrder order) {
             final List<V> cachedList = findAllCache.getIfPresent(routingCtx);
             if (cachedList != null) {
                 return cachedList;
@@ -135,7 +134,8 @@ final class RouteCache {
 
             // Disable matching headers and/or query parameters since the result is
             // dynamic depending on the request
-            final List<Routed<V>> result = delegate.findAll(new CachingRoutingContext(routingCtx));
+            final List<Routed<V>> result = delegate.findAll(new CachingRoutingContext(routingCtx),
+                                                            order);
             final List<V> valid = result.stream()
                                         .filter(Routed::isPresent)
                                         .map(Routed::value)

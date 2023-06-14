@@ -369,8 +369,8 @@ final class Routers {
         }
 
         @Override
-        public List<Routed<V>> findAll(RoutingContext routingCtx) {
-            return getRouteCandidates(routingCtx, trie.findAll(routingCtx.path()),
+        public List<Routed<V>> findAll(RoutingContext routingCtx, RouteTraverseOrder order) {
+            return getRouteCandidates(routingCtx, trie.findAll(routingCtx.path(), order),
                                       routeResolver, isRouteDecorator);
         }
 
@@ -428,7 +428,7 @@ final class Routers {
         }
 
         @Override
-        public List<Routed<V>> findAll(RoutingContext routingCtx) {
+        public List<Routed<V>> findAll(RoutingContext routingCtx, RouteTraverseOrder order) {
             return getRouteCandidates(routingCtx, values, routeResolver, isRouteDecorator);
         }
 

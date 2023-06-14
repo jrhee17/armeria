@@ -55,7 +55,7 @@ final class CompositeRouter<I, O> implements Router<O> {
     }
 
     @Override
-    public List<Routed<O>> findAll(RoutingContext routingContext) {
+    public List<Routed<O>> findAll(RoutingContext routingContext, RouteTraverseOrder order) {
         // TODO(trustin): Optimize for the case where `delegates.size() == 0 or 1`
         //                by using a different implementation instead of a dynamic switch.
         final int numDelegates = delegates.size();
@@ -63,12 +63,12 @@ final class CompositeRouter<I, O> implements Router<O> {
             case 0:
                 return ImmutableList.of();
             case 1:
-                return delegates.get(0).findAll(routingContext).stream()
+                return delegates.get(0).findAll(routingContext, order).stream()
                                 .map(resultMapper)
                                 .collect(toImmutableList());
             default:
                 return delegates.stream()
-                                .flatMap(delegate -> delegate.findAll(routingContext).stream())
+                                .flatMap(delegate -> delegate.findAll(routingContext, order).stream())
                                 .map(resultMapper)
                                 .collect(toImmutableList());
         }

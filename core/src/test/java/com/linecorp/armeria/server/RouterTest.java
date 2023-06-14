@@ -110,7 +110,7 @@ class RouterTest {
         final RoutingContext routingCtx = routingCtx(path);
         assertThat(router.find(routingCtx).route()).isEqualTo(routes.get(expectForFind));
 
-        final List<Route> matched = router.findAll(routingCtx)
+        final List<Route> matched = router.findAll(routingCtx, RouteTraverseOrder.CLOSE_TO_ROOT)
                                           .stream().map(Routed::route).collect(toImmutableList());
         final List<Route> expected = expectForFindAll.stream().map(routes::get).collect(toImmutableList());
         assertThat(matched).containsAll(expected);

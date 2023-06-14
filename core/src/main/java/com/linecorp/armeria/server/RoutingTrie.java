@@ -92,8 +92,8 @@ final class RoutingTrie<V> {
     /**
      * Returns the list of values which is mapped to the given {@code path}.
      */
-    List<V> findAll(String path) {
-        return findAllNodes(path, false)
+    List<V> findAll(String path, RouteTraverseOrder order) {
+        return findAllNodes(path, false, order)
                 .stream()
                 .flatMap(n -> n.values.stream())
                 .collect(toImmutableList());
@@ -162,14 +162,15 @@ final class RoutingTrie<V> {
         return null;
     }
 
-    private List<Node<V>> findAllNodes(String path, boolean exact) {
+    private List<Node<V>> findAllNodes(String path, boolean exact, RouteTraverseOrder order) {
         final ImmutableList.Builder<Node<V>> accumulator = ImmutableList.builder();
-        findAllNodes(root, path, 0, exact, accumulator, new IntHolder());
+        findAllNodes(root, path, 0, exact, accumulator, new IntHolder(), order);
         return accumulator.build();
     }
 
     private void findAllNodes(Node<V> node, String path, int begin, boolean exact,
-                              ImmutableList.Builder<Node<V>> accumulator, IntHolder nextHolder) {
+                              ImmutableList.Builder<Node<V>> accumulator, IntHolder nextHolder,
+                              RouteTraverseOrder order) {
         final Node<V> checked = checkNode(node, path, begin, exact, nextHolder);
         if (checked != continueWalking()) {
             if (checked != null) {
@@ -180,17 +181,34 @@ final class RoutingTrie<V> {
 
         final int next = nextHolder.value;
         // find the nearest child node from root to preserve the access order
-        Node<V> child = node.catchAllChild;
-        if (child != null) {
-            accumulator.add(child);
-        }
-        child = node.parameterChild;
-        if (child != null) {
-            findAllNodes(child, path, next, exact, accumulator, nextHolder);
-        }
-        child = node.children.get(path.charAt(next));
-        if (child != null) {
-            findAllNodes(child, path, next, exact, accumulator, nextHolder);
+        if (order == RouteTraverseOrder.CLOSE_TO_ROOT) {
+            Node<V> child = node.catchAllChild;
+            if (child != null) {
+                accumulator.add(child);
+            }
+            child = node.parameterChild;
+            if (child != null) {
+                findAllNodes(child, path, next, exact, accumulator, nextHolder, order);
+            }
+            child = node.children.get(path.charAt(next));
+            if (child != null) {
+                findAllNodes(child, path, next, exact, accumulator, nextHolder, order);
+            }
+        } else {
+            assert order == RouteTraverseOrder.SPECIFIC;
+            Node<V> child;
+            child = node.children.get(path.charAt(next));
+            if (child != null) {
+                findAllNodes(child, path, next, exact, accumulator, nextHolder, order);
+            }
+            child = node.parameterChild;
+            if (child != null) {
+                findAllNodes(child, path, next, exact, accumulator, nextHolder, order);
+            }
+            child = node.catchAllChild;
+            if (child != null) {
+                accumulator.add(child);
+            }
         }
     }
 

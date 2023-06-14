@@ -41,7 +41,7 @@ public interface Router<V> {
      *
      * @return the {@link Routed} instances that wrap the matching value.
      */
-    List<Routed<V>> findAll(RoutingContext routingCtx);
+    List<Routed<V>> findAll(RoutingContext routingCtx, RouteTraverseOrder order);
 
     /**
      * Registers the stats of this {@link Router} to the specified {@link MeterRegistry}.
