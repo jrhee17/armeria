@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
@@ -111,15 +112,16 @@ final class RouteCache {
 
         @Override
         public Routed<V> find(RoutingContext routingCtx) {
-            final List<V> candidates = findAll0(routingCtx);
-            for (V v: candidates) {
+            List<Routed<V>> routed = new ArrayList<>();
+            for (V v: findAll0(routingCtx)) {
                 final Route route = routeResolver.apply(v);
                 final RoutingResult routingResult = route.apply(routingCtx, false);
-                if (routingResult.isPresent()) {
-                    return Routed.of(route, routingResult, v);
+                if (!routingResult.isPresent()) {
+                    continue;
                 }
+                routed.add(Routed.of(route, routingResult, v));
             }
-            return Routed.empty();
+            return Routers.findBest(routed);
         }
 
         @Override

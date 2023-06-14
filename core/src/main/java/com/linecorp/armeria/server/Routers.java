@@ -286,7 +286,7 @@ final class Routers {
     /**
      * Finds the most suitable service from the given {@link ServiceConfig} list.
      */
-    private static <V> Routed<V> findBest(List<Routed<V>> routes) {
+    static <V> Routed<V> findBest(List<Routed<V>> routes) {
         Routed<V> result = Routed.empty();
         for (Routed<V> route : routes) {
             final RoutingResult routingResult = route.routingResult();
