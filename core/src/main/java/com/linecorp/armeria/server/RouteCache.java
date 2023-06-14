@@ -24,9 +24,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
@@ -44,8 +41,6 @@ import io.micrometer.core.instrument.MeterRegistry;
  * See {@link Flags#routeCacheSpec()} to configure this {@link RouteCache}.
  */
 final class RouteCache {
-
-    private static final Logger logger = LoggerFactory.getLogger(RouteCache.class);
 
     @Nullable
     private static final Cache<RoutingContext, ServiceConfig> FIND_CACHE =
@@ -113,7 +108,10 @@ final class RouteCache {
         @Override
         public Routed<V> find(RoutingContext routingCtx) {
             List<Routed<V>> routed = new ArrayList<>();
-            for (V v: findAll0(routingCtx)) {
+            List<V> allRoutes = findAll0(routingCtx);
+
+            for (int i = allRoutes.size() - 1; i >= 0; i--) {
+                final V v = allRoutes.get(i);
                 final Route route = routeResolver.apply(v);
                 final RoutingResult routingResult = route.apply(routingCtx, false);
                 if (!routingResult.isPresent()) {
