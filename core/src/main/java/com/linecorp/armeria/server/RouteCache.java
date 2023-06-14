@@ -23,6 +23,9 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.function.Function;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
@@ -40,6 +43,8 @@ import io.micrometer.core.instrument.MeterRegistry;
  * See {@link Flags#routeCacheSpec()} to configure this {@link RouteCache}.
  */
 final class RouteCache {
+
+    private static final Logger logger = LoggerFactory.getLogger(RouteCache.class);
 
     @Nullable
     private static final Cache<RoutingContext, ServiceConfig> FIND_CACHE =
@@ -106,28 +111,26 @@ final class RouteCache {
 
         @Override
         public Routed<V> find(RoutingContext routingCtx) {
-            final V cached = findCache.getIfPresent(routingCtx);
-            if (cached != null) {
-                // RoutingResult may be different to each other for every request, so we cannot
-                // use it as a cache value.
-                final Route route = routeResolver.apply(cached);
+            final List<V> candidates = findAll0(routingCtx);
+            for (V v: candidates) {
+                final Route route = routeResolver.apply(v);
                 final RoutingResult routingResult = route.apply(routingCtx, false);
-                return Routed.of(route, routingResult, cached);
+                if (routingResult.isPresent()) {
+                    return Routed.of(route, routingResult, v);
+                }
             }
-
-            final Routed<V> result = delegate.find(routingCtx);
-            if (result.isPresent() && result.route().paramPredicates().isEmpty() &&
-                result.route().headerPredicates().isEmpty()) {
-                findCache.put(routingCtx, result.value());
-            }
-            return result;
+            return Routed.empty();
         }
 
         @Override
         public List<Routed<V>> findAll(RoutingContext routingCtx) {
+            return filterRoutes(findAll0(routingCtx), routingCtx);
+        }
+
+        private List<V> findAll0(RoutingContext routingCtx) {
             final List<V> cachedList = findAllCache.getIfPresent(routingCtx);
             if (cachedList != null) {
-                return filterRoutes(cachedList, routingCtx);
+                return cachedList;
             }
 
             // Disable matching headers and/or query parameters since the result is
@@ -138,7 +141,7 @@ final class RouteCache {
                                         .map(Routed::value)
                                         .collect(toImmutableList());
             findAllCache.put(routingCtx, valid);
-            return filterRoutes(valid, routingCtx);
+            return valid;
         }
 
         private List<Routed<V>> filterRoutes(List<V> list, RoutingContext routingCtx) {
