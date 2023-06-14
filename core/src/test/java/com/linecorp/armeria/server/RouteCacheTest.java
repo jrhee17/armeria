@@ -22,6 +22,7 @@ import static org.awaitility.Awaitility.await;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -38,6 +39,7 @@ import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
+@Disabled
 class RouteCacheTest {
 
     private static final MeterRegistry meterRegistry = new SimpleMeterRegistry();

@@ -16,6 +16,9 @@
 
 package com.linecorp.armeria.server;
 
+/**
+ * The order in which routes will be traversed and collected.
+ */
 public enum RouteTraverseOrder {
     SPECIFIC,
     CLOSE_TO_ROOT,

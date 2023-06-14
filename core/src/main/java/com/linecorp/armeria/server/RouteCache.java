@@ -107,8 +107,8 @@ final class RouteCache {
 
         @Override
         public Routed<V> find(RoutingContext routingCtx) {
-            List<Routed<V>> routed = new ArrayList<>();
-            List<V> allRoutes = findAll0(routingCtx, RouteTraverseOrder.SPECIFIC);
+            final List<Routed<V>> routed = new ArrayList<>();
+            final List<V> allRoutes = findAll0(routingCtx, RouteTraverseOrder.SPECIFIC);
 
             for (V v: allRoutes) {
                 final Route route = routeResolver.apply(v);
