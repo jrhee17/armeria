@@ -38,7 +38,13 @@ final class AggregatedResponseAs {
     }
 
     static <T> ResponseAs<AggregatedHttpResponse, ResponseEntity<T>> json(Class<? extends T> clazz) {
-        return response -> newJsonResponseEntity(response, bytes -> JacksonUtil.readValue(bytes, clazz));
+        return json(clazz, true);
+    }
+
+    static <T> ResponseAs<AggregatedHttpResponse, ResponseEntity<T>> json(Class<? extends T> clazz,
+                                                                          boolean validate) {
+        return response -> newJsonResponseEntity(response, bytes -> JacksonUtil.readValue(bytes, clazz),
+                                                 validate);
     }
 
     static <T> ResponseAs<AggregatedHttpResponse, ResponseEntity<T>> json(Class<? extends T> clazz,
@@ -56,8 +62,9 @@ final class AggregatedResponseAs {
     }
 
     private static <T> ResponseEntity<T> newJsonResponseEntity(AggregatedHttpResponse response,
-                                                               JsonDecoder<T> decoder) {
-        if (!response.status().isSuccess()) {
+                                                               JsonDecoder<T> decoder,
+                                                               boolean validate) {
+        if (validate && !response.status().isSuccess()) {
             throw newInvalidHttpResponseException(response);
         }
 
@@ -67,6 +74,11 @@ final class AggregatedResponseAs {
         } catch (IOException e) {
             return Exceptions.throwUnsafely(new InvalidHttpResponseException(response, e));
         }
+    }
+
+    private static <T> ResponseEntity<T> newJsonResponseEntity(AggregatedHttpResponse response,
+                                                               JsonDecoder<T> decoder) {
+        return newJsonResponseEntity(response, decoder, true);
     }
 
     private static InvalidHttpResponseException newInvalidHttpResponseException(

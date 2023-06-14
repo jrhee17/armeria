@@ -54,6 +54,9 @@ class TransformingResponsePreparationTest {
             sb.service("/json", (ctx, req) -> HttpResponse.ofJson(new MyMessage("hello")));
             sb.service("/json_list",
                        (ctx, req) -> HttpResponse.ofJson(ImmutableList.of(new MyMessage("hello"))));
+            sb.service("/400", (ctx, req) -> {
+                return HttpResponse.ofJson(HttpStatus.BAD_REQUEST, new MyError("404", "hello"));
+            });
         }
     };
 
@@ -252,10 +255,13 @@ class TransformingResponsePreparationTest {
     }
 
     static final class MyError implements MyResponse {
+        @JsonProperty("code")
         private final String code;
+        @JsonProperty("body")
         private final String body;
 
-        private MyError(String code, String body) {
+        @JsonCreator
+        MyError(@JsonProperty("code") String code, @JsonProperty("body") String body) {
             this.code = code;
             this.body = body;
         }
@@ -282,5 +288,25 @@ class TransformingResponsePreparationTest {
                                                       .<MyResponse>andThenJson(MyError.class, res -> res.status().isError())
                                                       .andThenJson(EmptyMessage.class, res -> res.status().isInformational())
                                                       .orElseJson(MyMessage.class)).execute();
+    }
+
+    @Test
+    void testAsdf2() {
+        final String res1 =
+                RestClient.of(server.httpUri()).get("/string")
+                          .execute(ResponseAs.blocking()
+                                             .andThen(res -> "Unexpected server error",
+                                                      res -> res.status().isServerError())
+                                             .andThen(res -> "missing header",
+                                                      res -> !res.headers().contains("x-header"))
+                                             .orElse(AggregatedHttpObject::contentUtf8));
+        System.out.println(res1);
+        final ResponseEntity<MyResponse> res2 =
+                RestClient.of(server.httpUri()).get("/400")
+                          .execute(ResponseAs.blocking()
+                                             .<MyResponse>andThenJson(MyError.class, res -> res.status().isClientError())
+                                             .andThenJson(EmptyMessage.class, res -> res.status().isInformational())
+                                             .orElseJson(MyMessage.class));
+        System.out.println(res2);
     }
 }

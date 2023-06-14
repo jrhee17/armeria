@@ -42,6 +42,6 @@ public class BlockingResponseAs implements ResponseAs<HttpResponse, AggregatedHt
     }
 
     <V> BlockingConditionalResponseAs<V> andThenJson(Class<? extends V> clazz, Predicate<AggregatedHttpResponse> predicate) {
-        return new BlockingConditionalResponseAs<>(this, AggregatedResponseAs.json(clazz), predicate);
+        return new BlockingConditionalResponseAs<>(this, AggregatedResponseAs.json(clazz, false), predicate);
     }
 }

@@ -35,7 +35,7 @@ final class BlockingConditionalResponseAs<V> extends ConditionalResponseAs<HttpR
 
     public BlockingConditionalResponseAs<V> andThenJson(
             Class<? extends V> clazz, Predicate<AggregatedHttpResponse> predicate) {
-        return (BlockingConditionalResponseAs<V>) andThen(AggregatedResponseAs.json(clazz), predicate);
+        return (BlockingConditionalResponseAs<V>) andThen(AggregatedResponseAs.json(clazz, false), predicate);
     }
 
     public BlockingConditionalResponseAs<V> andThenJson(
@@ -54,7 +54,7 @@ final class BlockingConditionalResponseAs<V> extends ConditionalResponseAs<HttpR
     }
 
     public ResponseAs<HttpResponse, ResponseEntity<V>> orElseJson(Class<? extends V> clazz) {
-        return super.orElse(AggregatedResponseAs.json(clazz));
+        return super.orElse(AggregatedResponseAs.json(clazz, false));
     }
 
     public ResponseAs<HttpResponse, ResponseEntity<V>> orElseJson(Class<? extends V> clazz, ObjectMapper objectMapper) {
