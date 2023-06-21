@@ -24,7 +24,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,6 +72,16 @@ public final class CorsServiceBuilder {
     CorsServiceBuilder(List<String> origins) {
         anyOriginSupported = false;
         firstPolicyBuilder = new ChainedCorsPolicyBuilder(this, origins);
+    }
+
+    CorsServiceBuilder(Predicate<String > predicate) {
+        anyOriginSupported = false;
+        // TODO
+    }
+
+    CorsServiceBuilder(Pattern regex) {
+        anyOriginSupported = false;
+        // TODO
     }
 
     /**
@@ -446,6 +458,22 @@ public final class CorsServiceBuilder {
      */
     public ChainedCorsPolicyBuilder andForOrigin(String origin) {
         return andForOrigins(ImmutableList.of(origin));
+    }
+
+    /**
+     * Creates a new builder instance for a new {@link CorsPolicy}.
+     * @return {@link ChainedCorsPolicyBuilder} to support method chaining.
+     */
+    public ChainedCorsPolicyBuilder andForOriginRegex(String regex) {
+        return andForOriginRegex(Pattern.compile(regex));
+    }
+
+    /**
+     * Creates a new builder instance for a new {@link CorsPolicy}.
+     * @return {@link ChainedCorsPolicyBuilder} to support method chaining.
+     */
+    public ChainedCorsPolicyBuilder andForOriginRegex(Pattern regex) {
+        // TODO
     }
 
     @Override

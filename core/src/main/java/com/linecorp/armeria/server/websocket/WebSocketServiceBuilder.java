@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 
 import com.linecorp.armeria.common.annotation.UnstableApi;
@@ -113,6 +114,15 @@ public final class WebSocketServiceBuilder {
     public WebSocketServiceBuilder allowedOrigins(Iterable<String> allowedOrigins) {
         this.allowedOrigins = validateOrigins(allowedOrigins);
         return this;
+    }
+
+    /**
+     * Sets the predicate to match allowed origins. The same-origin is allowed by default.
+     *
+     * @see <a href="https://datatracker.ietf.org/doc/html/rfc6455#section-10.2">Origin Considerations</a>
+     */
+    public WebSocketService allowedOrogins(Predicate<String> predicate) {
+        // TODO
     }
 
     private static Set<String> validateOrigins(Iterable<String> allowedOrigins) {

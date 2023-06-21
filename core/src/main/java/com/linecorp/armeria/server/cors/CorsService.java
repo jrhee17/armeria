@@ -20,6 +20,8 @@ import static com.linecorp.armeria.internal.common.ArmeriaHttpUtil.isCorsPreflig
 import static java.util.Objects.requireNonNull;
 
 import java.util.List;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -82,6 +84,27 @@ public final class CorsService extends SimpleDecoratingHttpService {
             return builderForAnyOrigin();
         }
         return new CorsServiceBuilder(copied);
+    }
+
+    /**
+     * Returns a new {@link CorsServiceBuilder} with origins matching the {@code predicate}
+     */
+    public static CorsServiceBuilder builder(Predicate<String> predicate) {
+        // TODO
+    }
+
+    /**
+     * Returns a new {@link CorsServiceBuilder} with origins matching the {@code regex}
+     */
+    public static CorsServiceBuilder builderForOriginRegex(String regex) {
+        return builderForOriginRegex(Pattern.compile(regex));
+    }
+
+    /**
+     * Returns a new {@link CorsServiceBuilder} with origins matching the {@code regex}
+     */
+    public static CorsServiceBuilder builderForOriginRegex(Pattern regex) {
+        // TODO
     }
 
     private final CorsConfig config;

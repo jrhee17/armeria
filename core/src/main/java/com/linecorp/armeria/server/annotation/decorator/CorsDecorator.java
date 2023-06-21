@@ -43,6 +43,12 @@ public @interface CorsDecorator {
     String[] origins();
 
     /**
+     * Allowed origins by regular expression.
+     * TODO: (?) Raises an exception if both origins and originRegex are specified
+     */
+    String originRegex();
+
+    /**
      * The path patterns that this policy is supposed to be applied to. If unspecified, all paths would be
      * accepted.
      */

@@ -23,7 +23,9 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.google.common.base.Joiner;
@@ -74,6 +76,18 @@ public final class CorsPolicy {
      */
     public static CorsPolicyBuilder builder(Iterable<String> origins) {
         return new CorsPolicyBuilder(origins);
+    }
+
+    public static CorsPolicyBuilder builder(Predicate<String> predicate) {
+        return new CorsPolicyBuilder(predicate);
+    }
+
+    public static CorsPolicyBuilder builderForOriginRegex(String regex) {
+        return builderForOriginRegex(regex);
+    }
+
+    public static CorsPolicyBuilder builderForOriginRegex(Pattern regex) {
+        return new CorsPolicyBuilder(regex);
     }
 
     private final Set<String> origins;
