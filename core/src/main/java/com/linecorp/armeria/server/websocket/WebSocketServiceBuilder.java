@@ -19,14 +19,15 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.websocket.WebSocketCloseStatus;
 
@@ -48,6 +49,8 @@ public final class WebSocketServiceBuilder {
     private boolean allowMaskMismatch;
     private Set<String> subprotocols = ImmutableSet.of();
     private Set<String> allowedOrigins = ImmutableSet.of();
+    @Nullable
+    private Predicate<String> originMatchingPredicate;
 
     WebSocketServiceBuilder(WebSocketServiceHandler handler) {
         this.handler = requireNonNull(handler, "handler");
@@ -121,8 +124,9 @@ public final class WebSocketServiceBuilder {
      *
      * @see <a href="https://datatracker.ietf.org/doc/html/rfc6455#section-10.2">Origin Considerations</a>
      */
-    public WebSocketService allowedOrogins(Predicate<String> predicate) {
-        // TODO
+    public WebSocketServiceBuilder allowedOrigins(Predicate<String> predicate) {
+        originMatchingPredicate = predicate;
+        return this;
     }
 
     private static Set<String> validateOrigins(Iterable<String> allowedOrigins) {

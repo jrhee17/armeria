@@ -40,13 +40,13 @@ public @interface CorsDecorator {
      * Allowed origins.
      * Sets this property to be {@code "*"} to allow any origin.
      */
-    String[] origins();
+    String[] origins() default {};
 
     /**
      * Allowed origins by regular expression.
      * TODO: (?) Raises an exception if both origins and originRegex are specified
      */
-    String originRegex();
+    String originRegex() default "";
 
     /**
      * The path patterns that this policy is supposed to be applied to. If unspecified, all paths would be

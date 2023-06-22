@@ -87,24 +87,26 @@ public final class CorsService extends SimpleDecoratingHttpService {
     }
 
     /**
-     * Returns a new {@link CorsServiceBuilder} with origins matching the {@code predicate}
+     * Returns a new {@link CorsServiceBuilder} with origins matching the {@code predicate}.
      */
     public static CorsServiceBuilder builder(Predicate<String> predicate) {
         // TODO
+        return new CorsServiceBuilder(predicate);
     }
 
     /**
-     * Returns a new {@link CorsServiceBuilder} with origins matching the {@code regex}
+     * Returns a new {@link CorsServiceBuilder} with origins matching the {@code regex}.
      */
     public static CorsServiceBuilder builderForOriginRegex(String regex) {
         return builderForOriginRegex(Pattern.compile(regex));
     }
 
     /**
-     * Returns a new {@link CorsServiceBuilder} with origins matching the {@code regex}
+     * Returns a new {@link CorsServiceBuilder} with origins matching the {@code regex}.
      */
     public static CorsServiceBuilder builderForOriginRegex(Pattern regex) {
         // TODO
+        return new CorsServiceBuilder(regex);
     }
 
     private final CorsConfig config;

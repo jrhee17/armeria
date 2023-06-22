@@ -49,11 +49,11 @@ public final class CorsPolicyBuilder extends AbstractCorsPolicyBuilder {
     }
 
     CorsPolicyBuilder(Predicate<String> predicate) {
-        // TODO
+        super(predicate);
     }
 
     CorsPolicyBuilder(Pattern regex) {
-        // TDOO
+        super(regex);
     }
 
     /**

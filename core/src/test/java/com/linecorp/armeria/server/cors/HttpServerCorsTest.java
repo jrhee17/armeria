@@ -97,6 +97,16 @@ public class HttpServerCorsTest {
         public void index() {}
     }
 
+    @CorsDecorator(
+            originRegex = "http://example.*",
+            allowedRequestMethods = HttpMethod.GET
+    )
+    private static class MyAnnotatedService4 {
+        @Get("/index")
+        @StatusCode(200)
+        public void index() {}
+    }
+
     @ClassRule
     public static final ServerRule server = new ServerRule() {
         @Override
@@ -283,6 +293,11 @@ public class HttpServerCorsTest {
                                                                 .allowAllRequestHeaders(true)
                                                                 .newDecorator()));
             sb.annotatedService("/cors14", new MyAnnotatedService3());
+
+            sb.service("/cors15", myService.decorate(CorsService.builderForOriginRegex("http://example.*")
+                                                             .allowRequestMethods(HttpMethod.GET)
+                                                             .newDecorator()));
+            sb.annotatedService("/cors16", new MyAnnotatedService4());
         }
     };
 
@@ -678,5 +693,47 @@ public class HttpServerCorsTest {
                 .isEqualTo("http://example.com");
         assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("GET");
         assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS)).isEqualTo("foo,bar");
+    }
+
+    @Test
+    public void testBuilderForOriginRegex() {
+        final WebClient client = client();
+        AggregatedHttpResponse res;
+
+        res = preflightRequest(client, "/cors15/index", "http://example.com", "GET");
+        assertThat(res.status()).isEqualTo(HttpStatus.OK);
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("GET");
+
+        res = preflightRequest(client, "/cors15/index", "http://example1.com", "GET");
+        assertThat(res.status()).isEqualTo(HttpStatus.OK);
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("GET");
+
+        res = preflightRequest(client, "/cors15/index", "http://example.org", "GET");
+        assertThat(res.status()).isEqualTo(HttpStatus.OK);
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("GET");
+
+        res = preflightRequest(client, "/cors15/index", "http://invalid.com", "GET");
+        assertThat(res.status()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    public void testAnnotatedServiceOriginRegex() {
+        final WebClient client = client();
+        AggregatedHttpResponse res;
+
+        res = preflightRequest(client, "/cors16/index", "http://example.com", "GET");
+        assertThat(res.status()).isEqualTo(HttpStatus.OK);
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("GET");
+
+        res = preflightRequest(client, "/cors16/index", "http://example1.com", "GET");
+        assertThat(res.status()).isEqualTo(HttpStatus.OK);
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("GET");
+
+        res = preflightRequest(client, "/cors16/index", "http://example.org", "GET");
+        assertThat(res.status()).isEqualTo(HttpStatus.OK);
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("GET");
+
+        res = preflightRequest(client, "/cors16/index", "http://invalid.com", "GET");
+        assertThat(res.status()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 }

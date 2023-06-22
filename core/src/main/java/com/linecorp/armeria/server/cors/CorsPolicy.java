@@ -78,14 +78,23 @@ public final class CorsPolicy {
         return new CorsPolicyBuilder(origins);
     }
 
+    /**
+     * Returns a new {@link CorsPolicyBuilder} with origins matching the {@code predicate}.
+     */
     public static CorsPolicyBuilder builder(Predicate<String> predicate) {
         return new CorsPolicyBuilder(predicate);
     }
 
+    /**
+     * Returns a new {@link CorsPolicyBuilder} with origins matching the {@code regex}.
+     */
     public static CorsPolicyBuilder builderForOriginRegex(String regex) {
-        return builderForOriginRegex(regex);
+        return builderForOriginRegex(Pattern.compile(regex));
     }
 
+    /**
+     * Returns a new {@link CorsPolicyBuilder} with origins matching the {@code regex}.
+     */
     public static CorsPolicyBuilder builderForOriginRegex(Pattern regex) {
         return new CorsPolicyBuilder(regex);
     }
