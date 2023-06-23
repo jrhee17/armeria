@@ -33,6 +33,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.stubbing.Answer;
 
 import com.linecorp.armeria.client.ClientRequestContext;
@@ -40,6 +41,7 @@ import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.observation.MicrometerObservationClient;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.internal.testing.BlockingUtils;
+import com.linecorp.armeria.testing.junit5.common.EventLoopExtension;
 
 import brave.Span;
 import brave.Tracer.SpanInScope;
@@ -79,6 +81,9 @@ class MyTest {
                       .build();
     }
 
+    @RegisterExtension
+    static EventLoopExtension eventLoop = new EventLoopExtension();
+
     @Test
     void testAsdf() throws Exception {
         SpanHandlerImpl spanHandler = new SpanHandlerImpl();
@@ -108,7 +113,7 @@ class MyTest {
         final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
         final HttpResponse res = HttpResponse.of(200);
 
-        final ExecutorService executor = ctx.makeContextAware(Executors.newSingleThreadExecutor());
+        final ExecutorService executor = ctx.makeContextAware(eventLoop.get());
         final HttpClient delegate = (ctx1, req) -> {
             CompletableFuture<HttpResponse> cf = new CompletableFuture<>();
             executor.execute(() -> {
@@ -131,9 +136,9 @@ class MyTest {
                             executor.execute(() -> {
                                 final Span span4 = tracing.tracer().currentSpan();
                                 assertThat(span3.context()).isEqualTo(span4.context());
+                                cf.complete(res);
                             });
                         }
-                        cf.complete(res);
                     });
                 });
             });
