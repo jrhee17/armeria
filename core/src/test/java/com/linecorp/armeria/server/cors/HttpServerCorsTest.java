@@ -69,7 +69,7 @@ public class HttpServerCorsTest {
         @Get("/dup_test")
         @StatusCode(200)
         @CorsDecorator(origins = "http://example2.com", exposedHeaders = "expose_header_2",
-                       allowedRequestHeaders = "content-type")
+                allowedRequestHeaders = "content-type")
         public void dupTest() {}
     }
 
@@ -199,7 +199,7 @@ public class HttpServerCorsTest {
                         allowedRequestMethods = HttpMethod.GET, maxAge = 3600,
                         preflightRequestHeaders = {
                                 @AdditionalHeader(name = "x-preflight-cors",
-                                                  value = { "Hello CORS", "Hello CORS2" })
+                                        value = { "Hello CORS", "Hello CORS2" })
                         })
                 public HttpResponse anyoneGet() {
                     return HttpResponse.of(HttpStatus.OK);
@@ -220,9 +220,9 @@ public class HttpServerCorsTest {
 
                 @Get("/multi/get")
                 @CorsDecorator(origins = "http://example.com", exposedHeaders = "expose_header_1",
-                               allowedRequestMethods = HttpMethod.GET, credentialsAllowed = true)
+                        allowedRequestMethods = HttpMethod.GET, credentialsAllowed = true)
                 @CorsDecorator(origins = "http://example2.com", exposedHeaders = "expose_header_2",
-                               allowedRequestMethods = HttpMethod.GET, credentialsAllowed = true)
+                        allowedRequestMethods = HttpMethod.GET, credentialsAllowed = true)
                 public HttpResponse multiGet() {
                     return HttpResponse.of(HttpStatus.OK);
                 }
@@ -288,16 +288,25 @@ public class HttpServerCorsTest {
             sb.route().get("/cors12/get")
               .build((ctx, req) -> HttpResponse.of(HttpStatus.OK));
 
-            sb.service("/cors13", myService.decorate(CorsService.builder("http://example.com")
-                                                                .allowRequestMethods(HttpMethod.GET)
-                                                                .allowAllRequestHeaders(true)
-                                                                .newDecorator()));
+            sb.service("/cors13", myService.decorate(
+                    CorsService.builder("http://example.com")
+                               .allowRequestMethods(HttpMethod.GET)
+                               .allowAllRequestHeaders(true)
+                               .newDecorator()));
             sb.annotatedService("/cors14", new MyAnnotatedService3());
 
-            sb.service("/cors15", myService.decorate(CorsService.builderForOriginRegex("http://example.*")
-                                                             .allowRequestMethods(HttpMethod.GET)
-                                                             .newDecorator()));
+            sb.service("/cors15", myService.decorate(
+                    CorsService.builderForOriginRegex("http://example.*")
+                               .shortCircuit()
+                               .allowRequestMethods(HttpMethod.GET)
+                               .newDecorator()));
             sb.annotatedService("/cors16", new MyAnnotatedService4());
+
+            sb.service("/cors17", myService.decorate(
+                    CorsService.builder(origin -> origin.contains("example") || origin.contains("line"))
+                               .shortCircuit()
+                               .allowRequestMethods(HttpMethod.GET)
+                               .newDecorator()));
         }
     };
 
@@ -314,7 +323,7 @@ public class HttpServerCorsTest {
                                   HttpHeaderNames.ACCEPT, "utf-8",
                                   HttpHeaderNames.ORIGIN, origin,
                                   HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD, requestMethod)
-                             ).aggregate().join();
+        ).aggregate().join();
     }
 
     static AggregatedHttpResponse preflightRequest(WebClient client, String path, String origin,
@@ -478,7 +487,8 @@ public class HttpServerCorsTest {
     @Test
     public void testCorsPreflightWithQueryParams() throws Exception {
         final WebClient client = client();
-        final AggregatedHttpResponse response = preflightRequest(client, "/cors?a=b", "http://example.com", "POST");
+        final AggregatedHttpResponse response = preflightRequest(client, "/cors?a=b", "http://example.com",
+                                                                 "POST");
         assertEquals(HttpStatus.OK, response.status());
         assertEquals("http://example.com", response.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN));
         assertEquals("Hello CORS", response.headers().get(HttpHeaderNames.of("x-preflight-cors")));
@@ -700,19 +710,14 @@ public class HttpServerCorsTest {
         final WebClient client = client();
         AggregatedHttpResponse res;
 
-        res = preflightRequest(client, "/cors15/index", "http://example.com", "GET");
+        res = request(client, HttpMethod.GET, "/cors15", "http://example.com", "GET");
         assertThat(res.status()).isEqualTo(HttpStatus.OK);
-        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("GET");
-
-        res = preflightRequest(client, "/cors15/index", "http://example1.com", "GET");
+        res = request(client, HttpMethod.GET, "/cors15", "http://example1.com", "GET");
         assertThat(res.status()).isEqualTo(HttpStatus.OK);
-        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("GET");
-
-        res = preflightRequest(client, "/cors15/index", "http://example.org", "GET");
+        res = request(client, HttpMethod.GET, "/cors15", "http://example.org", "GET");
         assertThat(res.status()).isEqualTo(HttpStatus.OK);
-        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("GET");
 
-        res = preflightRequest(client, "/cors15/index", "http://invalid.com", "GET");
+        res = request(client, HttpMethod.GET, "/cors15", "http://invalid.com", "GET");
         assertThat(res.status()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 
@@ -721,19 +726,33 @@ public class HttpServerCorsTest {
         final WebClient client = client();
         AggregatedHttpResponse res;
 
-        res = preflightRequest(client, "/cors16/index", "http://example.com", "GET");
-        assertThat(res.status()).isEqualTo(HttpStatus.OK);
-        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("GET");
+        res = request(client, HttpMethod.GET, "/cors16/index", "http://example.com", "GET");
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN))
+                .isEqualTo("http://example.com");
+        res = request(client, HttpMethod.GET, "/cors16/index", "http://example1.com", "GET");
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN))
+                .isEqualTo("http://example1.com");
+        res = request(client, HttpMethod.GET, "/cors16/index", "http://example.org", "GET");
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN))
+                .isEqualTo("http://example.org");
 
-        res = preflightRequest(client, "/cors16/index", "http://example1.com", "GET");
-        assertThat(res.status()).isEqualTo(HttpStatus.OK);
-        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("GET");
+        res = request(client, HttpMethod.GET, "/cors16/index", "http://invalid.com", "GET");
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN)).isNull();
+    }
 
-        res = preflightRequest(client, "/cors16/index", "http://example.org", "GET");
-        assertThat(res.status()).isEqualTo(HttpStatus.OK);
-        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("GET");
+    @Test
+    public void testOriginPredicate() {
+        final WebClient client = client();
+        AggregatedHttpResponse res;
 
-        res = preflightRequest(client, "/cors16/index", "http://invalid.com", "GET");
+        res = request(client, HttpMethod.GET, "/cors17", "http://example.com", "GET");
+        assertThat(res.status()).isEqualTo(HttpStatus.OK);
+        res = request(client, HttpMethod.GET, "/cors17", "http://line.com", "GET");
+        assertThat(res.status()).isEqualTo(HttpStatus.OK);
+        res = request(client, HttpMethod.GET, "/cors17", "http://example.line.com", "GET");
+        assertThat(res.status()).isEqualTo(HttpStatus.OK);
+
+        res = request(client, HttpMethod.GET, "/cors17", "http://invalid.com", "GET");
         assertThat(res.status()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 }

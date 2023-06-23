@@ -43,8 +43,7 @@ public @interface CorsDecorator {
     String[] origins() default {};
 
     /**
-     * Allowed origins by regular expression.
-     * TODO: (?) Raises an exception if both origins and originRegex are specified
+     * Specify allowed origins by regular expression.
      */
     String originRegex() default "";
 

@@ -48,14 +48,14 @@ public final class ChainedCorsPolicyBuilder extends AbstractCorsPolicyBuilder {
         serviceBuilder = builder;
     }
 
-    // TODO
-    ChainedCorsPolicyBuilder(CorsServiceBuilder builder, Predicate<String> predicate) {
+    ChainedCorsPolicyBuilder(CorsServiceBuilder builder, Predicate<String> originPredicate) {
+        super(originPredicate);
         requireNonNull(builder, "builder");
         serviceBuilder = builder;
     }
 
-    // TODO
-    ChainedCorsPolicyBuilder(CorsServiceBuilder builder, Pattern regex) {
+    ChainedCorsPolicyBuilder(CorsServiceBuilder builder, Pattern originRegex) {
+        super(originRegex);
         requireNonNull(builder, "builder");
         serviceBuilder = builder;
     }

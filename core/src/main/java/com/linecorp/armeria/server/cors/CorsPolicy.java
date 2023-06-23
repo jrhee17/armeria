@@ -100,6 +100,10 @@ public final class CorsPolicy {
     }
 
     private final Set<String> origins;
+    @Nullable
+    private final Predicate<String> originPredicate;
+    @Nullable
+    private final Pattern originRegex;
     private final List<Route> routes;
     private final boolean credentialsAllowed;
     private final boolean nullOriginAllowed;
@@ -113,12 +117,15 @@ public final class CorsPolicy {
     private final String joinedAllowedRequestMethods;
     private final Map<AsciiString, Supplier<?>> preflightResponseHeaders;
 
-    CorsPolicy(Set<String> origins, List<Route> routes, boolean credentialsAllowed, long maxAge,
+    CorsPolicy(Set<String> origins, @Nullable Predicate<String> originPredicate, @Nullable Pattern originRegex,
+               List<Route> routes, boolean credentialsAllowed, long maxAge,
                boolean nullOriginAllowed, Set<AsciiString> exposedHeaders,
                boolean allowAllRequestHeaders, Set<AsciiString> allowedRequestHeaders,
                EnumSet<HttpMethod> allowedRequestMethods, boolean preflightResponseHeadersDisabled,
                Map<AsciiString, Supplier<?>> preflightResponseHeaders) {
         this.origins = ImmutableSet.copyOf(origins);
+        this.originPredicate = originPredicate;
+        this.originRegex = originRegex;
         this.routes = ImmutableList.copyOf(routes);
         this.credentialsAllowed = credentialsAllowed;
         this.maxAge = maxAge;
@@ -157,6 +164,22 @@ public final class CorsPolicy {
      */
     public Set<String> origins() {
         return origins;
+    }
+
+    /**
+     * Returns predicate to match origins.
+     */
+    @Nullable
+    public Predicate<String> originPredicate() {
+        return originPredicate;
+    }
+
+    /**
+     * Returns the regular expression to match origins.
+     */
+    @Nullable
+    public Pattern originRegex() {
+        return originRegex;
     }
 
     /**

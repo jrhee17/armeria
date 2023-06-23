@@ -50,7 +50,7 @@ public final class WebSocketServiceBuilder {
     private Set<String> subprotocols = ImmutableSet.of();
     private Set<String> allowedOrigins = ImmutableSet.of();
     @Nullable
-    private Predicate<String> originMatchingPredicate;
+    private Predicate<String> originPredicate;
 
     WebSocketServiceBuilder(WebSocketServiceHandler handler) {
         this.handler = requireNonNull(handler, "handler");
@@ -120,19 +120,18 @@ public final class WebSocketServiceBuilder {
     }
 
     /**
-     * Sets the predicate to match allowed origins. The same-origin is allowed by default.
+     * Sets the predicate which is used to match allowed origins. The same-origin is allowed by default.
      *
      * @see <a href="https://datatracker.ietf.org/doc/html/rfc6455#section-10.2">Origin Considerations</a>
      */
-    public WebSocketServiceBuilder allowedOrigins(Predicate<String> predicate) {
-        originMatchingPredicate = predicate;
+    public WebSocketServiceBuilder allowedOrigins(Predicate<String> originPredicate) {
+        this.originPredicate = originPredicate;
         return this;
     }
 
     private static Set<String> validateOrigins(Iterable<String> allowedOrigins) {
         //TODO(minwoox): Dedup the same logic in cors service.
         final Set<String> copied = ImmutableSet.copyOf(requireNonNull(allowedOrigins, "allowedOrigins"));
-        checkArgument(!copied.isEmpty(), "allowedOrigins is empty. (expected: non-empty)");
         if (copied.contains(ANY_ORIGIN)) {
             if (copied.size() > 1) {
                 logger.warn("Any origin (*) has been already included. Other origins ({}) will be ignored.",
@@ -148,7 +147,7 @@ public final class WebSocketServiceBuilder {
      * Returns a newly-created {@link WebSocketService} with the properties set so far.
      */
     public WebSocketService build() {
-        return new WebSocketService(handler, maxFramePayloadLength, allowMaskMismatch,
-                                    subprotocols, allowedOrigins, allowedOrigins.contains(ANY_ORIGIN));
+        return new WebSocketService(handler, maxFramePayloadLength, allowMaskMismatch, subprotocols,
+                                    allowedOrigins, allowedOrigins.contains(ANY_ORIGIN), originPredicate);
     }
 }

@@ -109,6 +109,18 @@ public final class CorsConfig {
                        isPathMatched(policy, routingContext)) {
                 return policy;
             }
+
+            if (policy.originPredicate() != null) {
+                if (policy.originPredicate().test(origin) && isPathMatched(policy, routingContext)) {
+                    return policy;
+                }
+            }
+
+            if (policy.originRegex() != null) {
+                if (policy.originRegex().matcher(origin).matches() && isPathMatched(policy, routingContext)) {
+                    return policy;
+                }
+            }
         }
         return null;
     }

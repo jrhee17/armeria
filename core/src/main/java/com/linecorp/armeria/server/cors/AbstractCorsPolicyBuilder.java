@@ -58,9 +58,9 @@ abstract class AbstractCorsPolicyBuilder {
 
     private Set<String> origins = Collections.emptySet();
     @Nullable
-    private Pattern originRegex = null;
+    private Pattern originRegex;
     @Nullable
-    private Predicate<String> originMatchingPredicate = null;
+    private Predicate<String> originPredicate;
     private final List<Route> routes = new ArrayList<>();
     private boolean credentialsAllowed;
     private boolean nullOriginAllowed;
@@ -77,7 +77,6 @@ abstract class AbstractCorsPolicyBuilder {
 
     AbstractCorsPolicyBuilder(List<String> origins) {
         requireNonNull(origins, "origins");
-//        checkArgument(!origins.isEmpty(), "origins is empty.");
         for (int i = 0; i < origins.size(); i++) {
             if (origins.get(i) == null) {
                 throw new NullPointerException("origins[" + i + ']');
@@ -86,9 +85,9 @@ abstract class AbstractCorsPolicyBuilder {
         this.origins = origins.stream().map(Ascii::toLowerCase).collect(toImmutableSet());
     }
 
-    AbstractCorsPolicyBuilder(Predicate<String> originMatchingPredicate) {
-        requireNonNull(originMatchingPredicate, "originMatchingPredicate");
-        this.originMatchingPredicate = originMatchingPredicate;
+    AbstractCorsPolicyBuilder(Predicate<String> originPredicate) {
+        requireNonNull(originPredicate, "originPredicate");
+        this.originPredicate = originPredicate;
     }
 
     AbstractCorsPolicyBuilder(Pattern originRegex) {
@@ -443,8 +442,8 @@ abstract class AbstractCorsPolicyBuilder {
      * Returns a newly-created {@link CorsPolicy} based on the properties of this builder.
      */
     CorsPolicy build() {
-        return new CorsPolicy(origins, routes, credentialsAllowed, maxAge, nullOriginAllowed,
-                              exposedHeaders, allowAllRequestHeaders, allowedRequestHeaders,
+        return new CorsPolicy(origins, originPredicate, originRegex, routes, credentialsAllowed, maxAge,
+                              nullOriginAllowed, exposedHeaders, allowAllRequestHeaders, allowedRequestHeaders,
                               allowedRequestMethods, preflightResponseHeadersDisabled,
                               preflightResponseHeaders);
     }
