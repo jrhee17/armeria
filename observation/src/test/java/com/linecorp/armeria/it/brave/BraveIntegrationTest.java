@@ -530,7 +530,7 @@ class BraveIntegrationTest {
         }
     }
 
-    private static class SpanHandlerImpl extends SpanHandler {
+    public static class SpanHandlerImpl extends SpanHandler {
         private final BlockingQueue<MutableSpan> spans = new LinkedBlockingQueue<>();
 
         @Override
