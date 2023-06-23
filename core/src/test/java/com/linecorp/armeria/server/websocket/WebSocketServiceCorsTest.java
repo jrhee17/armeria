@@ -39,7 +39,6 @@ import com.linecorp.armeria.common.websocket.WebSocketFrame;
 import com.linecorp.armeria.common.websocket.WebSocketWriter;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.ServiceRequestContext;
-import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
 import io.netty.handler.codec.http.HttpHeaderValues;
@@ -50,12 +49,11 @@ class WebSocketServiceCorsTest {
     static final ServerExtension server1 = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) {
-            sb.tlsSelfSigned()
-              .http(0)
-              .service("/chat", WebSocketService.builder(new CustomWebSocketServiceHandler())
-                                                .allowedOrigins("*")
-                                                .build())
-              .decorator(LoggingService.newDecorator());
+            sb.route()
+              .path("/chat")
+              .build(WebSocketService.builder(new CustomWebSocketServiceHandler())
+                                     .allowedOrigins("*")
+                                     .build());
         }
     };
 

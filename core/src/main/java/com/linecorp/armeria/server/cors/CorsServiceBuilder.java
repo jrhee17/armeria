@@ -472,6 +472,14 @@ public final class CorsServiceBuilder {
      * Creates a new builder instance for a new {@link CorsPolicy}.
      * @return {@link ChainedCorsPolicyBuilder} to support method chaining.
      */
+    public ChainedCorsPolicyBuilder andForOrigin(Predicate<String> originPredicate) {
+        return new ChainedCorsPolicyBuilder(this, originPredicate);
+    }
+
+    /**
+     * Creates a new builder instance for a new {@link CorsPolicy}.
+     * @return {@link ChainedCorsPolicyBuilder} to support method chaining.
+     */
     public ChainedCorsPolicyBuilder andForOriginRegex(String regex) {
         return andForOriginRegex(Pattern.compile(regex));
     }
@@ -481,8 +489,7 @@ public final class CorsServiceBuilder {
      * @return {@link ChainedCorsPolicyBuilder} to support method chaining.
      */
     public ChainedCorsPolicyBuilder andForOriginRegex(Pattern regex) {
-        // TODO
-        return new ChainedCorsPolicyBuilder(this);
+        return new ChainedCorsPolicyBuilder(this, regex);
     }
 
     @Override

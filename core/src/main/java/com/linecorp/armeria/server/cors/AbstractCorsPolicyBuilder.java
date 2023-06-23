@@ -58,8 +58,6 @@ abstract class AbstractCorsPolicyBuilder {
 
     private Set<String> origins = Collections.emptySet();
     @Nullable
-    private Pattern originRegex;
-    @Nullable
     private Predicate<String> originPredicate;
     private final List<Route> routes = new ArrayList<>();
     private boolean credentialsAllowed;
@@ -92,7 +90,7 @@ abstract class AbstractCorsPolicyBuilder {
 
     AbstractCorsPolicyBuilder(Pattern originRegex) {
         requireNonNull(originRegex, "originRegex");
-        this.originRegex = originRegex;
+        this.originPredicate = (origin) -> originRegex.matcher(origin).matches();
     }
 
     final void setConfig(CorsDecorator corsDecorator) {
@@ -442,7 +440,7 @@ abstract class AbstractCorsPolicyBuilder {
      * Returns a newly-created {@link CorsPolicy} based on the properties of this builder.
      */
     CorsPolicy build() {
-        return new CorsPolicy(origins, originPredicate, originRegex, routes, credentialsAllowed, maxAge,
+        return new CorsPolicy(origins, originPredicate, routes, credentialsAllowed, maxAge,
                               nullOriginAllowed, exposedHeaders, allowAllRequestHeaders, allowedRequestHeaders,
                               allowedRequestMethods, preflightResponseHeadersDisabled,
                               preflightResponseHeaders);

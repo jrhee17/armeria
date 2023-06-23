@@ -105,19 +105,9 @@ public final class CorsConfig {
             if (isNullOrigin && policy.isNullOriginAllowed() &&
                 isPathMatched(policy, routingContext)) {
                 return policy;
-            } else if (!isNullOrigin && policy.origins().contains(lowerCaseOrigin) &&
-                       isPathMatched(policy, routingContext)) {
-                return policy;
-            }
-
-            if (policy.originPredicate() != null) {
-                if (policy.originPredicate().test(origin) && isPathMatched(policy, routingContext)) {
-                    return policy;
-                }
-            }
-
-            if (policy.originRegex() != null) {
-                if (policy.originRegex().matcher(origin).matches() && isPathMatched(policy, routingContext)) {
+            } else if (!isNullOrigin && isPathMatched(policy, routingContext)) {
+                if (policy.origins().contains(lowerCaseOrigin) ||
+                    (policy.originPredicate() != null && policy.originPredicate().test(origin))) {
                     return policy;
                 }
             }
