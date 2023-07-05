@@ -773,10 +773,16 @@ public class HttpServerCorsTest {
 
         res = request(client, HttpMethod.GET, "/cors17", "http://example.com", "GET");
         assertThat(res.status()).isEqualTo(HttpStatus.OK);
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN))
+                .isEqualTo("http://example.com");
         res = request(client, HttpMethod.GET, "/cors17", "http://line.com", "GET");
         assertThat(res.status()).isEqualTo(HttpStatus.OK);
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN))
+                .isEqualTo("http://line.com");
         res = request(client, HttpMethod.GET, "/cors17", "http://example.line.com", "GET");
         assertThat(res.status()).isEqualTo(HttpStatus.OK);
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN))
+                .isEqualTo("http://example.line.com");
 
         res = request(client, HttpMethod.GET, "/cors17", "http://invalid.com", "GET");
         assertThat(res.status()).isEqualTo(HttpStatus.FORBIDDEN);
@@ -789,16 +795,22 @@ public class HttpServerCorsTest {
 
         res = preflightRequest(client, "/cors18/index1", "http://example.com", "GET");
         assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("GET");
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN))
+                .isEqualTo("http://example.com");
         res = preflightRequest(client, "/cors18/index1", "http://invalid.com", "GET");
         assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isNull();
 
         res = preflightRequest(client, "/cors18/index2", "http://line.com", "POST");
         assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("POST");
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN))
+                .isEqualTo("http://line.com");
         res = preflightRequest(client, "/cors18/index2", "http://invalid.com", "GET");
         assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isNull();
 
         res = preflightRequest(client, "/cors18/index3", "http://armeria.com", "DELETE");
         assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isEqualTo("DELETE");
+        assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN))
+                .isEqualTo("http://armeria.com");
         res = preflightRequest(client, "/cors18/index3", "http://invalid.com", "DELETE");
         assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS)).isNull();
     }
