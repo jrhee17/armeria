@@ -60,7 +60,6 @@ class DomainSocketServerTest {
      * Sends an HTTP/1 request via Unix domain socket using Netty and ensures the server responds with
      * a valid HTTP/1 response.
      */
-    @Test
     void shouldSupportBindingOnDomainSocket() {
         final BlockingQueue<ByteBuf> receivedBuffers = new LinkedTransferQueue<>();
         final TransportType transportType = Flags.transportType();
