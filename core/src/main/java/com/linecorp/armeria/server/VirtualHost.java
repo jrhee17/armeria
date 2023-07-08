@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 
 import com.google.common.base.Ascii;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
 import com.linecorp.armeria.common.HttpMethod;
@@ -158,6 +159,15 @@ public final class VirtualHost {
     VirtualHost withNewSslContext(SslContext sslContext) {
         return new VirtualHost(originalDefaultHostname, originalHostnamePattern, port, sslContext,
                                serviceConfigs, fallbackServiceConfig, RejectedRouteHandler.DISABLED,
+                               host -> accessLogger, defaultServiceNaming, defaultLogName, requestTimeoutMillis,
+                               maxRequestLength, verboseResponses,
+                               accessLogWriter, blockingTaskExecutor, requestAutoAbortDelayMillis,
+                               successFunction, multipartUploadsLocation, shutdownSupports, requestIdGenerator);
+    }
+
+    VirtualHost withoutServiceConfigs() {
+        return new VirtualHost(originalDefaultHostname, originalHostnamePattern, port, sslContext,
+                               ImmutableList.of(), fallbackServiceConfig, RejectedRouteHandler.DISABLED,
                                host -> accessLogger, defaultServiceNaming, defaultLogName, requestTimeoutMillis,
                                maxRequestLength, verboseResponses,
                                accessLogWriter, blockingTaskExecutor, requestAutoAbortDelayMillis,

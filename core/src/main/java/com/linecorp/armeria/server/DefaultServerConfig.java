@@ -295,7 +295,6 @@ final class DefaultServerConfig implements ServerConfig {
         VirtualHostsContainer(List<VirtualHost> virtualHosts) {
             this.virtualHosts = virtualHosts;
             // it is possible that the default virtual host doesn't exist
-            // i.e.
             Server.builder()
                     .port(8080) // default virtual host bound to 8080
                     .virtualHostWithPath("/foo")
