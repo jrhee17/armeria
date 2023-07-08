@@ -88,7 +88,7 @@ public interface ServerConfig {
      *
      * @see ServerBuilder#virtualHost(int)
      */
-    VirtualHost findVirtualHost(String hostname, int port);
+    VirtualHost findVirtualHost(String hostname, int port, String path);
 
     /**
      * Finds the {@link List} of {@link VirtualHost}s that contains the specified {@link HttpService}.

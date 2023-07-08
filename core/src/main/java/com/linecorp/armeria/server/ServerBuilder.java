@@ -1445,6 +1445,10 @@ public final class ServerBuilder implements TlsSetters {
         return virtualHostBuilder;
     }
 
+    public VirtualHostBuilder virtualHostWithPath(String contextPath) {
+        return new VirtualHostBuilder(this, false);
+    }
+
     /**
      * Adds the <a href="https://en.wikipedia.org/wiki/Virtual_hosting#Name-based">name-based virtual host</a>.
      *

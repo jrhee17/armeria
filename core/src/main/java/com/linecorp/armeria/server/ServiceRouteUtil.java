@@ -47,7 +47,7 @@ final class ServiceRouteUtil {
             routingStatus = RoutingStatus.OK;
         }
 
-        return DefaultRoutingContext.of(serverConfig.findVirtualHost(hostname, port),
+        return DefaultRoutingContext.of(serverConfig.findVirtualHost(hostname, port, reqTarget.path()),
                                         hostname, reqTarget, headers, routingStatus);
     }
 

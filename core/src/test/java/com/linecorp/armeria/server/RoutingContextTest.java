@@ -145,6 +145,6 @@ class RoutingContextTest {
                                     .serviceUnder("/", service)
                                     .and()
                                     .build();
-        return server.config().findVirtualHost("example.com", -1);
+        return server.config().findVirtualHost("example.com", -1, "/");
     }
 }

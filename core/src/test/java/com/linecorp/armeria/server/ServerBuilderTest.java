@@ -179,22 +179,22 @@ class ServerBuilderTest {
         assertThat(sb.config().defaultVirtualHost()).isNotNull();
         assertThat(sb.config().defaultVirtualHost().accessLogger().getName()).isEqualTo("default");
 
-        assertThat(sb.config().findVirtualHost("*.example.com", -1).accessLogger().getName())
+        assertThat(sb.config().findVirtualHost("*.example.com", -1, "/").accessLogger().getName())
                 .isEqualTo("default");
 
-        assertThat(sb.config().findVirtualHost("*.example2.com", -1).accessLogger().getName())
+        assertThat(sb.config().findVirtualHost("*.example2.com", -1, "/").accessLogger().getName())
                 .isEqualTo("com.ex2");
 
-        assertThat(sb.config().findVirtualHost("*.example3.com", -1).accessLogger().getName())
+        assertThat(sb.config().findVirtualHost("*.example3.com", -1, "/").accessLogger().getName())
                 .isEqualTo("com.ex3");
 
-        assertThat(sb.config().findVirtualHost("*.example4.com", -1).accessLogger().getName())
+        assertThat(sb.config().findVirtualHost("*.example4.com", -1, "/").accessLogger().getName())
                 .isEqualTo("default");
 
-        assertThat(sb.config().findVirtualHost("*.example5.com", -1).accessLogger().getName())
+        assertThat(sb.config().findVirtualHost("*.example5.com", -1, "/").accessLogger().getName())
                 .isEqualTo("com.ex5");
 
-        assertThat(sb.config().findVirtualHost("*.example5.com", 8080).accessLogger().getName())
+        assertThat(sb.config().findVirtualHost("*.example5.com", 8080, "/").accessLogger().getName())
                 .isEqualTo("port.ex5");
     }
 
@@ -212,7 +212,7 @@ class ServerBuilderTest {
                                 .build();
         assertThat(sb.config().defaultVirtualHost().accessLogger().getName())
                 .isEqualTo("test.default");
-        assertThat(sb.config().findVirtualHost("*.example.com", -1).accessLogger().getName())
+        assertThat(sb.config().findVirtualHost("*.example.com", -1, "/").accessLogger().getName())
                 .isEqualTo("test.default");
     }
 
@@ -232,11 +232,11 @@ class ServerBuilderTest {
                                 .virtualHost("*.example2.com:8080")
                                 .and()
                                 .build();
-        assertThat(sb.config().findVirtualHost("*.example.com", -1).accessLogger().getName())
+        assertThat(sb.config().findVirtualHost("*.example.com", -1, "/").accessLogger().getName())
                 .isEqualTo("com.linecorp.armeria.logging.access.com.example");
-        assertThat(sb.config().findVirtualHost("*.example2.com", -1).accessLogger().getName())
+        assertThat(sb.config().findVirtualHost("*.example2.com", -1, "/").accessLogger().getName())
                 .isEqualTo("com.linecorp.armeria.logging.access.com.example2");
-        assertThat(sb.config().findVirtualHost("*.example2.com", 8080).accessLogger().getName())
+        assertThat(sb.config().findVirtualHost("*.example2.com", 8080, "/").accessLogger().getName())
                 .isEqualTo("com.linecorp.armeria.logging.access.com.example2:8080");
     }
 

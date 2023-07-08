@@ -33,6 +33,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableList;
 
@@ -65,7 +66,7 @@ final class DefaultServerConfig implements ServerConfig {
     private final VirtualHost defaultVirtualHost;
     private final List<VirtualHost> virtualHosts;
     @Nullable
-    private final Int2ObjectMap<Mapping<String, VirtualHost>> virtualHostAndPortMapping;
+    private final Int2ObjectMap<Mapping<String, VirtualHostsContainer>> virtualHostAndPortMapping;
     private final List<ServiceConfig> services;
 
     private final EventLoopGroup workerGroup;
@@ -265,7 +266,68 @@ final class DefaultServerConfig implements ServerConfig {
         this.shutdownSupports = ImmutableList.copyOf(requireNonNull(shutdownSupports, "shutdownSupports"));
     }
 
-    private static Int2ObjectMap<Mapping<String, VirtualHost>> buildDomainAndPortMapping(
+    static class VHost2MapperContainer {
+        private final List<VirtualHost> vHosts = new ArrayList<>();
+        private final VirtualHost defaultVirtualHost;
+
+        private VHost2MapperContainer(VirtualHost virtualHost) {
+            this.defaultVirtualHost = virtualHost;
+        }
+
+        private void addHost(VirtualHost virtualHost) {
+            vHosts.add(virtualHost);
+        }
+
+        private Mapping<String, VirtualHostsContainer> toMapping() {
+            DomainMappingBuilder<VirtualHostsContainer> builder =
+                    new DomainMappingBuilder<>(new VirtualHostsContainer(defaultVirtualHost));
+            final Map<String, List<VirtualHost>> hostname2VirtualHosts = vHosts.stream().collect(
+                    Collectors.groupingBy(VirtualHost::hostnamePattern));
+            hostname2VirtualHosts.forEach((k, v) -> builder.add(k, new VirtualHostsContainer(v)));
+            return builder.build();
+        }
+    }
+
+    static class VirtualHostsContainer {
+        final List<VirtualHost> virtualHosts;
+        final VirtualHost defaultVirtualHost;
+
+        VirtualHostsContainer(List<VirtualHost> virtualHosts) {
+            this.virtualHosts = virtualHosts;
+            // it is possible that the default virtual host doesn't exist
+            // i.e.
+            Server.builder()
+                    .port(8080) // default virtual host bound to 8080
+                    .virtualHostWithPath("/foo")
+                    .hostnamePattern("foo.com:8081")
+                    .and()
+                    .virtualHostWithPath("/bar")
+                    .hostnamePattern("bar.com:8082")
+                    .and()
+                    .build();
+            defaultVirtualHost = virtualHosts
+                    .stream()
+                    .filter(virtualHost -> virtualHost.contextPath().equals("/"))
+                    .findFirst().orElseThrow(Error::new);
+        }
+
+        VirtualHostsContainer(VirtualHost virtualHost) {
+            this.virtualHosts = Collections.singletonList(virtualHost);
+            defaultVirtualHost = virtualHost;
+        }
+
+        VirtualHost getAny() {
+            return virtualHosts.stream().findAny().orElseThrow(Error::new);
+        }
+
+        VirtualHost findByPath(String path) {
+            return virtualHosts.stream().filter(virtualHost -> path.startsWith(virtualHost.contextPath()))
+                               .findFirst()
+                               .orElse(defaultVirtualHost);
+        }
+    }
+
+    private static Int2ObjectMap<Mapping<String, VirtualHostsContainer>> buildDomainAndPortMapping(
             VirtualHost defaultVirtualHost, List<VirtualHost> virtualHosts) {
 
         final List<VirtualHost> portMappingVhosts = virtualHosts.stream()
@@ -276,43 +338,45 @@ final class DefaultServerConfig implements ServerConfig {
                                  .filter(v -> v.hostnamePattern().startsWith("*:"))
                                  .collect(toImmutableMap(VirtualHost::port, Function.identity()));
 
-        final Map<Integer, DomainMappingBuilder<VirtualHost>> mappingsBuilder = new HashMap<>();
+        final Map<Integer, VHost2MapperContainer> port2VirtualHosts = new HashMap<>();
         for (VirtualHost virtualHost : portMappingVhosts) {
             final int port = virtualHost.port();
             // The default virtual host should be either '*' or '*:<port>'.
             final VirtualHost defaultVhost =
                     firstNonNull(portMappingDefaultVhosts.get(port), defaultVirtualHost);
             // Builds a 'DomainMappingBuilder' with 'defaultVhost' for the port if absent.
-            final DomainMappingBuilder<VirtualHost> mappingBuilder =
-                    mappingsBuilder.computeIfAbsent(port, key -> new DomainMappingBuilder<>(defaultVhost));
-
+            final VHost2MapperContainer virtualHostList = port2VirtualHosts
+                    .computeIfAbsent(port, key -> new VHost2MapperContainer(defaultVhost));
             if (defaultVhost == virtualHost) {
                 // The 'virtualHost' was added already as a default value when creating 'DomainMappingBuilder'.
             } else {
-                mappingBuilder.add(virtualHost.hostnamePattern(), virtualHost);
+                virtualHostList.addHost(virtualHost);
             }
         }
 
-        final Int2ObjectMap<Mapping<String, VirtualHost>> mappings =
-                new Int2ObjectOpenHashMap<>(mappingsBuilder.size() + 1);
+        final Int2ObjectMap<Mapping<String, VirtualHostsContainer>> mappings =
+                new Int2ObjectOpenHashMap<>(port2VirtualHosts.size() + 1);
 
-        mappingsBuilder.forEach((port, builder) -> mappings.put(port.intValue(), builder.build()));
+        port2VirtualHosts.forEach((port, virtualHostList) -> mappings.put(
+                port.intValue(), virtualHostList.toMapping()));
         // Add name-based virtual host mappings.
         mappings.put(-1, buildDomainMapping(defaultVirtualHost, virtualHosts));
         return mappings;
     }
 
-    private static Mapping<String, VirtualHost> buildDomainMapping(VirtualHost defaultVirtualHost,
-                                                                   List<VirtualHost> virtualHosts) {
+    private static Mapping<String, VirtualHostsContainer> buildDomainMapping(VirtualHost defaultVirtualHost,
+                                                                             List<VirtualHost> virtualHosts) {
+        final List<VirtualHost> hostnameMappingVHosts = virtualHosts.stream()
+                                                                    .filter(v -> v.port() <= 0)
+                                                                    .collect(toImmutableList());
+        final Map<String, List<VirtualHost>> hostname2VHost =
+                hostnameMappingVHosts.stream().collect(
+                        Collectors.groupingBy(VirtualHost::hostnamePattern));
+
         // Set virtual host definitions and initialize their domain name mapping.
-        final DomainMappingBuilder<VirtualHost> mappingBuilder = new DomainMappingBuilder<>(defaultVirtualHost);
-        for (VirtualHost h : virtualHosts) {
-            if (h.port() > 0) {
-                // A port-based virtual host will be handled by buildDomainAndPortMapping().
-                continue;
-            }
-            mappingBuilder.add(h.hostnamePattern(), h);
-        }
+        final DomainMappingBuilder<VirtualHostsContainer> mappingBuilder =
+                new DomainMappingBuilder<>(new VirtualHostsContainer(Collections.singletonList(defaultVirtualHost)));
+        hostname2VHost.forEach((k, v) -> mappingBuilder.add(k, new VirtualHostsContainer(v)));
         return mappingBuilder.build();
     }
 
@@ -402,28 +466,29 @@ final class DefaultServerConfig implements ServerConfig {
         if (virtualHostAndPortMapping == null) {
             return defaultVirtualHost;
         }
-        final Mapping<String, VirtualHost> virtualHostMapping = virtualHostAndPortMapping.get(-1);
-        return virtualHostMapping.map(hostname);
+        final Mapping<String, VirtualHostsContainer> virtualHostMapping = virtualHostAndPortMapping.get(-1);
+        return virtualHostMapping.map(hostname).getAny();
     }
 
     @Override
-    public VirtualHost findVirtualHost(String hostname, int port) {
+    public VirtualHost findVirtualHost(String hostname, int port, String path) {
         if (virtualHostAndPortMapping == null) {
             return defaultVirtualHost;
         }
 
-        final Mapping<String, VirtualHost> virtualHostMapping = virtualHostAndPortMapping.get(port);
+        final Mapping<String, VirtualHostsContainer> virtualHostMapping = virtualHostAndPortMapping.get(port);
         if (virtualHostMapping != null) {
-            final VirtualHost virtualHost = virtualHostMapping.map(hostname + ':' + port);
+            final VirtualHostsContainer container = virtualHostMapping.map(hostname + ':' + port);
+            final VirtualHost virtualHost = container.findByPath(path);
             // Exclude the default virtual host from port-based virtual hosts.
             if (virtualHost != defaultVirtualHost) {
                 return virtualHost;
             }
         }
         // No port-based virtual host is configured. Look for named-based virtual host.
-        final Mapping<String, VirtualHost> nameBasedMapping = virtualHostAndPortMapping.get(-1);
+        final Mapping<String, VirtualHostsContainer> nameBasedMapping = virtualHostAndPortMapping.get(-1);
         assert nameBasedMapping != null;
-        return nameBasedMapping.map(hostname);
+        return nameBasedMapping.map(hostname).findByPath(path);
     }
 
     @Override

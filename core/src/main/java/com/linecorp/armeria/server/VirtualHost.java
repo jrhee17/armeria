@@ -65,7 +65,6 @@ public final class VirtualHost {
 
     static final Pattern HOSTNAME_WITH_NO_PORT_PATTERN = Pattern.compile(
             "^(?:[-_a-zA-Z0-9]|[-_a-zA-Z0-9][-_.a-zA-Z0-9]*[-_a-zA-Z0-9])$");
-
     /**
      * Initialized later via {@link #setServerConfig(ServerConfig)}.
      */
@@ -277,6 +276,10 @@ public final class VirtualHost {
      */
     public String hostnamePattern() {
         return hostnamePattern;
+    }
+
+    public String contextPath() {
+        return "/";
     }
 
     /**

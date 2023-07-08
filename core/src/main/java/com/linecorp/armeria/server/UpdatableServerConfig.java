@@ -106,8 +106,8 @@ final class UpdatableServerConfig implements ServerConfig {
     }
 
     @Override
-    public VirtualHost findVirtualHost(String hostname, int port) {
-        return delegate.findVirtualHost(hostname, port);
+    public VirtualHost findVirtualHost(String hostname, int port, String path) {
+        return delegate.findVirtualHost(hostname, port, path);
     }
 
     @Override
