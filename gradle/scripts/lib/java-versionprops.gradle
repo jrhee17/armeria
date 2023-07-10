@@ -9,33 +9,30 @@ configure(projectsWithFlags('java', 'publish')) {
     task versionProperties {
         def propsFile = project.file("${generatedResourcesDir}/META-INF/${project.group}.versions.properties")
         outputs.file propsFile
-        doLast {
-            def artifactId = project.ext.artifactId
 
-            logger.info("Generating versions.properties for ${artifactId} ..")
-            def props = new Properties()
-            project.ext.repoStatus.each { k, v ->
-                props["${artifactId}.${k}"] = v
-            }
+        def artifactId = project.ext.artifactId
+        def props = new Properties()
+        project.ext.repoStatus.each { k, v ->
+            props["${artifactId}.${k}"] = v
+        }
 
-            def upToDate = false
+        outputs.upToDateWhen {
             if (propsFile.exists()) {
                 def oldProps = new Properties()
                 propsFile.withInputStream { oldProps.load(it) }
                 if (oldProps == props) {
-                    upToDate = true
+                    return true
                 }
             } else {
                 logger.info("${propsFile} does not exist.")
             }
+            return false
+        }
 
-            if (!upToDate) {
-                project.mkdir(propsFile.parentFile)
-                logger.info("Writing ${propsFile} ..")
-                propsFile.withOutputStream { props.store(it, null) }
-            } else {
-                logger.info("${propsFile} is up-to-date.")
-            }
+        doLast {
+            project.mkdir(propsFile.parentFile)
+            logger.info("Writing ${propsFile} ..")
+            propsFile.withOutputStream { props.store(it, null) }
         }
     }
 
