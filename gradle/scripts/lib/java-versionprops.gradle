@@ -1,3 +1,5 @@
+import java.nio.charset.StandardCharsets
+
 configure(projectsWithFlags('java', 'publish')) {
     def generatedResourcesDir = project.file("${project.projectDir}/gen-src/main/resources")
     sourceSets.main.resources.srcDir generatedResourcesDir
@@ -32,7 +34,12 @@ configure(projectsWithFlags('java', 'publish')) {
             if (!upToDate) {
                 project.mkdir(propsFile.parentFile)
                 logger.info("Writing ${propsFile} ..")
-                propsFile.withOutputStream { props.store(it, null) }
+                propsFile.withOutputStream { os ->
+                    // write properties directly to avoid writing the date which makes the task uncacheable
+                    props.forEach { k, v ->
+                        os.write("${k.toString()}=${v.toString()}".getBytes(StandardCharsets.UTF_8))
+                    }
+                }
             } else {
                 logger.info("${propsFile} is up-to-date.")
             }
