@@ -97,6 +97,7 @@ public final class VirtualHost {
     private final Path multipartUploadsLocation;
     private final List<ShutdownSupport> shutdownSupports;
     private final Function<RoutingContext, RequestId> requestIdGenerator;
+    private final String contextPath;
 
     VirtualHost(String defaultHostname, String hostnamePattern, int port,
                 @Nullable SslContext sslContext,
@@ -114,7 +115,8 @@ public final class VirtualHost {
                 SuccessFunction successFunction,
                 Path multipartUploadsLocation,
                 List<ShutdownSupport> shutdownSupports,
-                Function<? super RoutingContext, ? extends RequestId> requestIdGenerator) {
+                Function<? super RoutingContext, ? extends RequestId> requestIdGenerator,
+                String contextPath) {
         originalDefaultHostname = defaultHostname;
         originalHostnamePattern = hostnamePattern;
         if (port > 0) {
@@ -154,6 +156,8 @@ public final class VirtualHost {
         accessLogger = accessLoggerMapper.apply(this);
         checkState(accessLogger != null,
                    "accessLoggerMapper.apply() has returned null for virtual host: %s.", hostnamePattern);
+
+        this.contextPath = contextPath;
     }
 
     VirtualHost withNewSslContext(SslContext sslContext) {
@@ -162,16 +166,8 @@ public final class VirtualHost {
                                host -> accessLogger, defaultServiceNaming, defaultLogName, requestTimeoutMillis,
                                maxRequestLength, verboseResponses,
                                accessLogWriter, blockingTaskExecutor, requestAutoAbortDelayMillis,
-                               successFunction, multipartUploadsLocation, shutdownSupports, requestIdGenerator);
-    }
-
-    VirtualHost withoutServiceConfigs() {
-        return new VirtualHost(originalDefaultHostname, originalHostnamePattern, port, sslContext,
-                               ImmutableList.of(), fallbackServiceConfig, RejectedRouteHandler.DISABLED,
-                               host -> accessLogger, defaultServiceNaming, defaultLogName, requestTimeoutMillis,
-                               maxRequestLength, verboseResponses,
-                               accessLogWriter, blockingTaskExecutor, requestAutoAbortDelayMillis,
-                               successFunction, multipartUploadsLocation, shutdownSupports, requestIdGenerator);
+                               successFunction, multipartUploadsLocation, shutdownSupports, requestIdGenerator,
+                               contextPath);
     }
 
     /**
@@ -289,7 +285,7 @@ public final class VirtualHost {
     }
 
     public String contextPath() {
-        return "/";
+        return contextPath;
     }
 
     /**
@@ -543,7 +539,7 @@ public final class VirtualHost {
                                host -> accessLogger, defaultServiceNaming, defaultLogName, requestTimeoutMillis,
                                maxRequestLength, verboseResponses, accessLogWriter, blockingTaskExecutor,
                                requestAutoAbortDelayMillis, successFunction, multipartUploadsLocation,
-                               shutdownSupports, requestIdGenerator);
+                               shutdownSupports, requestIdGenerator, contextPath);
     }
 
     @Override

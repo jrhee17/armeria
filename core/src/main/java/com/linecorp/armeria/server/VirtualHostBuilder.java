@@ -162,6 +162,7 @@ public final class VirtualHostBuilder implements TlsSetters {
     private Function<? super RoutingContext, ? extends RequestId> requestIdGenerator;
     @Nullable
     private ServiceErrorHandler errorHandler;
+    private String contextPath = "/";
 
     /**
      * Creates a new {@link VirtualHostBuilder}.
@@ -453,7 +454,8 @@ public final class VirtualHostBuilder implements TlsSetters {
         if (serviceWithRoutes != null) {
             serviceWithRoutes.routes().forEach(route -> {
                 final ServiceConfigBuilder serviceConfigBuilder =
-                        new ServiceConfigBuilder(route.withPrefix(pathPrefix), service);
+                        new ServiceConfigBuilder(route.withPrefix(pathPrefix)
+                                                      .withPrefix(contextPath), service);
                 serviceConfigBuilder.addMappedRoute(route);
                 addServiceConfigSetters(serviceConfigBuilder);
             });
@@ -486,7 +488,7 @@ public final class VirtualHostBuilder implements TlsSetters {
      * Binds the specified {@link HttpService} at the specified {@link Route}.
      */
     public VirtualHostBuilder service(Route route, HttpService service) {
-        return addServiceConfigSetters(new ServiceConfigBuilder(route, service));
+        return addServiceConfigSetters(new ServiceConfigBuilder(route.withPrefix(contextPath), service));
     }
 
     /**
@@ -645,7 +647,7 @@ public final class VirtualHostBuilder implements TlsSetters {
         requireNonNull(exceptionHandlerFunctions, "exceptionHandlerFunctions");
         requireNonNull(requestConverterFunctions, "requestConverterFunctions");
         requireNonNull(responseConverterFunctions, "responseConverterFunctions");
-        return annotatedService().pathPrefix(pathPrefix)
+        return annotatedService().pathPrefix(contextPath + pathPrefix.substring(1))
                                  .decorator(decorator)
                                  .exceptionHandlers(exceptionHandlerFunctions)
                                  .requestConverters(requestConverterFunctions)
@@ -766,7 +768,7 @@ public final class VirtualHostBuilder implements TlsSetters {
             Route route, Function<? super HttpService, ? extends HttpService> decorator) {
         requireNonNull(route, "route");
         requireNonNull(decorator, "decorator");
-        return addRouteDecoratingService(new RouteDecoratingService(route, decorator));
+        return addRouteDecoratingService(new RouteDecoratingService(route.withPrefix(contextPath), decorator));
     }
 
     /**
@@ -1175,6 +1177,23 @@ public final class VirtualHostBuilder implements TlsSetters {
     }
 
     /**
+     * TBU.
+     */
+    @UnstableApi
+    public VirtualHostBuilder contextPath(String contextPath) {
+        checkArgument(contextPath.startsWith("/"), "contextPath must be an absolute path");
+        this.contextPath = requireNonNull(contextPath, "contextPath");
+        return this;
+    }
+
+    /**
+     * TBU.
+     */
+    String contextPath() {
+        return this.contextPath;
+    }
+
+    /**
      * Returns a newly-created {@link VirtualHost} based on the properties of this builder and the services
      * added to this builder.
      */
@@ -1315,7 +1334,7 @@ public final class VirtualHostBuilder implements TlsSetters {
                                 accessLoggerMapper, defaultServiceNaming, defaultLogName, requestTimeoutMillis,
                                 maxRequestLength, verboseResponses, accessLogWriter, blockingTaskExecutor,
                                 requestAutoAbortDelayMillis, successFunction, multipartUploadsLocation,
-                                builder.build(), requestIdGenerator);
+                                builder.build(), requestIdGenerator, contextPath);
 
         final Function<? super HttpService, ? extends HttpService> decorator =
                 getRouteDecoratingService(template);

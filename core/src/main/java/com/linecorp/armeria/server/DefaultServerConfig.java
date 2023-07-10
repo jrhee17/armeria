@@ -283,7 +283,8 @@ final class DefaultServerConfig implements ServerConfig {
                     new DomainMappingBuilder<>(new VirtualHostsContainer(defaultVirtualHost));
             final Map<String, List<VirtualHost>> hostname2VirtualHosts = vHosts.stream().collect(
                     Collectors.groupingBy(VirtualHost::hostnamePattern));
-            hostname2VirtualHosts.forEach((k, v) -> builder.add(k, new VirtualHostsContainer(v)));
+            hostname2VirtualHosts.forEach(
+                    (k, v) -> builder.add(k, new VirtualHostsContainer(defaultVirtualHost, v)));
             return builder.build();
         }
     }
@@ -292,22 +293,9 @@ final class DefaultServerConfig implements ServerConfig {
         final List<VirtualHost> virtualHosts;
         final VirtualHost defaultVirtualHost;
 
-        VirtualHostsContainer(List<VirtualHost> virtualHosts) {
+        VirtualHostsContainer(VirtualHost defaultVirtualHost, List<VirtualHost> virtualHosts) {
             this.virtualHosts = virtualHosts;
-            // it is possible that the default virtual host doesn't exist
-            Server.builder()
-                    .port(8080) // default virtual host bound to 8080
-                    .virtualHostWithPath("/foo")
-                    .hostnamePattern("foo.com:8081")
-                    .and()
-                    .virtualHostWithPath("/bar")
-                    .hostnamePattern("bar.com:8082")
-                    .and()
-                    .build();
-            defaultVirtualHost = virtualHosts
-                    .stream()
-                    .filter(virtualHost -> virtualHost.contextPath().equals("/"))
-                    .findFirst().orElseThrow(Error::new);
+            this.defaultVirtualHost = defaultVirtualHost;
         }
 
         VirtualHostsContainer(VirtualHost virtualHost) {
@@ -316,11 +304,11 @@ final class DefaultServerConfig implements ServerConfig {
         }
 
         VirtualHost getAny() {
-            return virtualHosts.stream().findAny().orElseThrow(Error::new);
+            return virtualHosts.stream().findAny().orElse(defaultVirtualHost);
         }
 
         VirtualHost findByPath(String path) {
-            return virtualHosts.stream().filter(virtualHost -> path.startsWith(virtualHost.contextPath()))
+            return virtualHosts.stream().filter(virtualHost -> virtualHost.contextPath().startsWith(path))
                                .findFirst()
                                .orElse(defaultVirtualHost);
         }
@@ -374,8 +362,8 @@ final class DefaultServerConfig implements ServerConfig {
 
         // Set virtual host definitions and initialize their domain name mapping.
         final DomainMappingBuilder<VirtualHostsContainer> mappingBuilder =
-                new DomainMappingBuilder<>(new VirtualHostsContainer(Collections.singletonList(defaultVirtualHost)));
-        hostname2VHost.forEach((k, v) -> mappingBuilder.add(k, new VirtualHostsContainer(v)));
+                new DomainMappingBuilder<>(new VirtualHostsContainer(defaultVirtualHost));
+        hostname2VHost.forEach((k, v) -> mappingBuilder.add(k, new VirtualHostsContainer(defaultVirtualHost, v)));
         return mappingBuilder.build();
     }
 

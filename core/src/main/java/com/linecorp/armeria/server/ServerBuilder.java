@@ -1446,7 +1446,10 @@ public final class ServerBuilder implements TlsSetters {
     }
 
     public VirtualHostBuilder virtualHostWithPath(String contextPath) {
-        return new VirtualHostBuilder(this, false);
+        VirtualHostBuilder virtualHostBuilder = new VirtualHostBuilder(this, false);
+        virtualHostBuilders.add(virtualHostBuilder);
+        virtualHostBuilder.contextPath(contextPath);
+        return virtualHostBuilder;
     }
 
     /**
