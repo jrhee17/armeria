@@ -8,6 +8,7 @@ configure(projectsWithFlags('java', 'publish')) {
     // Generate version.properties, similar to Netty.
     task versionProperties {
         def propsFile = project.file("${generatedResourcesDir}/META-INF/${project.group}.versions.properties")
+        outputs.file propsFile
 
         def artifactId = project.ext.artifactId
 
@@ -28,12 +29,14 @@ configure(projectsWithFlags('java', 'publish')) {
             logger.info("${propsFile} does not exist.")
         }
 
+        project.mkdir(propsFile.parentFile)
+        logger.info("Writing ${propsFile} ..")
+        propsFile.withOutputStream { props.store(it, null) }
+
         outputs.upToDateWhen { upToDate }
 
         doLast {
-            project.mkdir(propsFile.parentFile)
-            logger.info("Writing ${propsFile} ..")
-            propsFile.withOutputStream { props.store(it, null) }
+            logger.info("a dummy task")
         }
     }
 
