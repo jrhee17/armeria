@@ -47,6 +47,17 @@ gradle.buildFinished({ result ->
 })
 
 allprojects {
+    normalization {
+        runtimeClasspath {
+            metaInf {
+                ignoreCompletely()
+            }
+            properties {
+                ignore("com.linecorp.armeria.versions.properties")
+            }
+        }
+    }
+
     // Add common JVM options such as max memory and leak detection.
     tasks.withType(JavaForkOptions) {
         maxHeapSize = '768m'
