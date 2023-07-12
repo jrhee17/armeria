@@ -107,7 +107,8 @@ import io.netty.util.ReferenceCountUtil;
  * @see ServerBuilder
  * @see Route
  */
-public final class VirtualHostBuilder implements TlsSetters {
+public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBuilder<VirtualHostBuilder,
+        VirtualHostServiceBindingBuilder> {
 
     private final ServerBuilder serverBuilder;
     private final boolean defaultVirtualHost;
