@@ -107,8 +107,7 @@ import io.netty.util.ReferenceCountUtil;
  * @see ServerBuilder
  * @see Route
  */
-public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBuilder<VirtualHostBuilder,
-        VirtualHostServiceBindingBuilder> {
+public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBuilder<VirtualHostBuilder> {
 
     private final ServerBuilder serverBuilder;
     private final boolean defaultVirtualHost;
@@ -163,6 +162,9 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
     private Function<? super RoutingContext, ? extends RequestId> requestIdGenerator;
     @Nullable
     private ServiceErrorHandler errorHandler;
+
+    private final DefaultContextPathServicesBuilder<VirtualHostBuilder> servicesBuilder =
+            new DefaultContextPathServicesBuilder<>(this, "/");
 
     /**
      * Creates a new {@link VirtualHostBuilder}.
@@ -448,20 +450,7 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      * }</pre>
      */
     public VirtualHostBuilder serviceUnder(String pathPrefix, HttpService service) {
-        requireNonNull(pathPrefix, "pathPrefix");
-        requireNonNull(service, "service");
-        final HttpServiceWithRoutes serviceWithRoutes = service.as(HttpServiceWithRoutes.class);
-        if (serviceWithRoutes != null) {
-            serviceWithRoutes.routes().forEach(route -> {
-                final ServiceConfigBuilder serviceConfigBuilder =
-                        new ServiceConfigBuilder(route.withPrefix(pathPrefix), service);
-                serviceConfigBuilder.addMappedRoute(route);
-                addServiceConfigSetters(serviceConfigBuilder);
-            });
-        } else {
-            service(Route.builder().pathPrefix(pathPrefix).build(), service);
-        }
-        return this;
+        return servicesBuilder.serviceUnder(pathPrefix, service);
     }
 
     /**
@@ -479,15 +468,14 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      * @throws IllegalArgumentException if the specified path pattern is invalid
      */
     public VirtualHostBuilder service(String pathPattern, HttpService service) {
-        service(Route.builder().path(pathPattern).build(), service);
-        return this;
+        return servicesBuilder.service(pathPattern, service);
     }
 
     /**
      * Binds the specified {@link HttpService} at the specified {@link Route}.
      */
     public VirtualHostBuilder service(Route route, HttpService service) {
-        return addServiceConfigSetters(new ServiceConfigBuilder(route, service));
+        return servicesBuilder.service(route, service);
     }
 
     /**
@@ -499,13 +487,7 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
     public VirtualHostBuilder service(
             HttpServiceWithRoutes serviceWithRoutes,
             Iterable<? extends Function<? super HttpService, ? extends HttpService>> decorators) {
-        requireNonNull(serviceWithRoutes, "serviceWithRoutes");
-        requireNonNull(serviceWithRoutes.routes(), "serviceWithRoutes.routes()");
-        requireNonNull(decorators, "decorators");
-
-        final HttpService decorated = decorate(serviceWithRoutes, decorators);
-        serviceWithRoutes.routes().forEach(route -> service(route, decorated));
-        return this;
+        return servicesBuilder.service(serviceWithRoutes, decorators);
     }
 
     /**
@@ -518,14 +500,14 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
     public final VirtualHostBuilder service(
             HttpServiceWithRoutes serviceWithRoutes,
             Function<? super HttpService, ? extends HttpService>... decorators) {
-        return service(serviceWithRoutes, ImmutableList.copyOf(requireNonNull(decorators, "decorators")));
+        return servicesBuilder.service(serviceWithRoutes, decorators);
     }
 
     /**
      * Binds the specified annotated service object under the path prefix {@code "/"}.
      */
     public VirtualHostBuilder annotatedService(Object service) {
-        return annotatedService("/", service, Function.identity(), ImmutableList.of());
+        return servicesBuilder.annotatedService(service);
     }
 
     /**
@@ -537,9 +519,7 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      */
     public VirtualHostBuilder annotatedService(Object service,
                                                Object... exceptionHandlersAndConverters) {
-        return annotatedService("/", service, Function.identity(),
-                                ImmutableList.copyOf(requireNonNull(exceptionHandlersAndConverters,
-                                                                    "exceptionHandlersAndConverters")));
+        return servicesBuilder.annotatedService(service, exceptionHandlersAndConverters);
     }
 
     /**
@@ -552,16 +532,14 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
     public VirtualHostBuilder annotatedService(
             Object service, Function<? super HttpService, ? extends HttpService> decorator,
             Object... exceptionHandlersAndConverters) {
-        return annotatedService("/", service, decorator,
-                                ImmutableList.copyOf(requireNonNull(exceptionHandlersAndConverters,
-                                                                    "exceptionHandlersAndConverters")));
+        return servicesBuilder.annotatedService(service, decorator, exceptionHandlersAndConverters);
     }
 
     /**
      * Binds the specified annotated service object under the specified path prefix.
      */
     public VirtualHostBuilder annotatedService(String pathPrefix, Object service) {
-        return annotatedService(pathPrefix, service, Function.identity(), ImmutableList.of());
+        return servicesBuilder.annotatedService(pathPrefix, service);
     }
 
     /**
@@ -573,9 +551,7 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      */
     public VirtualHostBuilder annotatedService(String pathPrefix, Object service,
                                                Object... exceptionHandlersAndConverters) {
-        return annotatedService(pathPrefix, service, Function.identity(),
-                                ImmutableList.copyOf(requireNonNull(exceptionHandlersAndConverters,
-                                                                    "exceptionHandlersAndConverters")));
+        return servicesBuilder.annotatedService(pathPrefix, service, exceptionHandlersAndConverters);
     }
 
     /**
@@ -587,9 +563,7 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      */
     public VirtualHostBuilder annotatedService(String pathPrefix, Object service,
                                                Iterable<?> exceptionHandlersAndConverters) {
-        return annotatedService(pathPrefix, service, Function.identity(),
-                                requireNonNull(exceptionHandlersAndConverters,
-                                               "exceptionHandlersAndConverters"));
+        return servicesBuilder.annotatedService(pathPrefix, service, exceptionHandlersAndConverters);
     }
 
     /**
@@ -602,9 +576,7 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
     public VirtualHostBuilder annotatedService(
             String pathPrefix, Object service, Function<? super HttpService, ? extends HttpService> decorator,
             Object... exceptionHandlersAndConverters) {
-        return annotatedService(pathPrefix, service, decorator,
-                                ImmutableList.copyOf(requireNonNull(exceptionHandlersAndConverters,
-                                                                    "exceptionHandlersAndConverters")));
+        return servicesBuilder.annotatedService(pathPrefix, service, decorator, exceptionHandlersAndConverters);
     }
 
     /**
@@ -640,18 +612,7 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
             Iterable<? extends ExceptionHandlerFunction> exceptionHandlerFunctions,
             Iterable<? extends RequestConverterFunction> requestConverterFunctions,
             Iterable<? extends ResponseConverterFunction> responseConverterFunctions) {
-        requireNonNull(pathPrefix, "pathPrefix");
-        requireNonNull(service, "service");
-        requireNonNull(decorator, "decorator");
-        requireNonNull(exceptionHandlerFunctions, "exceptionHandlerFunctions");
-        requireNonNull(requestConverterFunctions, "requestConverterFunctions");
-        requireNonNull(responseConverterFunctions, "responseConverterFunctions");
-        return annotatedService().pathPrefix(pathPrefix)
-                                 .decorator(decorator)
-                                 .exceptionHandlers(exceptionHandlerFunctions)
-                                 .requestConverters(requestConverterFunctions)
-                                 .responseConverters(responseConverterFunctions)
-                                 .build(service);
+        return servicesBuilder.annotatedService(pathPrefix, service, decorator, exceptionHandlerFunctions, requestConverterFunctions, responseConverterFunctions);
     }
 
     /**

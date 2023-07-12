@@ -23,8 +23,8 @@ import com.linecorp.armeria.server.annotation.ExceptionHandlerFunction;
 import com.linecorp.armeria.server.annotation.RequestConverterFunction;
 import com.linecorp.armeria.server.annotation.ResponseConverterFunction;
 
-public interface ContextPathRouteBuilder<T, V> {
-    T withRoute(Consumer<? super V> customizer);
+public interface ContextPathRouteBuilder<T> {
+//    T withRoute(Consumer<? super V> customizer);
 
     AbstractServiceBindingBuilder route();
 

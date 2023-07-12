@@ -159,7 +159,7 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
  *
  * @see VirtualHostBuilder
  */
-public final class ServerBuilder implements TlsSetters, ContextPathRouteBuilder<ServerBuilder, ServiceBindingBuilder> {
+public final class ServerBuilder implements TlsSetters, ContextPathRouteBuilder<ServerBuilder> {
     private static final Logger logger = LoggerFactory.getLogger(ServerBuilder.class);
 
     // Defaults to no graceful shutdown.
@@ -1098,7 +1098,6 @@ public final class ServerBuilder implements TlsSetters, ContextPathRouteBuilder<
     /**
      * Configures an {@link HttpService} of the default {@link VirtualHost} with the {@code customizer}.
      */
-    @Override
     public ServerBuilder withRoute(Consumer<? super ServiceBindingBuilder> customizer) {
         final ServiceBindingBuilder serviceBindingBuilder = new ServiceBindingBuilder(this);
         customizer.accept(serviceBindingBuilder);
