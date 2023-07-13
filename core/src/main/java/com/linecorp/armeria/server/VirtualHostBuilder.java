@@ -445,7 +445,8 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      * }</pre>
      */
     public VirtualHostBuilder serviceUnder(String pathPrefix, HttpService service) {
-        return servicesBuilder.serviceUnder(pathPrefix, service);
+        servicesBuilder.serviceUnder(pathPrefix, service);
+        return this;
     }
 
     /**
@@ -463,14 +464,16 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      * @throws IllegalArgumentException if the specified path pattern is invalid
      */
     public VirtualHostBuilder service(String pathPattern, HttpService service) {
-        return servicesBuilder.service(pathPattern, service);
+        servicesBuilder.service(pathPattern, service);
+        return this;
     }
 
     /**
      * Binds the specified {@link HttpService} at the specified {@link Route}.
      */
     public VirtualHostBuilder service(Route route, HttpService service) {
-        return servicesBuilder.service(route, service);
+        servicesBuilder.service(route, service);
+        return this;
     }
 
     /**
@@ -482,7 +485,8 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
     public VirtualHostBuilder service(
             HttpServiceWithRoutes serviceWithRoutes,
             Iterable<? extends Function<? super HttpService, ? extends HttpService>> decorators) {
-        return servicesBuilder.service(serviceWithRoutes, decorators);
+        servicesBuilder.service(serviceWithRoutes, decorators);
+        return this;
     }
 
     /**
@@ -495,14 +499,16 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
     public final VirtualHostBuilder service(
             HttpServiceWithRoutes serviceWithRoutes,
             Function<? super HttpService, ? extends HttpService>... decorators) {
-        return servicesBuilder.service(serviceWithRoutes, decorators);
+        servicesBuilder.service(serviceWithRoutes, decorators);
+        return this;
     }
 
     /**
      * Binds the specified annotated service object under the path prefix {@code "/"}.
      */
     public VirtualHostBuilder annotatedService(Object service) {
-        return servicesBuilder.annotatedService(service);
+        servicesBuilder.annotatedService(service);
+        return this;
     }
 
     /**
@@ -514,7 +520,8 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      */
     public VirtualHostBuilder annotatedService(Object service,
                                                Object... exceptionHandlersAndConverters) {
-        return servicesBuilder.annotatedService(service, exceptionHandlersAndConverters);
+        servicesBuilder.annotatedService(service, exceptionHandlersAndConverters);
+        return this;
     }
 
     /**
@@ -527,14 +534,16 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
     public VirtualHostBuilder annotatedService(
             Object service, Function<? super HttpService, ? extends HttpService> decorator,
             Object... exceptionHandlersAndConverters) {
-        return servicesBuilder.annotatedService(service, decorator, exceptionHandlersAndConverters);
+        servicesBuilder.annotatedService(service, decorator, exceptionHandlersAndConverters);
+        return this;
     }
 
     /**
      * Binds the specified annotated service object under the specified path prefix.
      */
     public VirtualHostBuilder annotatedService(String pathPrefix, Object service) {
-        return servicesBuilder.annotatedService(pathPrefix, service);
+        servicesBuilder.annotatedService(pathPrefix, service);
+        return this;
     }
 
     /**
@@ -546,7 +555,8 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      */
     public VirtualHostBuilder annotatedService(String pathPrefix, Object service,
                                                Object... exceptionHandlersAndConverters) {
-        return servicesBuilder.annotatedService(pathPrefix, service, exceptionHandlersAndConverters);
+        servicesBuilder.annotatedService(pathPrefix, service, exceptionHandlersAndConverters);
+        return this;
     }
 
     /**
@@ -558,7 +568,8 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      */
     public VirtualHostBuilder annotatedService(String pathPrefix, Object service,
                                                Iterable<?> exceptionHandlersAndConverters) {
-        return servicesBuilder.annotatedService(pathPrefix, service, exceptionHandlersAndConverters);
+        servicesBuilder.annotatedService(pathPrefix, service, exceptionHandlersAndConverters);
+        return this;
     }
 
     /**
@@ -571,7 +582,8 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
     public VirtualHostBuilder annotatedService(
             String pathPrefix, Object service, Function<? super HttpService, ? extends HttpService> decorator,
             Object... exceptionHandlersAndConverters) {
-        return servicesBuilder.annotatedService(pathPrefix, service, decorator, exceptionHandlersAndConverters);
+        servicesBuilder.annotatedService(pathPrefix, service, decorator, exceptionHandlersAndConverters);
+        return this;
     }
 
     /**
@@ -607,7 +619,9 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
             Iterable<? extends ExceptionHandlerFunction> exceptionHandlerFunctions,
             Iterable<? extends RequestConverterFunction> requestConverterFunctions,
             Iterable<? extends ResponseConverterFunction> responseConverterFunctions) {
-        return servicesBuilder.annotatedService(pathPrefix, service, decorator, exceptionHandlerFunctions, requestConverterFunctions, responseConverterFunctions);
+        servicesBuilder.annotatedService(pathPrefix, service, decorator, exceptionHandlerFunctions,
+                                         requestConverterFunctions, responseConverterFunctions);
+        return this;
     }
 
     /**
@@ -660,7 +674,8 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      * @param decorator the {@link Function} that decorates {@link HttpService}s
      */
     public VirtualHostBuilder decorator(Function<? super HttpService, ? extends HttpService> decorator) {
-        return servicesBuilder.decorator(decorator);
+        servicesBuilder.decorator(decorator);
+        return this;
     }
 
     /**
@@ -672,7 +687,8 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      */
     public VirtualHostBuilder decorator(
             DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
-        return servicesBuilder.decorator(decoratingHttpServiceFunction);
+        servicesBuilder.decorator(decoratingHttpServiceFunction);
+        return this;
     }
 
     /**
@@ -684,7 +700,8 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      */
     public VirtualHostBuilder decorator(
             String pathPattern, DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
-        return servicesBuilder.decorator(pathPattern, decoratingHttpServiceFunction);
+        servicesBuilder.decorator(pathPattern, decoratingHttpServiceFunction);
+        return this;
     }
 
     /**
@@ -693,7 +710,8 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      */
     public VirtualHostBuilder decorator(
             String pathPattern, Function<? super HttpService, ? extends HttpService> decorator) {
-        return servicesBuilder.decorator(pathPattern, decorator);
+        servicesBuilder.decorator(pathPattern, decorator);
+        return this;
     }
 
     /**
@@ -705,7 +723,8 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      */
     public VirtualHostBuilder decorator(
             Route route, Function<? super HttpService, ? extends HttpService> decorator) {
-        return servicesBuilder.decorator(route, decorator);
+        servicesBuilder.decorator(route, decorator);
+        return this;
     }
 
     /**
@@ -729,7 +748,8 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      */
     public VirtualHostBuilder decoratorUnder(
             String prefix, Function<? super HttpService, ? extends HttpService> decorator) {
-        return decorator(Route.builder().pathPrefix(prefix).build(), decorator);
+        servicesBuilder.decoratorUnder(prefix, decorator);
+        return this;
     }
 
     /**
@@ -741,7 +761,8 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
      */
     public VirtualHostBuilder decoratorUnder(
             String prefix, DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
-        return decorator(Route.builder().pathPrefix(prefix).build(), decoratingHttpServiceFunction);
+        servicesBuilder.decoratorUnder(prefix, decoratingHttpServiceFunction);
+        return this;
     }
 
     /**

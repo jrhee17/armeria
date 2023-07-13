@@ -210,7 +210,7 @@ implements AnnotatedServiceConfigSetters {
         return null;
     }
     
-    public final T build(Object service) {
+    public final DefaultContextPathServicesBuilder<T> build(Object service) {
         return null;
     }
 }
