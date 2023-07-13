@@ -1243,6 +1243,9 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
                                 .buildServiceConfigBuilder(extensions, dependencyInjector).stream();
                     } else if (cfgSetters instanceof ServiceConfigBuilder) {
                         return Stream.of((ServiceConfigBuilder) cfgSetters);
+                    } else if (cfgSetters instanceof DefaultContextPathAnnotatedServiceConfigSetters<?>) {
+                        return ((DefaultContextPathAnnotatedServiceConfigSetters<?>) cfgSetters)
+                                .buildServiceConfigBuilder(extensions, dependencyInjector).stream();
                     } else {
                         // Should not reach here.
                         throw new Error("Unexpected service config setters type: " +
