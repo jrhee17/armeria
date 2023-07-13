@@ -6,7 +6,7 @@ on:
     tags-ignore:
       # The release versions will be verified by 'publish-release.yml'
       - armeria-*
-  pull_request:
+  pull_request_target:
   merge_group:
 
 concurrency:
@@ -75,6 +75,7 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
+
 
       # Build the shaded JARs first so that shading process doesn't incur memory pressure
       # on other Gradle tasks such as tests.
