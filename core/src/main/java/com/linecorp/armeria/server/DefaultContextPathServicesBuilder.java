@@ -193,7 +193,7 @@ public final class DefaultContextPathServicesBuilder<T>
 
     @Override
     public DefaultContextPathAnnotatedServiceConfigSetters<T> annotatedService() {
-        return new DefaultContextPathAnnotatedServiceConfigSetters<>();
+        return new DefaultContextPathAnnotatedServiceConfigSetters<>(this);
     }
 
     @Override
