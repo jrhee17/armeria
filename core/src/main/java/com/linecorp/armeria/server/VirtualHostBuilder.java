@@ -45,10 +45,12 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -58,6 +60,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.net.HostAndPort;
 
@@ -162,6 +165,7 @@ public final class VirtualHostBuilder implements TlsSetters {
     private Function<? super RoutingContext, ? extends RequestId> requestIdGenerator;
     @Nullable
     private ServiceErrorHandler errorHandler;
+    private Set<String> contextPaths = ImmutableSet.of("/");
 
     /**
      * Creates a new {@link VirtualHostBuilder}.
@@ -186,6 +190,17 @@ public final class VirtualHostBuilder implements TlsSetters {
         this.port = port;
         portBased = true;
         defaultVirtualHost = true;
+    }
+
+    VirtualHostBuilder unsafeContextPaths(String... contextPaths) {
+        requireNonNull(contextPaths, "contextPaths");
+        checkArgument(contextPaths.length > 0, "contextPaths cannot be empty");
+        for (String contextPath: contextPaths) {
+            checkArgument(contextPath.startsWith("/"),
+                          "contextPath '" + contextPath + "' should start with '/'");
+        }
+        this.contextPaths = ImmutableSet.copyOf(contextPaths);
+        return this;
     }
 
     /**
@@ -693,7 +708,7 @@ public final class VirtualHostBuilder implements TlsSetters {
 
     @Nullable
     private Function<? super HttpService, ? extends HttpService> getRouteDecoratingService(
-            @Nullable VirtualHostBuilder defaultVirtualHostBuilder) {
+            @Nullable VirtualHostBuilder defaultVirtualHostBuilder, String contextPath) {
         final List<RouteDecoratingService> routeDecoratingServices;
         if (defaultVirtualHostBuilder != null) {
             routeDecoratingServices = ImmutableList.<RouteDecoratingService>builder()
@@ -704,9 +719,13 @@ public final class VirtualHostBuilder implements TlsSetters {
             routeDecoratingServices = ImmutableList.copyOf(this.routeDecoratingServices);
         }
 
-        if (!routeDecoratingServices.isEmpty()) {
-            return RouteDecoratingService.newDecorator(
-                    Routers.ofRouteDecoratingService(routeDecoratingServices));
+        final List<RouteDecoratingService> prefixed =
+                routeDecoratingServices.stream()
+                                       .map(service -> service.withRoutePrefix(contextPath))
+                                       .collect(Collectors.toList());
+
+        if (!prefixed.isEmpty()) {
+            return RouteDecoratingService.newDecorator(Routers.ofRouteDecoratingService(prefixed));
         } else {
             return null;
         }
@@ -1272,54 +1291,57 @@ public final class VirtualHostBuilder implements TlsSetters {
         assert multipartUploadsLocation != null;
         assert requestIdGenerator != null;
 
-        final List<ServiceConfig> serviceConfigs = getServiceConfigSetters(template)
-                .stream()
-                .flatMap(cfgSetters -> {
-                    if (cfgSetters instanceof VirtualHostAnnotatedServiceBindingBuilder) {
-                        return ((VirtualHostAnnotatedServiceBindingBuilder) cfgSetters)
-                                .buildServiceConfigBuilder(extensions, dependencyInjector).stream();
-                    } else if (cfgSetters instanceof AnnotatedServiceBindingBuilder) {
-                        return ((AnnotatedServiceBindingBuilder) cfgSetters)
-                                .buildServiceConfigBuilder(extensions, dependencyInjector).stream();
-                    } else if (cfgSetters instanceof ServiceConfigBuilder) {
-                        return Stream.of((ServiceConfigBuilder) cfgSetters);
-                    } else {
-                        // Should not reach here.
-                        throw new Error("Unexpected service config setters type: " +
-                                        cfgSetters.getClass().getSimpleName());
-                    }
-                }).map(cfgBuilder -> {
-                    return cfgBuilder.build(defaultServiceNaming, requestTimeoutMillis, maxRequestLength,
-                                            verboseResponses, accessLogWriter, blockingTaskExecutor,
-                                            successFunction, requestAutoAbortDelayMillis,
-                                            multipartUploadsLocation, defaultHeaders,
-                                            requestIdGenerator, defaultErrorHandler,
-                                            unhandledExceptionsReporter);
-                }).collect(toImmutableList());
-
-        final ServiceConfig fallbackServiceConfig =
+        final List<ServiceConfig> allServiceConfigs = new ArrayList<>();
+        ServiceConfig fallbackServiceConfig =
                 new ServiceConfigBuilder(RouteBuilder.FALLBACK_ROUTE, FallbackService.INSTANCE)
                         .build(defaultServiceNaming, requestTimeoutMillis, maxRequestLength, verboseResponses,
                                accessLogWriter, blockingTaskExecutor, successFunction,
                                requestAutoAbortDelayMillis, multipartUploadsLocation,
                                defaultHeaders, requestIdGenerator,
-                               defaultErrorHandler, unhandledExceptionsReporter);
+                               defaultErrorHandler, unhandledExceptionsReporter, "/");
+        for (String contextPath: contextPaths) {
+            final Function<? super HttpService, ? extends HttpService> decorator =
+                    getRouteDecoratingService(template, contextPath);
+            final List<ServiceConfig> serviceConfigs = getServiceConfigSetters(template)
+                    .stream()
+                    .flatMap(cfgSetters -> {
+                        if (cfgSetters instanceof VirtualHostAnnotatedServiceBindingBuilder) {
+                            return ((VirtualHostAnnotatedServiceBindingBuilder) cfgSetters)
+                                    .buildServiceConfigBuilder(extensions, dependencyInjector).stream();
+                        } else if (cfgSetters instanceof AnnotatedServiceBindingBuilder) {
+                            return ((AnnotatedServiceBindingBuilder) cfgSetters)
+                                    .buildServiceConfigBuilder(extensions, dependencyInjector).stream();
+                        } else if (cfgSetters instanceof ServiceConfigBuilder) {
+                            return Stream.of((ServiceConfigBuilder) cfgSetters);
+                        } else {
+                            // Should not reach here.
+                            throw new Error("Unexpected service config setters type: " +
+                                            cfgSetters.getClass().getSimpleName());
+                        }
+                    }).map(cfgBuilder -> {
+                        return cfgBuilder.build(defaultServiceNaming, requestTimeoutMillis, maxRequestLength,
+                                                verboseResponses, accessLogWriter, blockingTaskExecutor,
+                                                successFunction, requestAutoAbortDelayMillis,
+                                                multipartUploadsLocation, defaultHeaders,
+                                                requestIdGenerator, defaultErrorHandler,
+                                                unhandledExceptionsReporter, contextPath);
+                    }).map(cfg -> decorateServiceConfig(decorator, cfg))
+                    .collect(toImmutableList());
+            allServiceConfigs.addAll(serviceConfigs);
+
+            fallbackServiceConfig = decorateServiceConfig(decorator, fallbackServiceConfig);
+        }
 
         final ImmutableList.Builder<ShutdownSupport> builder = ImmutableList.builder();
         builder.addAll(shutdownSupports);
         builder.addAll(template.shutdownSupports);
 
-        final VirtualHost virtualHost =
-                new VirtualHost(defaultHostname, hostnamePattern, port, sslContext(template),
-                                serviceConfigs, fallbackServiceConfig, rejectedRouteHandler,
-                                accessLoggerMapper, defaultServiceNaming, defaultLogName, requestTimeoutMillis,
-                                maxRequestLength, verboseResponses, accessLogWriter, blockingTaskExecutor,
-                                requestAutoAbortDelayMillis, successFunction, multipartUploadsLocation,
-                                builder.build(), requestIdGenerator);
-
-        final Function<? super HttpService, ? extends HttpService> decorator =
-                getRouteDecoratingService(template);
-        return decorator != null ? virtualHost.decorate(decorator) : virtualHost;
+        return new VirtualHost(defaultHostname, hostnamePattern, port, sslContext(template),
+                               allServiceConfigs, fallbackServiceConfig, rejectedRouteHandler,
+                               accessLoggerMapper, defaultServiceNaming, defaultLogName, requestTimeoutMillis,
+                               maxRequestLength, verboseResponses, accessLogWriter, blockingTaskExecutor,
+                               requestAutoAbortDelayMillis, successFunction, multipartUploadsLocation,
+                               builder.build(), requestIdGenerator);
     }
 
     static HttpHeaders mergeDefaultHeaders(HttpHeadersBuilder lowPriorityHeaders,
@@ -1428,5 +1450,14 @@ public final class VirtualHostBuilder implements TlsSetters {
 
     boolean defaultVirtualHost() {
         return defaultVirtualHost;
+    }
+
+    static ServiceConfig decorateServiceConfig(
+            @Nullable Function<? super HttpService, ? extends HttpService> decorator,
+            ServiceConfig fallbackServiceConfig) {
+        if (decorator == null) {
+            return fallbackServiceConfig;
+        }
+        return fallbackServiceConfig.withDecoratedService(decorator);
     }
 }

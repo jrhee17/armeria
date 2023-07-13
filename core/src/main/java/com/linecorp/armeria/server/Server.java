@@ -17,6 +17,7 @@
 package com.linecorp.armeria.server;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.linecorp.armeria.server.ServerSslContextUtil.validateSslContext;
@@ -114,6 +115,12 @@ public final class Server implements ListenableAsyncCloseable {
      */
     public static ServerBuilder builder() {
         return new ServerBuilder();
+    }
+
+    public static ServerBuilder builder(String ...contextPaths) {
+        requireNonNull(contextPaths, "contextPaths");
+        checkArgument(contextPaths.length > 0, "contextPaths cannot be empty");
+        return new ServerBuilder(contextPaths);
     }
 
     private final UpdatableServerConfig config;

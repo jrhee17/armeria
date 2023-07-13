@@ -26,6 +26,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 
@@ -293,7 +294,8 @@ final class ServiceConfigBuilder implements ServiceConfigSetters {
                         HttpHeaders virtualHostDefaultHeaders,
                         Function<? super RoutingContext, ? extends RequestId> defaultRequestIdGenerator,
                         ServiceErrorHandler defaultServiceErrorHandler,
-                        @Nullable UnhandledExceptionsReporter unhandledExceptionsReporter) {
+                        @Nullable UnhandledExceptionsReporter unhandledExceptionsReporter,
+                        String contextPath) {
         ServiceErrorHandler errorHandler =
                 serviceErrorHandler != null ? serviceErrorHandler.orElse(defaultServiceErrorHandler)
                                             : defaultServiceErrorHandler;
@@ -302,8 +304,9 @@ final class ServiceConfigBuilder implements ServiceConfigSetters {
                                                                      unhandledExceptionsReporter);
         }
 
+        final Route routeWithContext = route.withPrefix(contextPath);
         return new ServiceConfig(
-                route, mappedRoute == null ? route : mappedRoute,
+                routeWithContext, mappedRoute == null ? routeWithContext : mappedRoute,
                 service, defaultLogName, defaultServiceName,
                 this.defaultServiceNaming != null ? this.defaultServiceNaming : defaultServiceNaming,
                 requestTimeoutMillis != null ? requestTimeoutMillis : defaultRequestTimeoutMillis,

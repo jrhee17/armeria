@@ -65,6 +65,12 @@ public abstract class ServerExtension extends AbstractAllOrEachExtension {
     protected ServerExtension(boolean autoStart) {
         contextCaptor = new ServiceRequestContextCaptor();
         delegate = new ServerRuleDelegate(autoStart) {
+
+            @Override
+            public ServerBuilder serverBuilder() throws Exception {
+                return ServerExtension.this.serverBuilder();
+            }
+
             @Override
             public void configure(ServerBuilder sb) throws Exception {
                 ServerExtension.this.configure(sb);
@@ -125,6 +131,10 @@ public abstract class ServerExtension extends AbstractAllOrEachExtension {
      * You can get the configured {@link WebClient} using {@link #webClient()}.
      */
     protected void configureWebClient(WebClientBuilder webClientBuilder) throws Exception {}
+
+    protected ServerBuilder serverBuilder() throws Exception {
+        return Server.builder();
+    }
 
     /**
      * Stops the {@link Server} asynchronously.

@@ -26,7 +26,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 
@@ -510,27 +509,6 @@ public final class VirtualHost {
      */
     public Path multipartUploadsLocation() {
         return multipartUploadsLocation;
-    }
-
-    VirtualHost decorate(@Nullable Function<? super HttpService, ? extends HttpService> decorator) {
-        if (decorator == null) {
-            return this;
-        }
-
-        final List<ServiceConfig> serviceConfigs =
-                this.serviceConfigs.stream()
-                                   .map(cfg -> cfg.withDecoratedService(decorator))
-                                   .collect(Collectors.toList());
-
-        final ServiceConfig fallbackServiceConfig =
-                this.fallbackServiceConfig.withDecoratedService(decorator);
-
-        return new VirtualHost(originalDefaultHostname, originalHostnamePattern, port, sslContext,
-                               serviceConfigs, fallbackServiceConfig, RejectedRouteHandler.DISABLED,
-                               host -> accessLogger, defaultServiceNaming, defaultLogName, requestTimeoutMillis,
-                               maxRequestLength, verboseResponses, accessLogWriter, blockingTaskExecutor,
-                               requestAutoAbortDelayMillis, successFunction, multipartUploadsLocation,
-                               shutdownSupports, requestIdGenerator);
     }
 
     @Override

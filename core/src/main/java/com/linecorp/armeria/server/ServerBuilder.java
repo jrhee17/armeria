@@ -228,6 +228,11 @@ public final class ServerBuilder implements TlsSetters {
             Flags.defaultUnhandledExceptionsReportIntervalMillis();
     private final List<ShutdownSupport> shutdownSupports = new ArrayList<>();
 
+    ServerBuilder(String ...contextPaths) {
+        this();
+        defaultVirtualHostBuilder.unsafeContextPaths(contextPaths);
+    }
+
     ServerBuilder() {
         // Set the default host-level properties.
         virtualHostTemplate.rejectedRouteHandler(RejectedRouteHandler.WARN);
@@ -1446,6 +1451,14 @@ public final class ServerBuilder implements TlsSetters {
     }
 
     /**
+     * TBU.
+     */
+    public VirtualHostBuilder virtualHost(String defaultHostname, String hostnamePattern,
+                                          String ...contextPaths) {
+        return virtualHost(defaultHostname, hostnamePattern).unsafeContextPaths(contextPaths);
+    }
+
+    /**
      * Adds the <a href="https://en.wikipedia.org/wiki/Virtual_hosting#Name-based">name-based virtual host</a>.
      *
      * @param defaultHostname default hostname of this virtual host
@@ -1458,6 +1471,13 @@ public final class ServerBuilder implements TlsSetters {
                 .hostnamePattern(hostnamePattern);
         virtualHostBuilders.add(virtualHostBuilder);
         return virtualHostBuilder;
+    }
+
+    /**
+     * TBU.
+     */
+    public VirtualHostBuilder virtualHost(int port, String ...contextPaths) {
+        return virtualHost(port).unsafeContextPaths(contextPaths);
     }
 
     /**

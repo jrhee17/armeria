@@ -77,6 +77,13 @@ public abstract class ServerRuleDelegate {
     }
 
     /**
+     * TBU.
+     */
+    public ServerBuilder serverBuilder() throws Exception {
+        return Server.builder();
+    }
+
+    /**
      * Starts the {@link Server} configured by {@link #configure(ServerBuilder)}.
      * If the {@link Server} has been started up already, the existing {@link Server} is returned.
      * Note that this operation blocks until the {@link Server} finished the start-up.
@@ -89,8 +96,9 @@ public abstract class ServerRuleDelegate {
             return oldServer;
         }
 
-        final ServerBuilder sb = Server.builder();
+        final ServerBuilder sb;
         try {
+            sb = serverBuilder();
             configure(sb);
         } catch (Exception e) {
             throw new IllegalStateException("failed to configure a Server", e);

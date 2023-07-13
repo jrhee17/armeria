@@ -72,7 +72,7 @@ import io.netty.util.AttributeKey;
  *          -> userService
  * }</pre>
  */
-public final class RouteDecoratingService implements HttpService {
+public class RouteDecoratingService implements HttpService {
 
     private static final AttributeKey<Queue<HttpService>> DECORATOR_KEY =
             AttributeKey.valueOf(RouteDecoratingService.class, "SERVICE_CHAIN");
@@ -89,6 +89,15 @@ public final class RouteDecoratingService implements HttpService {
                                   Function<? super HttpService, ? extends HttpService> decoratorFunction) {
         this.route = requireNonNull(route, "route");
         decorator = requireNonNull(decoratorFunction, "decoratorFunction").apply(this);
+    }
+
+    public RouteDecoratingService(Route route, HttpService decorator) {
+        this.route = requireNonNull(route, "route");
+        this.decorator = requireNonNull(decorator, "decorator");
+    }
+
+    public RouteDecoratingService withRoutePrefix(String prefix) {
+        return new RouteDecoratingService(route.withPrefix(prefix), decorator);
     }
 
     @Override
