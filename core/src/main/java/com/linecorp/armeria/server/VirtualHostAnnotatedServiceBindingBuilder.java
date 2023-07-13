@@ -346,7 +346,7 @@ public final class VirtualHostAnnotatedServiceBindingBuilder implements Annotate
     public VirtualHostBuilder build(Object service) {
         requireNonNull(service, "service");
         this.service = service;
-        virtualHostBuilder.addServiceConfigSetters(this);
+        virtualHostBuilder.servicesBuilder().addServiceConfigSetters(this);
         return virtualHostBuilder;
     }
 

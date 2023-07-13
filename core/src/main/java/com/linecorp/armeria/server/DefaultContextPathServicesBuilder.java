@@ -20,18 +20,22 @@ import static com.linecorp.armeria.server.ServerBuilder.decorate;
 import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Function;
 
 import com.google.common.collect.ImmutableList;
 
+import com.linecorp.armeria.common.Flags;
+import com.linecorp.armeria.internal.server.RouteDecoratingService;
 import com.linecorp.armeria.internal.server.annotation.AnnotatedServiceExtensions;
 import com.linecorp.armeria.server.annotation.ExceptionHandlerFunction;
 import com.linecorp.armeria.server.annotation.RequestConverterFunction;
 import com.linecorp.armeria.server.annotation.ResponseConverterFunction;
 
-public class DefaultContextPathServicesBuilder<T> implements ContextPathRouteBuilder<T> {
+public final class DefaultContextPathServicesBuilder<T> implements ContextPathRouteBuilder<T> {
 
+    private final LinkedList<RouteDecoratingService> routeDecoratingServices = new LinkedList<>();
     private final List<ServiceConfigSetters> serviceConfigSetters = new ArrayList<>();
 
     private final T parent;
@@ -39,14 +43,22 @@ public class DefaultContextPathServicesBuilder<T> implements ContextPathRouteBui
         this.parent = parent;
     }
 
-    @Override
-    public AbstractServiceBindingBuilder route() {
-        return null;
+    public LinkedList<RouteDecoratingService> routeDecoratingServices() {
+        return routeDecoratingServices;
+    }
+
+    public List<ServiceConfigSetters> serviceConfigSetters() {
+        return serviceConfigSetters;
     }
 
     @Override
-    public AbstractBindingBuilder routeDecorator() {
-        return null;
+    public ContextPathServiceBindingBuilder route() {
+        return new ContextPathServiceBindingBuilder();
+    }
+
+    @Override
+    public ContextPathBindingBuilder routeDecorator() {
+        return new ContextPathBindingBuilder();
     }
 
     @Override
@@ -180,51 +192,66 @@ public class DefaultContextPathServicesBuilder<T> implements ContextPathRouteBui
 
     @Override
     public DefaultContextPathAnnotatedServiceConfigSetters<T> annotatedService() {
-        return null;
+        return new DefaultContextPathAnnotatedServiceConfigSetters<>();
     }
 
     @Override
     public T decorator(Function<? super HttpService, ? extends HttpService> decorator) {
-        return null;
+        return decorator(Route.ofCatchAll(), decorator);
     }
 
     @Override
     public T decorator(DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
-        return null;
+        return decorator(Route.ofCatchAll(), decoratingHttpServiceFunction);
     }
 
     @Override
     public T decorator(String pathPattern, Function<? super HttpService, ? extends HttpService> decorator) {
-        return null;
+        return decorator(Route.builder().path(pathPattern).build(), decorator);
     }
 
     @Override
     public T decorator(String pathPattern, DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
-        return null;
+        return decorator(Route.builder().path(pathPattern).build(), decoratingHttpServiceFunction);
     }
 
     @Override
     public T decorator(Route route, Function<? super HttpService, ? extends HttpService> decorator) {
-        return null;
+        requireNonNull(route, "route");
+        requireNonNull(decorator, "decorator");
+        return addRouteDecoratingService(new RouteDecoratingService(route, decorator));
     }
 
     @Override
     public T decorator(Route route, DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
-        return null;
+        requireNonNull(decoratingHttpServiceFunction, "decoratingHttpServiceFunction");
+        return decorator(route, delegate -> new FunctionalDecoratingHttpService(
+                delegate, decoratingHttpServiceFunction));
     }
 
     @Override
     public T decoratorUnder(String prefix, DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
-        return null;
+        return decorator(Route.builder().pathPrefix(prefix).build(), decoratingHttpServiceFunction);
     }
 
     @Override
     public T decoratorUnder(String prefix, Function<? super HttpService, ? extends HttpService> decorator) {
-        return null;
+        return decorator(Route.builder().pathPrefix(prefix).build(), decorator);
     }
 
     T addServiceConfigSetters(ServiceConfigSetters serviceConfigSetters) {
         this.serviceConfigSetters.add(serviceConfigSetters);
+        return parent;
+    }
+
+    T addRouteDecoratingService(RouteDecoratingService routeDecoratingService) {
+        if (Flags.useLegacyRouteDecoratorOrdering()) {
+            // The first inserted decorator is applied first.
+            routeDecoratingServices.addLast(routeDecoratingService);
+        } else {
+            // The last inserted decorator is applied first.
+            routeDecoratingServices.addFirst(routeDecoratingService);
+        }
         return parent;
     }
 }

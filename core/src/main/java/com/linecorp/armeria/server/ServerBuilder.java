@@ -1391,18 +1391,18 @@ public final class ServerBuilder implements TlsSetters, ContextPathRouteBuilder<
     }
 
     ServerBuilder serviceConfigBuilder(ServiceConfigBuilder serviceConfigBuilder) {
-        virtualHostTemplate.addServiceConfigSetters(serviceConfigBuilder);
+        virtualHostTemplate.servicesBuilder().addServiceConfigSetters(serviceConfigBuilder);
         return this;
     }
 
     ServerBuilder annotatedServiceBindingBuilder(
             AnnotatedServiceBindingBuilder annotatedServiceBindingBuilder) {
-        virtualHostTemplate.addServiceConfigSetters(annotatedServiceBindingBuilder);
+        virtualHostTemplate.servicesBuilder().addServiceConfigSetters(annotatedServiceBindingBuilder);
         return this;
     }
 
     ServerBuilder routingDecorator(RouteDecoratingService routeDecoratingService) {
-        virtualHostTemplate.addRouteDecoratingService(routeDecoratingService);
+        virtualHostTemplate.servicesBuilder().addRouteDecoratingService(routeDecoratingService);
         return this;
     }
 
