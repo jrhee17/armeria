@@ -43,7 +43,7 @@ import com.linecorp.armeria.server.annotation.RequestConverterFunction;
 import com.linecorp.armeria.server.annotation.ResponseConverterFunction;
 import com.linecorp.armeria.server.logging.AccessLogWriter;
 
-public class AbstractAnnotatedServiceBindingBuilder implements AnnotatedServiceConfigSetters {
+class AbstractAnnotatedServiceBindingBuilder implements AnnotatedServiceConfigSetters {
 
     private final DefaultServiceConfigSetters defaultServiceConfigSetters = new DefaultServiceConfigSetters();
     private final Builder<ExceptionHandlerFunction> exceptionHandlerFunctionBuilder = ImmutableList.builder();
