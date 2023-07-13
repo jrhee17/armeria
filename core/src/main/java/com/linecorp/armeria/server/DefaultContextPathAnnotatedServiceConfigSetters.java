@@ -46,7 +46,7 @@ public class DefaultContextPathAnnotatedServiceConfigSetters<T> extends Abstract
     public DefaultContextPathServicesBuilder<T> build(Object service) {
         requireNonNull(service, "service");
         service(service);
-        builder.annotatedService(this);
+        builder.addServiceConfigSetters(this);
         return builder;
     }
 

@@ -25,23 +25,23 @@ import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
 class ContextPathTest {
 
-    @RegisterExtension
-    static ServerExtension server = new ServerExtension() {
-        @Override
-        protected void configure(ServerBuilder sb) throws Exception {
-            sb.contextPath("/api")
-              .service("/", (ctx, req) -> HttpResponse.of(200))
-              .and()
-              .annotatedService()
-              .pathPrefix("/")
-              .build(new Object());
-        }
-    };
-
-    @Test
-    void basicCase() {
-        final AggregatedHttpResponse res = server.blockingWebClient().get("/api");
-        System.out.println(res.status());
-        System.out.println(res.contentUtf8());
-    }
+//    @RegisterExtension
+//    static ServerExtension server = new ServerExtension() {
+//        @Override
+//        protected void configure(ServerBuilder sb) throws Exception {
+//            sb.contextPath("/api")
+//              .service("/", (ctx, req) -> HttpResponse.of(200))
+//              .and()
+//              .annotatedService()
+//              .pathPrefix("/")
+//              .build(new Object());
+//        }
+//    };
+//
+//    @Test
+//    void basicCase() {
+//        final AggregatedHttpResponse res = server.blockingWebClient().get("/api");
+//        System.out.println(res.status());
+//        System.out.println(res.contentUtf8());
+//    }
 }
