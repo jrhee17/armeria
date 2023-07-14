@@ -171,6 +171,13 @@ public final class AnnotatedServiceBindingBuilder extends AbstractAnnotatedServi
         return (AnnotatedServiceBindingBuilder) super.decorator(decorator);
     }
 
+    @SafeVarargs
+    @Override
+    public final AbstractAnnotatedServiceBindingBuilder decorators(
+            Function<? super HttpService, ? extends HttpService>... decorators) {
+        return super.decorators(decorators);
+    }
+
     @Override
     public AnnotatedServiceBindingBuilder decorators(
             Iterable<? extends Function<? super HttpService, ? extends HttpService>> decorators) {

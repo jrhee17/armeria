@@ -144,6 +144,13 @@ public class DefaultContextPathAnnotatedServiceConfigSetters<T> extends Abstract
         return (DefaultContextPathAnnotatedServiceConfigSetters<T>)  super.decorator(decorator);
     }
 
+    @SafeVarargs
+    @Override
+    public final DefaultContextPathAnnotatedServiceConfigSetters decorators(
+            Function<? super HttpService, ? extends HttpService>... decorators) {
+        return (DefaultContextPathAnnotatedServiceConfigSetters) super.decorators(decorators);
+    }
+
     @Override
     public DefaultContextPathAnnotatedServiceConfigSetters<T> decorators(
             Iterable<? extends Function<? super HttpService, ? extends HttpService>> decorators) {

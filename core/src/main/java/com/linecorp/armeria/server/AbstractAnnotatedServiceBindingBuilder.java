@@ -188,8 +188,7 @@ class AbstractAnnotatedServiceBindingBuilder implements AnnotatedServiceConfigSe
     }
 
     @Override
-    @SafeVarargs
-    public final AbstractAnnotatedServiceBindingBuilder decorators(
+    public AbstractAnnotatedServiceBindingBuilder decorators(
             Function<? super HttpService, ? extends HttpService>... decorators) {
         defaultServiceConfigSetters.decorators(decorators);
         return this;

@@ -185,6 +185,13 @@ public final class VirtualHostAnnotatedServiceBindingBuilder extends AbstractAnn
         return (VirtualHostAnnotatedServiceBindingBuilder) super.decorator(decorator);
     }
 
+    @SafeVarargs
+    @Override
+    public final VirtualHostAnnotatedServiceBindingBuilder decorators(
+            Function<? super HttpService, ? extends HttpService>... decorators) {
+        return (VirtualHostAnnotatedServiceBindingBuilder) super.decorators(decorators);
+    }
+
     @Override
     public VirtualHostAnnotatedServiceBindingBuilder decorators(
             Iterable<? extends Function<? super HttpService, ? extends HttpService>> decorators) {
