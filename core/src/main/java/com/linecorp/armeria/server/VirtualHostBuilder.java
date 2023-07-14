@@ -159,7 +159,7 @@ public final class VirtualHostBuilder implements TlsSetters, ContextPathRouteBui
     private ServiceErrorHandler errorHandler;
 
     private final DefaultContextPathServicesBuilder<VirtualHostBuilder> servicesBuilder =
-            new DefaultContextPathServicesBuilder<>(this, "/");
+            new DefaultContextPathServicesBuilder<>(this);
 
     /**
      * Creates a new {@link VirtualHostBuilder}.

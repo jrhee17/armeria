@@ -40,7 +40,7 @@ public final class DefaultContextPathServicesBuilder<T>
     private final List<ServiceConfigSetters> serviceConfigSetters = new ArrayList<>();
 
     private final T parent;
-    public DefaultContextPathServicesBuilder(T parent, String s) {
+    public DefaultContextPathServicesBuilder(T parent) {
         this.parent = parent;
     }
 
