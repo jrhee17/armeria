@@ -19,6 +19,7 @@ package com.linecorp.armeria.server;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -32,9 +33,13 @@ import com.linecorp.armeria.server.logging.AccessLogWriter;
 
 public class ContextPathServiceBindingBuilder<T> extends AbstractServiceBindingBuilder {
 
-    DefaultContextPathServicesBuilder<T> contextPathServicesBuilder;
-    public ContextPathServiceBindingBuilder(DefaultContextPathServicesBuilder<T> contextPathServicesBuilder) {
+    private final DefaultContextPathServicesBuilder<T> contextPathServicesBuilder;
+    private final Set<String> contextPaths;
+
+    public ContextPathServiceBindingBuilder(DefaultContextPathServicesBuilder<T> contextPathServicesBuilder,
+                                            Set<String> contextPaths) {
         this.contextPathServicesBuilder = contextPathServicesBuilder;
+        this.contextPaths = contextPaths;
     }
 
     @Override
@@ -314,7 +319,9 @@ public class ContextPathServiceBindingBuilder<T> extends AbstractServiceBindingB
     }
 
     public DefaultContextPathServicesBuilder<T> build(HttpService service) {
-        build0(service);
+        for (String contextPath: contextPaths) {
+            build0(service, contextPath);
+        }
         return contextPathServicesBuilder;
     }
 }

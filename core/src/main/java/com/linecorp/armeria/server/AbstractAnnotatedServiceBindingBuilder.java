@@ -21,8 +21,10 @@ import static java.util.Objects.requireNonNull;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 
@@ -56,6 +58,7 @@ class AbstractAnnotatedServiceBindingBuilder implements AnnotatedServiceConfigSe
     private String pathPrefix = "/";
     @Nullable
     private Object service;
+    private Set<String> contextPaths = Collections.singleton("/");
 
     @Override
     public AbstractAnnotatedServiceBindingBuilder pathPrefix(String pathPrefix) {
@@ -308,6 +311,10 @@ class AbstractAnnotatedServiceBindingBuilder implements AnnotatedServiceConfigSe
         this.service = service;
     }
 
+    protected final void contextPaths(Set<String> contextPaths) {
+        this.contextPaths = contextPaths;
+    }
+
     /**
      * Builds the {@link ServiceConfigBuilder}s created with the configured
      * {@link AnnotatedServiceExtensions} to the {@link VirtualHostBuilder}.
@@ -315,6 +322,7 @@ class AbstractAnnotatedServiceBindingBuilder implements AnnotatedServiceConfigSe
      * @param extensions the {@link AnnotatedServiceExtensions} at the virtual host level.
      * @param dependencyInjector the {@link DependencyInjector} to inject dependencies.
      */
+
     List<ServiceConfigBuilder> buildServiceConfigBuilder(AnnotatedServiceExtensions extensions,
                                                          DependencyInjector dependencyInjector) {
         final List<RequestConverterFunction> requestConverterFunctions =
@@ -331,10 +339,13 @@ class AbstractAnnotatedServiceBindingBuilder implements AnnotatedServiceConfigSe
                         pathPrefix, service, useBlockingTaskExecutor, requestConverterFunctions,
                         responseConverterFunctions, exceptionHandlerFunctions, dependencyInjector,
                         queryDelimiter);
-        return elements.stream().map(element -> {
+        return elements.stream().flatMap(element -> {
             final HttpService decoratedService =
                     element.buildSafeDecoratedService(defaultServiceConfigSetters.decorator());
-            return defaultServiceConfigSetters.toServiceConfigBuilder(element.route(), decoratedService);
+            return contextPaths.stream().map(contextPath -> {
+                return defaultServiceConfigSetters.toServiceConfigBuilder(element.route().withPrefix(contextPath),
+                                                                          decoratedService);
+            });
         }).collect(toImmutableList());
     }
 }

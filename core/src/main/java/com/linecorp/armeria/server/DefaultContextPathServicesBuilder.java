@@ -20,11 +20,14 @@ import static com.linecorp.armeria.server.ServerBuilder.decorate;
 import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.internal.server.RouteDecoratingService;
@@ -38,10 +41,17 @@ public final class DefaultContextPathServicesBuilder<T>
 
     private final LinkedList<RouteDecoratingService> routeDecoratingServices = new LinkedList<>();
     private final List<ServiceConfigSetters> serviceConfigSetters = new ArrayList<>();
+    private final Set<String> contextPaths;
 
     private final T parent;
     public DefaultContextPathServicesBuilder(T parent) {
         this.parent = parent;
+        contextPaths = Collections.singleton("/");
+    }
+
+    public DefaultContextPathServicesBuilder(T parent, String ...contextPaths) {
+        this.parent = parent;
+        this.contextPaths = ImmutableSet.copyOf(contextPaths);
     }
 
     public LinkedList<RouteDecoratingService> routeDecoratingServices() {
@@ -54,7 +64,7 @@ public final class DefaultContextPathServicesBuilder<T>
 
     @Override
     public ContextPathServiceBindingBuilder<T> route() {
-        return new ContextPathServiceBindingBuilder<>(this);
+        return new ContextPathServiceBindingBuilder<>(this, contextPaths);
     }
 
     @Override
@@ -67,15 +77,18 @@ public final class DefaultContextPathServicesBuilder<T>
         requireNonNull(pathPrefix, "pathPrefix");
         requireNonNull(service, "service");
         final HttpServiceWithRoutes serviceWithRoutes = service.as(HttpServiceWithRoutes.class);
-        if (serviceWithRoutes != null) {
-            serviceWithRoutes.routes().forEach(route -> {
-                final ServiceConfigBuilder serviceConfigBuilder =
-                        new ServiceConfigBuilder(route.withPrefix(pathPrefix), service);
-                serviceConfigBuilder.addMappedRoute(route);
-                addServiceConfigSetters(serviceConfigBuilder);
-            });
-        } else {
-            service(Route.builder().pathPrefix(pathPrefix).build(), service);
+        for (String contextPath: contextPaths) {
+            if (serviceWithRoutes != null) {
+                serviceWithRoutes.routes().forEach(route -> {
+                    final ServiceConfigBuilder serviceConfigBuilder =
+                            new ServiceConfigBuilder(route.withPrefix(pathPrefix)
+                                                          .withPrefix(contextPath), service);
+                    serviceConfigBuilder.addMappedRoute(route);
+                    addServiceConfigSetters(serviceConfigBuilder);
+                });
+            } else {
+                service(Route.builder().pathPrefix(pathPrefix).build().withPrefix(contextPath), service);
+            }
         }
         return this;
     }
@@ -87,7 +100,10 @@ public final class DefaultContextPathServicesBuilder<T>
 
     @Override
     public DefaultContextPathServicesBuilder<T> service(Route route, HttpService service) {
-        return addServiceConfigSetters(new ServiceConfigBuilder(route, service));
+        for (String contextPath: contextPaths) {
+            addServiceConfigSetters(new ServiceConfigBuilder(route.withPrefix(contextPath), service));
+        }
+        return this;
     }
 
     @Override
@@ -193,7 +209,7 @@ public final class DefaultContextPathServicesBuilder<T>
 
     @Override
     public DefaultContextPathAnnotatedServiceConfigSetters<T> annotatedService() {
-        return new DefaultContextPathAnnotatedServiceConfigSetters<>(this);
+        return new DefaultContextPathAnnotatedServiceConfigSetters<>(this, contextPaths);
     }
 
     @Override

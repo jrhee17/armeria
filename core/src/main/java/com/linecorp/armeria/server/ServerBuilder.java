@@ -1096,6 +1096,13 @@ public final class ServerBuilder implements TlsSetters, ContextPathRouteBuilder<
     }
 
     /**
+     * TBU.
+     */
+    public DefaultContextPathServicesBuilder<ServerBuilder> contextPath(String ...contextPaths) {
+        return new DefaultContextPathServicesBuilder<>(this, contextPaths);
+    }
+
+    /**
      * Configures an {@link HttpService} of the default {@link VirtualHost} with the {@code customizer}.
      */
     public ServerBuilder withRoute(Consumer<? super ServiceBindingBuilder> customizer) {

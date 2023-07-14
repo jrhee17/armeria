@@ -20,7 +20,9 @@ import static java.util.Objects.requireNonNull;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 
@@ -35,9 +37,12 @@ import com.linecorp.armeria.server.logging.AccessLogWriter;
 public class DefaultContextPathAnnotatedServiceConfigSetters<T> extends AbstractAnnotatedServiceBindingBuilder {
 
     private final DefaultContextPathServicesBuilder<T> builder;
+    private final Set<String> contextPaths;
 
-    DefaultContextPathAnnotatedServiceConfigSetters(DefaultContextPathServicesBuilder<T> builder) {
+    DefaultContextPathAnnotatedServiceConfigSetters(DefaultContextPathServicesBuilder<T> builder,
+                                                    Set<String> contextPaths) {
         this.builder = builder;
+        this.contextPaths = contextPaths;
     }
 
     /**
@@ -46,6 +51,7 @@ public class DefaultContextPathAnnotatedServiceConfigSetters<T> extends Abstract
     public DefaultContextPathServicesBuilder<T> build(Object service) {
         requireNonNull(service, "service");
         service(service);
+        contextPaths(contextPaths);
         builder.addServiceConfigSetters(this);
         return builder;
     }
