@@ -45,76 +45,90 @@ public final class ContextPathServiceBindingBuilder<T> extends AbstractServiceBi
         this.contextPaths = contextPaths;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> requestTimeout(Duration requestTimeout) {
         return (ContextPathServiceBindingBuilder<T>) super.requestTimeout(requestTimeout);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> requestTimeoutMillis(long requestTimeoutMillis) {
         return (ContextPathServiceBindingBuilder<T>) super.requestTimeoutMillis(requestTimeoutMillis);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> maxRequestLength(long maxRequestLength) {
         return (ContextPathServiceBindingBuilder<T>) super.maxRequestLength(maxRequestLength);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> verboseResponses(boolean verboseResponses) {
         return (ContextPathServiceBindingBuilder<T>) super.verboseResponses(verboseResponses);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> accessLogFormat(String accessLogFormat) {
         return (ContextPathServiceBindingBuilder<T>) super.accessLogFormat(accessLogFormat);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> accessLogWriter(AccessLogWriter accessLogWriter,
                                                                boolean shutdownOnStop) {
         return (ContextPathServiceBindingBuilder<T>) super.accessLogWriter(accessLogWriter, shutdownOnStop);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> decorator(
             DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
         return (ContextPathServiceBindingBuilder<T>) super.decorator(decoratingHttpServiceFunction);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> decorator(
             Function<? super HttpService, ? extends HttpService> decorator) {
         return (ContextPathServiceBindingBuilder<T>) super.decorator(decorator);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> decorators(
             Function<? super HttpService, ? extends HttpService>... decorators) {
         return (ContextPathServiceBindingBuilder<T>) super.decorators(decorators);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> decorators(
             Iterable<? extends Function<? super HttpService, ? extends HttpService>> decorators) {
         return (ContextPathServiceBindingBuilder<T>) super.decorators(decorators);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> defaultServiceName(String defaultServiceName) {
         return (ContextPathServiceBindingBuilder<T>) super.defaultServiceName(defaultServiceName);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> defaultServiceNaming(ServiceNaming defaultServiceNaming) {
         return (ContextPathServiceBindingBuilder<T>) super.defaultServiceNaming(defaultServiceNaming);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> defaultLogName(String defaultLogName) {
         return (ContextPathServiceBindingBuilder<T>) super.defaultLogName(defaultLogName);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> blockingTaskExecutor(
             ScheduledExecutorService blockingTaskExecutor, boolean shutdownOnStop) {
@@ -122,6 +136,7 @@ public final class ContextPathServiceBindingBuilder<T> extends AbstractServiceBi
                                                                                 shutdownOnStop);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> blockingTaskExecutor(BlockingTaskExecutor blockingTaskExecutor,
                                                                     boolean shutdownOnStop) {
@@ -129,191 +144,228 @@ public final class ContextPathServiceBindingBuilder<T> extends AbstractServiceBi
                                                                                 shutdownOnStop);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> blockingTaskExecutor(int numThreads) {
         return (ContextPathServiceBindingBuilder<T>) super.blockingTaskExecutor(numThreads);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> successFunction(SuccessFunction successFunction) {
         return (ContextPathServiceBindingBuilder<T>) super.successFunction(successFunction);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> requestAutoAbortDelay(Duration delay) {
         return (ContextPathServiceBindingBuilder<T>) super.requestAutoAbortDelay(delay);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> requestAutoAbortDelayMillis(long delayMillis) {
         return (ContextPathServiceBindingBuilder<T>) super.requestAutoAbortDelayMillis(delayMillis);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> multipartUploadsLocation(Path multipartUploadsLocation) {
         return (ContextPathServiceBindingBuilder<T>) super.multipartUploadsLocation(multipartUploadsLocation);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> requestIdGenerator(
             Function<? super RoutingContext, ? extends RequestId> requestIdGenerator) {
         return (ContextPathServiceBindingBuilder<T>) super.requestIdGenerator(requestIdGenerator);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> addHeader(CharSequence name, Object value) {
         return (ContextPathServiceBindingBuilder<T>) super.addHeader(name, value);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> addHeaders(
             Iterable<? extends Entry<? extends CharSequence, ?>> defaultHeaders) {
         return (ContextPathServiceBindingBuilder<T>) super.addHeaders(defaultHeaders);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> setHeader(CharSequence name, Object value) {
         return (ContextPathServiceBindingBuilder<T>) super.setHeader(name, value);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> setHeaders(
             Iterable<? extends Entry<? extends CharSequence, ?>> defaultHeaders) {
         return (ContextPathServiceBindingBuilder<T>) super.setHeaders(defaultHeaders);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> errorHandler(ServiceErrorHandler serviceErrorHandler) {
         return (ContextPathServiceBindingBuilder<T>) super.errorHandler(serviceErrorHandler);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> path(String pathPattern) {
         return (ContextPathServiceBindingBuilder<T>) super.path(pathPattern);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> pathPrefix(String prefix) {
         return (ContextPathServiceBindingBuilder<T>) super.pathPrefix(prefix);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> get(String pathPattern) {
         return (ContextPathServiceBindingBuilder<T>) super.get(pathPattern);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> post(String pathPattern) {
         return (ContextPathServiceBindingBuilder<T>) super.post(pathPattern);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> put(String pathPattern) {
         return (ContextPathServiceBindingBuilder<T>) super.put(pathPattern);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> patch(String pathPattern) {
         return (ContextPathServiceBindingBuilder<T>) super.patch(pathPattern);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> delete(String pathPattern) {
         return (ContextPathServiceBindingBuilder<T>) super.delete(pathPattern);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> options(String pathPattern) {
         return (ContextPathServiceBindingBuilder<T>) super.options(pathPattern);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> head(String pathPattern) {
         return (ContextPathServiceBindingBuilder<T>) super.head(pathPattern);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> trace(String pathPattern) {
         return (ContextPathServiceBindingBuilder<T>) super.trace(pathPattern);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> connect(String pathPattern) {
         return (ContextPathServiceBindingBuilder<T>) super.connect(pathPattern);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> methods(HttpMethod... methods) {
         return (ContextPathServiceBindingBuilder<T>) super.methods(methods);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> methods(Iterable<HttpMethod> methods) {
         return (ContextPathServiceBindingBuilder<T>) super.methods(methods);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> consumes(MediaType... consumeTypes) {
         return (ContextPathServiceBindingBuilder<T>) super.consumes(consumeTypes);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> consumes(Iterable<MediaType> consumeTypes) {
         return (ContextPathServiceBindingBuilder<T>) super.consumes(consumeTypes);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> produces(MediaType... produceTypes) {
         return (ContextPathServiceBindingBuilder<T>) super.produces(produceTypes);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> produces(Iterable<MediaType> produceTypes) {
         return (ContextPathServiceBindingBuilder<T>) super.produces(produceTypes);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> matchesParams(String... paramPredicates) {
         return (ContextPathServiceBindingBuilder<T>) super.matchesParams(paramPredicates);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> matchesParams(Iterable<String> paramPredicates) {
         return (ContextPathServiceBindingBuilder<T>) super.matchesParams(paramPredicates);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> matchesParams(String paramName,
                                                              Predicate<? super String> valuePredicate) {
         return (ContextPathServiceBindingBuilder<T>) super.matchesParams(paramName, valuePredicate);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> matchesHeaders(String... headerPredicates) {
         return (ContextPathServiceBindingBuilder<T>) super.matchesHeaders(headerPredicates);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> matchesHeaders(Iterable<String> headerPredicates) {
         return (ContextPathServiceBindingBuilder<T>) super.matchesHeaders(headerPredicates);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> matchesHeaders(CharSequence headerName,
                                                               Predicate<? super String> valuePredicate) {
         return (ContextPathServiceBindingBuilder<T>) super.matchesHeaders(headerName, valuePredicate);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> addRoute(Route route) {
         return (ContextPathServiceBindingBuilder<T>) super.addRoute(route);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> exclude(String pathPattern) {
         return (ContextPathServiceBindingBuilder<T>) super.exclude(pathPattern);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public ContextPathServiceBindingBuilder<T> exclude(Route excludedRoute) {
         return (ContextPathServiceBindingBuilder<T>) super.exclude(excludedRoute);
