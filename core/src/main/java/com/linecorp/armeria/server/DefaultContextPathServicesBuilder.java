@@ -45,31 +45,38 @@ public final class DefaultContextPathServicesBuilder<T>
     private final Set<String> contextPaths;
 
     private final T parent;
-    private final Consumer<ServiceConfigSetters> consumer;
+    private final Consumer<ServiceConfigSetters> servicesConsumer;
+    private final Consumer<RouteDecoratingService> decoratorsConsumer;
 
     public DefaultContextPathServicesBuilder(T parent) {
         this.parent = parent;
         contextPaths = Collections.singleton("/");
-        this.consumer = serviceConfigSetters::add;
+        this.servicesConsumer = serviceConfigSetters::add;
+        this.decoratorsConsumer = this::addDecorator;
     }
 
-    public DefaultContextPathServicesBuilder(T parent, Consumer<ServiceConfigSetters> consumer) {
+    public DefaultContextPathServicesBuilder(T parent, Consumer<ServiceConfigSetters> servicesConsumer,
+                                             Consumer<RouteDecoratingService> decoratorsConsumer) {
         this.parent = parent;
         contextPaths = Collections.singleton("/");
-        this.consumer = consumer;
+        this.servicesConsumer = servicesConsumer;
+        this.decoratorsConsumer = decoratorsConsumer;
     }
 
     public DefaultContextPathServicesBuilder(T parent, String ...contextPaths) {
         this.parent = parent;
         this.contextPaths = ImmutableSet.copyOf(contextPaths);
-        this.consumer = serviceConfigSetters::add;
+        this.servicesConsumer = serviceConfigSetters::add;
+        this.decoratorsConsumer = this::addRouteDecoratingService;
     }
 
-    public DefaultContextPathServicesBuilder(T parent, Consumer<ServiceConfigSetters> consumer,
+    public DefaultContextPathServicesBuilder(T parent, Consumer<ServiceConfigSetters> servicesConsumer,
+                                             Consumer<RouteDecoratingService> decoratorsConsumer,
                                              String ...contextPaths) {
         this.parent = parent;
         this.contextPaths = ImmutableSet.copyOf(contextPaths);
-        this.consumer = consumer;
+        this.servicesConsumer = servicesConsumer;
+        this.decoratorsConsumer = decoratorsConsumer;
     }
 
     LinkedList<RouteDecoratingService> routeDecoratingServices() {
@@ -87,7 +94,7 @@ public final class DefaultContextPathServicesBuilder<T>
 
     @Override
     public ContextPathDecoratingBindingBuilder<T> routeDecorator() {
-        return new ContextPathDecoratingBindingBuilder<>(this);
+        return new ContextPathDecoratingBindingBuilder<>(this, contextPaths);
     }
 
     @Override
@@ -255,7 +262,10 @@ public final class DefaultContextPathServicesBuilder<T>
     public DefaultContextPathServicesBuilder<T> decorator(Route route, Function<? super HttpService, ? extends HttpService> decorator) {
         requireNonNull(route, "route");
         requireNonNull(decorator, "decorator");
-        return addRouteDecoratingService(new RouteDecoratingService(route, decorator));
+        contextPaths.forEach(contextPath -> {
+            addRouteDecoratingService(new RouteDecoratingService(route.withPrefix(contextPath), decorator));
+        });
+        return this;
     }
 
     @Override
@@ -276,19 +286,23 @@ public final class DefaultContextPathServicesBuilder<T>
     }
 
     DefaultContextPathServicesBuilder<T> addServiceConfigSetters(ServiceConfigSetters serviceConfigSetters) {
-        this.consumer.accept(serviceConfigSetters);
+        this.servicesConsumer.accept(serviceConfigSetters);
         return this;
     }
 
     DefaultContextPathServicesBuilder<T> addRouteDecoratingService(RouteDecoratingService routeDecoratingService) {
+        decoratorsConsumer.accept(routeDecoratingService);
+        return this;
+    }
+
+    private void addDecorator(RouteDecoratingService routeDecoratingService) {
         if (Flags.useLegacyRouteDecoratorOrdering()) {
             // The first inserted decorator is applied first.
-            routeDecoratingServices.addLast(routeDecoratingService);
+            routeDecoratingServices.addFirst(routeDecoratingService);
         } else {
             // The last inserted decorator is applied first.
-            routeDecoratingServices.addFirst(routeDecoratingService);
+            routeDecoratingServices.addLast(routeDecoratingService);
         }
-        return this;
     }
 
     public T and() {

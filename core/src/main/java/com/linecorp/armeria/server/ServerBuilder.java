@@ -1101,6 +1101,7 @@ public final class ServerBuilder implements TlsSetters, ContextPathRouteBuilder<
     public DefaultContextPathServicesBuilder<ServerBuilder> contextPath(String ...contextPaths) {
         return new DefaultContextPathServicesBuilder<>(
                 this, setters -> defaultVirtualHostBuilder.servicesBuilder().addServiceConfigSetters(setters),
+                decorators -> defaultVirtualHostBuilder.servicesBuilder().addRouteDecoratingService(decorators),
                 contextPaths);
     }
 

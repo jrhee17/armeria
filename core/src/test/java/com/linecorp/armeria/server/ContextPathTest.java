@@ -27,10 +27,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 import com.google.common.collect.ImmutableSet;
 
 import com.linecorp.armeria.client.BlockingWebClient;
+import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.server.annotation.Get;
+import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
 class ContextPathTest {
@@ -104,6 +106,7 @@ class ContextPathTest {
               .build((ctx, req) -> HttpResponse.of("route1"))
               .serviceUnder("/serviceUnder1", (ctx, req) -> HttpResponse.of("serviceUnder1"))
               .serviceUnder("/serviceUnder2", serviceWithRoutes)
+              .and()
             // virtual host
               .service("/service1", (ctx, req) -> HttpResponse.of("service1"))
               .service(serviceWithRoutes)
@@ -116,7 +119,39 @@ class ContextPathTest {
               .get("/route1")
               .build((ctx, req) -> HttpResponse.of("route1"))
               .serviceUnder("/serviceUnder1", (ctx, req) -> HttpResponse.of("serviceUnder1"))
-              .serviceUnder("/serviceUnder2", serviceWithRoutes);
+              .serviceUnder("/serviceUnder2", serviceWithRoutes)
+              .and()
+            // server decorator with context path
+              .contextPath("/v5", "/v6")
+              .service("/decorated1", (ctx, req) -> HttpResponse.of(500))
+              .decorator("/decorated1", (delegate, ctx, req) -> HttpResponse.of("decorated1"))
+              .routeDecorator()
+              .path("/decorated2")
+              .build((delegate, ctx, req) -> HttpResponse.of("decorated2"))
+              .and()
+            // server decorator
+              .service("/decorated1", (ctx, req) -> HttpResponse.of(500))
+              .decorator("/decorated1", (delegate, ctx, req) -> HttpResponse.of("decorated1"))
+              .routeDecorator()
+              .path("/decorated2")
+              .build((delegate, ctx, req) -> HttpResponse.of("decorated2"))
+            // virtual host context path
+              .virtualHost("foo.com")
+              .contextPath("/v5", "/v6")
+              .service("/decorated1", (ctx, req) -> HttpResponse.of(500))
+              .decorator("/decorated1", (delegate, ctx, req) -> HttpResponse.of("decorated1"))
+              .routeDecorator()
+              .path("/decorated2")
+              .build((delegate, ctx, req) -> HttpResponse.of("decorated2"))
+              .and()
+            // virtual host
+              .service("/decorated1", (ctx, req) -> HttpResponse.of(500))
+              .decorator("/decorated1", (delegate, ctx, req) -> HttpResponse.of("decorated1"))
+              .routeDecorator()
+              .path("/decorated2")
+              .build((delegate, ctx, req) -> HttpResponse.of("decorated2"))
+            ;
+            sb.decorator(LoggingService.newDecorator());
         }
     };
 
@@ -124,37 +159,43 @@ class ContextPathTest {
     @ValueSource(strings = {"", "/v1", "/v2"})
     void testServerService(String contextPath) {
         BlockingWebClient client = server.blockingWebClient();
-        assertThat(client.get(contextPath + "/service1").contentUtf8()).isEqualTo("service1");
-        assertThat(client.get(contextPath + "/route1").contentUtf8()).isEqualTo("route1");
-        assertThat(client.get(contextPath + "/serviceWithRoutes1").contentUtf8())
-                .isEqualTo("serviceWithRoutes1");
-        assertThat(client.get(contextPath + "/serviceWithRoutes2").contentUtf8())
-                .isEqualTo("serviceWithRoutes2");
-        assertThat(client.get(contextPath + "/annotated1").contentUtf8()).isEqualTo("annotated1");
-        assertThat(client.get(contextPath + "/prefix/annotated1").contentUtf8()).isEqualTo("annotated1");
-        assertThat(client.get(contextPath + "/serviceUnder1/").contentUtf8()).isEqualTo("serviceUnder1");
-        assertThat(client.get(contextPath + "/serviceUnder2/serviceWithRoutes1").contentUtf8())
-                .isEqualTo("serviceWithRoutes1");
-        assertThat(client.get(contextPath + "/serviceUnder2/serviceWithRoutes2").contentUtf8())
-                .isEqualTo("serviceWithRoutes2");
+
+        assertResult(client.get(contextPath + "/service1"), "service1");
+        assertResult(client.get(contextPath + "/route1"), "route1");
+        assertResult(client.get(contextPath + "/serviceWithRoutes1"), "serviceWithRoutes1");
+        assertResult(client.get(contextPath + "/serviceWithRoutes2"), "serviceWithRoutes2");
+        assertResult(client.get(contextPath + "/annotated1"), "annotated1");
+        assertResult(client.get(contextPath + "/prefix/annotated1"), "annotated1");
+        assertResult(client.get(contextPath + "/serviceUnder1/"), "serviceUnder1");
+        assertResult(client.get(contextPath + "/serviceUnder2/serviceWithRoutes1"), "serviceWithRoutes1");
+        assertResult(client.get(contextPath + "/serviceUnder2/serviceWithRoutes2"), "serviceWithRoutes2");
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"", "/v3", "/v4"})
     void testVHostService(String contextPath) {
         BlockingWebClient client = server.blockingWebClient(cb -> cb.setHeader(HttpHeaderNames.HOST, "foo.com"));
-        assertThat(client.get(contextPath + "/service1").contentUtf8()).isEqualTo("service1");
-        assertThat(client.get(contextPath + "/route1").contentUtf8()).isEqualTo("route1");
-        assertThat(client.get(contextPath + "/serviceWithRoutes1").contentUtf8())
-                .isEqualTo("serviceWithRoutes1");
-        assertThat(client.get(contextPath + "/serviceWithRoutes2").contentUtf8())
-                .isEqualTo("serviceWithRoutes2");
-        assertThat(client.get(contextPath + "/annotated1").contentUtf8()).isEqualTo("annotated1");
-        assertThat(client.get(contextPath + "/prefix/annotated1").contentUtf8()).isEqualTo("annotated1");
-        assertThat(client.get(contextPath + "/serviceUnder1/").contentUtf8()).isEqualTo("serviceUnder1");
-        assertThat(client.get(contextPath + "/serviceUnder2/serviceWithRoutes1").contentUtf8())
-                .isEqualTo("serviceWithRoutes1");
-        assertThat(client.get(contextPath + "/serviceUnder2/serviceWithRoutes2").contentUtf8())
-                .isEqualTo("serviceWithRoutes2");
+        assertResult(client.get(contextPath + "/service1"), "service1");
+        assertResult(client.get(contextPath + "/route1"), "route1");
+        assertResult(client.get(contextPath + "/serviceWithRoutes1"), "serviceWithRoutes1");
+        assertResult(client.get(contextPath + "/serviceWithRoutes2"), "serviceWithRoutes2");
+        assertResult(client.get(contextPath + "/annotated1"), "annotated1");
+        assertResult(client.get(contextPath + "/prefix/annotated1"), "annotated1");
+        assertResult(client.get(contextPath + "/serviceUnder1/"), "serviceUnder1");
+        assertResult(client.get(contextPath + "/serviceUnder2/serviceWithRoutes1"), "serviceWithRoutes1");
+        assertResult(client.get(contextPath + "/serviceUnder2/serviceWithRoutes2"), "serviceWithRoutes2");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "/v5", "/v6"})
+    void testServerDecorator(String contextPath) {
+        BlockingWebClient client = server.blockingWebClient();
+        assertResult(client.get(contextPath + "/decorated1"), "decorated1");
+        assertResult(client.get(contextPath + "/decorated2"), "decorated2");
+    }
+
+    private static void assertResult(AggregatedHttpResponse res, String expectedContent) {
+        assertThat(res.status().code()).isEqualTo(200);
+        assertThat(res.contentUtf8()).isEqualTo(expectedContent);
     }
 }
