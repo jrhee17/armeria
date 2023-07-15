@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import com.google.common.collect.ImmutableList;
@@ -44,21 +45,38 @@ public final class DefaultContextPathServicesBuilder<T>
     private final Set<String> contextPaths;
 
     private final T parent;
+    private final Consumer<ServiceConfigSetters> consumer;
+
     public DefaultContextPathServicesBuilder(T parent) {
         this.parent = parent;
         contextPaths = Collections.singleton("/");
+        this.consumer = serviceConfigSetters::add;
+    }
+
+    public DefaultContextPathServicesBuilder(T parent, Consumer<ServiceConfigSetters> consumer) {
+        this.parent = parent;
+        contextPaths = Collections.singleton("/");
+        this.consumer = consumer;
     }
 
     public DefaultContextPathServicesBuilder(T parent, String ...contextPaths) {
         this.parent = parent;
         this.contextPaths = ImmutableSet.copyOf(contextPaths);
+        this.consumer = serviceConfigSetters::add;
     }
 
-    public LinkedList<RouteDecoratingService> routeDecoratingServices() {
+    public DefaultContextPathServicesBuilder(T parent, Consumer<ServiceConfigSetters> consumer,
+                                             String ...contextPaths) {
+        this.parent = parent;
+        this.contextPaths = ImmutableSet.copyOf(contextPaths);
+        this.consumer = consumer;
+    }
+
+    LinkedList<RouteDecoratingService> routeDecoratingServices() {
         return routeDecoratingServices;
     }
 
-    public List<ServiceConfigSetters> serviceConfigSetters() {
+    List<ServiceConfigSetters> serviceConfigSetters() {
         return serviceConfigSetters;
     }
 
@@ -87,7 +105,7 @@ public final class DefaultContextPathServicesBuilder<T>
                     addServiceConfigSetters(serviceConfigBuilder);
                 });
             } else {
-                service(Route.builder().pathPrefix(pathPrefix).build().withPrefix(contextPath), service);
+                service(Route.builder().pathPrefix(pathPrefix).build(), service);
             }
         }
         return this;
@@ -118,8 +136,9 @@ public final class DefaultContextPathServicesBuilder<T>
         return this;
     }
 
+    @SafeVarargs
     @Override
-    public DefaultContextPathServicesBuilder<T> service(HttpServiceWithRoutes serviceWithRoutes,
+    public final DefaultContextPathServicesBuilder<T> service(HttpServiceWithRoutes serviceWithRoutes,
                                                         Function<? super HttpService, ? extends HttpService>... decorators) {
         return service(serviceWithRoutes, ImmutableList.copyOf(requireNonNull(decorators, "decorators")));
     }
@@ -257,7 +276,7 @@ public final class DefaultContextPathServicesBuilder<T>
     }
 
     DefaultContextPathServicesBuilder<T> addServiceConfigSetters(ServiceConfigSetters serviceConfigSetters) {
-        this.serviceConfigSetters.add(serviceConfigSetters);
+        this.consumer.accept(serviceConfigSetters);
         return this;
     }
 
