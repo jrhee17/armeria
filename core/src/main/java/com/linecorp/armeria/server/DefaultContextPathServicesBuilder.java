@@ -20,11 +20,9 @@ import static com.linecorp.armeria.server.ServerBuilder.decorate;
 import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 import com.google.common.collect.ImmutableList;
@@ -44,48 +42,14 @@ public final class DefaultContextPathServicesBuilder<T> {
     private final Set<String> contextPaths;
 
     private final T parent;
-    private final Consumer<ServiceConfigSetters> servicesConsumer;
-    private final Consumer<RouteDecoratingService> decoratorsConsumer;
+    private final VirtualHostBuilder virtualHostBuilder;
 
-    public DefaultContextPathServicesBuilder(T parent) {
-        this.parent = parent;
-        contextPaths = Collections.singleton("/");
-        this.servicesConsumer = serviceConfigSetters::add;
-        this.decoratorsConsumer = this::addDecorator;
-    }
-
-    public DefaultContextPathServicesBuilder(T parent, Consumer<ServiceConfigSetters> servicesConsumer,
-                                             Consumer<RouteDecoratingService> decoratorsConsumer) {
-        this.parent = parent;
-        contextPaths = Collections.singleton("/");
-        this.servicesConsumer = servicesConsumer;
-        this.decoratorsConsumer = decoratorsConsumer;
-    }
-
-    public DefaultContextPathServicesBuilder(T parent, String ...contextPaths) {
-        this.parent = parent;
-        this.contextPaths = ImmutableSet.copyOf(contextPaths);
-        this.servicesConsumer = serviceConfigSetters::add;
-        this.decoratorsConsumer = this::addRouteDecoratingService;
-    }
-
-    public DefaultContextPathServicesBuilder(T parent, Consumer<ServiceConfigSetters> servicesConsumer,
-                                             Consumer<RouteDecoratingService> decoratorsConsumer,
+    public DefaultContextPathServicesBuilder(T parent, VirtualHostBuilder virtualHostBuilder,
                                              String ...contextPaths) {
         this.parent = parent;
         this.contextPaths = ImmutableSet.copyOf(contextPaths);
-        this.servicesConsumer = servicesConsumer;
-        this.decoratorsConsumer = decoratorsConsumer;
+        this.virtualHostBuilder = virtualHostBuilder;
     }
-
-    List<RouteDecoratingService> routeDecoratingServices() {
-        return routeDecoratingServices;
-    }
-
-    List<ServiceConfigSetters> serviceConfigSetters() {
-        return serviceConfigSetters;
-    }
-
 
     public ContextPathServiceBindingBuilder<T> route() {
         return new ContextPathServiceBindingBuilder<>(this, contextPaths);
@@ -285,12 +249,12 @@ public final class DefaultContextPathServicesBuilder<T> {
     }
 
     DefaultContextPathServicesBuilder<T> addServiceConfigSetters(ServiceConfigSetters serviceConfigSetters) {
-        this.servicesConsumer.accept(serviceConfigSetters);
+        virtualHostBuilder.addServiceConfigSetters(serviceConfigSetters);
         return this;
     }
 
     DefaultContextPathServicesBuilder<T> addRouteDecoratingService(RouteDecoratingService routeDecoratingService) {
-        decoratorsConsumer.accept(routeDecoratingService);
+        virtualHostBuilder.addRouteDecoratingService(routeDecoratingService);
         return this;
     }
 
