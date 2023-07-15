@@ -19,9 +19,7 @@ package com.linecorp.armeria.server;
 import static com.linecorp.armeria.server.ServerBuilder.decorate;
 import static java.util.Objects.requireNonNull;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -38,9 +36,7 @@ import com.linecorp.armeria.server.annotation.ResponseConverterFunction;
 public final class DefaultContextPathServicesBuilder<T> {
 
     private final LinkedList<RouteDecoratingService> routeDecoratingServices = new LinkedList<>();
-    private final List<ServiceConfigSetters> serviceConfigSetters = new ArrayList<>();
     private final Set<String> contextPaths;
-
     private final T parent;
     private final VirtualHostBuilder virtualHostBuilder;
 
