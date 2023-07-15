@@ -22,7 +22,7 @@ import com.linecorp.armeria.server.annotation.ExceptionHandlerFunction;
 import com.linecorp.armeria.server.annotation.RequestConverterFunction;
 import com.linecorp.armeria.server.annotation.ResponseConverterFunction;
 
-public interface ServicesConfigBuilder {
+interface ServicesConfigBuilder {
 
     AbstractServiceBindingBuilder route();
 

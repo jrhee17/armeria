@@ -202,13 +202,15 @@ public final class AnnotatedServiceBindingBuilder extends AbstractAnnotatedServi
     @Override
     public AnnotatedServiceBindingBuilder blockingTaskExecutor(
             ScheduledExecutorService blockingTaskExecutor, boolean shutdownOnStop) {
-        return (AnnotatedServiceBindingBuilder) super.blockingTaskExecutor(blockingTaskExecutor, shutdownOnStop);
+        return (AnnotatedServiceBindingBuilder) super.blockingTaskExecutor(blockingTaskExecutor,
+                                                                           shutdownOnStop);
     }
 
     @Override
     public AnnotatedServiceBindingBuilder blockingTaskExecutor(
             BlockingTaskExecutor blockingTaskExecutor, boolean shutdownOnStop) {
-        return (AnnotatedServiceBindingBuilder) super.blockingTaskExecutor(blockingTaskExecutor, shutdownOnStop);
+        return (AnnotatedServiceBindingBuilder) super.blockingTaskExecutor(blockingTaskExecutor,
+                                                                           shutdownOnStop);
     }
 
     @Override

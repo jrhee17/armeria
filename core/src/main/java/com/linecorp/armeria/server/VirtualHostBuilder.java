@@ -401,7 +401,7 @@ public final class VirtualHostBuilder implements TlsSetters, ServicesConfigBuild
     /**
      * TBU.
      */
-    public DefaultContextPathServicesBuilder<VirtualHostBuilder> contextPath(String ...contextPaths) {
+    public DefaultContextPathServicesBuilder<VirtualHostBuilder> contextPath(String... contextPaths) {
         return new DefaultContextPathServicesBuilder<>(this, this, contextPaths);
     }
 

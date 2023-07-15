@@ -343,8 +343,8 @@ class AbstractAnnotatedServiceBindingBuilder implements AnnotatedServiceConfigSe
             final HttpService decoratedService =
                     element.buildSafeDecoratedService(defaultServiceConfigSetters.decorator());
             return contextPaths.stream().map(contextPath -> {
-                return defaultServiceConfigSetters.toServiceConfigBuilder(element.route().withPrefix(contextPath),
-                                                                          decoratedService);
+                return defaultServiceConfigSetters.toServiceConfigBuilder(
+                        element.route().withPrefix(contextPath), decoratedService);
             });
         }).collect(toImmutableList());
     }

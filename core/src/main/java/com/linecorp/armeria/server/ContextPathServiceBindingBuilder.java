@@ -31,13 +31,16 @@ import com.linecorp.armeria.common.SuccessFunction;
 import com.linecorp.armeria.common.util.BlockingTaskExecutor;
 import com.linecorp.armeria.server.logging.AccessLogWriter;
 
-public class ContextPathServiceBindingBuilder<T> extends AbstractServiceBindingBuilder {
+/**
+ * TBU.
+ */
+public final class ContextPathServiceBindingBuilder<T> extends AbstractServiceBindingBuilder {
 
     private final DefaultContextPathServicesBuilder<T> contextPathServicesBuilder;
     private final Set<String> contextPaths;
 
-    public ContextPathServiceBindingBuilder(DefaultContextPathServicesBuilder<T> contextPathServicesBuilder,
-                                            Set<String> contextPaths) {
+    ContextPathServiceBindingBuilder(DefaultContextPathServicesBuilder<T> contextPathServicesBuilder,
+                                     Set<String> contextPaths) {
         this.contextPathServicesBuilder = contextPathServicesBuilder;
         this.contextPaths = contextPaths;
     }
@@ -113,15 +116,17 @@ public class ContextPathServiceBindingBuilder<T> extends AbstractServiceBindingB
     }
 
     @Override
-    public ContextPathServiceBindingBuilder<T> blockingTaskExecutor(ScheduledExecutorService blockingTaskExecutor,
-            boolean shutdownOnStop) {
-        return (ContextPathServiceBindingBuilder<T>) super.blockingTaskExecutor(blockingTaskExecutor, shutdownOnStop);
+    public ContextPathServiceBindingBuilder<T> blockingTaskExecutor(
+            ScheduledExecutorService blockingTaskExecutor, boolean shutdownOnStop) {
+        return (ContextPathServiceBindingBuilder<T>) super.blockingTaskExecutor(blockingTaskExecutor,
+                                                                                shutdownOnStop);
     }
 
     @Override
     public ContextPathServiceBindingBuilder<T> blockingTaskExecutor(BlockingTaskExecutor blockingTaskExecutor,
                                                                     boolean shutdownOnStop) {
-        return (ContextPathServiceBindingBuilder<T>) super.blockingTaskExecutor(blockingTaskExecutor, shutdownOnStop);
+        return (ContextPathServiceBindingBuilder<T>) super.blockingTaskExecutor(blockingTaskExecutor,
+                                                                                shutdownOnStop);
     }
 
     @Override
@@ -278,7 +283,8 @@ public class ContextPathServiceBindingBuilder<T> extends AbstractServiceBindingB
     }
 
     @Override
-    public ContextPathServiceBindingBuilder<T> matchesParams(String paramName, Predicate<? super String> valuePredicate) {
+    public ContextPathServiceBindingBuilder<T> matchesParams(String paramName,
+                                                             Predicate<? super String> valuePredicate) {
         return (ContextPathServiceBindingBuilder<T>) super.matchesParams(paramName, valuePredicate);
     }
 
@@ -318,6 +324,10 @@ public class ContextPathServiceBindingBuilder<T> extends AbstractServiceBindingB
         contextPathServicesBuilder.addServiceConfigSetters(serviceConfigBuilder);
     }
 
+    /**
+     * Sets the {@link HttpService} and returns the object that this
+     * {@link ServiceBindingBuilder} was created from.
+     */
     public DefaultContextPathServicesBuilder<T> build(HttpService service) {
         for (String contextPath: contextPaths) {
             build0(service, contextPath);

@@ -123,7 +123,8 @@ public final class VirtualHostAnnotatedServiceBindingBuilder extends AbstractAnn
 
     @Override
     public VirtualHostAnnotatedServiceBindingBuilder useBlockingTaskExecutor(boolean useBlockingTaskExecutor) {
-        return (VirtualHostAnnotatedServiceBindingBuilder) super.useBlockingTaskExecutor(useBlockingTaskExecutor);
+        return (VirtualHostAnnotatedServiceBindingBuilder)
+                super.useBlockingTaskExecutor(useBlockingTaskExecutor);
     }
 
     @Override
@@ -159,7 +160,8 @@ public final class VirtualHostAnnotatedServiceBindingBuilder extends AbstractAnn
     @Override
     public VirtualHostAnnotatedServiceBindingBuilder accessLogWriter(AccessLogWriter accessLogWriter,
                                                                      boolean shutdownOnStop) {
-        return (VirtualHostAnnotatedServiceBindingBuilder) super.accessLogWriter(accessLogWriter, shutdownOnStop);
+        return (VirtualHostAnnotatedServiceBindingBuilder)
+                super.accessLogWriter(accessLogWriter, shutdownOnStop);
     }
 
     @Override
@@ -205,13 +207,15 @@ public final class VirtualHostAnnotatedServiceBindingBuilder extends AbstractAnn
     @Override
     public VirtualHostAnnotatedServiceBindingBuilder blockingTaskExecutor(
             ScheduledExecutorService blockingTaskExecutor, boolean shutdownOnStop) {
-        return (VirtualHostAnnotatedServiceBindingBuilder) super.blockingTaskExecutor(blockingTaskExecutor, shutdownOnStop);
+        return (VirtualHostAnnotatedServiceBindingBuilder) super.blockingTaskExecutor(blockingTaskExecutor,
+                                                                                      shutdownOnStop);
     }
 
     @Override
     public VirtualHostAnnotatedServiceBindingBuilder blockingTaskExecutor(
             BlockingTaskExecutor blockingTaskExecutor, boolean shutdownOnStop) {
-        return (VirtualHostAnnotatedServiceBindingBuilder) super.blockingTaskExecutor(blockingTaskExecutor, shutdownOnStop);
+        return (VirtualHostAnnotatedServiceBindingBuilder) super.blockingTaskExecutor(blockingTaskExecutor,
+                                                                                      shutdownOnStop);
     }
 
     @Override
@@ -236,7 +240,8 @@ public final class VirtualHostAnnotatedServiceBindingBuilder extends AbstractAnn
 
     @Override
     public VirtualHostAnnotatedServiceBindingBuilder multipartUploadsLocation(Path multipartUploadsLocation) {
-        return (VirtualHostAnnotatedServiceBindingBuilder) super.multipartUploadsLocation(multipartUploadsLocation);
+        return (VirtualHostAnnotatedServiceBindingBuilder)
+                super.multipartUploadsLocation(multipartUploadsLocation);
     }
 
     @Override
