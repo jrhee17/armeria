@@ -78,7 +78,7 @@ class ContextPathTest {
               .serviceUnder("/serviceUnder1", (ctx, req) -> HttpResponse.of("serviceUnder1"))
               .serviceUnder("/serviceUnder2", serviceWithRoutes)
               .and()
-            // server builder
+              // server builder
               .service("/service1", (ctx, req) -> HttpResponse.of("service1"))
               .service(serviceWithRoutes)
               .service("/route2", serviceWithRoutes)
@@ -91,7 +91,21 @@ class ContextPathTest {
               .build((ctx, req) -> HttpResponse.of("route1"))
               .serviceUnder("/serviceUnder1", (ctx, req) -> HttpResponse.of("serviceUnder1"))
               .serviceUnder("/serviceUnder2", serviceWithRoutes)
-              // virtual host context path
+              // server decorator with context path
+              .contextPath("/v5", "/v6")
+              .service("/decorated1", (ctx, req) -> HttpResponse.of(500))
+              .decorator("/decorated1", (delegate, ctx, req) -> HttpResponse.of("decorated1"))
+              .routeDecorator()
+              .path("/decorated2")
+              .build((delegate, ctx, req) -> HttpResponse.of("decorated2"))
+              .and()
+              // server decorator
+              .service("/decorated1", (ctx, req) -> HttpResponse.of(500))
+              .decorator("/decorated1", (delegate, ctx, req) -> HttpResponse.of("decorated1"))
+              .routeDecorator()
+              .path("/decorated2")
+              .build((delegate, ctx, req) -> HttpResponse.of("decorated2"))
+              // virtual host service context path
               .virtualHost("foo.com")
               .contextPath("/v3", "/v4")
               .service("/service1", (ctx, req) -> HttpResponse.of("service1"))
@@ -107,7 +121,14 @@ class ContextPathTest {
               .serviceUnder("/serviceUnder1", (ctx, req) -> HttpResponse.of("serviceUnder1"))
               .serviceUnder("/serviceUnder2", serviceWithRoutes)
               .and()
-            // virtual host
+              // virtual host decorator context path
+              .contextPath("/v5", "/v6")
+              .service("/decorated1", (ctx, req) -> HttpResponse.of(500))
+              .decorator("/decorated1", (delegate, ctx, req) -> HttpResponse.of("decorated1"))
+              .routeDecorator()
+              .path("/decorated2")
+              .build((delegate, ctx, req) -> HttpResponse.of("decorated2"))
+              // virtual host
               .service("/service1", (ctx, req) -> HttpResponse.of("service1"))
               .service(serviceWithRoutes)
               .service("/route2", serviceWithRoutes)
@@ -120,37 +141,12 @@ class ContextPathTest {
               .build((ctx, req) -> HttpResponse.of("route1"))
               .serviceUnder("/serviceUnder1", (ctx, req) -> HttpResponse.of("serviceUnder1"))
               .serviceUnder("/serviceUnder2", serviceWithRoutes)
-              .and()
-            // server decorator with context path
-              .contextPath("/v5", "/v6")
+              // virtual host decorator
               .service("/decorated1", (ctx, req) -> HttpResponse.of(500))
               .decorator("/decorated1", (delegate, ctx, req) -> HttpResponse.of("decorated1"))
               .routeDecorator()
               .path("/decorated2")
-              .build((delegate, ctx, req) -> HttpResponse.of("decorated2"))
-              .and()
-            // server decorator
-              .service("/decorated1", (ctx, req) -> HttpResponse.of(500))
-              .decorator("/decorated1", (delegate, ctx, req) -> HttpResponse.of("decorated1"))
-              .routeDecorator()
-              .path("/decorated2")
-              .build((delegate, ctx, req) -> HttpResponse.of("decorated2"))
-            // virtual host context path
-              .virtualHost("foo.com")
-              .contextPath("/v5", "/v6")
-              .service("/decorated1", (ctx, req) -> HttpResponse.of(500))
-              .decorator("/decorated1", (delegate, ctx, req) -> HttpResponse.of("decorated1"))
-              .routeDecorator()
-              .path("/decorated2")
-              .build((delegate, ctx, req) -> HttpResponse.of("decorated2"))
-              .and()
-            // virtual host
-              .service("/decorated1", (ctx, req) -> HttpResponse.of(500))
-              .decorator("/decorated1", (delegate, ctx, req) -> HttpResponse.of("decorated1"))
-              .routeDecorator()
-              .path("/decorated2")
-              .build((delegate, ctx, req) -> HttpResponse.of("decorated2"))
-            ;
+              .build((delegate, ctx, req) -> HttpResponse.of("decorated2"));
             sb.decorator(LoggingService.newDecorator());
         }
     };
@@ -190,6 +186,14 @@ class ContextPathTest {
     @ValueSource(strings = {"", "/v5", "/v6"})
     void testServerDecorator(String contextPath) {
         BlockingWebClient client = server.blockingWebClient();
+        assertResult(client.get(contextPath + "/decorated1"), "decorated1");
+        assertResult(client.get(contextPath + "/decorated2"), "decorated2");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "/v5", "/v6"})
+    void testVHostDecorator(String contextPath) {
+        BlockingWebClient client = server.blockingWebClient(cb -> cb.setHeader(HttpHeaderNames.HOST, "foo.com"));
         assertResult(client.get(contextPath + "/decorated1"), "decorated1");
         assertResult(client.get(contextPath + "/decorated2"), "decorated2");
     }
