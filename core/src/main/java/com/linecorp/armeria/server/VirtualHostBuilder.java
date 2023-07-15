@@ -399,6 +399,15 @@ public final class VirtualHostBuilder implements TlsSetters {
     }
 
     /**
+     * TBU.
+     */
+    public DefaultContextPathServicesBuilder<VirtualHostBuilder> contextPath(String ...contextPaths) {
+        return new DefaultContextPathServicesBuilder<>(
+                this, this::addServiceConfigSetters, this::addRouteDecoratingService,
+                contextPaths);
+    }
+
+    /**
      * Configures an {@link HttpService} of the {@link VirtualHost} with the {@code customizer}.
      */
     public VirtualHostBuilder withRoute(Consumer<? super VirtualHostServiceBindingBuilder> customizer) {
@@ -1275,11 +1284,8 @@ public final class VirtualHostBuilder implements TlsSetters {
         final List<ServiceConfig> serviceConfigs = getServiceConfigSetters(template)
                 .stream()
                 .flatMap(cfgSetters -> {
-                    if (cfgSetters instanceof VirtualHostAnnotatedServiceBindingBuilder) {
-                        return ((VirtualHostAnnotatedServiceBindingBuilder) cfgSetters)
-                                .buildServiceConfigBuilder(extensions, dependencyInjector).stream();
-                    } else if (cfgSetters instanceof AnnotatedServiceBindingBuilder) {
-                        return ((AnnotatedServiceBindingBuilder) cfgSetters)
+                    if (cfgSetters instanceof AbstractAnnotatedServiceBindingBuilder) {
+                        return ((AbstractAnnotatedServiceBindingBuilder) cfgSetters)
                                 .buildServiceConfigBuilder(extensions, dependencyInjector).stream();
                     } else if (cfgSetters instanceof ServiceConfigBuilder) {
                         return Stream.of((ServiceConfigBuilder) cfgSetters);
