@@ -45,7 +45,7 @@ public final class ContextPathServicesBuilder<T> implements ServicesConfigBuilde
 
     ContextPathServicesBuilder(T parent, VirtualHostBuilder virtualHostBuilder,
                                String... contextPaths) {
-        checkArgument(contextPaths.length > 0);
+        checkArgument(contextPaths.length > 0, "At least one context path is required");
         for (String contextPath: contextPaths) {
             RouteUtil.ensureAbsolutePath(contextPath, "contextPath");
         }

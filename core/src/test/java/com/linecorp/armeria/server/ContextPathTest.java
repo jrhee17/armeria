@@ -207,7 +207,7 @@ class ContextPathTest {
     void invalidContextPath() {
         assertThatThrownBy(() -> Server.builder().contextPath())
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("expected: an absolute path starting with");
+                .hasMessageContaining("At least one context path is required");
 
         assertThatThrownBy(() -> Server.builder().contextPath(""))
                 .isInstanceOf(IllegalArgumentException.class)
