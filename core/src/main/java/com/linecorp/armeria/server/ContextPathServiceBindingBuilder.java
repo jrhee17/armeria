@@ -36,10 +36,10 @@ import com.linecorp.armeria.server.logging.AccessLogWriter;
  */
 public final class ContextPathServiceBindingBuilder<T> extends AbstractServiceBindingBuilder {
 
-    private final DefaultContextPathServicesBuilder<T> contextPathServicesBuilder;
+    private final ContextPathServicesBuilder<T> contextPathServicesBuilder;
     private final Set<String> contextPaths;
 
-    ContextPathServiceBindingBuilder(DefaultContextPathServicesBuilder<T> contextPathServicesBuilder,
+    ContextPathServiceBindingBuilder(ContextPathServicesBuilder<T> contextPathServicesBuilder,
                                      Set<String> contextPaths) {
         this.contextPathServicesBuilder = contextPathServicesBuilder;
         this.contextPaths = contextPaths;
@@ -380,7 +380,7 @@ public final class ContextPathServiceBindingBuilder<T> extends AbstractServiceBi
      * Sets the {@link HttpService} and returns the object that this
      * {@link ServiceBindingBuilder} was created from.
      */
-    public DefaultContextPathServicesBuilder<T> build(HttpService service) {
+    public ContextPathServicesBuilder<T> build(HttpService service) {
         for (String contextPath: contextPaths) {
             build0(service, contextPath);
         }

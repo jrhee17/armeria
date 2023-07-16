@@ -31,10 +31,10 @@ import com.linecorp.armeria.internal.server.RouteDecoratingService;
  */
 public final class ContextPathDecoratingBindingBuilder<T> extends AbstractBindingBuilder {
 
-    private final DefaultContextPathServicesBuilder<T> builder;
+    private final ContextPathServicesBuilder<T> builder;
     private final Set<String> contextPaths;
 
-    ContextPathDecoratingBindingBuilder(DefaultContextPathServicesBuilder<T> builder,
+    ContextPathDecoratingBindingBuilder(ContextPathServicesBuilder<T> builder,
                                         Set<String> contextPaths) {
         this.builder = builder;
         this.contextPaths = contextPaths;
@@ -204,7 +204,7 @@ public final class ContextPathDecoratingBindingBuilder<T> extends AbstractBindin
      *
      * @param decorator the {@link Function} that decorates {@link HttpService}
      */
-    public DefaultContextPathServicesBuilder<T> build(
+    public ContextPathServicesBuilder<T> build(
             Function<? super HttpService, ? extends HttpService> decorator) {
         requireNonNull(decorator, "decorator");
         buildRouteList().forEach(
@@ -220,7 +220,7 @@ public final class ContextPathDecoratingBindingBuilder<T> extends AbstractBindin
      * @param decoratingHttpServiceFunction the {@link DecoratingHttpServiceFunction} that decorates
      *                                      {@link HttpService}
      */
-    public DefaultContextPathServicesBuilder<T> build(
+    public ContextPathServicesBuilder<T> build(
             DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
         requireNonNull(decoratingHttpServiceFunction, "decoratingHttpServiceFunction");
         return build(delegate -> new FunctionalDecoratingHttpService(delegate, decoratingHttpServiceFunction));

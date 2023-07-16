@@ -17,9 +17,11 @@
 package com.linecorp.armeria.server;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Set;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -199,6 +201,21 @@ class ContextPathTest {
                 server.blockingWebClient(cb -> cb.setHeader(HttpHeaderNames.HOST, "foo.com"));
         assertResult(client.get(contextPath + "/decorated1"), "decorated1");
         assertResult(client.get(contextPath + "/decorated2"), "decorated2");
+    }
+
+    @Test
+    void invalidContextPath() {
+        assertThatThrownBy(() -> Server.builder().contextPath())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("expected: an absolute path starting with");
+
+        assertThatThrownBy(() -> Server.builder().contextPath(""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("expected: an absolute path starting with");
+
+        assertThatThrownBy(() -> Server.builder().contextPath("/", "relative"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("expected: an absolute path starting with");
     }
 
     private static void assertResult(AggregatedHttpResponse res, String expectedContent) {

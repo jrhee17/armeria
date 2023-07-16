@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.server;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.linecorp.armeria.server.ServerBuilder.decorate;
 import static java.util.Objects.requireNonNull;
 
@@ -27,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import com.linecorp.armeria.internal.server.RouteDecoratingService;
+import com.linecorp.armeria.internal.server.RouteUtil;
 import com.linecorp.armeria.internal.server.annotation.AnnotatedServiceExtensions;
 import com.linecorp.armeria.server.annotation.ExceptionHandlerFunction;
 import com.linecorp.armeria.server.annotation.RequestConverterFunction;
@@ -35,14 +37,19 @@ import com.linecorp.armeria.server.annotation.ResponseConverterFunction;
 /**
  * TBU.
  */
-public final class DefaultContextPathServicesBuilder<T> implements ServicesConfigBuilder {
+public final class ContextPathServicesBuilder<T> implements ServicesConfigBuilder {
 
     private final Set<String> contextPaths;
     private final T parent;
     private final VirtualHostBuilder virtualHostBuilder;
 
-    DefaultContextPathServicesBuilder(T parent, VirtualHostBuilder virtualHostBuilder,
-                                      String... contextPaths) {
+    ContextPathServicesBuilder(T parent, VirtualHostBuilder virtualHostBuilder,
+                               String... contextPaths) {
+        checkArgument(contextPaths.length > 0);
+        for (String contextPath: contextPaths) {
+            RouteUtil.ensureAbsolutePath(contextPath, "contextPath");
+        }
+
         this.parent = parent;
         this.contextPaths = ImmutableSet.copyOf(contextPaths);
         this.virtualHostBuilder = virtualHostBuilder;
@@ -51,7 +58,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
     /**
      * Configures an {@link HttpService} under the context path with the {@code customizer}.
      */
-    public DefaultContextPathServicesBuilder<T> withRoute(
+    public ContextPathServicesBuilder<T> withRoute(
             Consumer<? super ContextPathServiceBindingBuilder<T>> customizer) {
         customizer.accept(new ContextPathServiceBindingBuilder<>(this, contextPaths));
         return this;
@@ -99,7 +106,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      * }</pre>
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> serviceUnder(String pathPrefix, HttpService service) {
+    public ContextPathServicesBuilder<T> serviceUnder(String pathPrefix, HttpService service) {
         requireNonNull(pathPrefix, "pathPrefix");
         requireNonNull(service, "service");
         final HttpServiceWithRoutes serviceWithRoutes = service.as(HttpServiceWithRoutes.class);
@@ -135,7 +142,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      * @throws IllegalArgumentException if the specified path pattern is invalid
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> service(String pathPattern, HttpService service) {
+    public ContextPathServicesBuilder<T> service(String pathPattern, HttpService service) {
         return service(Route.builder().path(pathPattern).build(), service);
     }
 
@@ -143,7 +150,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      * Binds the specified {@link HttpService} at the specified {@link Route} under the context path.
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> service(Route route, HttpService service) {
+    public ContextPathServicesBuilder<T> service(Route route, HttpService service) {
         for (String contextPath: contextPaths) {
             addServiceConfigSetters(new ServiceConfigBuilder(route.withPrefix(contextPath), service));
         }
@@ -158,7 +165,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      * @param decorators the decorator functions, which will be applied in the order specified.
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> service(
+    public ContextPathServicesBuilder<T> service(
             HttpServiceWithRoutes serviceWithRoutes,
             Iterable<? extends Function<? super HttpService, ? extends HttpService>> decorators) {
         requireNonNull(serviceWithRoutes, "serviceWithRoutes");
@@ -179,7 +186,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      */
     @Override
     @SafeVarargs
-    public final DefaultContextPathServicesBuilder<T> service(
+    public final ContextPathServicesBuilder<T> service(
             HttpServiceWithRoutes serviceWithRoutes,
             Function<? super HttpService, ? extends HttpService>... decorators) {
         return service(serviceWithRoutes, ImmutableList.copyOf(requireNonNull(decorators, "decorators")));
@@ -189,7 +196,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      * Binds the specified annotated service object under the context path.
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> annotatedService(Object service) {
+    public ContextPathServicesBuilder<T> annotatedService(Object service) {
         return annotatedService("/", service, Function.identity(), ImmutableList.of());
     }
 
@@ -201,8 +208,8 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      *                                       the {@link ResponseConverterFunction}s
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> annotatedService(Object service,
-                                                                 Object... exceptionHandlersAndConverters) {
+    public ContextPathServicesBuilder<T> annotatedService(Object service,
+                                                          Object... exceptionHandlersAndConverters) {
         return annotatedService("/", service, Function.identity(),
                                 ImmutableList.copyOf(requireNonNull(exceptionHandlersAndConverters,
                                                                     "exceptionHandlersAndConverters")));
@@ -216,7 +223,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      *                                       the {@link ResponseConverterFunction}s
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> annotatedService(
+    public ContextPathServicesBuilder<T> annotatedService(
             Object service, Function<? super HttpService, ? extends HttpService> decorator,
             Object... exceptionHandlersAndConverters) {
         return annotatedService("/", service, decorator,
@@ -228,7 +235,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      * Binds the specified annotated service object under the specified path prefix.
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> annotatedService(String pathPrefix, Object service) {
+    public ContextPathServicesBuilder<T> annotatedService(String pathPrefix, Object service) {
         return annotatedService(pathPrefix, service, Function.identity(), ImmutableList.of());
     }
 
@@ -240,8 +247,8 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      *                                       the {@link ResponseConverterFunction}s
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> annotatedService(String pathPrefix, Object service,
-                                                                 Object... exceptionHandlersAndConverters) {
+    public ContextPathServicesBuilder<T> annotatedService(String pathPrefix, Object service,
+                                                          Object... exceptionHandlersAndConverters) {
         return annotatedService(pathPrefix, service, Function.identity(),
                                 ImmutableList.copyOf(requireNonNull(exceptionHandlersAndConverters,
                                                                     "exceptionHandlersAndConverters")));
@@ -255,7 +262,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      *                                       {@link ResponseConverterFunction}
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> annotatedService(
+    public ContextPathServicesBuilder<T> annotatedService(
             String pathPrefix, Object service, Function<? super HttpService, ? extends HttpService> decorator,
             Object... exceptionHandlersAndConverters) {
         return annotatedService(pathPrefix, service, decorator,
@@ -271,7 +278,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      *                                       the {@link ResponseConverterFunction}s
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> annotatedService(
+    public ContextPathServicesBuilder<T> annotatedService(
             String pathPrefix, Object service, Iterable<?> exceptionHandlersAndConverters) {
         return annotatedService(pathPrefix, service, Function.identity(),
                                 requireNonNull(exceptionHandlersAndConverters,
@@ -286,7 +293,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      *                                       {@link ResponseConverterFunction}
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> annotatedService(
+    public ContextPathServicesBuilder<T> annotatedService(
             String pathPrefix, Object service, Function<? super HttpService, ? extends HttpService> decorator,
             Iterable<?> exceptionHandlersAndConverters) {
         requireNonNull(pathPrefix, "pathPrefix");
@@ -308,7 +315,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      * @param responseConverterFunctions the {@link ResponseConverterFunction}s
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> annotatedService(
+    public ContextPathServicesBuilder<T> annotatedService(
             String pathPrefix, Object service,
             Function<? super HttpService, ? extends HttpService> decorator,
             Iterable<? extends ExceptionHandlerFunction> exceptionHandlerFunctions,
@@ -333,8 +340,8 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      * an annotated service fluently.
      */
     @Override
-    public DefaultContextPathAnnotatedServiceConfigSetters<T> annotatedService() {
-        return new DefaultContextPathAnnotatedServiceConfigSetters<>(this, contextPaths);
+    public ContextPathAnnotatedServiceConfigSetters<T> annotatedService() {
+        return new ContextPathAnnotatedServiceConfigSetters<>(this, contextPaths);
     }
 
     /**
@@ -344,7 +351,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      * @param decorator the {@link Function} that decorates {@link HttpService}s
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> decorator(
+    public ContextPathServicesBuilder<T> decorator(
             Function<? super HttpService, ? extends HttpService> decorator) {
         return decorator(Route.ofCatchAll(), decorator);
     }
@@ -357,7 +364,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      *                                      {@link HttpService}s
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> decorator(
+    public ContextPathServicesBuilder<T> decorator(
             DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
         return decorator(Route.ofCatchAll(), decoratingHttpServiceFunction);
     }
@@ -367,7 +374,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      * The specified decorator(s) is/are executed in reverse order of the insertion.
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> decorator(
+    public ContextPathServicesBuilder<T> decorator(
             String pathPattern, Function<? super HttpService, ? extends HttpService> decorator) {
         return decorator(Route.builder().path(pathPattern).build(), decorator);
     }
@@ -380,7 +387,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      *                                      {@link HttpService}s
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> decorator(
+    public ContextPathServicesBuilder<T> decorator(
             String pathPattern, DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
         return decorator(Route.builder().path(pathPattern).build(), decoratingHttpServiceFunction);
     }
@@ -390,7 +397,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      * The specified decorator(s) is/are executed in reverse order of the insertion.
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> decorator(
+    public ContextPathServicesBuilder<T> decorator(
             Route route, Function<? super HttpService, ? extends HttpService> decorator) {
         requireNonNull(route, "route");
         requireNonNull(decorator, "decorator");
@@ -409,7 +416,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      *                                      {@link HttpService}s
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> decorator(
+    public ContextPathServicesBuilder<T> decorator(
             Route route, DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
         requireNonNull(decoratingHttpServiceFunction, "decoratingHttpServiceFunction");
         return decorator(route, delegate -> new FunctionalDecoratingHttpService(
@@ -424,7 +431,7 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      *                                      {@link HttpService}s
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> decoratorUnder(
+    public ContextPathServicesBuilder<T> decoratorUnder(
             String prefix, DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
         return decorator(Route.builder().pathPrefix(prefix).build(), decoratingHttpServiceFunction);
     }
@@ -434,17 +441,17 @@ public final class DefaultContextPathServicesBuilder<T> implements ServicesConfi
      * The specified decorator(s) is/are executed in reverse order of the insertion.
      */
     @Override
-    public DefaultContextPathServicesBuilder<T> decoratorUnder(
+    public ContextPathServicesBuilder<T> decoratorUnder(
             String prefix, Function<? super HttpService, ? extends HttpService> decorator) {
         return decorator(Route.builder().pathPrefix(prefix).build(), decorator);
     }
 
-    DefaultContextPathServicesBuilder<T> addServiceConfigSetters(ServiceConfigSetters serviceConfigSetters) {
+    ContextPathServicesBuilder<T> addServiceConfigSetters(ServiceConfigSetters serviceConfigSetters) {
         virtualHostBuilder.addServiceConfigSetters(serviceConfigSetters);
         return this;
     }
 
-    DefaultContextPathServicesBuilder<T> addRouteDecoratingService(
+    ContextPathServicesBuilder<T> addRouteDecoratingService(
             RouteDecoratingService routeDecoratingService) {
         virtualHostBuilder.addRouteDecoratingService(routeDecoratingService);
         return this;

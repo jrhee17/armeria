@@ -1098,8 +1098,8 @@ public final class ServerBuilder implements TlsSetters, ServicesConfigBuilder {
     /**
      * TBU.
      */
-    public DefaultContextPathServicesBuilder<ServerBuilder> contextPath(String... contextPaths) {
-        return new DefaultContextPathServicesBuilder<>(this, defaultVirtualHostBuilder, contextPaths);
+    public ContextPathServicesBuilder<ServerBuilder> contextPath(String... contextPaths) {
+        return new ContextPathServicesBuilder<>(this, defaultVirtualHostBuilder, contextPaths);
     }
 
     /**
