@@ -155,7 +155,7 @@ class ContextPathTest {
     @ParameterizedTest
     @ValueSource(strings = {"", "/v1", "/v2"})
     void testServerService(String contextPath) {
-        BlockingWebClient client = server.blockingWebClient();
+        final BlockingWebClient client = server.blockingWebClient();
 
         assertResult(client.get(contextPath + "/service1"), "service1");
         assertResult(client.get(contextPath + "/route1"), "route1");
@@ -171,7 +171,8 @@ class ContextPathTest {
     @ParameterizedTest
     @ValueSource(strings = {"", "/v3", "/v4"})
     void testVHostService(String contextPath) {
-        BlockingWebClient client = server.blockingWebClient(cb -> cb.setHeader(HttpHeaderNames.HOST, "foo.com"));
+        final BlockingWebClient client =
+                server.blockingWebClient(cb -> cb.setHeader(HttpHeaderNames.HOST, "foo.com"));
         assertResult(client.get(contextPath + "/service1"), "service1");
         assertResult(client.get(contextPath + "/route1"), "route1");
         assertResult(client.get(contextPath + "/serviceWithRoutes1"), "serviceWithRoutes1");
@@ -186,7 +187,7 @@ class ContextPathTest {
     @ParameterizedTest
     @ValueSource(strings = {"", "/v5", "/v6"})
     void testServerDecorator(String contextPath) {
-        BlockingWebClient client = server.blockingWebClient();
+        final BlockingWebClient client = server.blockingWebClient();
         assertResult(client.get(contextPath + "/decorated1"), "decorated1");
         assertResult(client.get(contextPath + "/decorated2"), "decorated2");
     }
@@ -194,7 +195,8 @@ class ContextPathTest {
     @ParameterizedTest
     @ValueSource(strings = { "", "/v5", "/v6"})
     void testVHostDecorator(String contextPath) {
-        BlockingWebClient client = server.blockingWebClient(cb -> cb.setHeader(HttpHeaderNames.HOST, "foo.com"));
+        final BlockingWebClient client =
+                server.blockingWebClient(cb -> cb.setHeader(HttpHeaderNames.HOST, "foo.com"));
         assertResult(client.get(contextPath + "/decorated1"), "decorated1");
         assertResult(client.get(contextPath + "/decorated2"), "decorated2");
     }
