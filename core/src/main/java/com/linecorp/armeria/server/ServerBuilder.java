@@ -1493,7 +1493,8 @@ public final class ServerBuilder implements TlsSetters, ServicesConfigBuilder {
      */
     @Override
     public ServerBuilder decorator(Function<? super HttpService, ? extends HttpService> decorator) {
-        return decorator(Route.ofCatchAll(), decorator);
+        virtualHostTemplate.decorator(decorator);
+        return this;
     }
 
     /**
@@ -1506,7 +1507,8 @@ public final class ServerBuilder implements TlsSetters, ServicesConfigBuilder {
     @Override
     public ServerBuilder decorator(
             DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
-        return decorator(Route.ofCatchAll(), decoratingHttpServiceFunction);
+        virtualHostTemplate.decorator(decoratingHttpServiceFunction);
+        return this;
     }
 
     /**
@@ -1516,7 +1518,8 @@ public final class ServerBuilder implements TlsSetters, ServicesConfigBuilder {
     @Override
     public ServerBuilder decorator(
             String pathPattern, Function<? super HttpService, ? extends HttpService> decorator) {
-        return decorator(Route.builder().path(pathPattern).build(), decorator);
+        virtualHostTemplate.decorator(pathPattern, decorator);
+        return this;
     }
 
     /**
@@ -1529,7 +1532,8 @@ public final class ServerBuilder implements TlsSetters, ServicesConfigBuilder {
     @Override
     public ServerBuilder decorator(
             String pathPattern, DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
-        return decorator(Route.builder().path(pathPattern).build(), decoratingHttpServiceFunction);
+        virtualHostTemplate.decorator(pathPattern, decoratingHttpServiceFunction);
+        return this;
     }
 
     /**
@@ -1543,9 +1547,8 @@ public final class ServerBuilder implements TlsSetters, ServicesConfigBuilder {
     @Override
     public ServerBuilder decorator(
             Route route, Function<? super HttpService, ? extends HttpService> decorator) {
-        requireNonNull(route, "route");
-        requireNonNull(decorator, "decorator");
-        return routingDecorator(new RouteDecoratingService(route, decorator));
+        virtualHostTemplate.decorator(route, decorator);
+        return this;
     }
 
     /**
@@ -1559,9 +1562,8 @@ public final class ServerBuilder implements TlsSetters, ServicesConfigBuilder {
     @Override
     public ServerBuilder decorator(
             Route route, DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
-        requireNonNull(decoratingHttpServiceFunction, "decoratingHttpServiceFunction");
-        return decorator(route, delegate -> new FunctionalDecoratingHttpService(
-                delegate, decoratingHttpServiceFunction));
+        virtualHostTemplate.decorator(route, decoratingHttpServiceFunction);
+        return this;
     }
 
     /**
@@ -1574,7 +1576,8 @@ public final class ServerBuilder implements TlsSetters, ServicesConfigBuilder {
     @Override
     public ServerBuilder decoratorUnder(
             String prefix, DecoratingHttpServiceFunction decoratingHttpServiceFunction) {
-        return decorator(Route.builder().pathPrefix(prefix).build(), decoratingHttpServiceFunction);
+        virtualHostTemplate.decoratorUnder(prefix, decoratingHttpServiceFunction);
+        return this;
     }
 
     /**
@@ -1584,7 +1587,8 @@ public final class ServerBuilder implements TlsSetters, ServicesConfigBuilder {
     @Override
     public ServerBuilder decoratorUnder(String prefix,
                                         Function<? super HttpService, ? extends HttpService> decorator) {
-        return decorator(Route.builder().pathPrefix(prefix).build(), decorator);
+        virtualHostTemplate.decoratorUnder(prefix, decorator);
+        return this;
     }
 
     /**
