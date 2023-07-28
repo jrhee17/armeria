@@ -78,7 +78,7 @@ jobs:
       # on other Gradle tasks such as tests.
       - name: Build with Gradle (Shading only)
         run: |
-          ./gradlew --no-daemon --stacktrace shadedJar shadedTestJar trimShadedJar \
+          ./gradlew --no-daemon --stacktrace clean shadedJar shadedTestJar trimShadedJar \
           ${{ (matrix.on == 'self-hosted') && '--max-workers=8' || '--max-workers=2' }} --parallel \
           ${{ matrix.coverage && '-Pcoverage' || '' }} \
           -PnoLint -Dscan.tag.exp4 \
@@ -95,7 +95,7 @@ jobs:
           ${{ matrix.coverage && '-Pcoverage' || '' }} \
           ${{ matrix.leak && '-Pleak' || '' }} \
           ${{ matrix.blockhound && '-Pblockhound' || '' }} \
-          -PnoLint \
+          -PnoLint -Dscan.tag.exp4 \
           -PflakyTests=false \
           -Pretry=true \
           -PbuildJdkVersion=${{ env.BUILD_JDK_VERSION }} \
