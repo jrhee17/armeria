@@ -26,7 +26,7 @@ gradleEnterprise {
 buildCache {
     local { enabled = false }
     remote(HttpBuildCache) {
-        url = 'https://ge.armeria.dev/cache/exp4/'
+        url = 'https://ge.armeria.dev/cache/exp5/'
         credentials { creds ->
             creds.username = System.getenv('GRADLE_ENTERPRISE_CACHE_USERNAME')
             creds.password = System.getenv('GRADLE_ENTERPRISE_CACHE_PASSWORD')
