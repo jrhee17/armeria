@@ -19,10 +19,12 @@ env:
   LC_ALL: "en_US.UTF-8"
   BUILD_JDK_VERSION: "19"
   GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GRADLE_ENTERPRISE_ACCESS_KEY }}
+  GRADLE_ENTERPRISE_CACHE_USERNAME: ${{ secrets.GRADLE_ENTERPRISE_CACHE_USERNAME }}
+  GRADLE_ENTERPRISE_CACHE_PASSWORD: ${{ secrets.GRADLE_ENTERPRISE_CACHE_PASSWORD }}
 
 jobs:
   build:
-    if: github.repository == 'line/armeria'
+    if: github.repository == 'jrhee17/armeria'
     runs-on: ${{ matrix.on }}
     timeout-minutes: 120
     strategy:
@@ -76,10 +78,10 @@ jobs:
       # on other Gradle tasks such as tests.
       - name: Build with Gradle (Shading only)
         run: |
-          ./gradlew --no-daemon --stacktrace shadedJar shadedTestJar trimShadedJar \
+          ./gradlew --no-daemon --stacktrace clean shadedJar shadedTestJar trimShadedJar \
           ${{ (matrix.on == 'self-hosted') && '--max-workers=8' || '--max-workers=2' }} --parallel \
           ${{ matrix.coverage && '-Pcoverage' || '' }} \
-          -PnoLint \
+          -PnoLint -Dscan.tag.exp4 \
           -PbuildJdkVersion=${{ env.BUILD_JDK_VERSION }} \
           -PtestJavaVersion=${{ matrix.java }} \
           ${{ matrix.min-java && format('-PminimumJavaVersion={0}', matrix.min-java) || '' }} \
@@ -93,7 +95,7 @@ jobs:
           ${{ matrix.coverage && '-Pcoverage' || '' }} \
           ${{ matrix.leak && '-Pleak' || '' }} \
           ${{ matrix.blockhound && '-Pblockhound' || '' }} \
-          -PnoLint \
+          -PnoLint -Dscan.tag.exp4 \
           -PflakyTests=false \
           -Pretry=true \
           -PbuildJdkVersion=${{ env.BUILD_JDK_VERSION }} \
