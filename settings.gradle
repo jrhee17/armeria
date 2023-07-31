@@ -21,6 +21,10 @@ gradleEnterprise {
             taskInputFiles = true
         }
     }
+    def privateKey = System.getenv("PRIVATE_GRADLE_ENTERPRISE_ACCESS_KEY")
+    accessKey = privateKey != null && !privateKey.isEmpty()
+            ? System.getenv("PRIVATE_GRADLE_ENTERPRISE_ACCESS_KEY")
+            : System.getenv("PUBLIC_GRADLE_ENTERPRISE_ACCESS_KEY")
 }
 
 rootProject.name = 'armeria'
