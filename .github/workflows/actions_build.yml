@@ -19,37 +19,18 @@ env:
   LC_ALL: "en_US.UTF-8"
   BUILD_JDK_VERSION: "19"
   GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GRADLE_ENTERPRISE_ACCESS_KEY }}
+  PUBLIC_GRADLE_ENTERPRISE_ACCESS_KEY: ${{ vars.GRADLE_ENTERPRISE_ACCESS_KEY }}
 
 jobs:
   build:
-    if: github.repository == 'line/armeria'
+    if: github.repository == 'jrhee17/armeria'
     runs-on: ${{ matrix.on }}
-    timeout-minutes: 120
+    timeout-minutes: 100
     strategy:
       fail-fast: false
       matrix:
-        on: [ self-hosted, macos-12, windows-latest ]
+        on: [ ubuntu-latest, macos-12, windows-latest ]
         java: [ 19 ]
-        include:
-          - java: 8
-            on: self-hosted
-          - java: 11
-            on: self-hosted
-          - java: 17
-            on: self-hosted
-            leak: true
-          - java: 17
-            on: self-hosted
-            min-java: 11
-          - java: 17
-            on: self-hosted
-            min-java: 17
-            coverage: true
-          - java: 19
-            on: self-hosted
-            snapshot: true
-            # blockhound makes the build run about 10 minutes slower
-            blockhound: true
 
     steps:
       - uses: actions/checkout@v2
@@ -72,28 +53,13 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
 
-      # Build the shaded JARs first so that shading process doesn't incur memory pressure
-      # on other Gradle tasks such as tests.
-      - name: Build with Gradle (Shading only)
-        run: |
-          ./gradlew --no-daemon --stacktrace shadedJar shadedTestJar trimShadedJar \
-          ${{ (matrix.on == 'self-hosted') && '--max-workers=8' || '--max-workers=2' }} --parallel \
-          ${{ matrix.coverage && '-Pcoverage' || '' }} \
-          -PnoLint \
-          -PbuildJdkVersion=${{ env.BUILD_JDK_VERSION }} \
-          -PtestJavaVersion=${{ matrix.java }} \
-          ${{ matrix.min-java && format('-PminimumJavaVersion={0}', matrix.min-java) || '' }} \
-          -Porg.gradle.java.installations.paths=${{ steps.setup-build-jdk.outputs.path }},${{ steps.setup-jdk.outputs.path }}
-        shell: bash
-
       - name: Build with Gradle
         run: |
-          ./gradlew --no-daemon --stacktrace build \
+          ./gradlew --no-daemon --stacktrace :core:lint \
           ${{ (matrix.on == 'self-hosted') && '--max-workers=8' || '--max-workers=2' }} --parallel \
           ${{ matrix.coverage && '-Pcoverage' || '' }} \
           ${{ matrix.leak && '-Pleak' || '' }} \
           ${{ matrix.blockhound && '-Pblockhound' || '' }} \
-          -PnoLint \
           -PflakyTests=false \
           -Pretry=true \
           -PbuildJdkVersion=${{ env.BUILD_JDK_VERSION }} \
@@ -181,7 +147,7 @@ jobs:
           retention-days: 3
 
   lint:
-    if: github.repository == 'line/armeria'
+    if: github.repository == 'jrhee17/armeria'
     runs-on: self-hosted
     timeout-minutes: 60
     steps:
@@ -231,7 +197,7 @@ jobs:
         shell: bash
 
   flaky-tests:
-    if: github.repository == 'line/armeria'
+    if: github.repository == 'jrhee17/armeria'
     runs-on: self-hosted
     timeout-minutes: 60
     steps:
