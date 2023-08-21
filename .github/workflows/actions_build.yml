@@ -88,7 +88,7 @@ jobs:
       - name: Build with Gradle (Shading only)
         run: |
           ./gradlew --no-daemon --stacktrace shadedJar shadedTestJar trimShadedJar \
-          ${{ (matrix.on == 'ubuntu-latest') && '--max-workers=8' || '--max-workers=2' }} --parallel \
+          ${{ (matrix.on == 'self-hosted') && '--max-workers=8' || '--max-workers=2' }} --parallel \
           ${{ matrix.coverage && '-Pcoverage' || '' }} \
           -Dscan.tag.exp5 \
           -PnoLint \
@@ -108,7 +108,7 @@ jobs:
       - name: Build with Gradle
         run: |
           ./gradlew --no-daemon --stacktrace build \
-          ${{ (matrix.on == 'ubuntu-latest') && '--max-workers=8' || '--max-workers=2' }} --parallel \
+          ${{ (matrix.on == 'self-hosted') && '--max-workers=8' || '--max-workers=2' }} --parallel \
           ${{ matrix.coverage && '-Pcoverage' || '' }} \
           ${{ matrix.leak && '-Pleak' || '' }} \
           ${{ matrix.blockhound && '-Pblockhound' || '' }} \
