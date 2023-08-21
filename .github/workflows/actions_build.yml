@@ -47,7 +47,6 @@ jobs:
             coverage: true
           - java: 19
             on: ubuntu-latest
-            snapshot: true
             # blockhound makes the build run about 10 minutes slower
             blockhound: true
 
