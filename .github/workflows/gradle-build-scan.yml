@@ -101,3 +101,14 @@ jobs:
         env:
           BUILD_SCANS: ${{ steps.upload-build-scans.outputs.BUILD_SCANS }}
           PR_NUMBER: ${{ steps.get-pr-number.outputs.PR_NUMBER }}
+  upload-gradle-cache:
+    name: Upload Gradle cache
+    if: github.repository == 'jrhee17/armeria'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Echo the current branch
+        run: |
+          git status
+        shell: bash
