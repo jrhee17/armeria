@@ -31,25 +31,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        on: [ self-hosted, macos-12, windows-latest ]
+        on: [ ubuntu-latest, macos-12, windows-latest ]
         java: [ 19 ]
         include:
           - java: 8
-            on: self-hosted
+            on: ubuntu-latest
           - java: 11
-            on: self-hosted
+            on: ubuntu-latest
           - java: 17
-            on: self-hosted
+            on: ubuntu-latest
             leak: true
           - java: 17
-            on: self-hosted
+            on: ubuntu-latest
             min-java: 11
           - java: 17
-            on: self-hosted
+            on: ubuntu-latest
             min-java: 17
             coverage: true
           - java: 19
-            on: self-hosted
+            on: ubuntu-latest
             snapshot: true
             # blockhound makes the build run about 10 minutes slower
             blockhound: true
