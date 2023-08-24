@@ -48,3 +48,4 @@ jobs:
           -Pretry=true -PfailOnPassedAfterRetry=false \
           -Porg.gradle.java.installations.paths=${{ steps.setup-build-jdk.outputs.path }}
         shell: bash
+
