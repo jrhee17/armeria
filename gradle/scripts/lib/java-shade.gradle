@@ -79,6 +79,11 @@ configure(relocatedProjects) {
     }
 }
 
+tasks.withType(Jar) {
+    manifest.attributes(
+    )
+}
+
 // NB: Configure in a new closure so that all relocated projects have a 'shadedJar' task.
 configure(relocatedProjects) {
     if (project.hasFlags('trim')) {
