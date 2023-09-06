@@ -1,7 +1,16 @@
 name: Periodic Gradle Build Cache Check
+#on:
+#  schedule:
+#    - cron: '0 01 * * 1'
 on:
-  schedule:
-    - cron: '0 01 * * 1'
+  push:
+    branches:
+      - main
+    tags-ignore:
+      # The release versions will be verified by 'publish-release.yml'
+      - armeria-*
+  pull_request:
+  merge_group:
 
 env:
   LC_ALL: "en_US.UTF-8"
@@ -9,8 +18,8 @@ env:
 
 jobs:
   build-cache-check:
-    if: github.repository == 'line/armeria'
-    runs-on: self-hosted
+    if: github.repository == 'jrhee17/armeria'
+    runs-on: ubuntu-latest
     steps:
       - id: setup-jdk-19
         name: Set up JDK 19
@@ -31,7 +40,7 @@ jobs:
         working-directory: scripts/gradle-enterprise-gradle-build-validation
         run: |
           ./03-validate-local-build-caching-different-locations.sh -f \
-          -r https://github.com/line/armeria.git -t build \
+          -r https://github.com/line/armeria.git -t buildWeb \
           -a --parallel\ -Pretry=true\ -PfailOnPassedAfterRetry=false
 
       - name: Summarize result

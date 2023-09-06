@@ -31,6 +31,7 @@ task buildWeb(type: NpmTask) {
     inputs.dir('src')
     inputs.files('package.json', 'package-lock.json')
     outputs.dir('build/web')
+    outputs.cacheIf {true}
 }
 
 task copyWeb(type: Copy) {
