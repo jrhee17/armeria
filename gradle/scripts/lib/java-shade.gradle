@@ -202,6 +202,12 @@ configure(relocatedProjects) {
                     project.ext.relocations.each {
                         exclude "${it['to'].replace('.', '/')}/**"
                     }
+
+                    doLast {
+                        logger.lifecycle("shadedTest.doLast: ${it}")
+                        logger.lifecycle("shadedTest.doLast: ${it.getClasspath().getFiles()}")
+
+                    }
                 }
             }
         }
