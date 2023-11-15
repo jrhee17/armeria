@@ -25,7 +25,9 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import com.google.common.base.Strings;
 
 import com.linecorp.armeria.client.BlockingWebClient;
+import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.UnprocessedRequestException;
+import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
@@ -42,6 +44,7 @@ class LongUrlTest {
         protected void configure(ServerBuilder sb) {
             sb.http1MaxInitialLineLength(200);
             sb.http2MaxHeaderListSize(200);
+            sb.tlsSelfSigned(true);
 
             sb.service("/", (ctx, req) -> {
                 return HttpResponse.of("OK");
@@ -61,6 +64,24 @@ class LongUrlTest {
         final BlockingWebClient client = BlockingWebClient.of(server.uri(SessionProtocol.H2C));
         assertThatThrownBy(() -> {
             client.get("/?q" + Strings.repeat("a", 200));
+        }).isInstanceOf(UnprocessedRequestException.class)
+          .hasCauseInstanceOf(HeaderListSizeException.class)
+          .hasMessageContaining("Header size exceeded max allowed size (200)");
+    }
+
+    @Test
+    void shouldThrowHeaderListSizeExceptionForLongUrlForHTTPS2() {
+        final ClientFactory cf = ClientFactory.builder()
+                                              .tlsCustomizer(scb -> scb.protocols("TLSv1.3"))
+                                           .tlsNoVerify()
+                                           .build();
+
+        final BlockingWebClient client = WebClient.builder(server.uri(SessionProtocol.H2))
+                                                  .factory(cf)
+                                                  .build()
+                                                  .blocking();
+        assertThatThrownBy(() -> {
+            client.get("/?q" + Strings.repeat("a", 300));
         }).isInstanceOf(UnprocessedRequestException.class)
           .hasCauseInstanceOf(HeaderListSizeException.class)
           .hasMessageContaining("Header size exceeded max allowed size (200)");
