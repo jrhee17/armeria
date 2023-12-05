@@ -8,6 +8,7 @@ apply from: "${libDir}/common-publish.gradle"
 apply from: "${libDir}/common-release.gradle"
 apply from: "${libDir}/common-wrapper.gradle"
 apply from: "${libDir}/common-misc.gradle"
+apply from: "${libDir}/gradle-test-pts-support.gradle"
 
 if (!projectsWithFlags('bom').isEmpty()) {
     apply from: "${libDir}/bom.gradle"
