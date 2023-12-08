@@ -43,20 +43,4 @@ final class XdsConverterUtil {
                             return Endpoint.of(socketAddress.getAddress(), socketAddress.getPortValue());
                         })).collect(Collectors.toList());
     }
-
-    public static ResourceHolder<?> toHolder(XdsType type, Object t) {
-        checkArgument(type.clazz().isInstance(t), "Object %s is not an instance of %s", t, type);
-        switch (type) {
-            case LISTENER:
-                return new ClusterResourceHolder((Cluster) t);
-            case ROUTE:
-                return new RouteResourceHolder((RouteConfiguration) t);
-            case CLUSTER:
-                return new ClusterResourceHolder((Cluster) t);
-            case ENDPOINT:
-                return new EndpointResourceHolder((ClusterLoadAssignment) t);
-            default:
-                throw new Error("Shouldn't reach here");
-        }
-    }
 }
