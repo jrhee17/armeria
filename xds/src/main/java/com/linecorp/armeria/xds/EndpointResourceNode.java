@@ -21,8 +21,8 @@ import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 final class EndpointResourceNode extends DynamicResourceNode<ClusterLoadAssignment,
         EndpointResourceHolder> {
 
-    EndpointResourceNode(XdsClientImpl xdsClient) {
-        super(xdsClient);
+    EndpointResourceNode(XdsBootstrapImpl xdsBootstrap) {
+        super(xdsBootstrap);
     }
 
     @Override

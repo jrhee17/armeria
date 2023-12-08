@@ -26,35 +26,35 @@ import io.envoyproxy.envoy.config.listener.v3.Listener;
 import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 
 /**
- * A {@link XdsClient} encapsulates all logic to communicate with control plane servers
+ * A {@link XdsBootstrap} encapsulates all logic to communicate with control plane servers
  * to fetch xDS resources locally. Users may choose to watch resources and listen to event
  * updates using this class. The appropriate resources are found from a {@link Bootstrap}
  * that can be provided like the following:
  * <pre>{@code
  * Bootstrap bootstrap = ...;
- * XdsClient xdsClient = XdsClient.of(bootstrap);
- * xdsClient.startWatch(type, resourceName);
- * xdsClient.addEndpointWatcher(type, resourceName, watcher).
+ * XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
+ * xdsBootstrap.subscribe(type, resourceName);
+ * xdsBootstrap.addEndpointWatcher(type, resourceName, watcher).
  * }</pre>
- * Initializing a {@link XdsClient} does not consume any resources until a resource is watched
- * via {@link #subscribe(String, String)}.
- * Note that it is important to close the {@link XdsClient} after usage to avoid leaking resources.
+ * Initializing a {@link XdsBootstrap} does not consume any resources until a resource is subscribed
+ * via {@link #subscribe(XdsType, String)}.
+ * Note that it is important to close the {@link XdsBootstrap} after usage to avoid leaking resources.
  */
 @UnstableApi
-public interface XdsClient extends SafeCloseable {
+public interface XdsBootstrap extends SafeCloseable {
 
     /**
-     * Constructs a {@link XdsClient} which watches resources using the provided
+     * Constructs a {@link XdsBootstrap} which watches resources using the provided
      * {@link Bootstrap}.
      */
     @UnstableApi
-    static XdsClient of(Bootstrap bootstrap) {
-        return new XdsClientImpl(bootstrap);
+    static XdsBootstrap of(Bootstrap bootstrap) {
+        return new XdsBootstrapImpl(bootstrap);
     }
 
     /**
      * Starts a watch on the provided type and resource. Once a watch is started, listeners hook to
-     * this {@link XdsClient} will start receiving updates.
+     * this {@link XdsBootstrap} will start receiving updates.
      * Note that it is important that the returned {@link SafeCloseable} is called since this call
      * can potentially create a new connection to the control plane.
      */

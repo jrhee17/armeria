@@ -16,17 +16,42 @@
 
 package com.linecorp.armeria.xds;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+import com.linecorp.armeria.common.util.SafeCloseable;
+
 final class StaticResourceNode<T> implements ResourceNode<ResourceHolder<T>> {
 
     private final ResourceHolder<T> message;
+    private final Deque<SafeCloseable> safeCloseables = new ArrayDeque<>();
 
-    StaticResourceNode(ResourceHolder<T> message) {
+    StaticResourceNode(XdsBootstrapImpl xdsBootstrap, ResourceHolder<T> message) {
         this.message = message;
+
+        switch (message.type()) {
+            case LISTENER:
+                final ListenerResourceHolder listener = (ListenerResourceHolder) message;
+                safeCloseables.add(listener.processHolder(xdsBootstrap));
+                break;
+            case ROUTE:
+                final RouteResourceHolder route = (RouteResourceHolder) message;
+                safeCloseables.addAll(route.processHolder(xdsBootstrap));
+                break;
+            case CLUSTER:
+                final ClusterResourceHolder cluster = (ClusterResourceHolder) message;
+                safeCloseables.add(cluster.processHolder(xdsBootstrap));
+                break;
+            case ENDPOINT:
+                break;
+            default:
+                throw new Error("Unexpected type: " + message.type());
+        }
     }
 
     @Override
     public void onChanged(ResourceHolder<T> update) {
-        // no op
+        throw new Error();
     }
 
     @Override
@@ -41,6 +66,8 @@ final class StaticResourceNode<T> implements ResourceNode<ResourceHolder<T>> {
 
     @Override
     public void close() {
-        // no op
+        while (!safeCloseables.isEmpty()) {
+            safeCloseables.poll().close();
+        }
     }
 }

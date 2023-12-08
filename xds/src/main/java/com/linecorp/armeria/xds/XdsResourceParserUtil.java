@@ -23,7 +23,7 @@ import com.google.protobuf.Message;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 
-final class XdsResourceTypes {
+final class XdsResourceParserUtil {
 
     private static final Map<String, ResourceParser<? extends Message>> typeUrlToResourceType = new HashMap<>();
 
@@ -39,5 +39,15 @@ final class XdsResourceTypes {
         return typeUrlToResourceType.get(typeUrl);
     }
 
-    private XdsResourceTypes() {}
+    @Nullable
+    static ResourceParser<? extends Message> of(Object t) {
+        for (ResourceParser<?> parser: typeUrlToResourceType.values()) {
+            if (parser.clazz().isInstance(t)) {
+                return parser;
+            }
+        }
+        throw new IllegalArgumentException("Unable to find a resource parser for " + t);
+    }
+
+    private XdsResourceParserUtil() {}
 }

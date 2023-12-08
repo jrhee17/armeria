@@ -73,7 +73,7 @@ final class WatchersStorage {
         compositeWatcher.tryNotify();
     }
 
-    void addWatcher(XdsType type, String resource, ResourceNode<?> node) {
+    void addNode(XdsType type, String resource, ResourceNode<?> node) {
         if (!storageMap.containsKey(type)) {
             storageMap.put(type, new HashMap<>());
         }
@@ -86,7 +86,7 @@ final class WatchersStorage {
         notifyListeners(type, resource);
     }
 
-    void removeWatcher(XdsType type, String resource, ResourceNode<?> node) {
+    void removeNode(XdsType type, String resource, ResourceNode<?> node) {
         final Map<String, LinkedHashSet<ResourceNode<?>>> resourceNodes = storageMap.get(type);
         if (resourceNodes == null) {
             return;
@@ -105,8 +105,7 @@ final class WatchersStorage {
         notifyListeners(type, resource);
     }
 
-    void addListener(XdsType type, String resource,
-                     ResourceWatcher<ResourceHolder<?>> watcher) {
+    void addWatcher(XdsType type, String resource, ResourceWatcher<ResourceHolder<?>> watcher) {
         if (!watchers.containsKey(type)) {
             watchers.put(type, new HashMap<>());
         }
@@ -118,8 +117,7 @@ final class WatchersStorage {
         compositeWatcher.addListener(watcher);
     }
 
-    void removeListener(XdsType type, String resource,
-                        ResourceWatcher<ResourceHolder<?>> watcher) {
+    void removeWatcher(XdsType type, String resource, ResourceWatcher<ResourceHolder<?>> watcher) {
         if (!watchers.containsKey(type)) {
             return;
         }
@@ -204,7 +202,7 @@ final class WatchersStorage {
         }
     }
 
-    void clearListeners() {
+    void clearWatchers() {
         watchers.clear();
     }
 }

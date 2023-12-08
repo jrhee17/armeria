@@ -108,11 +108,11 @@ class MultiConfigSourceTest {
     void basicCase() throws Exception {
         final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName1);
         final Bootstrap bootstrap = bootstrap();
-        try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
+        try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
             final TestResourceWatcher<Cluster> watcher =
                     new TestResourceWatcher<>();
-            client.startSubscribe(configSource, XdsType.CLUSTER, "cluster1");
-            client.addListener(XdsType.ENDPOINT, "cluster1", watcher);
+            xdsBootstrap.startSubscribe(configSource, XdsType.CLUSTER, "cluster1");
+            xdsBootstrap.addListener(XdsType.ENDPOINT, "cluster1", watcher);
 
             // Updates are propagated for the initial value
             final ClusterLoadAssignment expectedCluster =
@@ -127,12 +127,12 @@ class MultiConfigSourceTest {
     @Test
     void fromListener() throws Exception {
         final Bootstrap bootstrap = bootstrap();
-        try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
+        try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
             final TestResourceWatcher<Cluster> watcher =
                     new TestResourceWatcher<>();
-            client.subscribe(XdsType.LISTENER, "listener1");
+            xdsBootstrap.subscribe(XdsType.LISTENER, "listener1");
 
-            client.addListener(XdsType.ENDPOINT, "cluster1", watcher);
+            xdsBootstrap.addListener(XdsType.ENDPOINT, "cluster1", watcher);
 
             // Updates are propagated for the initial value
             final ClusterLoadAssignment expectedCluster =

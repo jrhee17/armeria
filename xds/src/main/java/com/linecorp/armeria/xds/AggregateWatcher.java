@@ -34,7 +34,7 @@ import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager;
 
 /**
- * Say that we register a listener via {@link XdsClient#addListenerWatcher(String, ResourceWatcher)}.
+ * Say that we register a listener via {@link XdsBootstrap#addListenerWatcher(String, ResourceWatcher)}.
  * The user will only receive updates for the listener, although he/she may be interested
  * in the eventually fetched endpoints.
  * This watcher aggregates resources such that all ensuing resources may also be observed.
@@ -44,7 +44,7 @@ import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3
  */
 final class AggregateWatcher implements ResourceWatcher<ResourceHolder<?>>, SafeCloseable {
 
-    private final XdsClient xdsClient;
+    private final XdsBootstrap xdsBootstrap;
     Map<XdsType, Deque<SafeCloseable>> closeables = new HashMap<>();
 
     private final Map<String, Listener> listenerMap = new HashMap<>();
@@ -54,25 +54,25 @@ final class AggregateWatcher implements ResourceWatcher<ResourceHolder<?>>, Safe
     private final AggregateWatcherListener listener;
     private final SafeCloseable closeable;
 
-    AggregateWatcher(XdsClient xdsClient, XdsType xdsType, String resourceName,
+    AggregateWatcher(XdsBootstrap xdsBootstrap, XdsType xdsType, String resourceName,
                      AggregateWatcherListener listener) {
-        this.xdsClient = xdsClient;
+        this.xdsBootstrap = xdsBootstrap;
         for (XdsType type: XdsType.values()) {
             closeables.put(type, new ArrayDeque<>());
         }
         this.listener = listener;
         switch (xdsType) {
             case LISTENER:
-                closeable = xdsClient.addListenerWatcher(resourceName, this::onChanged);
+                closeable = xdsBootstrap.addListenerWatcher(resourceName, this::onChanged);
                 break;
             case ROUTE:
-                closeable = xdsClient.addRouteWatcher(resourceName, this::onChanged);
+                closeable = xdsBootstrap.addRouteWatcher(resourceName, this::onChanged);
                 break;
             case CLUSTER:
-                closeable = xdsClient.addClusterWatcher(resourceName, this::onChanged);
+                closeable = xdsBootstrap.addClusterWatcher(resourceName, this::onChanged);
                 break;
             case ENDPOINT:
-                closeable = xdsClient.addEndpointWatcher(resourceName, this::onChanged);
+                closeable = xdsBootstrap.addEndpointWatcher(resourceName, this::onChanged);
                 break;
             default:
                 throw new Error("Shouldn't reach here");
@@ -120,7 +120,7 @@ final class AggregateWatcher implements ResourceWatcher<ResourceHolder<?>>, Safe
         }
         listenerMap.put(listener.getName(), listener);
         notify(holder.type());
-        safeCloseables.add(xdsClient.addRouteWatcher(routeName, this::onChanged));
+        safeCloseables.add(xdsBootstrap.addRouteWatcher(routeName, this::onChanged));
     }
 
     void onRouteChanged(RouteResourceHolder holder, Deque<SafeCloseable> safeCloseables) {
@@ -133,7 +133,7 @@ final class AggregateWatcher implements ResourceWatcher<ResourceHolder<?>>, Safe
             }
             final RouteAction routeAction = route.getRoute();
             final String cluster = routeAction.getCluster();
-            safeCloseables.add(xdsClient.addClusterWatcher(cluster, this::onChanged));
+            safeCloseables.add(xdsBootstrap.addClusterWatcher(cluster, this::onChanged));
         }
     }
 
@@ -141,7 +141,7 @@ final class AggregateWatcher implements ResourceWatcher<ResourceHolder<?>>, Safe
         final Cluster cluster = holder.data();
         clusterMap.put(cluster.getName(), cluster);
         notify(holder.type());
-        safeCloseables.add(xdsClient.addEndpointWatcher(cluster.getName(), this::onChanged));
+        safeCloseables.add(xdsBootstrap.addEndpointWatcher(cluster.getName(), this::onChanged));
     }
 
     void onEndpointChanged(EndpointResourceHolder holder) {

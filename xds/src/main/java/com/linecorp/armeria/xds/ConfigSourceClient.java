@@ -17,61 +17,49 @@
 package com.linecorp.armeria.xds;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.linecorp.armeria.xds.XdsConverterUtil.convertEndpoints;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Duration;
-import com.google.protobuf.Message;
 
-import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.client.endpoint.DynamicEndpointGroup;
 import com.linecorp.armeria.client.grpc.GrpcClientBuilder;
-import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.client.retry.Backoff;
-import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SafeCloseable;
 
-import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.core.v3.ApiConfigSource;
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.core.v3.GrpcService;
 import io.envoyproxy.envoy.config.core.v3.GrpcService.EnvoyGrpc;
 import io.envoyproxy.envoy.config.core.v3.Node;
-import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
-import io.envoyproxy.envoy.service.discovery.v3.AggregatedDiscoveryServiceGrpc.AggregatedDiscoveryServiceStub;
 import io.netty.util.concurrent.EventExecutor;
 
 final class ConfigSourceClient implements SafeCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigSourceClient.class);
 
-    private final XdsClientImpl xdsClient;
+    private final XdsBootstrapImpl xdsBootstrap;
     private final Consumer<GrpcClientBuilder> clientCustomizer;
     private final EventExecutor eventLoop;
     private final XdsResponseHandler handler;
     private final SubscriberStorage subscriberStorage;
     private final ConfigSource configSource;
+    private final Node node;
 
     @Nullable
-    private ResourceWatcher<ClusterResourceHolder> clusterListener;
+    private XdsClientFactory xdsClientFactory;
     @Nullable
-    AggregatedXdsStream stream;
-    @Nullable
-    private ResourcesStorageEndpointGroup endpointGroup;
+    private AggregatedXdsStream stream;
     boolean closed;
 
     ConfigSourceClient(ConfigSourceKey configSourceKey,
                        EventExecutor eventLoop,
-                       WatchersStorage watchersStorage, XdsClientImpl xdsClient,
+                       WatchersStorage watchersStorage, XdsBootstrapImpl xdsBootstrap,
                        Node node, Consumer<GrpcClientBuilder> clientCustomizer) {
         if (configSourceKey.ads()) {
             // TODO: throw an exception when stream discovery is supported
@@ -80,13 +68,14 @@ final class ConfigSourceClient implements SafeCloseable {
         this.configSource = configSourceKey.configSource();
         checkArgument(configSource.hasApiConfigSource(),
                       "No api config source available in %s", configSourceKey);
-        this.xdsClient = xdsClient;
+        this.xdsBootstrap = xdsBootstrap;
         this.clientCustomizer = clientCustomizer;
         this.eventLoop = eventLoop;
         final long fetchTimeoutMillis = initialFetchTimeoutMillis(configSource);
         this.subscriberStorage = new SubscriberStorage(eventLoop, watchersStorage, fetchTimeoutMillis);
         this.handler = new DefaultResponseHandler(subscriberStorage);
-        // Initialization is rescheduled to avoid recursive updates to XdsClient#clientMap.
+        this.node = node;
+        // Initialization is rescheduled to avoid recursive updates to XdsBootstrap#clientMap.
         eventLoop.execute(this::maybeStart);
     }
 
@@ -100,61 +89,16 @@ final class ConfigSourceClient implements SafeCloseable {
         // just use the first grpc service for now
         final GrpcService grpcService = grpcServices.get(0);
         final EnvoyGrpc envoyGrpc = grpcService.getEnvoyGrpc();
-
-        // Configures the stream depending on the cluster
-        clusterListener = new ResourceWatcher<ClusterResourceHolder>() {
-
-            @Override
-            public void onResourceDoesNotExist(XdsType type, String resourceName) {
-                if (stream != null) {
-                    stream.close();
-                    stream = null;
-                }
-                if (endpointGroup != null) {
-                    endpointGroup.closeAsync();
-                    endpointGroup = null;
-                }
+        xdsClientFactory = new XdsClientFactory(xdsBootstrap, envoyGrpc.getClusterName(),
+                                                clientCustomizer, stub -> {
+            if (stream != null) {
+                stream.close();
             }
-
-            @Override
-            public void onChanged(ClusterResourceHolder clusterResourceHolder) {
-                final Cluster cluster = clusterResourceHolder.data();
-                if (stream != null) {
-                    stream.close();
-                    stream = null;
-                }
-                if (endpointGroup != null) {
-                    endpointGroup.closeAsync();
-                    endpointGroup = null;
-                }
-                UpstreamTlsContext tlsContext = null;
-                // Just assume that clusters are immutable for now.
-                // Supporting dynamic clusters can be tricky since a GrpcClient can't support
-                // both TLS and non-TLS simultaneously.
-                if (cluster.hasTransportSocket()) {
-                    final String transportSocketName = cluster.getTransportSocket().getName();
-                    assert "envoy.transport_sockets.tls".equals(transportSocketName);
-                    try {
-                        tlsContext = cluster.getTransportSocket().getTypedConfig().unpack(
-                                UpstreamTlsContext.class);
-                    } catch (Exception e) {
-                        throw new RuntimeException("Error unpacking tls context", e);
-                    }
-                }
-                final SessionProtocol sessionProtocol =
-                        tlsContext != null ? SessionProtocol.HTTPS : SessionProtocol.HTTP;
-                endpointGroup = new ResourcesStorageEndpointGroup(cluster, xdsClient,
-                                                                  envoyGrpc.getClusterName());
-                final GrpcClientBuilder builder = GrpcClients.builder(sessionProtocol, endpointGroup);
-                clientCustomizer.accept(builder);
-                final AggregatedDiscoveryServiceStub stub = builder.build(AggregatedDiscoveryServiceStub.class);
-                stream = new AggregatedXdsStream(stub, Node.getDefaultInstance(),
-                                                 Backoff.ofDefault(),
-                                                 eventLoop, handler, subscriberStorage);
-                stream.start();
-            }
-        };
-        xdsClient.addClusterWatcher(envoyGrpc.getClusterName(), clusterListener);
+            stream = new AggregatedXdsStream(stub, node,
+                                             Backoff.ofDefault(),
+                                             eventLoop, handler, subscriberStorage);
+            stream.start();
+        });
     }
 
     void maybeUpdateResources(XdsType type) {
@@ -163,13 +107,13 @@ final class ConfigSourceClient implements SafeCloseable {
         }
     }
 
-    <T extends Message> void addSubscriber(XdsType type, String resourceName, XdsClientImpl client) {
-        if (subscriberStorage.register(type, resourceName, client))  {
+    void addSubscriber(XdsType type, String resourceName, XdsBootstrapImpl xdsBootstrap) {
+        if (subscriberStorage.register(type, resourceName, xdsBootstrap))  {
             maybeUpdateResources(type);
         }
     }
 
-    <T extends Message> boolean removeSubscriber(XdsType type, String resourceName) {
+    boolean removeSubscriber(XdsType type, String resourceName) {
         if (subscriberStorage.unregister(type, resourceName)) {
             maybeUpdateResources(type);
         }
@@ -182,8 +126,8 @@ final class ConfigSourceClient implements SafeCloseable {
         if (stream != null) {
             stream.close();
         }
-        if (endpointGroup != null) {
-            endpointGroup.closeAsync();
+        if (xdsClientFactory != null) {
+            xdsClientFactory.close();
         }
         subscriberStorage.close();
     }
@@ -195,49 +139,5 @@ final class ConfigSourceClient implements SafeCloseable {
         final Duration timeoutDuration = configSource.getInitialFetchTimeout();
         final Instant instant = Instant.ofEpochSecond(timeoutDuration.getSeconds(), timeoutDuration.getNanos());
         return instant.toEpochMilli();
-    }
-
-    static class ResourcesStorageEndpointGroup extends DynamicEndpointGroup
-            implements ResourceWatcher<EndpointResourceHolder> {
-        final XdsClientImpl xdsClient;
-        final String clusterName;
-        private final SafeCloseable watcherCloseable;
-
-        ResourcesStorageEndpointGroup(Cluster cluster, XdsClientImpl xdsClient, String clusterName) {
-            this.xdsClient = xdsClient;
-            this.clusterName = clusterName;
-
-            if (cluster.hasEdsClusterConfig()) {
-                final ConfigSource configSource = cluster.getEdsClusterConfig().getEdsConfig();
-                watcherCloseable = xdsClient.startSubscribe(configSource, XdsType.ENDPOINT,
-                                                            clusterName);
-            } else if (cluster.hasLoadAssignment()) {
-                watcherCloseable = null;
-                final List<Endpoint> endpoints = convertEndpoints(cluster.getLoadAssignment());
-                setEndpoints(endpoints);
-            } else {
-                throw new IllegalArgumentException("Unexpected cluster type");
-            }
-            xdsClient.addEndpointWatcher(clusterName, this);
-        }
-
-        @Override
-        public void onResourceDoesNotExist(XdsType type, String resourceName) {
-            setEndpoints(ImmutableList.of());
-        }
-
-        @Override
-        public void onChanged(EndpointResourceHolder update) {
-            final List<Endpoint> endpoints = convertEndpoints(update.data());
-            setEndpoints(endpoints);
-        }
-
-        @Override
-        protected void doCloseAsync(CompletableFuture<?> future) {
-            if (watcherCloseable != null) {
-                watcherCloseable.close();
-            }
-            super.doCloseAsync(future);
-        }
     }
 }

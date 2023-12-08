@@ -45,14 +45,14 @@ class XdsStreamSubscriber<T extends Message> implements SafeCloseable {
     private int reference;
 
     XdsStreamSubscriber(XdsType type, String resource, EventExecutor eventLoop, long timeoutMillis,
-                        WatchersStorage watchersStorage, XdsClientImpl client) {
+                        WatchersStorage watchersStorage, XdsBootstrapImpl xdsBootstrap) {
         this.type = type;
         this.resource = resource;
         this.eventLoop = eventLoop;
         this.timeoutMillis = timeoutMillis;
         this.watchersStorage = watchersStorage;
-        this.node = (ResourceNode<ResourceHolder<T>>) DynamicResourceNode.from(type, client);
-        watchersStorage.addWatcher(type, resource, node);
+        this.node = (ResourceNode<ResourceHolder<T>>) DynamicResourceNode.from(type, xdsBootstrap);
+        watchersStorage.addNode(type, resource, node);
 
         restartTimer();
         reference = 1;
@@ -79,7 +79,7 @@ class XdsStreamSubscriber<T extends Message> implements SafeCloseable {
     @Override
     public void close() {
         maybeCancelAbsentTimer();
-        watchersStorage.removeWatcher(type, resource, node);
+        watchersStorage.removeNode(type, resource, node);
         node.close();
     }
 

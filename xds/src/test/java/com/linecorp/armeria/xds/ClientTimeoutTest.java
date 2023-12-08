@@ -84,9 +84,10 @@ class ClientTimeoutTest {
         final ClusterLoadAssignment loadAssignment =
                 XdsTestResources.loadAssignment(bootstrapClusterName, uri.getHost(), uri.getPort());
         final Cluster cluster = XdsTestResources.createStaticCluster(bootstrapClusterName, loadAssignment);
-        try (XdsClientImpl client = new XdsClientImpl(XdsTestResources.bootstrap(configSource, cluster))) {
-            client.startSubscribe(null, XdsType.CLUSTER, clusterName);
-            client.addListener(XdsType.CLUSTER, clusterName, watcher);
+        final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, cluster);
+        try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
+            xdsBootstrap.startSubscribe(null, XdsType.CLUSTER, clusterName);
+            xdsBootstrap.addListener(XdsType.CLUSTER, clusterName, watcher);
 
             await().untilAsserted(
                     () -> assertThat(watcher.first("onResourceDoesNotExist")).hasValue(clusterName));
@@ -113,9 +114,9 @@ class ClientTimeoutTest {
         final String clusterName = "cluster1";
         final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
-        try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            client.startSubscribe(configSource, XdsType.CLUSTER, clusterName);
-            client.addListener(XdsType.CLUSTER, clusterName, watcher);
+        try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
+            xdsBootstrap.startSubscribe(configSource, XdsType.CLUSTER, clusterName);
+            xdsBootstrap.addListener(XdsType.CLUSTER, clusterName, watcher);
 
             cache.setSnapshot(
                     GROUP,

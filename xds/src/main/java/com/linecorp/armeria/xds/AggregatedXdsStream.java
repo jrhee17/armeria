@@ -16,7 +16,7 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.linecorp.armeria.xds.XdsResourceTypes.fromTypeUrl;
+import static com.linecorp.armeria.xds.XdsResourceParserUtil.fromTypeUrl;
 import static java.util.Objects.requireNonNull;
 
 import java.util.Collection;

@@ -45,7 +45,7 @@ final class SubscriberStorage implements SafeCloseable {
     }
 
     @Nullable
-    boolean register(XdsType type, String resourceName, XdsClientImpl client) {
+    boolean register(XdsType type, String resourceName, XdsBootstrapImpl xdsBootstrap) {
         if (!subscriberMap.containsKey(type)) {
             subscriberMap.put(type, new HashMap<>());
         }
@@ -56,7 +56,7 @@ final class SubscriberStorage implements SafeCloseable {
             return false;
         }
         subscriber = new XdsStreamSubscriber<>(type, resourceName, eventLoop, timeoutMillis, watchersStorage,
-                                               client);
+                                               xdsBootstrap);
         subscriberMap.get(type).put(resourceName, subscriber);
         return true;
     }

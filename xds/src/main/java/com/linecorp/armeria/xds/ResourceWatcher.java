@@ -22,8 +22,8 @@ import io.grpc.Status;
 
 /**
  * A listener implementation which waits for the updates on the xDS resource.
- * This listener can be added to a {@link XdsClient} via
- * {@link XdsClient#addClusterWatcher(String, ResourceWatcher)} to listen for updates.
+ * This listener can be added to a {@link XdsBootstrap} via
+ * {@link XdsBootstrap#addClusterWatcher(String, ResourceWatcher)} to listen for updates.
  */
 @UnstableApi
 public interface ResourceWatcher<T extends ResourceHolder<?>> {

@@ -21,8 +21,8 @@ import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 
 final class ClusterResourceNode extends DynamicResourceNode<Cluster, ClusterResourceHolder> {
 
-    ClusterResourceNode(XdsClientImpl xdsClient) {
-        super(xdsClient);
+    ClusterResourceNode(XdsBootstrapImpl xdsBootstrap) {
+        super(xdsBootstrap);
     }
 
     @Override
@@ -31,12 +31,12 @@ final class ClusterResourceNode extends DynamicResourceNode<Cluster, ClusterReso
         switch (cluster.getType()) {
             case EDS:
                 final ConfigSource configSource = cluster.getEdsClusterConfig().getEdsConfig();
-                safeCloseables.add(xdsClient().startSubscribe(configSource, XdsType.ENDPOINT,
+                safeCloseables.add(xdsBootstrap().startSubscribe(configSource, XdsType.ENDPOINT,
                                                               cluster.getName()));
                 break;
             case LOGICAL_DNS:
             case STATIC:
-                safeCloseables.add(xdsClient().addStaticWatcher(
+                safeCloseables.add(xdsBootstrap().addStaticWatcher(
                         XdsType.ENDPOINT.typeUrl(),
                         cluster.getName(), cluster.getLoadAssignment()));
                 break;

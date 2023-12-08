@@ -34,28 +34,28 @@ abstract class DynamicResourceNode<T extends Message, U extends ResourceHolder<T
 
     private static final Logger logger = LoggerFactory.getLogger(DynamicResourceNode.class);
 
-    static ResourceNode<?> from(XdsType type, XdsClientImpl client) {
+    static ResourceNode<?> from(XdsType type, XdsBootstrapImpl xdsBootstrap) {
         if (type == XdsType.LISTENER) {
-            return new ListenerResourceNode(client);
+            return new ListenerResourceNode(xdsBootstrap);
         } else if (type == XdsType.ROUTE) {
-            return new RouteResourceNode(client);
+            return new RouteResourceNode(xdsBootstrap);
         } else if (type == XdsType.CLUSTER) {
-            return new ClusterResourceNode(client);
+            return new ClusterResourceNode(xdsBootstrap);
         } else if (type == XdsType.ENDPOINT) {
-            return new EndpointResourceNode(client);
+            return new EndpointResourceNode(xdsBootstrap);
         } else {
             throw new IllegalArgumentException("Unsupported type: " + type);
         }
     }
 
-    private final XdsClientImpl xdsClient;
+    private final XdsBootstrapImpl xdsBootstrap;
     @Nullable
     private U current;
     List<SafeCloseable> safeCloseables = new ArrayList<>();
     boolean initialized;
 
-    DynamicResourceNode(XdsClientImpl xdsClient) {
-        this.xdsClient = xdsClient;
+    DynamicResourceNode(XdsBootstrapImpl xdsBootstrap) {
+        this.xdsBootstrap = xdsBootstrap;
     }
 
     @Override
@@ -63,8 +63,8 @@ abstract class DynamicResourceNode<T extends Message, U extends ResourceHolder<T
         cleanupPreviousWatchers();
     }
 
-    XdsClientImpl xdsClient() {
-        return xdsClient;
+    XdsBootstrapImpl xdsBootstrap() {
+        return xdsBootstrap;
     }
 
     void setCurrent(@Nullable U t) {

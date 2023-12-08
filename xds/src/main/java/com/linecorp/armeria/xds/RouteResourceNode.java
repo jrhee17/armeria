@@ -16,26 +16,16 @@
 
 package com.linecorp.armeria.xds;
 
-import io.envoyproxy.envoy.config.route.v3.Route;
-import io.envoyproxy.envoy.config.route.v3.Route.ActionCase;
-import io.envoyproxy.envoy.config.route.v3.RouteAction;
 import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 
 final class RouteResourceNode extends DynamicResourceNode<RouteConfiguration, RouteResourceHolder> {
 
-    RouteResourceNode(XdsClientImpl xdsClient) {
-        super(xdsClient);
+    RouteResourceNode(XdsBootstrapImpl xdsBootstrap) {
+        super(xdsBootstrap);
     }
 
     @Override
     void process(RouteResourceHolder update) {
-        for (Route route: update.routes()) {
-            if (route.getActionCase() != ActionCase.ROUTE) {
-                continue;
-            }
-            final RouteAction routeAction = route.getRoute();
-            final String cluster = routeAction.getCluster();
-            safeCloseables.add(xdsClient().subscribe(XdsType.CLUSTER, cluster));
-        }
+        safeCloseables.addAll(update.processHolder(xdsBootstrap()));
     }
 }

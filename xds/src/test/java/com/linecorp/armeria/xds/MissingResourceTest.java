@@ -98,12 +98,12 @@ class MissingResourceTest {
         final String clusterName = "cluster1";
         final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
-        try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            client.startSubscribe(configSource, XdsType.CLUSTER, clusterName);
+        try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
+            xdsBootstrap.startSubscribe(configSource, XdsType.CLUSTER, clusterName);
             final TestResourceWatcher<Cluster> clusterWatcher = new TestResourceWatcher<>();
             final TestResourceWatcher<Cluster> endpointWatcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.CLUSTER, clusterName, clusterWatcher);
-            client.addListener(XdsType.ENDPOINT, clusterName, endpointWatcher);
+            xdsBootstrap.addListener(XdsType.CLUSTER, clusterName, clusterWatcher);
+            xdsBootstrap.addListener(XdsType.ENDPOINT, clusterName, endpointWatcher);
 
             // Updates are propagated for the initial cluster
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
@@ -149,18 +149,17 @@ class MissingResourceTest {
                         "1"));
 
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
-        try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            client.startSubscribe(configSource, XdsType.CLUSTER, clusterName);
+        try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
+            xdsBootstrap.startSubscribe(configSource, XdsType.CLUSTER, clusterName);
             final TestResourceWatcher<Cluster> clusterWatcher = new TestResourceWatcher<>();
             final TestResourceWatcher<Cluster> endpointWatcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.CLUSTER, clusterName, clusterWatcher);
-            client.addListener(XdsType.ENDPOINT, clusterName, endpointWatcher);
+            xdsBootstrap.addListener(XdsType.CLUSTER, clusterName, clusterWatcher);
+            xdsBootstrap.addListener(XdsType.ENDPOINT, clusterName, endpointWatcher);
 
             // Updates are propagated for the initial cluster
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
             awaitAssert(clusterWatcher, "onChanged", expectedCluster);
             awaitAssert(endpointWatcher, "onChanged", assignment);
-
 
             // Send another update with missing cluster
             cache.setSnapshot(

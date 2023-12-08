@@ -29,41 +29,56 @@ import com.google.common.annotations.VisibleForTesting;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.DynamicEndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SafeCloseable;
 
 import io.envoyproxy.envoy.config.core.v3.SocketAddress;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 
 /**
- * Provides a simple {@link EndpointGroup} which listens to a xDS cluster
- * (and optionally a listener) to select endpoints.
+ * Provides a simple {@link EndpointGroup} which listens to a xDS cluster to select endpoints.
  * Listening to EDS can be done like the following:
  * <pre>{@code
- * XdsClient client = XdsClient.of(...);
- * EndpointGroup endpointGroup = XdsEndpointGroup.of(client, "my-cluster");
+ * XdsBootstrap xdsBootstrap = XdsBootstrap.of(...);
+ * EndpointGroup endpointGroup = XdsEndpointGroup.of(xdsBootstrap, "my-cluster");
  * WebClient client = WebClient.of(SessionProtocol.HTTP, endpointGroup);
  * }</pre>
  * Currently, all {@link SocketAddress}es of a {@link ClusterLoadAssignment} are aggregated
  * to a list and added to this {@link EndpointGroup}. Features such as automatic TLS detection
  * or locality based load balancing are not supported yet.
  * Note that it is important to shut down the endpoint group to clean up resources
- * for the provided {@link XdsClient}.
+ * for the provided {@link XdsBootstrap}.
  */
 public final class XdsEndpointGroup extends DynamicEndpointGroup {
 
     private final SafeCloseable closeable;
-    private final SafeCloseable watchCloseable;
+    @Nullable
+    private final SafeCloseable subscribeCloseable;
 
     /**
      * Creates a {@link XdsEndpointGroup} which listens to the specified {@code resourceName}.
      */
-    public static EndpointGroup of(XdsClient xdsClient, XdsType type, String resourceName) {
+    public static EndpointGroup of(XdsBootstrap xdsBootstrap, XdsType type, String resourceName) {
         checkArgument(type == XdsType.ENDPOINT, "Received %s but only ENDPOINT is supported.", type);
-        return new XdsEndpointGroup(xdsClient, type, resourceName);
+        return of(xdsBootstrap, type, resourceName, true);
+    }
+
+    /**
+     * Creates a {@link XdsEndpointGroup} which listens to the specified {@code resourceName}.
+     * @param autoSubscribe whether to subscribe to the {@link XdsBootstrap} by default.
+     */
+    public static EndpointGroup of(XdsBootstrap xdsBootstrap, XdsType type,
+                                   String resourceName, boolean autoSubscribe) {
+        return new XdsEndpointGroup(xdsBootstrap, type, resourceName, autoSubscribe);
     }
 
     @VisibleForTesting
-    XdsEndpointGroup(XdsClient xdsClient, XdsType type, String resourceName) {
+    XdsEndpointGroup(XdsBootstrap xdsBootstrap, XdsType type, String resourceName, boolean autoSubscribe) {
+        if (autoSubscribe) {
+            subscribeCloseable = xdsBootstrap.subscribe(type, resourceName);
+        } else {
+            subscribeCloseable = null;
+        }
         final AggregateWatcherListener listener = new AggregateWatcherListener() {
             @Override
             public void onEndpointUpdate(
@@ -75,14 +90,15 @@ public final class XdsEndpointGroup extends DynamicEndpointGroup {
                 setEndpoints(endpoints);
             }
         };
-        this.closeable = new AggregateWatcher(xdsClient, type, resourceName, listener);
-        watchCloseable = xdsClient.subscribe(type, resourceName);
+        this.closeable = new AggregateWatcher(xdsBootstrap, type, resourceName, listener);
     }
 
     @Override
     protected void doCloseAsync(CompletableFuture<?> future) {
         closeable.close();
-        watchCloseable.close();
+        if (subscribeCloseable != null) {
+            subscribeCloseable.close();
+        }
         super.doCloseAsync(future);
     }
 }

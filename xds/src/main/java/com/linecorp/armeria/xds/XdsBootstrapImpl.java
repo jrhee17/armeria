@@ -22,10 +22,14 @@ import static com.linecorp.armeria.xds.XdsType.LISTENER;
 import static com.linecorp.armeria.xds.XdsType.ROUTE;
 import static java.util.Objects.requireNonNull;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
@@ -41,7 +45,7 @@ import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.core.v3.Node;
 import io.netty.util.concurrent.EventExecutor;
 
-final class XdsClientImpl implements XdsClient {
+final class XdsBootstrapImpl implements XdsBootstrap {
     private final EventExecutor eventLoop;
 
     private final Map<ConfigSourceKey, ConfigSourceClient> clientMap = new ConcurrentHashMap<>();
@@ -50,12 +54,13 @@ final class XdsClientImpl implements XdsClient {
     private final BootstrapApiConfigs bootstrapApiConfigs;
     private final Consumer<GrpcClientBuilder> configClientCustomizer;
     private final Node node;
+    private final Deque<SafeCloseable> safeCloseables = new ArrayDeque<>();
 
-    XdsClientImpl(Bootstrap bootstrap) {
+    XdsBootstrapImpl(Bootstrap bootstrap) {
         this(bootstrap, ignored -> {});
     }
 
-    XdsClientImpl(Bootstrap bootstrap, Consumer<GrpcClientBuilder> configClientCustomizer) {
+    XdsBootstrapImpl(Bootstrap bootstrap, Consumer<GrpcClientBuilder> configClientCustomizer) {
         this.eventLoop = CommonPools.workerGroup().next();
         watchersStorage = new WatchersStorage();
         this.configClientCustomizer = configClientCustomizer;
@@ -63,10 +68,19 @@ final class XdsClientImpl implements XdsClient {
 
         if (bootstrap.hasStaticResources()) {
             final StaticResources staticResources = bootstrap.getStaticResources();
-            staticResources.getListenersList().forEach(
-                    listener -> addStaticWatcher(LISTENER.typeUrl(), listener.getName(), listener));
-            staticResources.getClustersList().forEach(
-                    cluster -> addStaticWatcher(CLUSTER.typeUrl(), cluster.getName(), cluster));
+
+            final List<SafeCloseable> staticListenerCloseables =
+                    staticResources.getListenersList().stream()
+                                   .map(listener -> addStaticWatcher(LISTENER.typeUrl(), listener.getName(),
+                                                                     listener))
+                                   .collect(Collectors.toList());
+            safeCloseables.addAll(staticListenerCloseables);
+            final List<SafeCloseable> staticClusterCloseables =
+                    staticResources.getClustersList().stream()
+                                   .map(cluster -> addStaticWatcher(CLUSTER.typeUrl(), cluster.getName(),
+                                                                    cluster))
+                                   .collect(Collectors.toList());
+            safeCloseables.addAll(staticClusterCloseables);
         }
         this.node = bootstrap.hasNode() ? bootstrap.getNode() : Node.getDefaultInstance();
     }
@@ -114,13 +128,13 @@ final class XdsClientImpl implements XdsClient {
     }
 
     SafeCloseable addStaticWatcher(String typeUrl, String resourceName, Message t) {
-        final ResourceParser<?> resourceParser = XdsResourceTypes.fromTypeUrl(typeUrl);
+        final ResourceParser<?> resourceParser = XdsResourceParserUtil.fromTypeUrl(typeUrl);
         if (resourceParser == null) {
             throw new IllegalArgumentException("Invalid type url: " + typeUrl);
         }
         final ResourceHolder<?> parsed = resourceParser.parse(t);
         final XdsType type = resourceParser.type();
-        final StaticResourceNode<?> watcher = new StaticResourceNode<>(parsed);
+        final StaticResourceNode<?> watcher = new StaticResourceNode<>(this, parsed);
         addStaticWatcher0(parsed.type(), resourceName, watcher);
         final AtomicBoolean executeOnceGuard = new AtomicBoolean();
         return () -> removeStaticWatcher0(type, resourceName, watcher, executeOnceGuard);
@@ -132,7 +146,7 @@ final class XdsClientImpl implements XdsClient {
             eventLoop.execute(() -> addStaticWatcher0(type, resourceName, watcher));
             return;
         }
-        watchersStorage.addWatcher(type, resourceName, watcher);
+        watchersStorage.addNode(type, resourceName, watcher);
     }
 
     private void removeStaticWatcher0(XdsType type, String resourceName,
@@ -145,7 +159,7 @@ final class XdsClientImpl implements XdsClient {
         if (!executeOnceGuard.compareAndSet(false, true)) {
             return;
         }
-        watchersStorage.removeWatcher(type, resourceName, watcher);
+        watchersStorage.removeNode(type, resourceName, watcher);
     }
 
     @VisibleForTesting
@@ -155,8 +169,8 @@ final class XdsClientImpl implements XdsClient {
         requireNonNull(type, "type");
         final ResourceWatcher<ResourceHolder<?>> cast =
                 (ResourceWatcher<ResourceHolder<?>>) requireNonNull(watcher, "watcher");
-        eventLoop.execute(() -> watchersStorage.addListener(type, resourceName, cast));
-        return () -> eventLoop.execute(() -> watchersStorage.removeListener(type, resourceName, cast));
+        eventLoop.execute(() -> watchersStorage.addWatcher(type, resourceName, cast));
+        return () -> eventLoop.execute(() -> watchersStorage.removeWatcher(type, resourceName, cast));
     }
 
     @Override
@@ -189,9 +203,12 @@ final class XdsClientImpl implements XdsClient {
             return;
         }
         // first clear listeners so that updates are not received anymore
-        watchersStorage.clearListeners();
+        watchersStorage.clearWatchers();
         clientMap().values().forEach(ConfigSourceClient::close);
         clientMap.clear();
+        while (!safeCloseables.isEmpty()) {
+            safeCloseables.poll().close();
+        }
     }
 
     @VisibleForTesting

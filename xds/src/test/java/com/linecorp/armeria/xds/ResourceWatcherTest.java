@@ -83,16 +83,16 @@ public class ResourceWatcherTest {
         final String bootstrapClusterName = "bootstrap-cluster";
         final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
-        try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
+        try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
             final TestResourceWatcher<Cluster> clusterWatcher = new TestResourceWatcher<>();
-            client.startSubscribe(configSource, XdsType.CLUSTER, resourceName);
-            client.addListener(XdsType.CLUSTER, resourceName, clusterWatcher);
+            xdsBootstrap.startSubscribe(configSource, XdsType.CLUSTER, resourceName);
+            xdsBootstrap.addListener(XdsType.CLUSTER, resourceName, clusterWatcher);
             // the initial endpoint is fetched
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get(resourceName);
             awaitAssert(clusterWatcher, "onChanged", expectedCluster);
 
             final TestResourceWatcher<ClusterLoadAssignment> endpointsWatcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.ENDPOINT, resourceName, endpointsWatcher);
+            xdsBootstrap.addListener(XdsType.ENDPOINT, resourceName, endpointsWatcher);
             final ClusterLoadAssignment expectedEndpoints = cache.getSnapshot(GROUP)
                                                                  .endpoints()
                                                                  .resources()
@@ -124,17 +124,17 @@ public class ResourceWatcherTest {
         final String bootstrapClusterName = "bootstrap-cluster";
         final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
-        try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            client.startSubscribe(configSource, XdsType.CLUSTER, resourceName);
+        try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
+            xdsBootstrap.startSubscribe(configSource, XdsType.CLUSTER, resourceName);
             final TestResourceWatcher<Cluster> clusterWatcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.CLUSTER, resourceName, clusterWatcher);
+            xdsBootstrap.addListener(XdsType.CLUSTER, resourceName, clusterWatcher);
             // the initial endpoint is fetched
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get(resourceName);
             awaitAssert(clusterWatcher, "onChanged", expectedCluster);
 
             final ClusterLoadAssignment expected = expectedCluster.getLoadAssignment();
             final TestResourceWatcher<ClusterLoadAssignment> endpointWatcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.ENDPOINT, resourceName, endpointWatcher);
+            xdsBootstrap.addListener(XdsType.ENDPOINT, resourceName, endpointWatcher);
             awaitAssert(endpointWatcher, "onChanged", expected);
 
             // update the cache
@@ -169,17 +169,17 @@ public class ResourceWatcherTest {
         final String bootstrapClusterName = "bootstrap-cluster";
         final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
-        try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            client.startSubscribe(configSource, XdsType.CLUSTER, resourceName);
+        try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
+            xdsBootstrap.startSubscribe(configSource, XdsType.CLUSTER, resourceName);
             final TestResourceWatcher<Cluster> clusterWatcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.CLUSTER, resourceName, clusterWatcher);
+            xdsBootstrap.addListener(XdsType.CLUSTER, resourceName, clusterWatcher);
             // the initial endpoint is fetched
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get(resourceName);
             awaitAssert(clusterWatcher, "onChanged", expectedCluster);
 
             final ClusterLoadAssignment expected = expectedCluster.getLoadAssignment();
             final TestResourceWatcher<ClusterLoadAssignment> endpointWatcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.ENDPOINT, resourceName, endpointWatcher);
+            xdsBootstrap.addListener(XdsType.ENDPOINT, resourceName, endpointWatcher);
             awaitAssert(endpointWatcher, "onChanged", expected);
 
             // update the cache

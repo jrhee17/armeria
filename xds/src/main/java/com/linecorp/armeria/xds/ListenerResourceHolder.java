@@ -22,9 +22,13 @@ import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.util.SafeCloseable;
 
+import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.listener.v3.Listener;
+import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager;
+import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.Rds;
 
 /**
  * A holder object for a {@link Listener}.
@@ -60,6 +64,22 @@ public final class ListenerResourceHolder implements ResourceHolder<Listener> {
             throw new RuntimeException(e);
         }
         return connectionManager;
+    }
+
+    SafeCloseable processHolder(XdsBootstrapImpl xdsBootstrap) {
+        final HttpConnectionManager connectionManager = connectionManager();
+        if (connectionManager.hasRouteConfig()) {
+            final RouteConfiguration routeConfig = connectionManager.getRouteConfig();
+            return xdsBootstrap.addStaticWatcher(XdsType.ROUTE.typeUrl(),
+                                              routeConfig.getName(), routeConfig);
+        } else if (connectionManager.hasRds()) {
+            final Rds rds = connectionManager.getRds();
+            final String routeName = rds.getRouteConfigName();
+            final ConfigSource configSource = rds.getConfigSource();
+            return xdsBootstrap.startSubscribe(configSource, XdsType.ROUTE, routeName);
+        } else {
+            throw new IllegalArgumentException("A connection manager should have a RouteConfig or RDS.");
+        }
     }
 
     @Override

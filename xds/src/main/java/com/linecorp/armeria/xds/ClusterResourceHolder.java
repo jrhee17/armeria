@@ -19,7 +19,10 @@ package com.linecorp.armeria.xds;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
+import com.linecorp.armeria.common.util.SafeCloseable;
+
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
+import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 
 /**
  * A holder object for a {@link Cluster}.
@@ -40,6 +43,22 @@ public final class ClusterResourceHolder implements ResourceHolder<Cluster> {
     @Override
     public Cluster data() {
         return cluster;
+    }
+
+    SafeCloseable processHolder(XdsBootstrapImpl xdsBootstrap) {
+        final Cluster cluster = data();
+        switch (cluster.getType()) {
+            case EDS:
+                final ConfigSource configSource = cluster.getEdsClusterConfig().getEdsConfig();
+                return xdsBootstrap.startSubscribe(configSource, XdsType.ENDPOINT, cluster.getName());
+            case LOGICAL_DNS:
+            case STATIC:
+                return xdsBootstrap.addStaticWatcher(XdsType.ENDPOINT.typeUrl(),
+                                                  cluster.getName(), cluster.getLoadAssignment());
+            default:
+                throw new IllegalArgumentException(
+                        "Unsupported endpoint discovery type '" + cluster.getType() + "'.");
+        }
     }
 
     @Override

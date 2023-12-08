@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.xds;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,8 +24,11 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.util.SafeCloseable;
 
 import io.envoyproxy.envoy.config.route.v3.Route;
+import io.envoyproxy.envoy.config.route.v3.Route.ActionCase;
+import io.envoyproxy.envoy.config.route.v3.RouteAction;
 import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 
@@ -60,6 +64,19 @@ public final class RouteResourceHolder implements ResourceHolder<RouteConfigurat
         routes = virtualHosts.stream().flatMap(vh -> vh.getRoutesList().stream())
                              .collect(Collectors.toList());
         return routes;
+    }
+
+    List<SafeCloseable> processHolder(XdsBootstrapImpl xdsBootstrap) {
+        final List<SafeCloseable> safeCloseables = new ArrayList<>();
+        for (Route route: routes()) {
+            if (route.getActionCase() != ActionCase.ROUTE) {
+                continue;
+            }
+            final RouteAction routeAction = route.getRoute();
+            final String cluster = routeAction.getCluster();
+            safeCloseables.add(xdsBootstrap.subscribe(XdsType.CLUSTER, cluster));
+        }
+        return safeCloseables;
     }
 
     @Override
