@@ -35,7 +35,6 @@ mrJarVersions.each { version->
         testClassesDirs = sourceSets."java${version}Test".output.classesDirs
         classpath = sourceSets."java${version}Test".runtimeClasspath
 
-        useJUnitPlatform()
         project.ext.configureCommonTestSettings(it)
         enabled = project.ext.testJavaVersion >= targetJavaVersion
     }
@@ -125,9 +124,6 @@ dependencies {
     ['linux-x86_64', 'linux-aarch_64', 'osx-x86_64', 'osx-aarch_64', 'windows-x86_64'].each { arch ->
         implementation(variantOf(libs.netty.tcnative.boringssl) { classifier(arch) })
     }
-
-    // TestNG
-    testImplementation libs.testng
 
     // JUnit Pioneer
     testImplementation libs.junit.pioneer
