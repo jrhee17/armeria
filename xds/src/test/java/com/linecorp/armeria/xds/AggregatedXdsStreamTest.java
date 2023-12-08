@@ -149,6 +149,8 @@ class AggregatedXdsStreamTest {
 
             // now the stream is stopped, so no more updates
             stream.stop();
+            await().until(() -> stream.requestObserver == null);
+
             cache.setSnapshot(
                     GROUP,
                     Snapshot.create(
@@ -185,6 +187,8 @@ class AggregatedXdsStreamTest {
 
             // stop the stream and verify there are no updates
             stream.stop();
+            await().until(() -> stream.requestObserver == null);
+
             cache.setSnapshot(
                     GROUP,
                     Snapshot.create(

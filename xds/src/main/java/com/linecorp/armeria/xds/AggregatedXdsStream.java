@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
 import com.google.rpc.Code;
 
@@ -57,7 +58,8 @@ final class AggregatedXdsStream implements XdsStreamSender, SafeCloseable {
     private final StreamObserver<DiscoveryResponse> responseObserver =
             new DiscoveryResponseObserver();
     @Nullable
-    private StreamObserver<DiscoveryRequest> requestObserver;
+    @VisibleForTesting
+    StreamObserver<DiscoveryRequest> requestObserver;
     private int backoffAttempts;
     // whether the stream is stopped explicitly by the user
     private boolean stopped;

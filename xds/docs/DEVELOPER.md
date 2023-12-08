@@ -163,3 +163,5 @@ caches the last notified value.
   such as `path_config_source`, `tls`, etc. are not supported.
 - The xDS V3 protobuf API is exposed directly to the user. This may cause unexpected behavior because
   protobuf objects are by default mutable.
+- Provide a way to return a snapshot of an update. For instance, if a listener is updated a watcher
+  could notify after all resources the listener fetched are aggregated.
