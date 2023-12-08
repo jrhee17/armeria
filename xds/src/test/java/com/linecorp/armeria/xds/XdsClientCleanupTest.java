@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.xds;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import java.util.Map;
@@ -65,17 +66,18 @@ class XdsClientCleanupTest {
     }
 
     @Test
-    void testRemoveWatcher() {
+    void testRemoveWatcher() throws Exception {
         final String bootstrapClusterName = "bootstrap-cluster";
         final String clusterName = "cluster1";
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            final SafeCloseable closeable = client.startWatch(XdsType.CLUSTER.typeUrl(), clusterName);
+            final SafeCloseable closeable = client.subscribe(XdsType.CLUSTER, clusterName);
             final Map<ConfigSourceKey, ConfigSourceClient> clientMap = client.clientMap();
             await().until(() -> !clientMap.isEmpty());
 
             closeable.close();
-            await().until(clientMap::isEmpty);
+            Thread.sleep(100);
+            assertThat(clientMap).isEmpty();
         }
     }
 
@@ -85,8 +87,8 @@ class XdsClientCleanupTest {
         final String clusterName = "cluster1";
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            final SafeCloseable closeable1 = client.startWatch(XdsType.CLUSTER.typeUrl(), clusterName);
-            final SafeCloseable closeable2 = client.startWatch(XdsType.CLUSTER.typeUrl(), clusterName);
+            final SafeCloseable closeable1 = client.subscribe(XdsType.CLUSTER, clusterName);
+            final SafeCloseable closeable2 = client.subscribe(XdsType.CLUSTER, clusterName);
             final Map<ConfigSourceKey, ConfigSourceClient> clientMap = client.clientMap();
             await().until(() -> !clientMap.isEmpty());
 
@@ -94,7 +96,9 @@ class XdsClientCleanupTest {
             Thread.sleep(100);
             await().until(() -> !clientMap.isEmpty());
             closeable2.close();
-            await().until(clientMap::isEmpty);
+
+            Thread.sleep(100);
+            assertThat(clientMap).isEmpty();
         }
     }
 
@@ -104,8 +108,8 @@ class XdsClientCleanupTest {
         final String clusterName = "cluster1";
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            final SafeCloseable closeable1 = client.startWatch(XdsType.CLUSTER.typeUrl(), clusterName);
-            final SafeCloseable closeable2 = client.startWatch(XdsType.CLUSTER.typeUrl(), clusterName);
+            final SafeCloseable closeable1 = client.subscribe(XdsType.CLUSTER, clusterName);
+            final SafeCloseable closeable2 = client.subscribe(XdsType.CLUSTER, clusterName);
             final Map<ConfigSourceKey, ConfigSourceClient> clientMap = client.clientMap();
             await().until(() -> !clientMap.isEmpty());
 
@@ -113,8 +117,10 @@ class XdsClientCleanupTest {
             closeable1.close();
             Thread.sleep(100);
             await().until(() -> !clientMap.isEmpty());
+
             closeable2.close();
-            await().until(clientMap::isEmpty);
+            Thread.sleep(100);
+            assertThat(clientMap).isEmpty();
         }
     }
 }

@@ -20,6 +20,7 @@ import static com.linecorp.armeria.xds.XdsType.CLUSTER;
 import static com.linecorp.armeria.xds.XdsType.ENDPOINT;
 import static com.linecorp.armeria.xds.XdsType.LISTENER;
 import static com.linecorp.armeria.xds.XdsType.ROUTE;
+import static java.util.Objects.requireNonNull;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,46 +72,45 @@ final class XdsClientImpl implements XdsClient {
     }
 
     @Override
-    public SafeCloseable startWatch(String typeUrl, String resourceName) {
-        return startWatch(null, typeUrl, resourceName);
+    public SafeCloseable subscribe(XdsType type, String resourceName) {
+        return startSubscribe(null, type, resourceName);
     }
 
-    SafeCloseable startWatch(@Nullable ConfigSource configSource, String typeUrl, String resourceName) {
-        final XdsType type = XdsType.fromTypeUrl(typeUrl);
+    SafeCloseable startSubscribe(@Nullable ConfigSource configSource, XdsType type, String resourceName) {
         final ConfigSourceKey mappedConfigSource =
                 bootstrapApiConfigs.remapConfigSource(type, configSource, resourceName);
-        startWatch0(mappedConfigSource, type, resourceName);
+        addSubscriber0(mappedConfigSource, type, resourceName);
         final AtomicBoolean executeOnceGuard = new AtomicBoolean();
-        return () -> removeWatcher0(mappedConfigSource, type, resourceName, executeOnceGuard);
+        return () -> removeSubscriber0(mappedConfigSource, type, resourceName, executeOnceGuard);
     }
 
-    private void removeWatcher0(ConfigSourceKey configSourceKey,
-                                XdsType type, String resourceName,
-                                AtomicBoolean executeOnceGuard) {
+    private void removeSubscriber0(ConfigSourceKey configSourceKey,
+                                   XdsType type, String resourceName,
+                                   AtomicBoolean executeOnceGuard) {
         if (!eventLoop.inEventLoop()) {
-            eventLoop.execute(() -> removeWatcher0(configSourceKey, type, resourceName, executeOnceGuard));
+            eventLoop.execute(() -> removeSubscriber0(configSourceKey, type, resourceName, executeOnceGuard));
             return;
         }
         if (!executeOnceGuard.compareAndSet(false, true)) {
             return;
         }
         final ConfigSourceClient client = clientMap.get(configSourceKey);
-        if (client.removeWatcher(type, resourceName)) {
+        if (client.removeSubscriber(type, resourceName)) {
             client.close();
             clientMap.remove(configSourceKey);
         }
     }
 
-    private void startWatch0(ConfigSourceKey configSourceKey,
-                             XdsType type, String resourceName) {
+    private void addSubscriber0(ConfigSourceKey configSourceKey,
+                                XdsType type, String resourceName) {
         if (!eventLoop.inEventLoop()) {
-            eventLoop.execute(() -> startWatch0(configSourceKey, type, resourceName));
+            eventLoop.execute(() -> addSubscriber0(configSourceKey, type, resourceName));
             return;
         }
         final ConfigSourceClient client = clientMap.computeIfAbsent(
                 configSourceKey, ignored -> new ConfigSourceClient(
                         configSourceKey, eventLoop, watchersStorage, this, node, configClientCustomizer));
-        client.addWatcher(type, resourceName, this);
+        client.addSubscriber(type, resourceName, this);
     }
 
     SafeCloseable addStaticWatcher(String typeUrl, String resourceName, Message t) {
@@ -150,9 +150,11 @@ final class XdsClientImpl implements XdsClient {
 
     @VisibleForTesting
     SafeCloseable addListener(
-            String typeUrl, String resourceName, ResourceWatcher<? extends ResourceHolder<?>> watcher) {
-        final XdsType type =  XdsType.fromTypeUrl(typeUrl);
-        final ResourceWatcher<ResourceHolder<?>> cast = (ResourceWatcher<ResourceHolder<?>>) watcher;
+            XdsType type, String resourceName, ResourceWatcher<? extends ResourceHolder<?>> watcher) {
+        requireNonNull(resourceName, "resourceName");
+        requireNonNull(type, "type");
+        final ResourceWatcher<ResourceHolder<?>> cast =
+                (ResourceWatcher<ResourceHolder<?>>) requireNonNull(watcher, "watcher");
         eventLoop.execute(() -> watchersStorage.addListener(type, resourceName, cast));
         return () -> eventLoop.execute(() -> watchersStorage.removeListener(type, resourceName, cast));
     }
@@ -160,24 +162,24 @@ final class XdsClientImpl implements XdsClient {
     @Override
     public SafeCloseable addListenerWatcher(String resourceName,
                                             ResourceWatcher<ListenerResourceHolder> watcher) {
-        return addListener(LISTENER.typeUrl(), resourceName, watcher);
+        return addListener(LISTENER, resourceName, watcher);
     }
 
     @Override
     public SafeCloseable addRouteWatcher(String resourceName, ResourceWatcher<RouteResourceHolder> watcher) {
-        return addListener(ROUTE.typeUrl(), resourceName, watcher);
+        return addListener(ROUTE, resourceName, watcher);
     }
 
     @Override
     public SafeCloseable addClusterWatcher(String resourceName,
                                            ResourceWatcher<ClusterResourceHolder> watcher) {
-        return addListener(CLUSTER.typeUrl(), resourceName, watcher);
+        return addListener(CLUSTER, resourceName, watcher);
     }
 
     @Override
     public SafeCloseable addEndpointWatcher(String resourceName,
                                             ResourceWatcher<EndpointResourceHolder> watcher) {
-        return addListener(ENDPOINT.typeUrl(), resourceName, watcher);
+        return addListener(ENDPOINT, resourceName, watcher);
     }
 
     @Override

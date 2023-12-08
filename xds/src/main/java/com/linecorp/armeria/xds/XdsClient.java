@@ -37,7 +37,7 @@ import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
  * xdsClient.addEndpointWatcher(type, resourceName, watcher).
  * }</pre>
  * Initializing a {@link XdsClient} does not consume any resources until a resource is watched
- * via {@link #startWatch(String, String)}.
+ * via {@link #subscribe(String, String)}.
  * Note that it is important to close the {@link XdsClient} after usage to avoid leaking resources.
  */
 @UnstableApi
@@ -59,7 +59,7 @@ public interface XdsClient extends SafeCloseable {
      * can potentially create a new connection to the control plane.
      */
     @UnstableApi
-    SafeCloseable startWatch(String typeUrl, String resourceName);
+    SafeCloseable subscribe(XdsType type, String resourceName);
 
     /**
      * Adds a watcher for {@link Listener}. Note that adding a watcher does not initiate a connection

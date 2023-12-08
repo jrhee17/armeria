@@ -31,8 +31,8 @@ final class ClusterResourceNode extends DynamicResourceNode<Cluster, ClusterReso
         switch (cluster.getType()) {
             case EDS:
                 final ConfigSource configSource = cluster.getEdsClusterConfig().getEdsConfig();
-                safeCloseables.add(xdsClient().startWatch(configSource, XdsType.ENDPOINT.typeUrl(),
-                                                          cluster.getName()));
+                safeCloseables.add(xdsClient().startSubscribe(configSource, XdsType.ENDPOINT,
+                                                              cluster.getName()));
                 break;
             case LOGICAL_DNS:
             case STATIC:

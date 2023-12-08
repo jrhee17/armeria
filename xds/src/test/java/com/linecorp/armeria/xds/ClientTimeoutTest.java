@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.xds;
 
+import static com.linecorp.armeria.xds.XdsTestUtil.awaitAssert;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
@@ -84,8 +85,8 @@ class ClientTimeoutTest {
                 XdsTestResources.loadAssignment(bootstrapClusterName, uri.getHost(), uri.getPort());
         final Cluster cluster = XdsTestResources.createStaticCluster(bootstrapClusterName, loadAssignment);
         try (XdsClientImpl client = new XdsClientImpl(XdsTestResources.bootstrap(configSource, cluster))) {
-            client.startWatch(null, XdsType.CLUSTER.typeUrl(), clusterName);
-            client.addListener(XdsType.CLUSTER.typeUrl(), clusterName, watcher);
+            client.startSubscribe(null, XdsType.CLUSTER, clusterName);
+            client.addListener(XdsType.CLUSTER, clusterName, watcher);
 
             await().untilAsserted(
                     () -> assertThat(watcher.first("onResourceDoesNotExist")).hasValue(clusterName));
@@ -98,8 +99,7 @@ class ClientTimeoutTest {
                                     ImmutableList.of(), ImmutableList.of(),
                                     ImmutableList.of(), ImmutableList.of(), "2"));
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedCluster));
-            watcher.popFirst();
+            awaitAssert(watcher, "onChanged", expectedCluster);
 
             Thread.sleep(100);
             await().until(() -> watcher.eventSize() == 0);
@@ -114,8 +114,8 @@ class ClientTimeoutTest {
         final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            client.startWatch(configSource, XdsType.CLUSTER.typeUrl(), clusterName);
-            client.addListener(XdsType.CLUSTER.typeUrl(), clusterName, watcher);
+            client.startSubscribe(configSource, XdsType.CLUSTER, clusterName);
+            client.addListener(XdsType.CLUSTER, clusterName, watcher);
 
             cache.setSnapshot(
                     GROUP,
@@ -123,8 +123,7 @@ class ClientTimeoutTest {
                                     ImmutableList.of(), ImmutableList.of(),
                                     ImmutableList.of(), ImmutableList.of(), "2"));
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedCluster));
-            watcher.popFirst();
+            awaitAssert(watcher, "onChanged", expectedCluster);
 
             // ensure that onAbsent not triggered at the timeout
             Thread.sleep(100);

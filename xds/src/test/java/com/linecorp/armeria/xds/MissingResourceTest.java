@@ -16,8 +16,8 @@
 
 package com.linecorp.armeria.xds;
 
+import static com.linecorp.armeria.xds.XdsTestUtil.awaitAssert;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -99,23 +99,18 @@ class MissingResourceTest {
         final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            client.startWatch(configSource, XdsType.CLUSTER.typeUrl(),
-                              clusterName);
+            client.startSubscribe(configSource, XdsType.CLUSTER, clusterName);
             final TestResourceWatcher<Cluster> clusterWatcher = new TestResourceWatcher<>();
             final TestResourceWatcher<Cluster> endpointWatcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.CLUSTER.typeUrl(), clusterName, clusterWatcher);
-            client.addListener(XdsType.ENDPOINT.typeUrl(), clusterName, endpointWatcher);
+            client.addListener(XdsType.CLUSTER, clusterName, clusterWatcher);
+            client.addListener(XdsType.ENDPOINT, clusterName, endpointWatcher);
 
             // Updates are propagated for the initial cluster
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
-            await().untilAsserted(() -> assertThat(
-                    clusterWatcher.first("onChanged")).hasValue(expectedCluster));
-            clusterWatcher.popFirst();
+            awaitAssert(clusterWatcher, "onChanged", expectedCluster);
             final ClusterLoadAssignment expectedAssignment =
                     cache.getSnapshot(GROUP).endpoints().resources().get(clusterName);
-            await().untilAsserted(() -> assertThat(
-                    endpointWatcher.first("onChanged")).hasValue(expectedAssignment));
-            endpointWatcher.popFirst();
+            awaitAssert(endpointWatcher, "onChanged", expectedAssignment);
 
             // Send another update with missing cluster
             cache.setSnapshot(
@@ -130,12 +125,8 @@ class MissingResourceTest {
             sendAllUpdates();
 
             // missing resource is propagated correctly
-            await().untilAsserted(() -> assertThat(
-                    clusterWatcher.first("onResourceDoesNotExist")).hasValue(clusterName));
-            clusterWatcher.popFirst();
-            await().untilAsserted(() -> assertThat(
-                    endpointWatcher.first("onResourceDoesNotExist")).hasValue(clusterName));
-            endpointWatcher.popFirst();
+            awaitAssert(clusterWatcher, "onResourceDoesNotExist", clusterName);
+            awaitAssert(endpointWatcher, "onResourceDoesNotExist", clusterName);
         }
     }
 
@@ -159,21 +150,17 @@ class MissingResourceTest {
 
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            client.startWatch(configSource, XdsType.CLUSTER.typeUrl(),
-                              clusterName);
+            client.startSubscribe(configSource, XdsType.CLUSTER, clusterName);
             final TestResourceWatcher<Cluster> clusterWatcher = new TestResourceWatcher<>();
             final TestResourceWatcher<Cluster> endpointWatcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.CLUSTER.typeUrl(), clusterName, clusterWatcher);
-            client.addListener(XdsType.ENDPOINT.typeUrl(), clusterName, endpointWatcher);
+            client.addListener(XdsType.CLUSTER, clusterName, clusterWatcher);
+            client.addListener(XdsType.ENDPOINT, clusterName, endpointWatcher);
 
             // Updates are propagated for the initial cluster
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
-            await().untilAsserted(() -> assertThat(
-                    clusterWatcher.first("onChanged")).hasValue(expectedCluster));
-            clusterWatcher.popFirst();
-            await().untilAsserted(() -> assertThat(
-                    endpointWatcher.first("onChanged")).hasValue(assignment));
-            endpointWatcher.popFirst();
+            awaitAssert(clusterWatcher, "onChanged", expectedCluster);
+            awaitAssert(endpointWatcher, "onChanged", assignment);
+
 
             // Send another update with missing cluster
             cache.setSnapshot(
@@ -188,12 +175,8 @@ class MissingResourceTest {
             sendAllUpdates();
 
             // missing resource is propagated correctly
-            await().untilAsserted(() -> assertThat(
-                    clusterWatcher.first("onResourceDoesNotExist")).hasValue(clusterName));
-            clusterWatcher.popFirst();
-            await().untilAsserted(() -> assertThat(
-                    endpointWatcher.first("onResourceDoesNotExist")).hasValue(clusterName));
-            endpointWatcher.popFirst();
+            awaitAssert(clusterWatcher, "onResourceDoesNotExist", clusterName);
+            awaitAssert(endpointWatcher, "onResourceDoesNotExist", clusterName);
 
             Thread.sleep(100);
             assertThat(clusterWatcher.events()).isEmpty();
@@ -209,8 +192,8 @@ class MissingResourceTest {
 
         private final SimpleCache<String> cache;
         private final StreamObserver<DiscoveryResponse> responseStream;
-        private Map<String, Set<String>> resourceMap = new ConcurrentHashMap<>();
-        private Map<String, Integer> versionMap = new ConcurrentHashMap<>();
+        private final Map<String, Set<String>> resourceMap = new ConcurrentHashMap<>();
+        private final Map<String, Integer> versionMap = new ConcurrentHashMap<>();
 
         TestRequestObserver(SimpleCache<String> cache, StreamObserver<DiscoveryResponse> responseStream) {
             this.cache = cache;

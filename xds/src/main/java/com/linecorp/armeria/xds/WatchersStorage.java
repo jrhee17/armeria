@@ -38,7 +38,7 @@ final class WatchersStorage {
     private final Map<XdsType, Map<String, LinkedHashSet<ResourceNode<?>>>> storageMap =
             new HashMap<>();
 
-    private final Map<XdsType, Map<String, CompositeWatcher>> listeners = new HashMap<>();
+    private final Map<XdsType, Map<String, CompositeWatcher>> watchers = new HashMap<>();
 
     @Nullable
     Object current(XdsType type, String resource) {
@@ -66,7 +66,7 @@ final class WatchersStorage {
 
     void notifyListeners(XdsType type, String resource) {
         final Map<String, CompositeWatcher> resourceToWatchers =
-                listeners.computeIfAbsent(type, ignored -> new HashMap<>());
+                watchers.computeIfAbsent(type, ignored -> new HashMap<>());
         final CompositeWatcher compositeWatcher =
                 resourceToWatchers.computeIfAbsent(
                         resource, ignored -> new CompositeWatcher(type, resource));
@@ -107,10 +107,10 @@ final class WatchersStorage {
 
     void addListener(XdsType type, String resource,
                      ResourceWatcher<ResourceHolder<?>> watcher) {
-        if (!listeners.containsKey(type)) {
-            listeners.put(type, new HashMap<>());
+        if (!watchers.containsKey(type)) {
+            watchers.put(type, new HashMap<>());
         }
-        final Map<String, CompositeWatcher> resourceToWatchers = listeners.get(type);
+        final Map<String, CompositeWatcher> resourceToWatchers = watchers.get(type);
         if (!resourceToWatchers.containsKey(resource)) {
             resourceToWatchers.put(resource, new CompositeWatcher(type, resource));
         }
@@ -120,10 +120,10 @@ final class WatchersStorage {
 
     void removeListener(XdsType type, String resource,
                         ResourceWatcher<ResourceHolder<?>> watcher) {
-        if (!listeners.containsKey(type)) {
+        if (!watchers.containsKey(type)) {
             return;
         }
-        final Map<String, CompositeWatcher> resourceToWatchers = listeners.get(type);
+        final Map<String, CompositeWatcher> resourceToWatchers = watchers.get(type);
         if (!resourceToWatchers.containsKey(resource)) {
             return;
         }
@@ -133,7 +133,7 @@ final class WatchersStorage {
         if (compositeWatcher.childListeners().isEmpty()) {
             resourceToWatchers.remove(resource);
             if (resourceToWatchers.isEmpty()) {
-                listeners.remove(type);
+                watchers.remove(type);
             }
         }
     }
@@ -205,6 +205,6 @@ final class WatchersStorage {
     }
 
     void clearListeners() {
-        listeners.clear();
+        watchers.clear();
     }
 }

@@ -76,7 +76,7 @@ public final class XdsEndpointGroup extends DynamicEndpointGroup {
             }
         };
         this.closeable = new AggregateWatcher(xdsClient, type, resourceName, listener);
-        watchCloseable = xdsClient.startWatch(type.typeUrl(), resourceName);
+        watchCloseable = xdsClient.subscribe(type, resourceName);
     }
 
     @Override

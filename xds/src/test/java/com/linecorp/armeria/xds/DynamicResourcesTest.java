@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.xds;
 
+import static com.linecorp.armeria.xds.XdsTestUtil.awaitAssert;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
@@ -91,33 +92,27 @@ class DynamicResourcesTest {
         final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            client.startWatch(configSource, XdsType.LISTENER.typeUrl(), listenerName);
+            client.startSubscribe(configSource, XdsType.LISTENER, listenerName);
 
             final TestResourceWatcher<Message> watcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.LISTENER.typeUrl(), listenerName, watcher);
+            client.addListener(XdsType.LISTENER, listenerName, watcher);
             final Listener expectedListener =
                     cache.getSnapshot(GROUP).listeners().resources().get(listenerName);
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedListener));
-            watcher.popFirst();
+            awaitAssert(watcher, "onChanged", expectedListener);
 
             final RouteConfiguration expectedRoute =
                     cache.getSnapshot(GROUP).routes().resources().get(routeName);
-            client.addListener(XdsType.ROUTE.typeUrl(), routeName, watcher);
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedRoute));
-            watcher.popFirst();
+            client.addListener(XdsType.ROUTE, routeName, watcher);
+            awaitAssert(watcher, "onChanged", expectedRoute);
 
             final Cluster expectedCluster =
                     cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
-            client.addListener(XdsType.CLUSTER.typeUrl(), clusterName, watcher);
-            await().untilAsserted(() -> assertThat(
-                    watcher.first("onChanged")).hasValue(expectedCluster));
-            watcher.popFirst();
+            client.addListener(XdsType.CLUSTER, clusterName, watcher);
+            awaitAssert(watcher, "onChanged", expectedCluster);
             final ClusterLoadAssignment expectedEndpoint =
                     cache.getSnapshot(GROUP).endpoints().resources().get(clusterName);
-            client.addListener(XdsType.ENDPOINT.typeUrl(), clusterName, watcher);
-            await().untilAsserted(() -> assertThat(
-                    watcher.first("onChanged")).hasValue(expectedEndpoint));
-            watcher.popFirst();
+            client.addListener(XdsType.ENDPOINT, clusterName, watcher);
+            awaitAssert(watcher, "onChanged", expectedEndpoint);
 
             Thread.sleep(100);
             assertThat(watcher.events()).isEmpty();

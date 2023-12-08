@@ -16,8 +16,7 @@
 
 package com.linecorp.armeria.xds;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
+import static com.linecorp.armeria.xds.XdsTestUtil.awaitAssert;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -86,23 +85,19 @@ public class ResourceWatcherTest {
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
             final TestResourceWatcher<Cluster> clusterWatcher = new TestResourceWatcher<>();
-            client.startWatch(configSource, XdsType.CLUSTER.typeUrl(), resourceName);
-            client.addListener(XdsType.CLUSTER.typeUrl(), resourceName, clusterWatcher);
+            client.startSubscribe(configSource, XdsType.CLUSTER, resourceName);
+            client.addListener(XdsType.CLUSTER, resourceName, clusterWatcher);
             // the initial endpoint is fetched
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get(resourceName);
-            await().untilAsserted(
-                    () -> assertThat(clusterWatcher.first("onChanged")).hasValue(expectedCluster));
-            clusterWatcher.popFirst();
+            awaitAssert(clusterWatcher, "onChanged", expectedCluster);
 
             final TestResourceWatcher<ClusterLoadAssignment> endpointsWatcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.ENDPOINT.typeUrl(), resourceName, endpointsWatcher);
+            client.addListener(XdsType.ENDPOINT, resourceName, endpointsWatcher);
             final ClusterLoadAssignment expectedEndpoints = cache.getSnapshot(GROUP)
                                                                  .endpoints()
                                                                  .resources()
                                                                  .get(resourceName);
-            await().untilAsserted(
-                    () -> assertThat(endpointsWatcher.first("onChanged")).hasValue(expectedEndpoints));
-            endpointsWatcher.popFirst();
+            awaitAssert(endpointsWatcher, "onChanged", expectedEndpoints);
 
             // update the cache
             final ClusterLoadAssignment assignment =
@@ -119,9 +114,7 @@ public class ResourceWatcherTest {
                                                                   .endpoints()
                                                                   .resources()
                                                                   .get(resourceName);
-            await().untilAsserted(
-                    () -> assertThat(endpointsWatcher.first("onChanged")).hasValue(expectedEndpoints2));
-            endpointsWatcher.popFirst();
+            awaitAssert(endpointsWatcher, "onChanged", expectedEndpoints2);
         }
     }
 
@@ -132,20 +125,17 @@ public class ResourceWatcherTest {
         final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            client.startWatch(configSource, XdsType.CLUSTER.typeUrl(), resourceName);
+            client.startSubscribe(configSource, XdsType.CLUSTER, resourceName);
             final TestResourceWatcher<Cluster> clusterWatcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.CLUSTER.typeUrl(), resourceName, clusterWatcher);
+            client.addListener(XdsType.CLUSTER, resourceName, clusterWatcher);
             // the initial endpoint is fetched
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get(resourceName);
-            await().untilAsserted(
-                    () -> assertThat(clusterWatcher.first("onChanged")).hasValue(expectedCluster));
-            clusterWatcher.popFirst();
+            awaitAssert(clusterWatcher, "onChanged", expectedCluster);
 
             final ClusterLoadAssignment expected = expectedCluster.getLoadAssignment();
             final TestResourceWatcher<ClusterLoadAssignment> endpointWatcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.ENDPOINT.typeUrl(), resourceName, endpointWatcher);
-            await().untilAsserted(() -> assertThat(endpointWatcher.first("onChanged")).hasValue(expected));
-            endpointWatcher.popFirst();
+            client.addListener(XdsType.ENDPOINT, resourceName, endpointWatcher);
+            awaitAssert(endpointWatcher, "onChanged", expected);
 
             // update the cache
             final Cluster cluster1 = TestResources.createCluster("cluster1");
@@ -162,8 +152,7 @@ public class ResourceWatcherTest {
             final ClusterLoadAssignment expected2 = cache.getSnapshot(GROUP)
                                                          .clusters().resources().get(resourceName)
                                                          .getLoadAssignment();
-            await().untilAsserted(() -> assertThat(endpointWatcher.first("onChanged")).hasValue(expected2));
-            endpointWatcher.popFirst();
+            awaitAssert(endpointWatcher, "onChanged", expected2);
         }
     }
 
@@ -181,20 +170,17 @@ public class ResourceWatcherTest {
         final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            client.startWatch(configSource, XdsType.CLUSTER.typeUrl(), resourceName);
+            client.startSubscribe(configSource, XdsType.CLUSTER, resourceName);
             final TestResourceWatcher<Cluster> clusterWatcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.CLUSTER.typeUrl(), resourceName, clusterWatcher);
+            client.addListener(XdsType.CLUSTER, resourceName, clusterWatcher);
             // the initial endpoint is fetched
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get(resourceName);
-            await().untilAsserted(
-                    () -> assertThat(clusterWatcher.first("onChanged")).hasValue(expectedCluster));
-            clusterWatcher.popFirst();
+            awaitAssert(clusterWatcher, "onChanged", expectedCluster);
 
             final ClusterLoadAssignment expected = expectedCluster.getLoadAssignment();
             final TestResourceWatcher<ClusterLoadAssignment> endpointWatcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.ENDPOINT.typeUrl(), resourceName, endpointWatcher);
-            await().untilAsserted(() -> assertThat(endpointWatcher.first("onChanged")).hasValue(expected));
-            endpointWatcher.popFirst();
+            client.addListener(XdsType.ENDPOINT, resourceName, endpointWatcher);
+            awaitAssert(endpointWatcher, "onChanged", expected);
 
             // update the cache
             final Cluster cluster = TestResources.createCluster(resourceName, "127.0.0.2",
@@ -208,8 +194,7 @@ public class ResourceWatcherTest {
             final ClusterLoadAssignment expected2 = cache.getSnapshot(GROUP)
                                                          .clusters().resources().get(resourceName)
                                                          .getLoadAssignment();
-            await().untilAsserted(() -> assertThat(endpointWatcher.first("onChanged")).hasValue(expected2));
-            endpointWatcher.popFirst();
+            awaitAssert(endpointWatcher, "onChanged", expected2);
         }
     }
 }

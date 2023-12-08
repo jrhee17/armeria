@@ -16,14 +16,13 @@
 
 package com.linecorp.armeria.xds;
 
+import static com.linecorp.armeria.xds.XdsTestUtil.awaitAssert;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableList;
 
@@ -40,8 +39,6 @@ import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 
 public class XdsClientIntegrationTest {
-
-    private static final Logger logger = LoggerFactory.getLogger(XdsClientIntegrationTest.class);
 
     private static final String GROUP = "key";
     private static final SimpleCache<String> cache = new SimpleCache<>(node -> GROUP);
@@ -77,16 +74,14 @@ public class XdsClientIntegrationTest {
         final String clusterName = "cluster1";
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
-            final SafeCloseable watcherCloseable = client.startWatch(configSource,
-                                                                     XdsType.CLUSTER.typeUrl(),
-                                                                     clusterName);
+            final SafeCloseable watcherCloseable = client.startSubscribe(configSource, XdsType.CLUSTER,
+                                                                         clusterName);
             final TestResourceWatcher<Cluster> watcher = new TestResourceWatcher<>();
-            client.addListener(XdsType.CLUSTER.typeUrl(), clusterName, watcher);
+            client.addListener(XdsType.CLUSTER, clusterName, watcher);
 
             // Updates are propagated for the initial value
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedCluster));
-            watcher.popFirst();
+            awaitAssert(watcher, "onChanged", expectedCluster);
 
             // Updates are propagated if the cache is updated
             cache.setSnapshot(
@@ -96,8 +91,7 @@ public class XdsClientIntegrationTest {
                             ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
                             ImmutableList.of(), "2"));
             final Cluster expectedCluster2 = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedCluster2));
-            watcher.popFirst();
+            awaitAssert(watcher, "onChanged", expectedCluster2);
 
             // Updates aren't propagated after the watch is removed
             watcherCloseable.close();
@@ -121,13 +115,12 @@ public class XdsClientIntegrationTest {
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
             final TestResourceWatcher<Cluster> watcher = new TestResourceWatcher<>();
             final SafeCloseable closeCluster1 =
-                    client.startWatch(configSource, XdsType.CLUSTER.typeUrl(), "cluster1");
-            client.addListener(XdsType.CLUSTER.typeUrl(), "cluster1", watcher);
+                    client.startSubscribe(configSource, XdsType.CLUSTER, "cluster1");
+            client.addListener(XdsType.CLUSTER, "cluster1", watcher);
 
             // Updates are propagated for the initial value
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get("cluster1");
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedCluster));
-            watcher.popFirst();
+            awaitAssert(watcher, "onChanged", expectedCluster);
 
             // Updates are propagated if the cache is updated
             cache.setSnapshot(
@@ -138,20 +131,16 @@ public class XdsClientIntegrationTest {
                             ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
                             ImmutableList.of(), "2"));
             final Cluster expectedCluster2 = cache.getSnapshot(GROUP).clusters().resources().get("cluster1");
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedCluster2));
-            watcher.popFirst();
+            awaitAssert(watcher, "onChanged", expectedCluster2);
 
-            client.startWatch(configSource, XdsType.CLUSTER.typeUrl(), "cluster2");
-            client.addListener(XdsType.CLUSTER.typeUrl(), "cluster2", watcher);
+            client.startSubscribe(configSource, XdsType.CLUSTER, "cluster2");
+            client.addListener(XdsType.CLUSTER, "cluster2", watcher);
             final Cluster expectedCluster3 = cache.getSnapshot(GROUP).clusters().resources().get("cluster2");
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedCluster3));
-            watcher.popFirst();
+            awaitAssert(watcher, "onChanged", expectedCluster3);
 
             // try removing the watcher for cluster1
             closeCluster1.close();
-            await().untilAsserted(
-                    () -> assertThat(watcher.first("onResourceDoesNotExist")).hasValue("cluster1"));
-            watcher.popFirst();
+            awaitAssert(watcher, "onResourceDoesNotExist", "cluster1");
 
             cache.setSnapshot(
                     GROUP,
@@ -161,8 +150,7 @@ public class XdsClientIntegrationTest {
                             ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
                             ImmutableList.of(), "3"));
             final Cluster expectedCluster4 = cache.getSnapshot(GROUP).clusters().resources().get("cluster2");
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedCluster4));
-            watcher.popFirst();
+            awaitAssert(watcher, "onChanged", expectedCluster4);
 
             Thread.sleep(100);
             assertThat(watcher.events()).isEmpty();
@@ -177,19 +165,17 @@ public class XdsClientIntegrationTest {
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
             final TestResourceWatcher<Cluster> watcher =
                     new TestResourceWatcher<>();
-            client.startWatch(configSource, XdsType.CLUSTER.typeUrl(), "cluster1");
-            client.addListener(XdsType.CLUSTER.typeUrl(), "cluster1", watcher);
+            client.startSubscribe(configSource, XdsType.CLUSTER, "cluster1");
+            client.addListener(XdsType.CLUSTER, "cluster1", watcher);
 
             // Updates are propagated for the initial value
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get("cluster1");
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedCluster));
-            watcher.popFirst();
+            awaitAssert(watcher, "onChanged", expectedCluster);
 
             // add another watcher and check that the event is propagated immediately
-            client.startWatch(configSource, XdsType.CLUSTER.typeUrl(), "cluster1");
-            client.addListener(XdsType.CLUSTER.typeUrl(), "cluster1", watcher);
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedCluster));
-            watcher.popFirst();
+            client.startSubscribe(configSource, XdsType.CLUSTER, "cluster1");
+            client.addListener(XdsType.CLUSTER, "cluster1", watcher);
+            awaitAssert(watcher, "onChanged", expectedCluster);
 
             Thread.sleep(100);
             assertThat(watcher.events()).hasSize(0);
@@ -203,13 +189,12 @@ public class XdsClientIntegrationTest {
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
             final TestResourceWatcher<Cluster> watcher = new TestResourceWatcher<>();
-            client.startWatch(configSource, XdsType.CLUSTER.typeUrl(), "cluster1");
-            client.addListener(XdsType.CLUSTER.typeUrl(), "cluster1", watcher);
+            client.startSubscribe(configSource, XdsType.CLUSTER, "cluster1");
+            client.addListener(XdsType.CLUSTER, "cluster1", watcher);
 
             // Updates are propagated for the initial value
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get("cluster1");
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedCluster));
-            watcher.popFirst();
+            awaitAssert(watcher, "onChanged", expectedCluster);
 
             // abort the current connection
             final ServiceRequestContextCaptor captor = server.requestContextCaptor();
@@ -223,10 +208,9 @@ public class XdsClientIntegrationTest {
                             ImmutableList.of(XdsTestResources.createCluster("cluster1", 1)),
                             ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
                             ImmutableList.of(), "2"));
-            await().until(() -> watcher.eventSize() == 1);
+            await().until(() -> watcher.eventSize() >= 1);
             final Cluster expectedCluster2 = cache.getSnapshot(GROUP).clusters().resources().get("cluster1");
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedCluster2));
-            watcher.popFirst();
+            awaitAssert(watcher, "onChanged", expectedCluster2);
 
             Thread.sleep(100);
             assertThat(watcher.eventSize()).isEqualTo(0);

@@ -35,7 +35,7 @@ final class RouteResourceNode extends DynamicResourceNode<RouteConfiguration, Ro
             }
             final RouteAction routeAction = route.getRoute();
             final String cluster = routeAction.getCluster();
-            safeCloseables.add(xdsClient().startWatch(XdsType.CLUSTER.typeUrl(), cluster));
+            safeCloseables.add(xdsClient().subscribe(XdsType.CLUSTER, cluster));
         }
     }
 }

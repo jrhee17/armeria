@@ -16,8 +16,8 @@
 
 package com.linecorp.armeria.xds;
 
+import static com.linecorp.armeria.xds.XdsTestUtil.awaitAssert;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -111,14 +111,13 @@ class MultiConfigSourceTest {
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
             final TestResourceWatcher<Cluster> watcher =
                     new TestResourceWatcher<>();
-            client.startWatch(configSource, XdsType.CLUSTER.typeUrl(), "cluster1");
-            client.addListener(XdsType.ENDPOINT.typeUrl(), "cluster1", watcher);
+            client.startSubscribe(configSource, XdsType.CLUSTER, "cluster1");
+            client.addListener(XdsType.ENDPOINT, "cluster1", watcher);
 
             // Updates are propagated for the initial value
             final ClusterLoadAssignment expectedCluster =
                     cache2.getSnapshot(GROUP).endpoints().resources().get("cluster1");
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedCluster));
-            watcher.popFirst();
+            awaitAssert(watcher, "onChanged", expectedCluster);
 
             Thread.sleep(100);
             assertThat(watcher.events()).hasSize(0);
@@ -131,15 +130,14 @@ class MultiConfigSourceTest {
         try (XdsClientImpl client = new XdsClientImpl(bootstrap)) {
             final TestResourceWatcher<Cluster> watcher =
                     new TestResourceWatcher<>();
-            client.startWatch(XdsType.LISTENER.typeUrl(), "listener1");
+            client.subscribe(XdsType.LISTENER, "listener1");
 
-            client.addListener(XdsType.ENDPOINT.typeUrl(), "cluster1", watcher);
+            client.addListener(XdsType.ENDPOINT, "cluster1", watcher);
 
             // Updates are propagated for the initial value
             final ClusterLoadAssignment expectedCluster =
                     cache2.getSnapshot(GROUP).endpoints().resources().get("cluster1");
-            await().untilAsserted(() -> assertThat(watcher.first("onChanged")).hasValue(expectedCluster));
-            watcher.popFirst();
+            awaitAssert(watcher, "onChanged", expectedCluster);
 
             Thread.sleep(100);
             assertThat(watcher.events()).hasSize(0);

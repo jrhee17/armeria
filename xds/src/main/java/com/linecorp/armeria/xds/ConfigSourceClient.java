@@ -163,13 +163,13 @@ final class ConfigSourceClient implements SafeCloseable {
         }
     }
 
-    <T extends Message> void addWatcher(XdsType type, String resourceName, XdsClientImpl client) {
+    <T extends Message> void addSubscriber(XdsType type, String resourceName, XdsClientImpl client) {
         if (subscriberStorage.register(type, resourceName, client))  {
             maybeUpdateResources(type);
         }
     }
 
-    <T extends Message> boolean removeWatcher(XdsType type, String resourceName) {
+    <T extends Message> boolean removeSubscriber(XdsType type, String resourceName) {
         if (subscriberStorage.unregister(type, resourceName)) {
             maybeUpdateResources(type);
         }
@@ -209,9 +209,8 @@ final class ConfigSourceClient implements SafeCloseable {
 
             if (cluster.hasEdsClusterConfig()) {
                 final ConfigSource configSource = cluster.getEdsClusterConfig().getEdsConfig();
-                watcherCloseable = xdsClient.startWatch(configSource,
-                                                        XdsType.ENDPOINT.typeUrl(),
-                                                        clusterName);
+                watcherCloseable = xdsClient.startSubscribe(configSource, XdsType.ENDPOINT,
+                                                            clusterName);
             } else if (cluster.hasLoadAssignment()) {
                 watcherCloseable = null;
                 final List<Endpoint> endpoints = convertEndpoints(cluster.getLoadAssignment());

@@ -39,8 +39,7 @@ final class ListenerResourceNode extends DynamicResourceNode<Listener, ListenerR
             final Rds rds = connectionManager.getRds();
             final String routeName = rds.getRouteConfigName();
             final ConfigSource configSource = rds.getConfigSource();
-            safeCloseables.add(xdsClient().startWatch(configSource, XdsType.ROUTE.typeUrl(),
-                                                      routeName));
+            safeCloseables.add(xdsClient().startSubscribe(configSource, XdsType.ROUTE, routeName));
         } else {
             throw new IllegalArgumentException("A connection manager should have a RouteConfig or RDS.");
         }
