@@ -18,31 +18,20 @@ package com.linecorp.armeria.xds;
 
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
-import io.envoyproxy.envoy.config.cluster.v3.Cluster;
-import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
-import io.envoyproxy.envoy.config.listener.v3.Listener;
-import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
-
 /**
  * A representation of the supported xDS types.
  */
 @UnstableApi
 public enum XdsType {
-    LISTENER("type.googleapis.com/envoy.config.listener.v3.Listener",
-             Listener.class),
-    ROUTE("type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
-          RouteConfiguration.class),
-    CLUSTER("type.googleapis.com/envoy.config.cluster.v3.Cluster",
-            Cluster.class),
-    ENDPOINT("type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
-             ClusterLoadAssignment.class);
+    LISTENER("type.googleapis.com/envoy.config.listener.v3.Listener"),
+    ROUTE("type.googleapis.com/envoy.config.route.v3.RouteConfiguration"),
+    CLUSTER("type.googleapis.com/envoy.config.cluster.v3.Cluster"),
+    ENDPOINT("type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment");
 
     private final String typeUrl;
-    private final Class<?> clazz;
 
-    XdsType(String typeUrl, Class<?> clazz) {
+    XdsType(String typeUrl) {
         this.typeUrl = typeUrl;
-        this.clazz = clazz;
     }
 
     /**
@@ -50,12 +39,5 @@ public enum XdsType {
      */
     public String typeUrl() {
         return typeUrl;
-    }
-
-    /**
-     * Returns the resource class of the xDS type.
-     */
-    public Class<?> clazz() {
-        return clazz;
     }
 }

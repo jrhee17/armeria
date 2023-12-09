@@ -31,17 +31,14 @@ import io.envoyproxy.envoy.service.discovery.v3.AggregatedDiscoveryServiceGrpc.A
 final class XdsClientFactory implements SafeCloseable, ResourceWatcher<ClusterResourceHolder> {
 
     private final EndpointGroup endpointGroup;
-    private final Consumer<AggregatedDiscoveryServiceStub> listener;
-    private final Consumer<GrpcClientBuilder> clientCustomizer;
+    private final Consumer<GrpcClientBuilder> listener;
     private final SafeCloseable clusterWatcher;
 
     XdsClientFactory(XdsBootstrap xdsBootstrap, String clusterName,
-                     Consumer<GrpcClientBuilder> clientCustomizer,
-                     Consumer<AggregatedDiscoveryServiceStub> listener) {
+                     Consumer<GrpcClientBuilder> listener) {
         clusterWatcher = xdsBootstrap.addClusterWatcher(clusterName, this);
         endpointGroup = XdsEndpointGroup.of(xdsBootstrap, XdsType.CLUSTER, clusterName, false);
         this.listener = listener;
-        this.clientCustomizer = clientCustomizer;
     }
 
     @Override
@@ -67,7 +64,6 @@ final class XdsClientFactory implements SafeCloseable, ResourceWatcher<ClusterRe
         final SessionProtocol sessionProtocol =
                 tlsContext != null ? SessionProtocol.HTTPS : SessionProtocol.HTTP;
         final GrpcClientBuilder builder = GrpcClients.builder(sessionProtocol, endpointGroup);
-        clientCustomizer.accept(builder);
-        listener.accept(builder.build(AggregatedDiscoveryServiceStub.class));
+        listener.accept(builder);
     }
 }

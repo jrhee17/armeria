@@ -185,10 +185,6 @@ final class AggregatedXdsStream implements XdsStreamSender, SafeCloseable {
 
     @Override
     public void updateResources(XdsType type) {
-        if (!eventloop.inEventLoop()) {
-            eventloop.execute(() -> updateResources(type));
-            return;
-        }
         final Set<String> resources = subscriberStorage.resources(type);
         sendDiscoveryRequest(type, versionsMap.get(type), resources, noncesMap.get(type), null);
     }

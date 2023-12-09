@@ -37,6 +37,7 @@ import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.core.v3.GrpcService;
 import io.envoyproxy.envoy.config.core.v3.GrpcService.EnvoyGrpc;
 import io.envoyproxy.envoy.config.core.v3.Node;
+import io.envoyproxy.envoy.service.discovery.v3.AggregatedDiscoveryServiceGrpc.AggregatedDiscoveryServiceStub;
 import io.netty.util.concurrent.EventExecutor;
 
 final class ConfigSourceClient implements SafeCloseable {
@@ -61,10 +62,6 @@ final class ConfigSourceClient implements SafeCloseable {
                        EventExecutor eventLoop,
                        WatchersStorage watchersStorage, XdsBootstrapImpl xdsBootstrap,
                        Node node, Consumer<GrpcClientBuilder> clientCustomizer) {
-        if (configSourceKey.ads()) {
-            // TODO: throw an exception when stream discovery is supported
-            logger.warn("Using ADS for non-ads config source: {}", configSourceKey);
-        }
         this.configSource = configSourceKey.configSource();
         checkArgument(configSource.hasApiConfigSource(),
                       "No api config source available in %s", configSourceKey);
@@ -76,29 +73,61 @@ final class ConfigSourceClient implements SafeCloseable {
         this.handler = new DefaultResponseHandler(subscriberStorage);
         this.node = node;
         // Initialization is rescheduled to avoid recursive updates to XdsBootstrap#clientMap.
-        eventLoop.execute(this::maybeStart);
+        eventLoop.execute(() -> maybeStart(configSourceKey.ads()));
     }
 
-    void maybeStart() {
+    void maybeStart(boolean ads) {
         if (closed) {
             return;
         }
+        if (ads) {
+            startAds();
+        } else {
+            startSotw();
+        }
+    }
 
+    private void startSotw() {
         final ApiConfigSource apiConfigSource = configSource.getApiConfigSource();
         final List<GrpcService> grpcServices = apiConfigSource.getGrpcServicesList();
         // just use the first grpc service for now
         final GrpcService grpcService = grpcServices.get(0);
         final EnvoyGrpc envoyGrpc = grpcService.getEnvoyGrpc();
-        xdsClientFactory = new XdsClientFactory(xdsBootstrap, envoyGrpc.getClusterName(),
-                                                clientCustomizer, stub -> {
-            if (stream != null) {
-                stream.close();
-            }
-            stream = new AggregatedXdsStream(stub, node,
-                                             Backoff.ofDefault(),
-                                             eventLoop, handler, subscriberStorage);
-            stream.start();
-        });
+        xdsClientFactory = new XdsClientFactory(
+                xdsBootstrap, envoyGrpc.getClusterName(),
+                clientBuilder -> {
+                    clientCustomizer.accept(clientBuilder);
+                    final AggregatedDiscoveryServiceStub stub =
+                            clientBuilder.build(AggregatedDiscoveryServiceStub.class);
+                    if (stream != null) {
+                        stream.close();
+                    }
+                    stream = new CompositeSotwXdsStream(clientBuilder, node, Backoff.ofDefault(),
+                                                        eventLoop, handler, subscriberStorage);
+                    stream.start();
+                });
+    }
+
+    private void startAds() {
+        final ApiConfigSource apiConfigSource = configSource.getApiConfigSource();
+        final List<GrpcService> grpcServices = apiConfigSource.getGrpcServicesList();
+        // just use the first grpc service for now
+        final GrpcService grpcService = grpcServices.get(0);
+        final EnvoyGrpc envoyGrpc = grpcService.getEnvoyGrpc();
+        xdsClientFactory = new XdsClientFactory(
+                xdsBootstrap, envoyGrpc.getClusterName(),
+                clientBuilder -> {
+                    clientCustomizer.accept(clientBuilder);
+                    final AggregatedDiscoveryServiceStub stub =
+                            clientBuilder.build(AggregatedDiscoveryServiceStub.class);
+                    if (stream != null) {
+                        stream.close();
+                    }
+                    stream = new AggregatedXdsStream(stub, node,
+                                                     Backoff.ofDefault(),
+                                                     eventLoop, handler, subscriberStorage);
+                    stream.start();
+                });
     }
 
     void maybeUpdateResources(XdsType type) {
