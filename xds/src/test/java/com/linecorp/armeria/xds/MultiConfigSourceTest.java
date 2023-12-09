@@ -74,7 +74,7 @@ class MultiConfigSourceTest {
 
     @BeforeEach
     void beforeEach() {
-        final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName2);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(bootstrapClusterName2);
         final Cluster cluster = Cluster.newBuilder()
                                        .setName("cluster1")
                                        .setType(DiscoveryType.EDS)
@@ -106,7 +106,7 @@ class MultiConfigSourceTest {
 
     @Test
     void basicCase() throws Exception {
-        final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName1);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(bootstrapClusterName1);
         final Bootstrap bootstrap = bootstrap();
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
             final TestResourceWatcher<Cluster> watcher =
@@ -162,7 +162,7 @@ class MultiConfigSourceTest {
                                                    .addClusters(staticCluster2))
                 .setDynamicResources(
                         DynamicResources.newBuilder()
-                                        .setCdsConfig(XdsTestResources.configSource(bootstrapClusterName1))
+                                        .setCdsConfig(XdsTestResources.sotwConfigSource(bootstrapClusterName1))
                                         .setAdsConfig(XdsTestResources.apiConfigSource(bootstrapClusterName2)))
                 .build();
     }

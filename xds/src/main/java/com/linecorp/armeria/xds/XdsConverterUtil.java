@@ -16,17 +16,13 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import java.util.List;
 import java.util.stream.Collectors;
 
 import com.linecorp.armeria.client.Endpoint;
 
-import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.core.v3.SocketAddress;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
-import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 
 final class XdsConverterUtil {
 

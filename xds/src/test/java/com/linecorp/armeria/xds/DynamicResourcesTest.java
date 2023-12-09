@@ -88,7 +88,7 @@ class DynamicResourcesTest {
         final String routeName = "local_route";
         final String clusterName = "some_service";
         final String bootstrapClusterName = "bootstrap-cluster";
-        final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
             xdsBootstrap.startSubscribe(configSource, XdsType.LISTENER, listenerName);

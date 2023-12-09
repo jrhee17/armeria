@@ -23,6 +23,8 @@ import com.google.protobuf.Any;
 import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
 
+import com.linecorp.armeria.common.annotation.Nullable;
+
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap.DynamicResources;
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap.StaticResources;
@@ -32,7 +34,6 @@ import io.envoyproxy.envoy.config.core.v3.Address;
 import io.envoyproxy.envoy.config.core.v3.AggregatedConfigSource;
 import io.envoyproxy.envoy.config.core.v3.ApiConfigSource;
 import io.envoyproxy.envoy.config.core.v3.ApiConfigSource.ApiType;
-import io.envoyproxy.envoy.config.core.v3.ApiConfigSource.Builder;
 import io.envoyproxy.envoy.config.core.v3.ApiVersion;
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.core.v3.GrpcService;
@@ -75,6 +76,10 @@ public final class XdsTestResources {
                                      .build()).build();
     }
 
+    public static ClusterLoadAssignment loadAssignment(String clusterName, URI uri) {
+        return loadAssignment(clusterName, uri.getHost(), uri.getPort());
+    }
+
     public static ClusterLoadAssignment loadAssignment(String clusterName, String address, int port) {
         return ClusterLoadAssignment.newBuilder()
                                     .setClusterName(clusterName)
@@ -87,8 +92,28 @@ public final class XdsTestResources {
     public static Bootstrap bootstrap(URI uri, String clusterName) {
         final Cluster cluster = createStaticCluster(
                 clusterName, loadAssignment(clusterName, uri.getHost(), uri.getPort()));
-        final ConfigSource configSource = configSource(clusterName);
+        final ConfigSource configSource = sotwConfigSource(clusterName);
         return bootstrap(configSource, cluster);
+    }
+
+    public static Bootstrap bootstrap(@Nullable ApiConfigSource adsConfigSource,
+                                      @Nullable ConfigSource sotwConfigSource,
+                                      Cluster... cluster) {
+        final DynamicResources.Builder dynamicResources = DynamicResources.newBuilder();
+        if (adsConfigSource != null) {
+            dynamicResources.setAdsConfig(adsConfigSource);
+        }
+        if (sotwConfigSource != null) {
+            dynamicResources.setCdsConfig(sotwConfigSource);
+            dynamicResources.setLdsConfig(sotwConfigSource);
+        }
+        return Bootstrap
+                .newBuilder()
+                .setStaticResources(
+                        StaticResources.newBuilder()
+                                       .addAllClusters(ImmutableSet.copyOf(cluster)))
+                .setDynamicResources(dynamicResources)
+                .build();
     }
 
     public static Bootstrap bootstrap(ConfigSource configSource, Cluster... cluster) {
@@ -106,14 +131,21 @@ public final class XdsTestResources {
                 .build();
     }
 
-    public static ConfigSource configSource(String clusterName) {
+    public static ConfigSource adsConfigSource() {
+        return ConfigSource
+                .newBuilder()
+                .setAds(AggregatedConfigSource.getDefaultInstance())
+                .build();
+    }
+
+    public static ConfigSource sotwConfigSource(String clusterName) {
         return ConfigSource
                 .newBuilder()
                 .setApiConfigSource(apiConfigSource(clusterName))
                 .build();
     }
 
-    public static Builder apiConfigSource(String clusterName) {
+    public static ApiConfigSource apiConfigSource(String clusterName) {
         return ApiConfigSource
                 .newBuilder()
                 .addGrpcServices(
@@ -121,7 +153,8 @@ public final class XdsTestResources {
                                 .newBuilder()
                                 .setEnvoyGrpc(EnvoyGrpc.newBuilder()
                                                        .setClusterName(clusterName)))
-                .setApiType(ApiType.GRPC);
+                .setApiType(ApiType.GRPC)
+                .build();
     }
 
     public static Cluster createCluster(String clusterName) {
@@ -135,13 +168,20 @@ public final class XdsTestResources {
                             .setAds(AggregatedConfigSource.getDefaultInstance())
                             .setResourceApiVersion(ApiVersion.V3)
                             .build();
+        return createCluster(clusterName, edsSource, connectTimeoutSeconds);
+    }
 
+    public static Cluster createCluster(String clusterName, ConfigSource configSource) {
+        return createCluster(clusterName, configSource, 5);
+    }
+
+    public static Cluster createCluster(String clusterName, ConfigSource configSource, int connectTimeoutSeconds) {
         return Cluster.newBuilder()
                       .setName(clusterName)
                       .setConnectTimeout(Durations.fromSeconds(connectTimeoutSeconds))
                       .setEdsClusterConfig(
                               Cluster.EdsClusterConfig.newBuilder()
-                                                      .setEdsConfig(edsSource)
+                                                      .setEdsConfig(configSource)
                                                       .setServiceName(clusterName))
                       .setType(Cluster.DiscoveryType.EDS)
                       .build();
@@ -187,7 +227,7 @@ public final class XdsTestResources {
     }
 
     public static Listener exampleListener(String listenerName, String routeName, String clusterName) {
-        final ConfigSource configSource = configSource(clusterName);
+        final ConfigSource configSource = sotwConfigSource(clusterName);
         final HttpConnectionManager manager =
                 HttpConnectionManager
                         .newBuilder()

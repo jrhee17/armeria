@@ -39,15 +39,5 @@ final class XdsResourceParserUtil {
         return typeUrlToResourceType.get(typeUrl);
     }
 
-    @Nullable
-    static ResourceParser<? extends Message> of(Object t) {
-        for (ResourceParser<?> parser: typeUrlToResourceType.values()) {
-            if (parser.clazz().isInstance(t)) {
-                return parser;
-            }
-        }
-        throw new IllegalArgumentException("Unable to find a resource parser for " + t);
-    }
-
     private XdsResourceParserUtil() {}
 }

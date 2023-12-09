@@ -129,7 +129,7 @@ public class XdsEndpointGroupTest {
 
     @Test
     void testWithListener() {
-        final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(bootstrapClusterName);
         final URI uri = server.httpUri();
         final ClusterLoadAssignment loadAssignment =
                 XdsTestResources.loadAssignment(bootstrapClusterName,
@@ -148,7 +148,7 @@ public class XdsEndpointGroupTest {
 
     @Test
     void testAllHttps() {
-        final ConfigSource configSource = XdsTestResources.configSource(httpsBootstrapClusterName);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(httpsBootstrapClusterName);
         final URI httpsUri = server.httpsUri();
         final ClusterLoadAssignment loadAssignment =
                 XdsTestResources.loadAssignment(httpsBootstrapClusterName,
@@ -169,7 +169,7 @@ public class XdsEndpointGroupTest {
 
     @Test
     void testControlPlaneOnlyHttps() {
-        final ConfigSource configSource = XdsTestResources.configSource(httpsBootstrapClusterName);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(httpsBootstrapClusterName);
         final URI httpsUri = server.httpsUri();
         final ClusterLoadAssignment loadAssignment =
                 XdsTestResources.loadAssignment(httpsBootstrapClusterName,

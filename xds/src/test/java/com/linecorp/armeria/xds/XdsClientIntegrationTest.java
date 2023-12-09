@@ -70,7 +70,7 @@ public class XdsClientIntegrationTest {
     @Test
     void basicCase() throws Exception {
         final String bootstrapClusterName = "bootstrap-cluster";
-        final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(bootstrapClusterName);
         final String clusterName = "cluster1";
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
@@ -110,7 +110,7 @@ public class XdsClientIntegrationTest {
     @Test
     void multipleResources() throws Exception {
         final String bootstrapClusterName = "bootstrap-cluster";
-        final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
             final TestResourceWatcher<Cluster> watcher = new TestResourceWatcher<>();
@@ -160,7 +160,7 @@ public class XdsClientIntegrationTest {
     @Test
     void initialValue() throws Exception {
         final String bootstrapClusterName = "bootstrap-cluster";
-        final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
             final TestResourceWatcher<Cluster> watcher =
@@ -185,7 +185,7 @@ public class XdsClientIntegrationTest {
     @Test
     void errorHandling() throws Exception {
         final String bootstrapClusterName = "bootstrap-cluster";
-        final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
             final TestResourceWatcher<Cluster> watcher = new TestResourceWatcher<>();

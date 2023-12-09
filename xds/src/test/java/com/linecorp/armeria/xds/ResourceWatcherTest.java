@@ -81,7 +81,7 @@ public class ResourceWatcherTest {
     void edsToEds() {
         final String resourceName = "cluster1";
         final String bootstrapClusterName = "bootstrap-cluster";
-        final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
             final TestResourceWatcher<Cluster> clusterWatcher = new TestResourceWatcher<>();
@@ -122,7 +122,7 @@ public class ResourceWatcherTest {
     void edsToLogicalDns() {
         final String resourceName = "cluster2";
         final String bootstrapClusterName = "bootstrap-cluster";
-        final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
             xdsBootstrap.startSubscribe(configSource, XdsType.CLUSTER, resourceName);
@@ -167,7 +167,7 @@ public class ResourceWatcherTest {
                                 ImmutableList.of(),
                                 ImmutableList.of(), ImmutableList.of(), "1"));
         final String bootstrapClusterName = "bootstrap-cluster";
-        final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
             xdsBootstrap.startSubscribe(configSource, XdsType.CLUSTER, resourceName);

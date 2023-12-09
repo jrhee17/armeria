@@ -112,7 +112,7 @@ class ClientTimeoutTest {
         final TestResourceWatcher<Cluster> watcher = new TestResourceWatcher<>();
         final String bootstrapClusterName = "bootstrap-cluster";
         final String clusterName = "cluster1";
-        final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
             xdsBootstrap.startSubscribe(configSource, XdsType.CLUSTER, clusterName);

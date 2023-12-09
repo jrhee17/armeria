@@ -16,11 +16,6 @@
 
 package com.linecorp.armeria.xds;
 
-import java.util.Arrays;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
@@ -42,9 +37,6 @@ public enum XdsType {
     ENDPOINT("type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment",
              ClusterLoadAssignment.class);
 
-    private static final Map<String, XdsType> typeMap =
-            Arrays.stream(values()).collect(Collectors.toMap(XdsType::typeUrl, Function.identity()));
-
     private final String typeUrl;
     private final Class<?> clazz;
 
@@ -65,13 +57,5 @@ public enum XdsType {
      */
     public Class<?> clazz() {
         return clazz;
-    }
-
-    static XdsType fromTypeUrl(String typeUrl) {
-        final XdsType type = typeMap.get(typeUrl);
-        if (type == null) {
-            throw new IllegalArgumentException("Unsupported type url: " + typeUrl);
-        }
-        return type;
     }
 }

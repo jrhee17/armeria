@@ -96,7 +96,7 @@ class MissingResourceTest {
     void missingResource() {
         final String bootstrapClusterName = "bootstrap-cluster";
         final String clusterName = "cluster1";
-        final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(bootstrapClusterName);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server.httpUri(), bootstrapClusterName);
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
             xdsBootstrap.startSubscribe(configSource, XdsType.CLUSTER, clusterName);
@@ -134,7 +134,7 @@ class MissingResourceTest {
     void missingStaticResource() throws Exception {
         final String bootstrapClusterName = "bootstrap-cluster";
         final String clusterName = "cluster1";
-        final ConfigSource configSource = XdsTestResources.configSource(bootstrapClusterName);
+        final ConfigSource configSource = XdsTestResources.sotwConfigSource(bootstrapClusterName);
 
         final ClusterLoadAssignment assignment =
                 XdsTestResources.loadAssignment(clusterName, "127.0.0.1", 8080);
