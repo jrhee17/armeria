@@ -20,6 +20,8 @@ import static com.linecorp.armeria.internal.common.HttpHeadersUtil.mergeResponse
 
 import java.util.concurrent.CompletableFuture;
 
+import com.linecorp.armeria.common.CompositeHttpHeaders;
+import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.internal.server.DefaultServiceRequestContext;
 
@@ -40,11 +42,14 @@ final class WebSocketHttp1ResponseSubscriber extends AbstractHttpResponseSubscri
     void onResponseHeaders(ResponseHeaders headers) {
         final boolean endOfStream = headers.isEndOfStream();
         final ServerConfig config = reqCtx.config().server().config();
-        final ResponseHeaders merged =
-                mergeResponseHeaders(headers, reqCtx.additionalResponseHeaders(),
-                                     reqCtx.config().defaultHeaders(),
-                                     config.isServerHeaderEnabled(),
-                                     config.isDateHeaderEnabled());
+        HttpHeaders systemHeaders = mergeResponseHeaders(
+                config.isServerHeaderEnabled(),
+                config.isDateHeaderEnabled());
+        final CompositeHttpHeaders compositeHttpHeader =
+                new CompositeHttpHeaders(reqCtx.additionalResponseHeaders(),
+                                         headers, reqCtx.config().defaultHeaders(),
+                                         systemHeaders);
+        final ResponseHeaders merged = ResponseHeaders.of(compositeHttpHeader);
         logBuilder().responseHeaders(merged);
         setState(State.NEEDS_DATA);
         responseEncoder.writeHeaders(req.id(), req.streamId(), merged, endOfStream, reqCtx.method())

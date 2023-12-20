@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.ClosedSessionException;
+import com.linecorp.armeria.common.CompositeHttpHeaders;
 import com.linecorp.armeria.common.HttpData;
 import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpHeaders;
@@ -144,10 +145,15 @@ abstract class AbstractHttpResponseHandler {
         final int streamId = req.streamId();
 
         final ServerConfig config = reqCtx.config().server().config();
-        ResponseHeaders headers = mergeResponseHeaders(res.headers(), reqCtx.additionalResponseHeaders(),
-                                                       reqCtx.config().defaultHeaders(),
-                                                       config.isServerHeaderEnabled(),
-                                                       config.isDateHeaderEnabled());
+        HttpHeaders systemHeaders = mergeResponseHeaders(
+                config.isServerHeaderEnabled(),
+                config.isDateHeaderEnabled());
+        final CompositeHttpHeaders compositeHttpHeader =
+                new CompositeHttpHeaders(reqCtx.additionalResponseHeaders(),
+                                         res.headers(),
+                                         reqCtx.config().defaultHeaders(),
+                                         systemHeaders);
+        ResponseHeaders headers = ResponseHeaders.of(compositeHttpHeader);
         final String connectionOption = headers.get(HttpHeaderNames.CONNECTION);
         if (CLOSE_STRING.equalsIgnoreCase(connectionOption)) {
             disconnectWhenFinished();

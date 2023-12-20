@@ -1282,4 +1282,14 @@ class CompositeStringMultiMapTest {
         assertThat(headers.toString()).isEqualTo("[]");
         assertThat(new CompositeHttpHeadersBase(HttpHeaders.of()).toString()).isEqualTo("[]");
     }
+
+    @Test
+    void testAsdf() {
+final CompositeStringMultimap<CharSequence, AsciiString> headers =
+        new CompositeHttpHeadersBase(HttpHeaders.of("k1", "v1"),
+                                     HttpHeaders.of("k1", "v2"));
+for (Entry<AsciiString, String> entry: headers) {
+    System.out.println(entry);
+}
+    }
 }

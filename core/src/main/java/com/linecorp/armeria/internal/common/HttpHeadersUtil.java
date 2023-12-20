@@ -25,7 +25,6 @@ import com.linecorp.armeria.common.HttpHeadersBuilder;
 import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.RequestHeadersBuilder;
 import com.linecorp.armeria.common.ResponseHeaders;
-import com.linecorp.armeria.common.ResponseHeadersBuilder;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.internal.common.util.HttpTimestampSupplier;
 
@@ -43,30 +42,8 @@ public final class HttpHeadersUtil {
      * additional headers (highest priority) > headers > default headers > framework headers (lowest priority)
      * }</pre>
      */
-    public static ResponseHeaders mergeResponseHeaders(ResponseHeaders headers,
-                                                       HttpHeaders additionalHeaders,
-                                                       HttpHeaders defaultHeaders,
-                                                       boolean serverHeaderEnabled, boolean dateHeaderEnabled) {
-        if (additionalHeaders.isEmpty() && defaultHeaders.isEmpty() &&
-            !serverHeaderEnabled && !dateHeaderEnabled) {
-            return headers;
-        }
-
-        final ResponseHeadersBuilder builder = headers.toBuilder();
-
-        for (AsciiString name : additionalHeaders.names()) {
-            if (!isPseudoHeader(name)) {
-                builder.remove(name);
-                additionalHeaders.forEachValue(name, value -> builder.add(name, value));
-            }
-        }
-
-        for (AsciiString name : defaultHeaders.names()) {
-            if (!isPseudoHeader(name) && !builder.contains(name)) {
-                defaultHeaders.forEachValue(name, value -> builder.add(name, value));
-            }
-        }
-
+    public static HttpHeaders mergeResponseHeaders(boolean serverHeaderEnabled, boolean dateHeaderEnabled) {
+        final HttpHeadersBuilder builder = HttpHeaders.builder();
         // Framework headers
         if (serverHeaderEnabled && !builder.contains(HttpHeaderNames.SERVER)) {
             builder.add(HttpHeaderNames.SERVER, ArmeriaHttpUtil.SERVER_HEADER);

@@ -21,7 +21,9 @@ import static com.linecorp.armeria.internal.common.HttpHeadersUtil.mergeResponse
 
 import java.util.concurrent.CompletableFuture;
 
+import com.linecorp.armeria.common.CompositeHttpHeaders;
 import com.linecorp.armeria.common.HttpHeaderNames;
+import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.ResponseHeaders;
@@ -67,10 +69,14 @@ final class HttpResponseSubscriber extends AbstractHttpResponseSubscriber {
                 setDone(true);
             }
             final ServerConfig config = reqCtx.config().server().config();
-            merged = mergeResponseHeaders(headers, reqCtx.additionalResponseHeaders(),
-                                          reqCtx.config().defaultHeaders(),
-                                          config.isServerHeaderEnabled(),
-                                          config.isDateHeaderEnabled());
+            HttpHeaders systemHeaders = mergeResponseHeaders(
+                    config.isServerHeaderEnabled(),
+                    config.isDateHeaderEnabled());
+            final CompositeHttpHeaders compositeHttpHeader =
+                    new CompositeHttpHeaders(reqCtx.additionalResponseHeaders(),
+                                             headers, reqCtx.config().defaultHeaders(),
+                                             systemHeaders);
+            merged = ResponseHeaders.of(compositeHttpHeader);
             final String connectionOption = merged.get(HttpHeaderNames.CONNECTION);
             if (CLOSE_STRING.equalsIgnoreCase(connectionOption)) {
                 disconnectWhenFinished();
