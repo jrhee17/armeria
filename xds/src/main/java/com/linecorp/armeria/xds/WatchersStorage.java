@@ -28,9 +28,14 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.protobuf.Message;
+
 import com.linecorp.armeria.common.annotation.Nullable;
 
-final class WatchersStorage {
+import io.envoyproxy.envoy.config.core.v3.ConfigSource;
+import io.netty.util.concurrent.EventExecutor;
+
+public final class WatchersStorage {
 
     private static final Logger logger = LoggerFactory.getLogger(WatchersStorage.class);
 
@@ -40,6 +45,30 @@ final class WatchersStorage {
             new EnumMap<>(XdsType.class);
 
     private final Map<XdsType, Map<String, CompositeWatcher>> watchers = new EnumMap<>(XdsType.class);
+
+    private final XdsBootstrapImpl xdsBootstrap;
+
+    WatchersStorage(XdsBootstrapImpl xdsBootstrap) {
+        this.xdsBootstrap = xdsBootstrap;
+    }
+
+    void subscribe(XdsType xdsType, String resourceName) {
+        subscribe(null, xdsType, resourceName);
+    }
+
+    void subscribe(@Nullable ConfigSource configSource, XdsType xdsType, String resourceName) {
+        final ResourceNode<ResourceHolder<?>> node =
+                (ResourceNode<ResourceHolder<?>>) DynamicResourceNode.from(xdsType, this);
+        addNode(xdsType, resourceName, node);
+        xdsBootstrap.subscribe(configSource, xdsType, resourceName, node);
+    }
+
+    void addStaticNode(XdsType type, String resourceName, Message t) {
+        final ResourceParser resourceParser = XdsResourceParserUtil.fromType(type);
+        final ResourceHolder<?> parsed = resourceParser.parse(t);
+        final StaticResourceNode<?> watcher = new StaticResourceNode<>(this, parsed);
+        addNode(type, resourceName, watcher);
+    }
 
     @Nullable
     Object current(XdsType type, String resource) {
@@ -106,7 +135,7 @@ final class WatchersStorage {
         notifyListeners(type, resource);
     }
 
-    void addWatcher(XdsType type, String resource, ResourceWatcher<ResourceHolder<?>> watcher) {
+    void addWatcher(XdsType type, String resource, ResourceWatcher<? extends ResourceHolder<?>> watcher) {
         if (!watchers.containsKey(type)) {
             watchers.put(type, new HashMap<>());
         }
@@ -115,10 +144,10 @@ final class WatchersStorage {
             resourceToWatchers.put(resource, new CompositeWatcher(type, resource));
         }
         final CompositeWatcher compositeWatcher = resourceToWatchers.get(resource);
-        compositeWatcher.addListener(watcher);
+        compositeWatcher.addListener((ResourceWatcher<ResourceHolder<?>>) watcher);
     }
 
-    void removeWatcher(XdsType type, String resource, ResourceWatcher<ResourceHolder<?>> watcher) {
+    void removeWatcher(XdsType type, String resource, ResourceWatcher<? extends ResourceHolder<?>> watcher) {
         if (!watchers.containsKey(type)) {
             return;
         }
@@ -127,7 +156,7 @@ final class WatchersStorage {
             return;
         }
         final CompositeWatcher compositeWatcher = resourceToWatchers.get(resource);
-        compositeWatcher.removeListener(watcher);
+        compositeWatcher.removeListener((ResourceWatcher<ResourceHolder<?>>) watcher);
 
         if (compositeWatcher.childListeners().isEmpty()) {
             resourceToWatchers.remove(resource);
@@ -205,5 +234,9 @@ final class WatchersStorage {
 
     void clearWatchers() {
         watchers.clear();
+    }
+
+    public EventExecutor eventLoop() {
+        return xdsBootstrap.eventLoop();
     }
 }

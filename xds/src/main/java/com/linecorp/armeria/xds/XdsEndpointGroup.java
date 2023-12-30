@@ -29,13 +29,14 @@ import com.linecorp.armeria.common.util.SafeCloseable;
 
 import io.envoyproxy.envoy.config.core.v3.SocketAddress;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
+import io.netty.util.concurrent.EventExecutor;
 
 /**
  * Provides a simple {@link EndpointGroup} which listens to a xDS cluster to select endpoints.
  * Listening to EDS can be done like the following:
  * <pre>{@code
- * XdsBootstrap xdsBootstrap = XdsBootstrap.of(...);
- * EndpointGroup endpointGroup = XdsEndpointGroup.of(xdsBootstrap, "my-cluster");
+ * XdsBootstrap watchersStorage = XdsBootstrap.of(...);
+ * EndpointGroup endpointGroup = XdsEndpointGroup.of(watchersStorage, "my-cluster");
  * WebClient client = WebClient.of(SessionProtocol.HTTP, endpointGroup);
  * }</pre>
  * Currently, all {@link SocketAddress}es of a {@link ClusterLoadAssignment} are aggregated
@@ -51,10 +52,10 @@ public final class XdsEndpointGroup extends DynamicEndpointGroup {
     /**
      * Creates a {@link XdsEndpointGroup} which listens to the specified {@code resourceName}.
      */
-    public static EndpointGroup of(XdsBootstrap xdsBootstrap, XdsType type, String resourceName) {
+    public static EndpointGroup of(WatchersStorage watchersStorage, XdsType type, String resourceName) {
         checkArgument(type == XdsType.LISTENER || type == XdsType.CLUSTER,
                       "Received %s but only LISTENER is supported.", type);
-        return new XdsEndpointGroup(xdsBootstrap, type, resourceName, true);
+        return new XdsEndpointGroup(watchersStorage, type, resourceName, true);
     }
 
     /**
@@ -62,24 +63,26 @@ public final class XdsEndpointGroup extends DynamicEndpointGroup {
      *
      * @param autoSubscribe if {@code true} will query the resource from the remote control plane.
      */
-    public static EndpointGroup of(XdsBootstrap xdsBootstrap, XdsType type, String resourceName,
+    public static EndpointGroup of(XdsBootstrap xdsBootstrap, WatchersStorage watchersStorage,
+                                   XdsType type, String resourceName,
                                    boolean autoSubscribe) {
         checkArgument(type == XdsType.LISTENER || type == XdsType.CLUSTER,
                       "Received %s but only LISTENER is supported.", type);
-        return new XdsEndpointGroup(xdsBootstrap, type, resourceName, autoSubscribe);
+        return new XdsEndpointGroup(xdsBootstrap, watchersStorage, type, resourceName, autoSubscribe);
     }
 
     @VisibleForTesting
-    XdsEndpointGroup(XdsBootstrap xdsBootstrap, XdsType type, String resourceName, boolean autoSubscribe) {
+    XdsEndpointGroup(WatchersStorage watchersStorage,
+                     XdsType type, String resourceName, boolean autoSubscribe) {
         final EndpointNode endpointNode;
         switch (type) {
             case CLUSTER:
-                final ClusterRoot clusterConfig = xdsBootstrap.clusterRoot(resourceName, autoSubscribe);
+                final ClusterRoot clusterConfig = new ClusterRoot(watchersStorage, resourceName, autoSubscribe);
                 endpointNode = clusterConfig.endpointNode();
                 config = clusterConfig;
                 break;
             case LISTENER:
-                final ListenerRoot listenerRoot = xdsBootstrap.listenerRoot(resourceName, autoSubscribe);
+                final ListenerRoot listenerRoot = new ListenerRoot(watchersStorage, resourceName, autoSubscribe);
                 endpointNode = listenerRoot.routeNode()
                                            .clusterNode((virtualHost, route) -> true)
                                            .endpointNode();

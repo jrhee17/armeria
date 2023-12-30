@@ -28,6 +28,7 @@ import io.envoyproxy.envoy.config.route.v3.Route.ActionCase;
 import io.envoyproxy.envoy.config.route.v3.RouteAction;
 import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 import io.envoyproxy.envoy.config.route.v3.VirtualHost;
+import io.netty.util.concurrent.EventExecutor;
 
 /**
  * A resource node representing a {@link Cluster}.
@@ -37,12 +38,10 @@ public final class ClusterNode extends AbstractNode<ClusterResourceHolder> {
 
     @Nullable
     private String currentName;
-    private final XdsBootstrapImpl xdsBootstrap;
 
-    ClusterNode(XdsBootstrapImpl xdsBootstrap, RouteNode routeNode,
+    ClusterNode(WatchersStorage watchersStorage, EventExecutor eventLoop, RouteNode routeNode,
                 BiPredicate<VirtualHost, Route> predicate) {
-        super(xdsBootstrap.eventLoop());
-        this.xdsBootstrap = xdsBootstrap;
+        super(watchersStorage, eventLoop);
         routeNode.addListener(new ResourceWatcher<RouteResourceHolder>() {
 
             @Override
@@ -65,9 +64,9 @@ public final class ClusterNode extends AbstractNode<ClusterResourceHolder> {
                             return;
                         }
                         if (currentName != null) {
-                            xdsBootstrap.removeClusterWatcher(currentName, ClusterNode.this);
+                            watchersStorage.removeWatcher(XdsType.CLUSTER, currentName, ClusterNode.this);
                         }
-                        xdsBootstrap.addClusterWatcher(clusterName, ClusterNode.this);
+                        watchersStorage.addWatcher(XdsType.CLUSTER, clusterName, ClusterNode.this);
                         currentName = clusterName;
                     }
                 }
@@ -79,6 +78,6 @@ public final class ClusterNode extends AbstractNode<ClusterResourceHolder> {
      * Returns a node representation of the {@link ClusterLoadAssignment} contained by this listener.
      */
     public EndpointNode endpointNode() {
-        return new EndpointNode(xdsBootstrap, this);
+        return new EndpointNode(watchersStorage(), eventLoop(), this);
     }
 }

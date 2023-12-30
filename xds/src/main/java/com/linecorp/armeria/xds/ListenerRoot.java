@@ -16,7 +16,6 @@
 
 package com.linecorp.armeria.xds;
 
-import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SafeCloseable;
 
 import io.envoyproxy.envoy.config.listener.v3.Listener;
@@ -29,36 +28,25 @@ import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
  */
 public final class ListenerRoot extends AbstractNode<ListenerResourceHolder> implements SafeCloseable {
 
-    private final XdsBootstrapImpl xdsBootstrap;
     private final String resourceName;
 
-    @Nullable
-    private final SafeCloseable safeCloseable;
-
-    ListenerRoot(XdsBootstrapImpl xdsBootstrap, String resourceName, boolean autoSubscribe) {
-        super(xdsBootstrap.eventLoop());
-        this.xdsBootstrap = xdsBootstrap;
+    ListenerRoot(WatchersStorage watchersStorage, String resourceName, boolean autoSubscribe) {
+        super(watchersStorage);
         this.resourceName = resourceName;
         if (autoSubscribe) {
-            safeCloseable = xdsBootstrap.subscribe(XdsType.LISTENER, resourceName);
-        } else {
-            safeCloseable = null;
+            watchersStorage().subscribe(XdsType.LISTENER, resourceName);
         }
-        xdsBootstrap.addListenerWatcher(resourceName, this);
+        watchersStorage().addWatcher(XdsType.LISTENER, resourceName, this);
     }
 
     /**
      * Returns a node representation of the {@link RouteConfiguration} contained by this listener.
      */
     public RouteNode routeNode() {
-        return new RouteNode(xdsBootstrap, this);
+        return new RouteNode(watchersStorage(), eventLoop(), this);
     }
 
     @Override
     public void close() {
-        if (safeCloseable != null) {
-            safeCloseable.close();
-        }
-        xdsBootstrap.removeListenerWatcher(resourceName, this);
     }
 }

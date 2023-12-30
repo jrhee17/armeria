@@ -16,13 +16,11 @@
 
 package com.linecorp.armeria.xds;
 
-import io.envoyproxy.envoy.config.listener.v3.Listener;
-
-final class ListenerResourceNode extends DynamicResourceNode<Listener, ListenerResourceHolder>
+final class ListenerResourceNode extends DynamicResourceNode<ListenerResourceHolder>
         implements ListenerNodeProcessor {
 
-    ListenerResourceNode(XdsBootstrapImpl xdsBootstrap) {
-        super(xdsBootstrap);
+    ListenerResourceNode(WatchersStorage watchersStorage) {
+        super(watchersStorage);
     }
 
     @Override

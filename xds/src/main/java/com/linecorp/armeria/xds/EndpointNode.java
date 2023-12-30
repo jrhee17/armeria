@@ -22,6 +22,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
+import io.netty.util.concurrent.EventExecutor;
 
 /**
  * A resource node representing a {@link ClusterLoadAssignment}.
@@ -32,8 +33,9 @@ public final class EndpointNode extends AbstractNode<EndpointResourceHolder> {
     @Nullable
     private String currentName;
 
-    EndpointNode(XdsBootstrapImpl xdsBootstrap, AbstractNode<ClusterResourceHolder> clusterConfig) {
-        super(xdsBootstrap.eventLoop());
+    EndpointNode(WatchersStorage watchersStorage, EventExecutor eventLoop,
+                 AbstractNode<ClusterResourceHolder> clusterConfig) {
+        super(watchersStorage, eventLoop);
         clusterConfig.addListener(new ResourceWatcher<ClusterResourceHolder>() {
             @Override
             public void onChanged(ClusterResourceHolder update) {
@@ -43,9 +45,9 @@ public final class EndpointNode extends AbstractNode<EndpointResourceHolder> {
                     return;
                 }
                 if (currentName != null) {
-                    xdsBootstrap.removeEndpointWatcher(currentName, EndpointNode.this);
+                    watchersStorage().removeWatcher(XdsType.ENDPOINT, currentName, EndpointNode.this);
                 }
-                xdsBootstrap.addEndpointWatcher(clusterName, EndpointNode.this);
+                watchersStorage().addWatcher(XdsType.ENDPOINT, clusterName, EndpointNode.this);
                 currentName = clusterName;
             }
         });

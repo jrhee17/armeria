@@ -22,6 +22,7 @@ import com.linecorp.armeria.common.util.SafeCloseable;
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.listener.v3.Listener;
+import io.netty.util.concurrent.EventExecutor;
 
 /**
  * A {@link XdsBootstrap} encapsulates all logic to communicate with control plane servers
@@ -82,4 +83,6 @@ public interface XdsBootstrap extends SafeCloseable {
      * @param autoSubscribe if {@code true} will query the resource from the remote control plane.
      */
     ClusterRoot clusterRoot(String resourceName, boolean autoSubscribe);
+
+    EventExecutor eventLoop();
 }

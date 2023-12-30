@@ -24,15 +24,11 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.protobuf.Message;
 
 import com.linecorp.armeria.client.grpc.GrpcClientBuilder;
 import com.linecorp.armeria.common.CommonPools;
@@ -49,11 +45,11 @@ final class XdsBootstrapImpl implements XdsBootstrap {
     private final EventExecutor eventLoop;
 
     private final Map<ConfigSource, ConfigSourceClient> clientMap = new ConcurrentHashMap<>();
-    private final WatchersStorage watchersStorage;
+    private final WatchersStorage bootstrapStorage;
 
     private final BootstrapApiConfigs bootstrapApiConfigs;
     private final Consumer<GrpcClientBuilder> configClientCustomizer;
-    private final Node node;
+    private final Node serverNode;
     private final Deque<SafeCloseable> safeCloseables = new ArrayDeque<>();
 
     XdsBootstrapImpl(Bootstrap bootstrap) {
@@ -63,103 +59,53 @@ final class XdsBootstrapImpl implements XdsBootstrap {
     @VisibleForTesting
     XdsBootstrapImpl(Bootstrap bootstrap, Consumer<GrpcClientBuilder> configClientCustomizer) {
         eventLoop = CommonPools.workerGroup().next();
-        watchersStorage = new WatchersStorage();
+        bootstrapStorage = new WatchersStorage(this);
         this.configClientCustomizer = configClientCustomizer;
         bootstrapApiConfigs = new BootstrapApiConfigs(bootstrap);
 
         if (bootstrap.hasStaticResources()) {
             final StaticResources staticResources = bootstrap.getStaticResources();
-
-            final List<SafeCloseable> staticListenerCloseables =
-                    staticResources.getListenersList().stream()
-                                   .map(listener -> addStaticNode(LISTENER.typeUrl(), listener.getName(),
-                                                                  listener))
-                                   .collect(Collectors.toList());
-            safeCloseables.addAll(staticListenerCloseables);
-            final List<SafeCloseable> staticClusterCloseables =
-                    staticResources.getClustersList().stream()
-                                   .map(cluster -> addStaticNode(CLUSTER.typeUrl(), cluster.getName(),
-                                                                 cluster))
-                                   .collect(Collectors.toList());
-            safeCloseables.addAll(staticClusterCloseables);
+            staticResources.getListenersList()
+                           .forEach(listener -> bootstrapStorage.addStaticNode(
+                                   LISTENER, listener.getName(), listener));
+            staticResources.getClustersList()
+                           .forEach(cluster -> bootstrapStorage.addStaticNode(
+                                   CLUSTER, cluster.getName(), cluster));
         }
-        node = bootstrap.hasNode() ? bootstrap.getNode() : Node.getDefaultInstance();
+        serverNode = bootstrap.hasNode() ? bootstrap.getNode() : Node.getDefaultInstance();
     }
 
-    SafeCloseable subscribe(XdsType type, String resourceName) {
-        return subscribe(null, type, resourceName);
-    }
-
-    SafeCloseable subscribe(@Nullable ConfigSource configSource, XdsType type, String resourceName) {
+    void subscribe(@Nullable ConfigSource configSource, XdsType type, String resourceName,
+                   ResourceWatcher<ResourceHolder<?>> watcher) {
         final ConfigSource mappedConfigSource =
                 bootstrapApiConfigs.remapConfigSource(type, configSource, resourceName);
-        addSubscriber0(mappedConfigSource, type, resourceName);
-        final AtomicBoolean executeOnceGuard = new AtomicBoolean();
-        return () -> removeSubscriber0(mappedConfigSource, type, resourceName, executeOnceGuard);
+        addSubscriber0(mappedConfigSource, type, resourceName, watcher);
     }
 
-    private void removeSubscriber0(ConfigSource configSourceKey,
-                                   XdsType type, String resourceName,
-                                   AtomicBoolean executeOnceGuard) {
+    void removeSubscriber0(ConfigSource configSourceKey,
+                           XdsType type, String resourceName,
+                           ResourceWatcher<ResourceHolder<?>> watcher) {
         if (!eventLoop.inEventLoop()) {
-            eventLoop.execute(() -> removeSubscriber0(configSourceKey, type, resourceName, executeOnceGuard));
-            return;
-        }
-        if (!executeOnceGuard.compareAndSet(false, true)) {
+            eventLoop.execute(() -> removeSubscriber0(configSourceKey, type, resourceName, watcher));
             return;
         }
         final ConfigSourceClient client = clientMap.get(configSourceKey);
-        if (client.removeSubscriber(type, resourceName)) {
+        if (client.removeSubscriber(type, resourceName, watcher)) {
             client.close();
             clientMap.remove(configSourceKey);
         }
     }
 
     private void addSubscriber0(ConfigSource configSource,
-                                XdsType type, String resourceName) {
+                                XdsType type, String resourceName, ResourceWatcher<ResourceHolder<?>> watcher) {
         if (!eventLoop.inEventLoop()) {
-            eventLoop.execute(() -> addSubscriber0(configSource, type, resourceName));
+            eventLoop.execute(() -> addSubscriber0(configSource, type, resourceName, watcher));
             return;
         }
         final ConfigSourceClient client = clientMap.computeIfAbsent(
                 configSource, ignored -> new ConfigSourceClient(
-                        configSource, eventLoop, watchersStorage, this, node, configClientCustomizer));
-        client.addSubscriber(type, resourceName, this);
-    }
-
-    SafeCloseable addStaticNode(String typeUrl, String resourceName, Message t) {
-        final ResourceParser resourceParser = XdsResourceParserUtil.fromTypeUrl(typeUrl);
-        if (resourceParser == null) {
-            throw new IllegalArgumentException("Invalid type url: " + typeUrl);
-        }
-        final ResourceHolder<?> parsed = resourceParser.parse(t);
-        final XdsType type = resourceParser.type();
-        final StaticResourceNode<?> watcher = new StaticResourceNode<>(this, parsed);
-        addStaticNode0(parsed.type(), resourceName, watcher);
-        final AtomicBoolean executeOnceGuard = new AtomicBoolean();
-        return () -> removeStaticNode0(type, resourceName, watcher, executeOnceGuard);
-    }
-
-    private void addStaticNode0(XdsType type, String resourceName,
-                                StaticResourceNode<?> watcher) {
-        if (!eventLoop.inEventLoop()) {
-            eventLoop.execute(() -> addStaticNode0(type, resourceName, watcher));
-            return;
-        }
-        watchersStorage.addNode(type, resourceName, watcher);
-    }
-
-    private void removeStaticNode0(XdsType type, String resourceName,
-                                   StaticResourceNode<?> watcher,
-                                   AtomicBoolean executeOnceGuard) {
-        if (!eventLoop.inEventLoop()) {
-            eventLoop.execute(() -> removeStaticNode0(type, resourceName, watcher, executeOnceGuard));
-            return;
-        }
-        if (!executeOnceGuard.compareAndSet(false, true)) {
-            return;
-        }
-        watchersStorage.removeNode(type, resourceName, watcher);
+                        configSource, eventLoop, bootstrapStorage, this, serverNode, configClientCustomizer));
+        client.addSubscriber(type, resourceName, this, watcher);
     }
 
     @Override
@@ -169,7 +115,7 @@ final class XdsBootstrapImpl implements XdsBootstrap {
 
     @Override
     public ListenerRoot listenerRoot(String resourceName, boolean autoSubscribe) {
-        return new ListenerRoot(this, resourceName, autoSubscribe);
+        return new ListenerRoot(new WatchersStorage(this), resourceName, autoSubscribe);
     }
 
     @Override
@@ -179,7 +125,8 @@ final class XdsBootstrapImpl implements XdsBootstrap {
 
     @Override
     public ClusterRoot clusterRoot(String resourceName, boolean autoSubscribe) {
-        return new ClusterRoot(this, resourceName, autoSubscribe);
+        return new ClusterRoot(new WatchersStorage(this), eventLoop,
+                               resourceName, autoSubscribe);
     }
 
     SafeCloseable addListener(
@@ -189,8 +136,8 @@ final class XdsBootstrapImpl implements XdsBootstrap {
         @SuppressWarnings("unchecked")
         final ResourceWatcher<ResourceHolder<?>> cast =
                 (ResourceWatcher<ResourceHolder<?>>) requireNonNull(watcher, "watcher");
-        eventLoop.execute(() -> watchersStorage.addWatcher(type, resourceName, cast));
-        return () -> eventLoop.execute(() -> watchersStorage.removeWatcher(type, resourceName, cast));
+        eventLoop.execute(() -> bootstrapStorage.addWatcher(type, resourceName, cast));
+        return () -> eventLoop.execute(() -> bootstrapStorage.removeWatcher(type, resourceName, cast));
     }
 
     private void removeListener(
@@ -200,7 +147,7 @@ final class XdsBootstrapImpl implements XdsBootstrap {
         @SuppressWarnings("unchecked")
         final ResourceWatcher<ResourceHolder<?>> cast =
                 (ResourceWatcher<ResourceHolder<?>>) requireNonNull(watcher, "watcher");
-        eventLoop.execute(() -> watchersStorage.removeWatcher(type, resourceName, cast));
+        eventLoop.execute(() -> bootstrapStorage.removeWatcher(type, resourceName, cast));
     }
 
     SafeCloseable addListenerWatcher(String resourceName,
@@ -249,7 +196,7 @@ final class XdsBootstrapImpl implements XdsBootstrap {
             return;
         }
         // first clear listeners so that updates are not received anymore
-        watchersStorage.clearWatchers();
+        bootstrapStorage.clearWatchers();
         clientMap().values().forEach(ConfigSourceClient::close);
         clientMap.clear();
         while (!safeCloseables.isEmpty()) {
@@ -262,7 +209,8 @@ final class XdsBootstrapImpl implements XdsBootstrap {
         return clientMap;
     }
 
-    EventExecutor eventLoop() {
+    @Override
+    public EventExecutor eventLoop() {
         return eventLoop;
     }
 }

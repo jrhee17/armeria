@@ -26,6 +26,7 @@ import io.envoyproxy.envoy.config.route.v3.Route;
 import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager;
+import io.netty.util.concurrent.EventExecutor;
 
 /**
  * A resource node representing a {@link RouteConfiguration}.
@@ -33,13 +34,11 @@ import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3
  */
 public final class RouteNode extends AbstractNode<RouteResourceHolder> {
 
-    private final XdsBootstrapImpl xdsBootstrap;
     @Nullable
     private String currentName;
 
-    RouteNode(XdsBootstrapImpl xdsBootstrap, ListenerRoot listenerRoot) {
-        super(xdsBootstrap.eventLoop());
-        this.xdsBootstrap = xdsBootstrap;
+    RouteNode(WatchersStorage watchersStorage, EventExecutor eventLoop, ListenerRoot listenerRoot) {
+        super(watchersStorage, eventLoop);
         listenerRoot.addListener(new ResourceWatcher<ListenerResourceHolder>() {
             @Override
             public void onChanged(ListenerResourceHolder update) {
@@ -60,9 +59,9 @@ public final class RouteNode extends AbstractNode<RouteResourceHolder> {
                     return;
                 }
                 if (currentName != null) {
-                    xdsBootstrap.removeRouteWatcher(currentName, RouteNode.this);
+                    watchersStorage().removeWatcher(XdsType.ROUTE, currentName, RouteNode.this);
                 }
-                xdsBootstrap.addRouteWatcher(routeName, RouteNode.this);
+                watchersStorage.addWatcher(XdsType.ROUTE, routeName, RouteNode.this);
                 currentName = routeName;
             }
         });
@@ -72,6 +71,6 @@ public final class RouteNode extends AbstractNode<RouteResourceHolder> {
      * Returns a node representation of the {@link Cluster} contained by this listener.
      */
     public ClusterNode clusterNode(BiPredicate<VirtualHost, Route> predicate) {
-        return new ClusterNode(xdsBootstrap, this, predicate);
+        return new ClusterNode(watchersStorage(), eventLoop(), this, predicate);
     }
 }

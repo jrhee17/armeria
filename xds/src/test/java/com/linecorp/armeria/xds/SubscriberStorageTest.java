@@ -34,13 +34,15 @@ class SubscriberStorageTest {
 
     @Test
     void registerAndUnregister() throws Exception {
+        final TestResourceWatcher watcher = new TestResourceWatcher();
         final Bootstrap bootstrap = XdsTestResources.bootstrap(URI.create("http://a.com"), "cluster");
-        try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap);
-             SubscriberStorage storage =
-                     new SubscriberStorage(eventLoop.get(), new WatchersStorage(), 15_000)) {
-            storage.register(XdsType.CLUSTER, "cluster1", xdsBootstrap);
+        try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
+            final WatchersStorage watchersStorage = new WatchersStorage(xdsBootstrap);
+            final SubscriberStorage storage =
+                    new SubscriberStorage(eventLoop.get(), watchersStorage, 15_000);
+            storage.register(XdsType.CLUSTER, "cluster1", xdsBootstrap, watcher);
             assertThat(storage.subscribers(XdsType.CLUSTER)).hasSize(1);
-            storage.unregister(XdsType.CLUSTER, "cluster1");
+            storage.unregister(XdsType.CLUSTER, "cluster1", watcher);
             assertThat(storage.subscribers(XdsType.CLUSTER)).isEmpty();
             assertThat(storage.allSubscribers()).isEmpty();
         }
@@ -49,17 +51,19 @@ class SubscriberStorageTest {
     @Test
     void referenceCount() {
         final Bootstrap bootstrap = XdsTestResources.bootstrap(URI.create("http://a.com"), "cluster");
-        try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap);
-             SubscriberStorage storage =
-                     new SubscriberStorage(eventLoop.get(), new WatchersStorage(), 15_000)) {
-            storage.register(XdsType.CLUSTER, "cluster1", xdsBootstrap);
+        try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap)) {
+            final WatchersStorage watchersStorage = new WatchersStorage(xdsBootstrap);
+            final TestResourceWatcher watcher = new TestResourceWatcher();
+            final SubscriberStorage storage =
+                    new SubscriberStorage(eventLoop.get(), watchersStorage, 15_000);
+            storage.register(XdsType.CLUSTER, "cluster1", xdsBootstrap, watcher);
             assertThat(storage.subscribers(XdsType.CLUSTER)).hasSize(1);
-            storage.register(XdsType.CLUSTER, "cluster1", xdsBootstrap);
+            storage.register(XdsType.CLUSTER, "cluster1", xdsBootstrap, watcher);
             assertThat(storage.subscribers(XdsType.CLUSTER)).hasSize(1);
 
-            storage.unregister(XdsType.CLUSTER, "cluster1");
+            storage.unregister(XdsType.CLUSTER, "cluster1", watcher);
             assertThat(storage.subscribers(XdsType.CLUSTER)).hasSize(1);
-            storage.unregister(XdsType.CLUSTER, "cluster1");
+            storage.unregister(XdsType.CLUSTER, "cluster1", watcher);
             assertThat(storage.subscribers(XdsType.CLUSTER)).isEmpty();
             assertThat(storage.allSubscribers()).isEmpty();
         }

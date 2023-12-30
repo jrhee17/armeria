@@ -16,62 +16,42 @@
 
 package com.linecorp.armeria.xds;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.List;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.protobuf.Message;
-
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.common.util.SafeCloseable;
 
 import io.grpc.Status;
 
-abstract class DynamicResourceNode<T extends Message, U extends ResourceHolder<T>>
-        implements ResourceNode<U> {
+abstract class DynamicResourceNode<U extends ResourceHolder<?>> implements ResourceNode<U> {
 
     private static final Logger logger = LoggerFactory.getLogger(DynamicResourceNode.class);
 
-    static ResourceNode<?> from(XdsType type, XdsBootstrapImpl xdsBootstrap) {
+    static ResourceNode<?> from(XdsType type, WatchersStorage watchersStorage) {
         if (type == XdsType.LISTENER) {
-            return new ListenerResourceNode(xdsBootstrap);
+            return new ListenerResourceNode(watchersStorage);
         } else if (type == XdsType.ROUTE) {
-            return new RouteResourceNode(xdsBootstrap);
+            return new RouteResourceNode(watchersStorage);
         } else if (type == XdsType.CLUSTER) {
-            return new ClusterResourceNode(xdsBootstrap);
+            return new ClusterResourceNode(watchersStorage);
         } else if (type == XdsType.ENDPOINT) {
-            return new EndpointResourceNode(xdsBootstrap);
+            return new EndpointResourceNode(watchersStorage);
         } else {
             throw new IllegalArgumentException("Unsupported type: " + type);
         }
     }
 
-    private final XdsBootstrapImpl xdsBootstrap;
+    private final WatchersStorage watchersStorage;
     @Nullable
     private U current;
-
-    public Deque<SafeCloseable> safeCloseables() {
-        return safeCloseables;
-    }
-
-    private final Deque<SafeCloseable> safeCloseables = new ArrayDeque<>();
     boolean initialized;
 
-    DynamicResourceNode(XdsBootstrapImpl xdsBootstrap) {
-        this.xdsBootstrap = xdsBootstrap;
+    DynamicResourceNode(WatchersStorage watchersStorage) {
+        this.watchersStorage = watchersStorage;
     }
 
-    @Override
-    public void close() {
-        cleanupPreviousWatchers();
-    }
-
-    public XdsBootstrapImpl xdsBootstrap() {
-        return xdsBootstrap;
+    public WatchersStorage watchersStorage() {
+        return watchersStorage;
     }
 
     void setCurrent(@Nullable U current) {
@@ -91,7 +71,6 @@ abstract class DynamicResourceNode<T extends Message, U extends ResourceHolder<T
     @Override
     public void onResourceDoesNotExist(XdsType type, String resourceName) {
         initialized = true;
-        cleanupPreviousWatchers();
         setCurrent(null);
     }
 
@@ -100,28 +79,18 @@ abstract class DynamicResourceNode<T extends Message, U extends ResourceHolder<T
         initialized = true;
         setCurrent(update);
 
-        final List<SafeCloseable> prevSafeCloseables = new ArrayList<>(safeCloseables);
-        safeCloseables.clear();
-
         process(update);
-
-        // Run the previous closeables after processing so that a resource is updated
-        // seamlessly without a onResourceDoesNotExist call
-        for (SafeCloseable safeCloseable: prevSafeCloseables) {
-            safeCloseable.close();
-        }
+        watchersStorage.notifyListeners(update.type(), update.name());
     }
 
     abstract void process(U update);
 
-    void cleanupPreviousWatchers() {
-        while (!safeCloseables.isEmpty()) {
-            safeCloseables.poll().close();
-        }
-    }
-
     @Override
     public boolean initialized() {
         return initialized;
+    }
+
+    @Override
+    public void close() {
     }
 }

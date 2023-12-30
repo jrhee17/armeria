@@ -16,12 +16,6 @@
 
 package com.linecorp.armeria.xds;
 
-import java.util.Deque;
-
-import com.linecorp.armeria.common.util.SafeCloseable;
-
 interface BaseNodeProcessor {
-    XdsBootstrapImpl xdsBootstrap();
-
-    Deque<SafeCloseable> safeCloseables();
+    WatchersStorage watchersStorage();
 }

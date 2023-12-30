@@ -26,10 +26,10 @@ final class StaticResourceNode<T> implements ResourceNode<ResourceHolder<T>>,
 
     private final ResourceHolder<T> message;
     private final Deque<SafeCloseable> safeCloseables = new ArrayDeque<>();
-    private final XdsBootstrapImpl xdsBootstrap;
+    private final WatchersStorage watchersStorage;
 
-    StaticResourceNode(XdsBootstrapImpl xdsBootstrap, ResourceHolder<T> message) {
-        this.xdsBootstrap = xdsBootstrap;
+    StaticResourceNode(WatchersStorage watchersStorage, ResourceHolder<T> message) {
+        this.watchersStorage = watchersStorage;
         this.message = message;
 
         switch (message.type()) {
@@ -72,12 +72,7 @@ final class StaticResourceNode<T> implements ResourceNode<ResourceHolder<T>>,
     }
 
     @Override
-    public XdsBootstrapImpl xdsBootstrap() {
-        return xdsBootstrap;
-    }
-
-    @Override
-    public Deque<SafeCloseable> safeCloseables() {
-        return safeCloseables;
+    public WatchersStorage watchersStorage() {
+        return watchersStorage;
     }
 }

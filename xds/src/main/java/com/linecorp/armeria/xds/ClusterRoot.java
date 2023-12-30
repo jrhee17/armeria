@@ -16,11 +16,11 @@
 
 package com.linecorp.armeria.xds;
 
-import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SafeCloseable;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
+import io.netty.util.concurrent.EventExecutor;
 
 /**
  * A root node representing a {@link Cluster}.
@@ -29,32 +29,22 @@ import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
  */
 public final class ClusterRoot extends AbstractNode<ClusterResourceHolder> implements SafeCloseable {
 
-    private final XdsBootstrapImpl xdsBootstrap;
-    @Nullable
-    private final SafeCloseable safeCloseable;
-
-    ClusterRoot(XdsBootstrapImpl xdsBootstrap, String resourceName, boolean autoSubscribe) {
-        super(xdsBootstrap.eventLoop());
-        this.xdsBootstrap = xdsBootstrap;
+    ClusterRoot(WatchersStorage watchersStorage, String resourceName, boolean autoSubscribe) {
+        super(watchersStorage);
         if (autoSubscribe) {
-            safeCloseable = xdsBootstrap.subscribe(XdsType.CLUSTER, resourceName);
-        } else {
-            safeCloseable = null;
+            watchersStorage().subscribe(XdsType.CLUSTER, resourceName);
         }
-        xdsBootstrap.addClusterWatcher(resourceName, this);
+        watchersStorage().addWatcher(XdsType.CLUSTER, resourceName, this);
     }
 
     /**
      * Returns a node representation of the {@link ClusterLoadAssignment} contained by this listener.
      */
     public EndpointNode endpointNode() {
-        return new EndpointNode(xdsBootstrap, this);
+        return new EndpointNode(watchersStorage(), eventLoop(), this);
     }
 
     @Override
     public void close() {
-        if (safeCloseable != null) {
-            safeCloseable.close();
-        }
     }
 }
