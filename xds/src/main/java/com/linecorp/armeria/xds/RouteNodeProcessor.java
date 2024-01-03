@@ -16,20 +16,41 @@
 
 package com.linecorp.armeria.xds;
 
+import java.util.Objects;
+
 import io.envoyproxy.envoy.config.route.v3.Route;
 import io.envoyproxy.envoy.config.route.v3.Route.ActionCase;
 import io.envoyproxy.envoy.config.route.v3.RouteAction;
+import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
+import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 
 interface RouteNodeProcessor extends BaseNodeProcessor {
 
     default void process(RouteResourceHolder holder) {
-        for (Route route: holder.routes()) {
-            if (route.getActionCase() != ActionCase.ROUTE) {
-                continue;
+        final RouteConfiguration routeConfiguration = holder.data();
+        int index = 0;
+        for (VirtualHost virtualHost: routeConfiguration.getVirtualHostsList()) {
+            for (Route route: virtualHost.getRoutesList()) {
+                if (route.getActionCase() != ActionCase.ROUTE) {
+                    continue;
+                }
+                final RouteAction routeAction = route.getRoute();
+                final String cluster = routeAction.getCluster();
+
+                final ResourceNode<?> node = new ClusterResourceNode(null, cluster, watchersStorage(),
+                                                                     holder, self(), virtualHost, route, index++);
+                children().add(watchersStorage().subscribe(holder, node, XdsType.CLUSTER, cluster));
             }
-            final RouteAction routeAction = route.getRoute();
-            final String cluster = routeAction.getCluster();
-            children().add(watchersStorage().subscribe(XdsType.CLUSTER, cluster));
         }
+    }
+
+    @Override
+    default void newSnapshot(Snapshot<?> child) {
+        if (!Objects.equals(self().current(), child.holder().parent())) {
+            return;
+        }
+        assert child instanceof ClusterSnapshot;
+        final ClusterSnapshot clusterSnapshot = (ClusterSnapshot) child;
+//        snapshotListener().newSnapshot(self().current(), );
     }
 }

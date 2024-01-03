@@ -25,12 +25,18 @@ import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 final class EndpointResourceNode extends DynamicResourceNode<EndpointResourceHolder> {
 
     EndpointResourceNode(@Nullable ConfigSource configSource,
-                         String resourceName, WatchersStorage watchersStorage) {
-        super(watchersStorage, configSource, ENDPOINT, resourceName);
+                         String resourceName, WatchersStorage watchersStorage, @Nullable ResourceHolder<?> parent,
+                         SnapshotListener parentNode) {
+        super(watchersStorage, configSource, ENDPOINT, resourceName, parent, parentNode);
     }
 
     @Override
     void process(EndpointResourceHolder update) {
         // no-op
+    }
+
+    @Override
+    public void newSnapshot(Snapshot child) {
+
     }
 }

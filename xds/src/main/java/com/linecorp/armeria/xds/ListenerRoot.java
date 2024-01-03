@@ -27,7 +27,8 @@ import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
  * Users may query the latest value of this resource or add a watcher to be notified of changes.
  * Note that it is important to close this resource to avoid leaking connections to the control plane server.
  */
-public final class ListenerRoot extends AbstractNode<ListenerResourceHolder> implements SafeCloseable {
+public final class ListenerRoot extends AbstractNode<ListenerResourceHolder>
+        implements SafeCloseable, SnapshotListener {
 
     private final String resourceName;
     @Nullable
@@ -37,11 +38,15 @@ public final class ListenerRoot extends AbstractNode<ListenerResourceHolder> imp
         super(watchersStorage);
         this.resourceName = resourceName;
         if (autoSubscribe) {
-            node = watchersStorage().subscribe(XdsType.LISTENER, resourceName);
+            node = watchersStorage().subscribe(null, this, XdsType.LISTENER, resourceName);
         } else {
             node = null;
         }
         watchersStorage().addWatcher(XdsType.LISTENER, resourceName, this);
+    }
+
+    public ListenerAggregatingRoot aggregatingNode() {
+        return new ListenerAggregatingRoot(watchersStorage(), resourceName);
     }
 
     /**
@@ -57,5 +62,10 @@ public final class ListenerRoot extends AbstractNode<ListenerResourceHolder> imp
             watchersStorage().unsubscribe(null, XdsType.LISTENER, resourceName, node);
         }
         watchersStorage().removeWatcher(XdsType.LISTENER, resourceName, this);
+    }
+
+    @Override
+    public void newSnapshot(Snapshot<?> child) {
+        assert child instanceof ListenerSnapshot;
     }
 }

@@ -106,8 +106,8 @@ public class XdsEndpointGroupTest {
                 XdsTestResources.exampleListener(listenerName, routeName);
         final Listener httpsListener =
                 XdsTestResources.exampleListener(httpsListenerName, httpsRouteName);
-        final RouteConfiguration httpRoute = XdsTestResources.exampleRoute(routeName, clusterName);
-        final RouteConfiguration httpsRoute = XdsTestResources.exampleRoute(httpsRouteName, httpsClusterName);
+        final RouteConfiguration httpRoute = XdsTestResources.routeConfiguration(routeName, clusterName);
+        final RouteConfiguration httpsRoute = XdsTestResources.routeConfiguration(httpsRouteName, httpsClusterName);
         cache.setSnapshot(
                 GROUP,
                 Snapshot.create(

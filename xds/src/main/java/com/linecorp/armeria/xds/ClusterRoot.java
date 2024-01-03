@@ -32,16 +32,18 @@ public final class ClusterRoot extends AbstractNode<ClusterResourceHolder> imple
     private final String resourceName;
     @Nullable
     private final ResourceNode<?> node;
+    private final ClusterAggregatingRoot clusterAggregatingRoot;
 
     ClusterRoot(WatchersStorage watchersStorage, String resourceName, boolean autoSubscribe) {
         super(watchersStorage);
         this.resourceName = resourceName;
         if (autoSubscribe) {
-            node = watchersStorage().subscribe(XdsType.CLUSTER, resourceName);
+            node = watchersStorage().subscribe(null, null, XdsType.CLUSTER, resourceName);
         } else {
             node = null;
         }
         watchersStorage().addWatcher(XdsType.CLUSTER, resourceName, this);
+        clusterAggregatingRoot = new ClusterAggregatingRoot(watchersStorage(), resourceName);
     }
 
     /**
@@ -51,11 +53,16 @@ public final class ClusterRoot extends AbstractNode<ClusterResourceHolder> imple
         return new EndpointNode(watchersStorage(), this);
     }
 
+    public ClusterAggregatingRoot snapshot() {
+        return clusterAggregatingRoot;
+    }
+
     @Override
     public void close() {
         if (node != null) {
             node.close();
         }
         watchersStorage().removeWatcher(XdsType.CLUSTER, resourceName, this);
+        clusterAggregatingRoot.close();
     }
 }

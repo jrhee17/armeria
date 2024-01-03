@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LINE Corporation
+ * Copyright 2024 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -16,13 +16,9 @@
 
 package com.linecorp.armeria.xds;
 
-import java.util.Deque;
+import com.linecorp.armeria.common.util.SafeCloseable;
 
-interface BaseNodeProcessor {
-    WatchersStorage watchersStorage();
+interface XdsNode<T, U> extends ResourceWatcher<T>, SafeCloseable {
 
-    Deque<ResourceNode<?>> children();
-    ResourceNode<?> self();
-
-    void newSnapshot(Snapshot<?> child);
+    void newSnapshot(T t, U u);
 }

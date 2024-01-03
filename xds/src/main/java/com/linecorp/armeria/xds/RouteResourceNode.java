@@ -26,12 +26,20 @@ final class RouteResourceNode extends DynamicResourceNode<RouteResourceHolder>
         implements RouteNodeProcessor {
 
     RouteResourceNode(@Nullable ConfigSource configSource, String resourceName,
-                      WatchersStorage watchersStorage) {
-        super(watchersStorage, configSource, ROUTE, resourceName);
+                      WatchersStorage watchersStorage, @Nullable ResourceHolder<?> parent,
+                      SnapshotListener parentNode) {
+        super(watchersStorage, configSource, ROUTE, resourceName, parent, parentNode);
     }
 
     @Override
     public void process(RouteResourceHolder update) {
         RouteNodeProcessor.super.process(update);
+    }
+
+    @Override
+    public void newSnapshot(Snapshot<?> child) {
+        assert child instanceof ClusterSnapshot;
+        final ClusterSnapshot clusterSnapshot = (ClusterSnapshot) child;
+
     }
 }

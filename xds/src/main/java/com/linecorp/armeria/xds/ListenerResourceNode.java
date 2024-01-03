@@ -26,12 +26,18 @@ final class ListenerResourceNode extends DynamicResourceNode<ListenerResourceHol
         implements ListenerNodeProcessor {
 
     ListenerResourceNode(@Nullable ConfigSource configSource,
-                         String resourceName, WatchersStorage watchersStorage) {
-        super(watchersStorage, configSource, LISTENER, resourceName);
+                         String resourceName, WatchersStorage watchersStorage, @Nullable ResourceHolder<?> parent,
+                         SnapshotListener parentNode) {
+        super(watchersStorage, configSource, LISTENER, resourceName, parent, parentNode);
     }
 
     @Override
     public void process(ListenerResourceHolder update) {
         ListenerNodeProcessor.super.process(update);
+    }
+
+    @Override
+    public void newSnapshot(Snapshot child) {
+
     }
 }

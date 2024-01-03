@@ -17,7 +17,11 @@
 package com.linecorp.armeria.xds;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
+
+import com.linecorp.armeria.common.annotation.Nullable;
 
 final class StaticResourceNode<T> implements ResourceNode<ResourceHolder<T>>,
                                              ListenerNodeProcessor, RouteNodeProcessor, ClusterNodeProcessor {
@@ -25,11 +29,18 @@ final class StaticResourceNode<T> implements ResourceNode<ResourceHolder<T>>,
     private final ResourceHolder<T> message;
     private final Deque<ResourceNode<?>> children = new ArrayDeque<>();
     private final WatchersStorage watchersStorage;
+    @Nullable
+    private final SnapshotListener snapshotListener;
+    private final List<ClusterSnapshot> clusterSnapshots = new ArrayList<>();
 
-    StaticResourceNode(WatchersStorage watchersStorage, ResourceHolder<T> message) {
+    StaticResourceNode(@Nullable ResourceHolder<?> parent, WatchersStorage watchersStorage,
+                       ResourceHolder<T> message, @Nullable SnapshotListener snapshotListener) {
         this.watchersStorage = watchersStorage;
-        this.message = message;
+        this.snapshotListener = snapshotListener;
+        this.message = message.withParent(parent);
+    }
 
+    void processDownstream() {
         switch (message.type()) {
             case LISTENER:
                 ListenerNodeProcessor.super.process((ListenerResourceHolder) message);
@@ -63,6 +74,11 @@ final class StaticResourceNode<T> implements ResourceNode<ResourceHolder<T>>,
     }
 
     @Override
+    public ResourceNode<ResourceHolder<T>> self() {
+        return this;
+    }
+
+    @Override
     public void close() {
         while (!children.isEmpty()) {
             children.poll().close();
@@ -78,5 +94,18 @@ final class StaticResourceNode<T> implements ResourceNode<ResourceHolder<T>>,
     @Override
     public Deque<ResourceNode<?>> children() {
         return children;
+    }
+
+    @Override
+    public void newSnapshot(Snapshot<?> child) {
+        if (snapshotListener == null) {
+            return;
+        }
+        if (child instanceof EndpointSnapshot) {
+            snapshotListener.newSnapshot(new ClusterSnapshot((ClusterResourceHolder) message,
+                                                             (EndpointSnapshot) child));
+        } else if (child instanceof ClusterSnapshot) {
+            final ClusterSnapshot clusterSnapshot = (ClusterSnapshot) child;
+        }
     }
 }

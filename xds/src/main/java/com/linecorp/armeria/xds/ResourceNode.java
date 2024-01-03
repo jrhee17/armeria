@@ -19,10 +19,12 @@ package com.linecorp.armeria.xds;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SafeCloseable;
 
-interface ResourceNode<T extends ResourceHolder<?>> extends ResourceWatcher<T>, SafeCloseable {
+interface ResourceNode<T extends ResourceHolder<?>> extends ResourceWatcher<T>, SafeCloseable, SnapshotListener {
 
     @Nullable
     T current();
 
     boolean initialized();
+
+    ResourceNode<T> self();
 }
