@@ -26,10 +26,10 @@ interface ClusterNodeProcessor extends BaseNodeProcessor {
         switch (cluster.getType()) {
             case EDS:
                 final ConfigSource configSource = cluster.getEdsClusterConfig().getEdsConfig();
-                children().add(watchersStorage().subscribe(configSource, XdsType.ENDPOINT, cluster.getName()));
+                children().add(watchersStorage().subscribe(update, configSource, XdsType.ENDPOINT, cluster.getName()));
                 break;
             case STATIC:
-                children().add(watchersStorage().addStaticNode(XdsType.ENDPOINT, cluster.getName(),
+                children().add(watchersStorage().addStaticNode(update, XdsType.ENDPOINT, cluster.getName(),
                                                                cluster.getLoadAssignment()));
                 break;
             default:

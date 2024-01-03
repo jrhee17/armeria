@@ -16,10 +16,13 @@
 
 package com.linecorp.armeria.xds;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 
@@ -28,7 +31,7 @@ import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 
 /**
- * A holder object for a {@link RouteConfiguration}.
+ * A cluster object for a {@link RouteConfiguration}.
  */
 public final class RouteResourceHolder implements ResourceHolder<RouteConfiguration> {
 
@@ -36,10 +39,19 @@ public final class RouteResourceHolder implements ResourceHolder<RouteConfigurat
 
     @Nullable
     private List<Route> routes;
+    @Nullable
+    private final ListenerResourceHolder parent;
 
     RouteResourceHolder(RouteConfiguration routeConfiguration) {
         this.routeConfiguration = routeConfiguration;
+        parent = null;
     }
+
+    RouteResourceHolder(RouteConfiguration routeConfiguration, ListenerResourceHolder parent) {
+        this.routeConfiguration = routeConfiguration;
+        this.parent = parent;
+    }
+
 
     @Override
     public XdsType type() {
@@ -56,6 +68,21 @@ public final class RouteResourceHolder implements ResourceHolder<RouteConfigurat
         return routeConfiguration.getName();
     }
 
+    @Override
+    public RouteResourceHolder withParent(@Nullable ResourceHolder<?> parent) {
+        if (parent == null) {
+            return this;
+        }
+        checkArgument(parent instanceof ListenerResourceHolder);
+        return new RouteResourceHolder(routeConfiguration, (ListenerResourceHolder) parent);
+    }
+
+    @Override
+    @Nullable
+    public ListenerResourceHolder parent() {
+        return parent;
+    }
+
     List<Route> routes() {
         if (routes != null) {
             return routes;
@@ -64,6 +91,19 @@ public final class RouteResourceHolder implements ResourceHolder<RouteConfigurat
         routes = virtualHosts.stream().flatMap(vh -> vh.getRoutesList().stream())
                              .collect(Collectors.toList());
         return routes;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {return true;}
+        if (object == null || getClass() != object.getClass()) {return false;}
+        final RouteResourceHolder that = (RouteResourceHolder) object;
+        return Objects.equal(routeConfiguration, that.routeConfiguration);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(routeConfiguration);
     }
 
     @Override

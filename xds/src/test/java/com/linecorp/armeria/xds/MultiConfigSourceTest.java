@@ -89,7 +89,7 @@ class MultiConfigSourceTest {
                                                                             .setEdsConfig(configSource))
                                        .build();
         final Listener listener = XdsTestResources.exampleListener("listener1", "route1");
-        final RouteConfiguration route = XdsTestResources.exampleRoute("route1", "cluster1");
+        final RouteConfiguration route = XdsTestResources.routeConfiguration("route1", "cluster1");
         cache1.setSnapshot(
                 GROUP,
                 Snapshot.create(

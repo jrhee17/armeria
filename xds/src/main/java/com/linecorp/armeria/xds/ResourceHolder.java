@@ -16,10 +16,11 @@
 
 package com.linecorp.armeria.xds;
 
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
 /**
- * A holder object for xDS resources. This is a value object which is
+ * A cluster object for xDS resources. This is a value object which is
  * usually passed over via listener callbacks in {@link ResourceWatcher}.
  * Holder objects are used to:
  * <ul>
@@ -44,4 +45,9 @@ public interface ResourceHolder<T> {
      * Returns the resource name.
      */
     String name();
+
+    ResourceHolder<T> withParent(@Nullable ResourceHolder<?> parent);
+
+    @Nullable
+    ResourceHolder<?> parent();
 }

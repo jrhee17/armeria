@@ -26,8 +26,9 @@ final class ClusterResourceNode extends DynamicResourceNode<ClusterResourceHolde
         implements ClusterNodeProcessor {
 
     ClusterResourceNode(@Nullable ConfigSource configSource,
-                        String resourceName, WatchersStorage watchersStorage) {
-        super(watchersStorage, configSource, CLUSTER, resourceName);
+                        String resourceName, WatchersStorage watchersStorage,
+                        @Nullable ResourceHolder<?> parent) {
+        super(watchersStorage, configSource, CLUSTER, resourceName, parent);
     }
 
     @Override

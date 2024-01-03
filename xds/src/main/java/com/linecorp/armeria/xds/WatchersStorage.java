@@ -52,14 +52,15 @@ final class WatchersStorage {
         this.xdsBootstrap = xdsBootstrap;
     }
 
-    ResourceNode<?> subscribe(XdsType xdsType, String resourceName) {
-        return subscribe(null, xdsType, resourceName);
+    ResourceNode<?> subscribe(@Nullable ResourceHolder<?> parent, XdsType xdsType, String resourceName) {
+        return subscribe(parent, null, xdsType, resourceName);
     }
 
-    ResourceNode<?> subscribe(@Nullable ConfigSource configSource, XdsType xdsType, String resourceName) {
+    ResourceNode<?> subscribe(@Nullable ResourceHolder<?> parent, @Nullable ConfigSource configSource,
+                              XdsType xdsType, String resourceName) {
         final ResourceNode<ResourceHolder<?>> node =
                 (ResourceNode<ResourceHolder<?>>) DynamicResourceNode.from(configSource, xdsType,
-                                                                           resourceName, this);
+                                                                           resourceName, this, parent);
         addNode(xdsType, resourceName, node);
         xdsBootstrap.subscribe(configSource, xdsType, resourceName, node);
         return node;
@@ -72,11 +73,12 @@ final class WatchersStorage {
                                        (ResourceWatcher<ResourceHolder<?>>) node);
     }
 
-    ResourceNode<?> addStaticNode(XdsType type, String resourceName, Message t) {
+    ResourceNode<?> addStaticNode(@Nullable ResourceHolder<?> parent, XdsType type, String resourceName, Message t) {
         final ResourceParser resourceParser = XdsResourceParserUtil.fromType(type);
         final ResourceHolder<?> parsed = resourceParser.parse(t);
-        final StaticResourceNode<?> node = new StaticResourceNode<>(this, parsed);
+        final StaticResourceNode<?> node = new StaticResourceNode<>(parent, this, parsed);
         addNode(type, resourceName, node);
+        node.processDownstream();
         return node;
     }
 
@@ -95,6 +97,7 @@ final class WatchersStorage {
         }
         Object ret = NOOP;
         final LinkedHashSet<ResourceNode<?>> nodes = nodesMap.get(resource);
+
         for (ResourceNode<?> node: nodes) {
             final Object candidate = node.current();
             if (candidate != null) {
@@ -126,6 +129,7 @@ final class WatchersStorage {
             resourceToNodes.put(resource, new LinkedHashSet<>());
         }
         final LinkedHashSet<ResourceNode<?>> resourceNodes = resourceToNodes.get(resource);
+
         resourceNodes.add(node);
         notifyListeners(type, resource);
     }

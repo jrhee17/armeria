@@ -64,10 +64,10 @@ final class XdsBootstrapImpl implements XdsBootstrap {
             final StaticResources staticResources = bootstrap.getStaticResources();
             staticResources.getListenersList()
                            .forEach(listener -> bootstrapStorage.addStaticNode(
-                                   LISTENER, listener.getName(), listener));
+                                   null, LISTENER, listener.getName(), listener));
             staticResources.getClustersList()
                            .forEach(cluster -> bootstrapStorage.addStaticNode(
-                                   CLUSTER, cluster.getName(), cluster));
+                                   null, CLUSTER, cluster.getName(), cluster));
         }
         serverNode = bootstrap.hasNode() ? bootstrap.getNode() : Node.getDefaultInstance();
     }

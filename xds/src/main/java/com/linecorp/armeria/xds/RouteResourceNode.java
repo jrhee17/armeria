@@ -26,8 +26,8 @@ final class RouteResourceNode extends DynamicResourceNode<RouteResourceHolder>
         implements RouteNodeProcessor {
 
     RouteResourceNode(@Nullable ConfigSource configSource, String resourceName,
-                      WatchersStorage watchersStorage) {
-        super(watchersStorage, configSource, ROUTE, resourceName);
+                      WatchersStorage watchersStorage, @Nullable ResourceHolder<?> parent) {
+        super(watchersStorage, configSource, ROUTE, resourceName, parent);
     }
 
     @Override

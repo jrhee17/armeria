@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LINE Corporation
+ * Copyright 2024 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -16,21 +16,23 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.linecorp.armeria.xds.XdsType.ENDPOINT;
+import com.google.common.base.MoreObjects;
 
-import com.linecorp.armeria.common.annotation.Nullable;
+public class EndpointSnapshot {
+    private final EndpointResourceHolder endpoint;
 
-import io.envoyproxy.envoy.config.core.v3.ConfigSource;
+    public EndpointSnapshot(EndpointResourceHolder endpoint) {
+        this.endpoint = endpoint;
+    }
 
-final class EndpointResourceNode extends DynamicResourceNode<EndpointResourceHolder> {
-
-    EndpointResourceNode(@Nullable ConfigSource configSource,
-                         String resourceName, WatchersStorage watchersStorage, @Nullable ResourceHolder<?> parent) {
-        super(watchersStorage, configSource, ENDPOINT, resourceName, parent);
+    public EndpointResourceHolder endpoint() {
+        return endpoint;
     }
 
     @Override
-    void process(EndpointResourceHolder update) {
-        // no-op
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("endpoint", endpoint)
+                          .toString();
     }
 }

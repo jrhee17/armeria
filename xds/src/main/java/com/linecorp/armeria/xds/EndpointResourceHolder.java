@@ -16,19 +16,31 @@
 
 package com.linecorp.armeria.xds;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+
+import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 
 /**
- * A holder object for a {@link ClusterLoadAssignment}.
+ * A cluster object for a {@link ClusterLoadAssignment}.
  */
 public final class EndpointResourceHolder implements ResourceHolder<ClusterLoadAssignment> {
 
     private final ClusterLoadAssignment clusterLoadAssignment;
+    @Nullable
+    private final ClusterResourceHolder parent;
 
     EndpointResourceHolder(ClusterLoadAssignment clusterLoadAssignment) {
+        this.clusterLoadAssignment = clusterLoadAssignment;
+        parent = null;
+    }
+
+    EndpointResourceHolder(ClusterResourceHolder parent, ClusterLoadAssignment clusterLoadAssignment) {
+        this.parent = parent;
         this.clusterLoadAssignment = clusterLoadAssignment;
     }
 
@@ -45,6 +57,21 @@ public final class EndpointResourceHolder implements ResourceHolder<ClusterLoadA
     @Override
     public String name() {
         return clusterLoadAssignment.getClusterName();
+    }
+
+    @Override
+    public EndpointResourceHolder withParent(@Nullable ResourceHolder<?> parent) {
+        if (parent == null) {
+            return this;
+        }
+        checkArgument(parent instanceof ClusterResourceHolder);
+        return new EndpointResourceHolder((ClusterResourceHolder) parent, clusterLoadAssignment);
+    }
+
+    @Override
+    @Nullable
+    public ResourceHolder<?> parent() {
+        return parent;
     }
 
     @Override

@@ -16,20 +16,41 @@
 
 package com.linecorp.armeria.xds;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+
+import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 
 /**
- * A holder object for a {@link Cluster}.
+ * A cluster object for a {@link Cluster}.
  */
 public final class ClusterResourceHolder implements ResourceHolder<Cluster> {
 
     private final Cluster cluster;
+    @Nullable
+    private final RouteResourceHolder parent;
 
     ClusterResourceHolder(Cluster cluster) {
         this.cluster = cluster;
+        parent = null;
+    }
+
+    ClusterResourceHolder(Cluster cluster, RouteResourceHolder parent) {
+        this.cluster = cluster;
+        this.parent = parent;
+    }
+
+    @Override
+    public ClusterResourceHolder withParent(@Nullable ResourceHolder<?> parent) {
+        if (parent == null) {
+            return this;
+        }
+        checkArgument(parent instanceof RouteResourceHolder);
+        return new ClusterResourceHolder(cluster, (RouteResourceHolder) parent);
     }
 
     @Override
@@ -69,5 +90,10 @@ public final class ClusterResourceHolder implements ResourceHolder<Cluster> {
     @Override
     public int hashCode() {
         return Objects.hashCode(cluster);
+    }
+
+    @Override
+    public RouteResourceHolder parent() {
+        return parent;
     }
 }

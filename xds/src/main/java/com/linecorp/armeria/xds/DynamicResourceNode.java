@@ -34,15 +34,16 @@ abstract class DynamicResourceNode<U extends ResourceHolder<?>> implements Resou
     private final Deque<ResourceNode<?>> children = new ArrayDeque<>();
 
     static ResourceNode<?> from(@Nullable ConfigSource configSource, XdsType type,
-                                String resourceName, WatchersStorage watchersStorage) {
+                                String resourceName, WatchersStorage watchersStorage,
+                                @Nullable ResourceHolder<?> parent) {
         if (type == XdsType.LISTENER) {
-            return new ListenerResourceNode(configSource, resourceName, watchersStorage);
+            return new ListenerResourceNode(configSource, resourceName, watchersStorage, parent);
         } else if (type == XdsType.ROUTE) {
-            return new RouteResourceNode(configSource, resourceName, watchersStorage);
+            return new RouteResourceNode(configSource, resourceName, watchersStorage, parent);
         } else if (type == XdsType.CLUSTER) {
-            return new ClusterResourceNode(configSource, resourceName, watchersStorage);
+            return new ClusterResourceNode(configSource, resourceName, watchersStorage, parent);
         } else if (type == XdsType.ENDPOINT) {
-            return new EndpointResourceNode(configSource, resourceName, watchersStorage);
+            return new EndpointResourceNode(configSource, resourceName, watchersStorage, parent);
         } else {
             throw new IllegalArgumentException("Unsupported type: " + type);
         }
@@ -54,15 +55,18 @@ abstract class DynamicResourceNode<U extends ResourceHolder<?>> implements Resou
     private final XdsType type;
     private final String resourceName;
     @Nullable
+    private final ResourceHolder<?> parent;
+    @Nullable
     private U current;
     boolean initialized;
 
     DynamicResourceNode(WatchersStorage watchersStorage, @Nullable ConfigSource configSource,
-                        XdsType type, String resourceName) {
+                        XdsType type, String resourceName, @Nullable ResourceHolder<?> parent) {
         this.watchersStorage = watchersStorage;
         this.configSource = configSource;
         this.type = type;
         this.resourceName = resourceName;
+        this.parent = parent;
     }
 
     public WatchersStorage watchersStorage() {
@@ -98,7 +102,8 @@ abstract class DynamicResourceNode<U extends ResourceHolder<?>> implements Resou
     @Override
     public final void onChanged(U update) {
         initialized = true;
-        setCurrent(update);
+        setCurrent((U) update.withParent(parent));
+        watchersStorage.notifyListeners(update.type(), update.name());
 
         final Deque<ResourceNode<?>> prevChildren = new ArrayDeque<>(children);
         children.clear();
@@ -108,7 +113,6 @@ abstract class DynamicResourceNode<U extends ResourceHolder<?>> implements Resou
         for (ResourceNode<?> child: prevChildren) {
             child.close();
         }
-        watchersStorage.notifyListeners(update.type(), update.name());
     }
 
     abstract void process(U update);

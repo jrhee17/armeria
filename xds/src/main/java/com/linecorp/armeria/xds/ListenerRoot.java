@@ -37,11 +37,15 @@ public final class ListenerRoot extends AbstractNode<ListenerResourceHolder> imp
         super(watchersStorage);
         this.resourceName = resourceName;
         if (autoSubscribe) {
-            node = watchersStorage().subscribe(XdsType.LISTENER, resourceName);
+            node = watchersStorage().subscribe(null, XdsType.LISTENER, resourceName);
         } else {
             node = null;
         }
         watchersStorage().addWatcher(XdsType.LISTENER, resourceName, this);
+    }
+
+    public ListenerAggregatingRoot aggregatingNode() {
+        return new ListenerAggregatingRoot(watchersStorage(), resourceName);
     }
 
     /**

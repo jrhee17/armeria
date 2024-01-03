@@ -84,7 +84,7 @@ class DynamicResourcesTest {
                 Snapshot.create(ImmutableList.of(exampleCluster()),
                                 ImmutableList.of(exampleEndpoint()),
                                 ImmutableList.of(listener),
-                                ImmutableList.of(XdsTestResources.exampleRoute("local_route", "some_service")),
+                                ImmutableList.of(XdsTestResources.routeConfiguration("local_route", "some_service")),
                                 ImmutableList.of(), "1"));
     }
 

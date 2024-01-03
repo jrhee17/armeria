@@ -19,6 +19,7 @@ package com.linecorp.armeria.xds;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -28,7 +29,7 @@ import io.envoyproxy.envoy.config.listener.v3.Listener;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager;
 
 /**
- * A holder object for a {@link Listener}.
+ * A cluster object for a {@link Listener}.
  */
 public final class ListenerResourceHolder implements ResourceHolder<Listener> {
 
@@ -75,6 +76,30 @@ public final class ListenerResourceHolder implements ResourceHolder<Listener> {
     @Override
     public String name() {
         return listener.getName();
+    }
+
+    @Override
+    public ListenerResourceHolder withParent(@Nullable ResourceHolder<?> parent) {
+        return this;
+    }
+
+    @Override
+    @Nullable
+    public ResourceHolder<?> parent() {
+        return null;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {return true;}
+        if (object == null || getClass() != object.getClass()) {return false;}
+        final ListenerResourceHolder holder = (ListenerResourceHolder) object;
+        return Objects.equal(listener, holder.listener);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(listener);
     }
 
     @Override

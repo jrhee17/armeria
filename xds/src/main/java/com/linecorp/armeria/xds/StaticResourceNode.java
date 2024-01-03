@@ -19,6 +19,8 @@ package com.linecorp.armeria.xds;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
+import com.linecorp.armeria.common.annotation.Nullable;
+
 final class StaticResourceNode<T> implements ResourceNode<ResourceHolder<T>>,
                                              ListenerNodeProcessor, RouteNodeProcessor, ClusterNodeProcessor {
 
@@ -26,10 +28,13 @@ final class StaticResourceNode<T> implements ResourceNode<ResourceHolder<T>>,
     private final Deque<ResourceNode<?>> children = new ArrayDeque<>();
     private final WatchersStorage watchersStorage;
 
-    StaticResourceNode(WatchersStorage watchersStorage, ResourceHolder<T> message) {
+    StaticResourceNode(@Nullable ResourceHolder<?> parent, WatchersStorage watchersStorage,
+                       ResourceHolder<T> message) {
         this.watchersStorage = watchersStorage;
-        this.message = message;
+        this.message = message.withParent(parent);
+    }
 
+    void processDownstream() {
         switch (message.type()) {
             case LISTENER:
                 ListenerNodeProcessor.super.process((ListenerResourceHolder) message);

@@ -26,8 +26,8 @@ final class ListenerResourceNode extends DynamicResourceNode<ListenerResourceHol
         implements ListenerNodeProcessor {
 
     ListenerResourceNode(@Nullable ConfigSource configSource,
-                         String resourceName, WatchersStorage watchersStorage) {
-        super(watchersStorage, configSource, LISTENER, resourceName);
+                         String resourceName, WatchersStorage watchersStorage, @Nullable ResourceHolder<?> parent) {
+        super(watchersStorage, configSource, LISTENER, resourceName, parent);
     }
 
     @Override
