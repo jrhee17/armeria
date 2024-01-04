@@ -21,6 +21,11 @@ import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableSet;
+
 import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.grpc.Status;
@@ -49,13 +54,18 @@ abstract class AbstractNode<T> implements ResourceWatcher<T> {
         return current;
     }
 
+    private static final Logger logger = LoggerFactory.getLogger(AbstractNode.class);
+
     @Override
     public final void onChanged(T update) {
         current = update;
         if (!whenReady.isDone()) {
             whenReady.complete(null);
         }
-        for (ResourceWatcher<? super T> watcher: listeners) {
+
+        logger.info("onChanged: {}", update);
+        ImmutableSet<ResourceWatcher<? super T>> copied = ImmutableSet.copyOf(listeners);
+        for (ResourceWatcher<? super T> watcher: copied) {
             watcher.onChanged(update);
         }
     }
@@ -86,6 +96,7 @@ abstract class AbstractNode<T> implements ResourceWatcher<T> {
             eventLoop.execute(() -> addListener(listener));
             return;
         }
+        logger.info("addListener: {}", listener);
         if (listeners.add(listener) && current != null) {
             listener.onChanged(current);
         }
@@ -100,6 +111,7 @@ abstract class AbstractNode<T> implements ResourceWatcher<T> {
             return;
         }
         listeners.remove(listener);
+        logger.info("removeListener: {}", listener);
     }
 
     /**

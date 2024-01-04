@@ -46,7 +46,7 @@ public final class ListenerRoot extends AbstractNode<ListenerResourceHolder>
     }
 
     public ListenerAggregatingRoot aggregatingNode() {
-        return new ListenerAggregatingRoot(watchersStorage(), resourceName);
+        return new ListenerAggregatingRoot(this);
     }
 
     /**

@@ -18,6 +18,7 @@ package com.linecorp.armeria.xds;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
@@ -25,8 +26,6 @@ import java.util.Objects;
 import java.util.Set;
 
 import com.google.common.collect.ImmutableList;
-
-import com.linecorp.armeria.common.util.SafeCloseable;
 
 import io.envoyproxy.envoy.config.route.v3.Route;
 import io.envoyproxy.envoy.config.route.v3.RouteAction;
@@ -39,20 +38,19 @@ public class RouteAggregatingNode implements XdsNode<RouteResourceHolder, Cluste
 
     private final List<ClusterSnapshot> clusterSnapshots = new ArrayList<>();
     private final Set<Integer> pending = new HashSet<>();
-    private final WatchersStorage watchersStorage;
+    private final RouteNode routeNode;
     private final ListenerResourceHolder listenerResourceHolder;
     private final String routeName;
     private final ListenerAggregatingRoot listenerAggregatingRoot;
 
-    RouteAggregatingNode(WatchersStorage watchersStorage, ListenerResourceHolder listenerResourceHolder,
+    RouteAggregatingNode(RouteNode routeNode, ListenerResourceHolder listenerResourceHolder,
                          String routeName,
                          ListenerAggregatingRoot listenerAggregatingRoot) {
-        this.watchersStorage = watchersStorage;
+        this.routeNode = routeNode;
         this.listenerResourceHolder = listenerResourceHolder;
         this.routeName = routeName;
         this.listenerAggregatingRoot = listenerAggregatingRoot;
-
-        watchersStorage.addWatcher(XdsType.ROUTE, routeName, this);
+        routeNode.addListener(this);
     }
 
     @Override
@@ -66,6 +64,7 @@ public class RouteAggregatingNode implements XdsNode<RouteResourceHolder, Cluste
         final RouteConfiguration routeConfiguration = update.data();
         int index = 0;
         clusterSnapshots.clear();
+        pending.clear();
         for (VirtualHost virtualHost: routeConfiguration.getVirtualHostsList()) {
             for (Route route: virtualHost.getRoutesList()) {
                 if (!route.hasRoute()) {
@@ -76,16 +75,14 @@ public class RouteAggregatingNode implements XdsNode<RouteResourceHolder, Cluste
                     continue;
                 }
                 clusterSnapshots.add(null);
-                children.add(new ClusterAggregatingNode(watchersStorage, update,
+                final ClusterNode clusterNode =
+                        routeNode.clusterNode((vh, r) -> virtualHost.equals(vh) && route.equals(r));
+                children.add(new ClusterAggregatingNode(clusterNode, update,
                                                         virtualHost, route, index++, this));
             }
         }
-    }
-
-    @Override
-    public void close() {
-        while (!children.isEmpty()) {
-            children.poll().close();
+        if (index == 0) {
+            listenerAggregatingRoot.newSnapshot(listenerResourceHolder, new RouteSnapshot(update, Collections.emptyList()));
         }
     }
 
@@ -94,7 +91,16 @@ public class RouteAggregatingNode implements XdsNode<RouteResourceHolder, Cluste
         clusterSnapshots.set(clusterSnapshot.index(), clusterSnapshot);
         pending.remove(clusterSnapshot.index());
         if (pending.isEmpty()) {
-            listenerAggregatingRoot.newSnapshot(listenerResourceHolder, new RouteSnapshot(routeResourceHolder, ImmutableList.copyOf(clusterSnapshots)));
+            listenerAggregatingRoot.newSnapshot(listenerResourceHolder, new RouteSnapshot
+                    (routeResourceHolder, ImmutableList.copyOf(clusterSnapshots)));
         }
+    }
+
+    @Override
+    public void close() {
+        while (!children.isEmpty()) {
+            children.poll().close();
+        }
+        routeNode.removeListener(this);
     }
 }

@@ -27,16 +27,16 @@ public class EndpointAggregatingNode implements ResourceWatcher<EndpointResource
 
     private static final Logger logger = LoggerFactory.getLogger(EndpointAggregatingNode.class);
 
-    private final WatchersStorage watchersStorage;
+    private final EndpointNode endpointNode;
     private final ClusterResourceHolder holder;
     private final XdsNode<ClusterResourceHolder, EndpointSnapshot> clusterAggregatingNode;
 
-    EndpointAggregatingNode(WatchersStorage watchersStorage, ClusterResourceHolder holder,
+    EndpointAggregatingNode(EndpointNode endpointNode, ClusterResourceHolder holder,
                             XdsNode<ClusterResourceHolder, EndpointSnapshot> clusterAggregatingNode) {
-        this.watchersStorage = watchersStorage;
+        this.endpointNode = endpointNode;
         this.holder = holder;
         this.clusterAggregatingNode = clusterAggregatingNode;
-        watchersStorage.addWatcher(XdsType.ENDPOINT, holder.name(), this);
+        endpointNode.addListener(this);
     }
 
     @Override
@@ -50,6 +50,6 @@ public class EndpointAggregatingNode implements ResourceWatcher<EndpointResource
 
     @Override
     public void close() {
-        watchersStorage.removeWatcher(XdsType.ENDPOINT, holder.name(), this);
+        endpointNode.removeListener(this);
     }
 }

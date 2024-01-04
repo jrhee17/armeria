@@ -25,31 +25,32 @@ import org.slf4j.LoggerFactory;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 
+import io.netty.util.concurrent.EventExecutor;
+
 public class ClusterAggregatingRoot implements
                                      XdsNode<ClusterResourceHolder, EndpointSnapshot> {
 
     private static final Logger logger = LoggerFactory.getLogger(ClusterAggregatingRoot.class);
 
-    private final WatchersStorage watchersStorage;
-    private final String resourceName;
+    private final ClusterRoot clusterRoot;
     @Nullable
     private EndpointAggregatingNode endpointAggregatingNode;
     @Nullable
     private ClusterSnapshot clusterSnapshot;
-    @Nullable
-    private ClusterResourceHolder current;
+
+    private final EventExecutor eventLoop;
     private final Set<ResourceWatcher<ClusterSnapshot>> watchers =
             Collections.newSetFromMap(new IdentityHashMap<>());
 
-    ClusterAggregatingRoot(WatchersStorage watchersStorage, String resourceName) {
-        this.watchersStorage = watchersStorage;
-        this.resourceName = resourceName;
-        watchersStorage.addWatcher(XdsType.CLUSTER, resourceName, this);
+    ClusterAggregatingRoot(ClusterRoot clusterRoot) {
+        this.clusterRoot = clusterRoot;
+        eventLoop = clusterRoot.eventLoop();
+        clusterRoot.addListener(this);
     }
 
     public void addWatcher(ResourceWatcher<ClusterSnapshot> watcher) {
-        if (!watchersStorage.eventLoop().inEventLoop()) {
-            watchersStorage.eventLoop().execute(() -> addWatcher(watcher));
+        if (!eventLoop.inEventLoop()) {
+            eventLoop.execute(() -> addWatcher(watcher));
             return;
         }
         if (watchers.add(watcher) && clusterSnapshot != null) {
@@ -58,8 +59,8 @@ public class ClusterAggregatingRoot implements
     }
 
     public void removeWatcher(ResourceWatcher<ClusterSnapshot> watcher) {
-        if (!watchersStorage.eventLoop().inEventLoop()) {
-            watchersStorage.eventLoop().execute(() -> removeWatcher(watcher));
+        if (!eventLoop.inEventLoop()) {
+            eventLoop.execute(() -> removeWatcher(watcher));
             return;
         }
         watchers.remove(watcher);
@@ -68,11 +69,10 @@ public class ClusterAggregatingRoot implements
     @Override
     public void onChanged(ClusterResourceHolder update) {
         logger.info("(onChanged) update: {}", update);
-        current = update;
         if (endpointAggregatingNode != null) {
             endpointAggregatingNode.close();
         }
-        endpointAggregatingNode = new EndpointAggregatingNode(watchersStorage, update, this);
+        endpointAggregatingNode = new EndpointAggregatingNode(clusterRoot.endpointNode(), update, this);
     }
 
     @Override
@@ -89,6 +89,6 @@ public class ClusterAggregatingRoot implements
         if (endpointAggregatingNode != null) {
             endpointAggregatingNode.close();
         }
-        watchersStorage.removeWatcher(XdsType.CLUSTER, resourceName, this);
+        clusterRoot.removeListener(this);
     }
 }

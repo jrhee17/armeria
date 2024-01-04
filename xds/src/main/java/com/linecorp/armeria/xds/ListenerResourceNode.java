@@ -18,6 +18,8 @@ package com.linecorp.armeria.xds;
 
 import static com.linecorp.armeria.xds.XdsType.LISTENER;
 
+import java.util.Objects;
+
 import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
@@ -37,7 +39,9 @@ final class ListenerResourceNode extends DynamicResourceNode<ListenerResourceHol
     }
 
     @Override
-    public void newSnapshot(Snapshot child) {
-
+    public void newSnapshot(Snapshot<?> child) {
+        if (!Objects.equals(child.holder().parent(), current())) {
+            return;
+        }
     }
 }

@@ -25,7 +25,7 @@ import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 
 public class ClusterAggregatingNode implements XdsNode<ClusterResourceHolder, EndpointSnapshot> {
 
-    private final WatchersStorage watchersStorage;
+    private final ClusterNode clusterNode;
     private final RouteResourceHolder routeResourceHolder;
     private final VirtualHost virtualHost;
     private final Route route;
@@ -34,15 +34,15 @@ public class ClusterAggregatingNode implements XdsNode<ClusterResourceHolder, En
     @Nullable
     private EndpointAggregatingNode endpointAggregatingNode;
 
-    ClusterAggregatingNode(WatchersStorage watchersStorage, RouteResourceHolder routeResourceHolder,
+    ClusterAggregatingNode(ClusterNode clusterNode, RouteResourceHolder routeResourceHolder,
                            VirtualHost virtualHost, Route route, int routeIndex, RouteAggregatingNode routeAggregatingNode) {
-        this.watchersStorage = watchersStorage;
+        this.clusterNode = clusterNode;
         this.routeResourceHolder = routeResourceHolder;
         this.virtualHost = virtualHost;
         this.route = route;
         this.routeIndex = routeIndex;
         this.routeAggregatingNode = routeAggregatingNode;
-        watchersStorage.addWatcher(XdsType.CLUSTER, route.getRoute().getCluster(), this);
+        clusterNode.addListener(this);
     }
 
     @Override
@@ -53,7 +53,7 @@ public class ClusterAggregatingNode implements XdsNode<ClusterResourceHolder, En
         if (!Objects.equals(update.parent(), routeResourceHolder)) {
             return;
         }
-        endpointAggregatingNode = new EndpointAggregatingNode(watchersStorage, update, this);
+        endpointAggregatingNode = new EndpointAggregatingNode(clusterNode.endpointNode(), update, this);
     }
 
     @Override
@@ -67,6 +67,6 @@ public class ClusterAggregatingNode implements XdsNode<ClusterResourceHolder, En
         if (endpointAggregatingNode != null) {
             endpointAggregatingNode.close();
         }
-        watchersStorage.removeWatcher(XdsType.CLUSTER, route.getRoute().getCluster(), this);
+        clusterNode.removeListener(this);
     }
 }

@@ -18,12 +18,15 @@ package com.linecorp.armeria.xds;
 
 import com.google.common.base.MoreObjects;
 
+import com.linecorp.armeria.common.annotation.Nullable;
+
 public class ListenerSnapshot implements Snapshot<ListenerResourceHolder> {
 
     private final ListenerResourceHolder listenerHolder;
+    @Nullable
     private final RouteSnapshot routeSnapshot;
 
-    public ListenerSnapshot(ListenerResourceHolder listenerHolder, RouteSnapshot routeSnapshot) {
+    public ListenerSnapshot(ListenerResourceHolder listenerHolder, @Nullable RouteSnapshot routeSnapshot) {
         this.listenerHolder = listenerHolder;
         this.routeSnapshot = routeSnapshot;
     }
@@ -33,6 +36,7 @@ public class ListenerSnapshot implements Snapshot<ListenerResourceHolder> {
         return listenerHolder;
     }
 
+    @Nullable
     public RouteSnapshot routeSnapshot() {
         return routeSnapshot;
     }

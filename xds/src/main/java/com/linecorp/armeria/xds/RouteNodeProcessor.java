@@ -16,7 +16,9 @@
 
 package com.linecorp.armeria.xds;
 
-import java.util.Objects;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import io.envoyproxy.envoy.config.route.v3.Route;
 import io.envoyproxy.envoy.config.route.v3.Route.ActionCase;
@@ -26,7 +28,13 @@ import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 
 interface RouteNodeProcessor extends BaseNodeProcessor {
 
+    List<ClusterSnapshot> clusterSnapshotList();
+
+    Set<Integer> pending();
+
     default void process(RouteResourceHolder holder) {
+        clusterSnapshotList().clear();
+        pending().clear();
         final RouteConfiguration routeConfiguration = holder.data();
         int index = 0;
         for (VirtualHost virtualHost: routeConfiguration.getVirtualHostsList()) {
@@ -37,20 +45,15 @@ interface RouteNodeProcessor extends BaseNodeProcessor {
                 final RouteAction routeAction = route.getRoute();
                 final String cluster = routeAction.getCluster();
 
+                clusterSnapshotList().add(null);
+                pending().add(index);
                 final ResourceNode<?> node = new ClusterResourceNode(null, cluster, watchersStorage(),
                                                                      holder, self(), virtualHost, route, index++);
                 children().add(watchersStorage().subscribe(holder, node, XdsType.CLUSTER, cluster));
             }
         }
-    }
-
-    @Override
-    default void newSnapshot(Snapshot<?> child) {
-        if (!Objects.equals(self().current(), child.holder().parent())) {
-            return;
+        if (index == 0) {
+            newSnapshot(new RouteSnapshot(holder, Collections.emptyList()));
         }
-        assert child instanceof ClusterSnapshot;
-        final ClusterSnapshot clusterSnapshot = (ClusterSnapshot) child;
-//        snapshotListener().newSnapshot(self().current(), );
     }
 }

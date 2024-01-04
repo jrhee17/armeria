@@ -25,11 +25,12 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.Rds;
+import io.netty.util.concurrent.EventExecutor;
 
 public class ListenerAggregatingRoot implements XdsNode<ListenerResourceHolder, RouteSnapshot> {
 
-    private final WatchersStorage watchersStorage;
-    private final String resourceName;
+    private final ListenerRoot listenerRoot;
+    private final EventExecutor eventLoop;
     @Nullable
     private RouteAggregatingNode routeAggregatingNode;
     @Nullable
@@ -38,15 +39,15 @@ public class ListenerAggregatingRoot implements XdsNode<ListenerResourceHolder, 
     private final Set<ResourceWatcher<ListenerSnapshot>> watchers =
             Collections.newSetFromMap(new IdentityHashMap<>());
 
-    ListenerAggregatingRoot(WatchersStorage watchersStorage, String resourceName) {
-        this.watchersStorage = watchersStorage;
-        this.resourceName = resourceName;
-        watchersStorage.addWatcher(XdsType.LISTENER, resourceName, this);
+    ListenerAggregatingRoot(ListenerRoot listenerRoot) {
+        this.listenerRoot = listenerRoot;
+        eventLoop = listenerRoot.eventLoop();
+        listenerRoot.addListener(this);
     }
 
     public void addWatcher(ResourceWatcher<ListenerSnapshot> watcher) {
-        if (!watchersStorage.eventLoop().inEventLoop()) {
-            watchersStorage.eventLoop().execute(() -> addWatcher(watcher));
+        if (!eventLoop.inEventLoop()) {
+            eventLoop.execute(() -> addWatcher(watcher));
             return;
         }
         if (watchers.add(watcher) && listenerSnapshot != null) {
@@ -55,8 +56,8 @@ public class ListenerAggregatingRoot implements XdsNode<ListenerResourceHolder, 
     }
 
     public void removeWatcher(ResourceWatcher<ListenerSnapshot> watcher) {
-        if (!watchersStorage.eventLoop().inEventLoop()) {
-            watchersStorage.eventLoop().execute(() -> removeWatcher(watcher));
+        if (!eventLoop.inEventLoop()) {
+            eventLoop.execute(() -> removeWatcher(watcher));
             return;
         }
         watchers.remove(watcher);
@@ -73,16 +74,17 @@ public class ListenerAggregatingRoot implements XdsNode<ListenerResourceHolder, 
         }
         if (connectionManager.hasRds()) {
             final Rds rds = connectionManager.getRds();
-            routeAggregatingNode = new RouteAggregatingNode(watchersStorage, update, rds.getRouteConfigName(), this);
+            routeAggregatingNode = new RouteAggregatingNode(listenerRoot.routeNode(), update, rds.getRouteConfigName(), this);
         } else if (connectionManager.hasRouteConfig()) {
             final RouteConfiguration routeConfig = connectionManager.getRouteConfig();
-            routeAggregatingNode = new RouteAggregatingNode(watchersStorage, update, routeConfig.getName(), this);
+            routeAggregatingNode = new RouteAggregatingNode(listenerRoot.routeNode(), update, routeConfig.getName(), this);
+        } else {
+            newSnapshot(update, null);
         }
     }
 
     @Override
-    public void newSnapshot(ListenerResourceHolder listenerHolder,
-                            RouteSnapshot routeSnapshot) {
+    public void newSnapshot(ListenerResourceHolder listenerHolder, @Nullable RouteSnapshot routeSnapshot) {
         listenerSnapshot = new ListenerSnapshot(listenerHolder, routeSnapshot);
         for (ResourceWatcher<ListenerSnapshot> watcher: watchers) {
             watcher.onChanged(listenerSnapshot);
@@ -94,6 +96,6 @@ public class ListenerAggregatingRoot implements XdsNode<ListenerResourceHolder, 
         if (routeAggregatingNode != null) {
             routeAggregatingNode.close();
         }
-        watchersStorage.removeWatcher(XdsType.LISTENER, resourceName, this);
+        listenerRoot.close();
     }
 }

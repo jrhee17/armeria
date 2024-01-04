@@ -43,7 +43,7 @@ public final class ClusterRoot extends AbstractNode<ClusterResourceHolder> imple
             node = null;
         }
         watchersStorage().addWatcher(XdsType.CLUSTER, resourceName, this);
-        clusterAggregatingRoot = new ClusterAggregatingRoot(watchersStorage(), resourceName);
+        clusterAggregatingRoot = new ClusterAggregatingRoot(this);
     }
 
     /**
@@ -54,7 +54,7 @@ public final class ClusterRoot extends AbstractNode<ClusterResourceHolder> imple
     }
 
     public ClusterAggregatingRoot snapshot() {
-        return clusterAggregatingRoot;
+        return new ClusterAggregatingRoot(this);
     }
 
     @Override

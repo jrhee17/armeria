@@ -85,9 +85,12 @@ final class WatchersStorage {
                                   XdsType type, String resourceName, Message t) {
         final ResourceParser resourceParser = XdsResourceParserUtil.fromType(type);
         final ResourceHolder<?> parsed = resourceParser.parse(t);
-        final StaticResourceNode<?> node = new StaticResourceNode<>(parent, this, parsed, snapshotListener);
+        final ResourceNode<ResourceHolder<?>> node =
+                (ResourceNode<ResourceHolder<?>>) DynamicResourceNode.from(null, type,
+                                                                           resourceName, this, parent,
+                                                                           snapshotListener);
         addNode(type, resourceName, node);
-        node.processDownstream();
+        node.onChanged(parsed);
         return node;
     }
 
@@ -163,6 +166,10 @@ final class WatchersStorage {
     }
 
     void addWatcher(XdsType type, String resource, ResourceWatcher<? extends ResourceHolder<?>> watcher) {
+        if (!eventLoop().inEventLoop()) {
+            eventLoop().execute(() -> addWatcher(type, resource, watcher));
+            return;
+        }
         if (!watchers.containsKey(type)) {
             watchers.put(type, new HashMap<>());
         }
@@ -175,6 +182,10 @@ final class WatchersStorage {
     }
 
     void removeWatcher(XdsType type, String resource, ResourceWatcher<? extends ResourceHolder<?>> watcher) {
+        if (!eventLoop().inEventLoop()) {
+            eventLoop().execute(() -> removeWatcher(type, resource, watcher));
+            return;
+        }
         if (!watchers.containsKey(type)) {
             return;
         }

@@ -18,25 +18,22 @@ package com.linecorp.armeria.xds;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
 
-import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 
 public class RouteSnapshot implements Snapshot<RouteResourceHolder> {
 
     private final RouteResourceHolder routeResourceHolder;
-    private final ImmutableList<ClusterSnapshot> clusterSnapshots;
+    private final List<ClusterSnapshot> clusterSnapshots;
 
     private final Map<VirtualHost, List<ClusterSnapshot>> virtualHostMap;
 
-    public RouteSnapshot(RouteResourceHolder routeResourceHolder, ImmutableList<ClusterSnapshot> clusterSnapshots) {
+    public RouteSnapshot(RouteResourceHolder routeResourceHolder, List<ClusterSnapshot> clusterSnapshots) {
         this.routeResourceHolder = routeResourceHolder;
         this.clusterSnapshots = clusterSnapshots;
 
