@@ -66,9 +66,9 @@ final class WatchersStorage {
         return subscribe(configSource, xdsType, resourceName, node);
     }
 
-    private ResourceNode<ResourceHolder<?>> subscribe(ConfigSource configSource,
-                                                      XdsType xdsType, String resourceName,
-                                                      ResourceNode<ResourceHolder<?>> node) {
+    ResourceNode<ResourceHolder<?>> subscribe(ConfigSource configSource,
+                                              XdsType xdsType, String resourceName,
+                                              ResourceNode<ResourceHolder<?>> node) {
         addNode(xdsType, resourceName, node);
         xdsBootstrap.subscribe(configSource, xdsType, resourceName, node);
         return node;

@@ -40,8 +40,15 @@ final class ListenerResourceNode extends DynamicResourceNode<ListenerResourceHol
 
     @Override
     public void newSnapshot(Snapshot<?> child) {
-        if (!Objects.equals(child.holder().parent(), current())) {
+        assert child instanceof RouteSnapshot;
+        final RouteSnapshot routeSnapshot = (RouteSnapshot) child;
+        final ListenerResourceHolder current = current();
+        if (current == null) {
             return;
         }
+        if (!Objects.equals(child.holder().parent(), current)) {
+            return;
+        }
+        snapshotListener().newSnapshot(new ListenerSnapshot(current, routeSnapshot));
     }
 }

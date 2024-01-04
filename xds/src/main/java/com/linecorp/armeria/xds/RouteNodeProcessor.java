@@ -33,27 +33,6 @@ interface RouteNodeProcessor extends BaseNodeProcessor {
     Set<Integer> pending();
 
     default void process(RouteResourceHolder holder) {
-        clusterSnapshotList().clear();
-        pending().clear();
-        final RouteConfiguration routeConfiguration = holder.data();
-        int index = 0;
-        for (VirtualHost virtualHost: routeConfiguration.getVirtualHostsList()) {
-            for (Route route: virtualHost.getRoutesList()) {
-                if (route.getActionCase() != ActionCase.ROUTE) {
-                    continue;
-                }
-                final RouteAction routeAction = route.getRoute();
-                final String cluster = routeAction.getCluster();
 
-                clusterSnapshotList().add(null);
-                pending().add(index);
-                final ResourceNode<?> node = new ClusterResourceNode(null, cluster, watchersStorage(),
-                                                                     holder, self(), virtualHost, route, index++);
-                children().add(watchersStorage().subscribe(holder, node, XdsType.CLUSTER, cluster));
-            }
-        }
-        if (index == 0) {
-            newSnapshot(new RouteSnapshot(holder, Collections.emptyList()));
-        }
     }
 }

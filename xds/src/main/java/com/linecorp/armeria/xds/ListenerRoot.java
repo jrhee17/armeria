@@ -16,6 +16,12 @@
 
 package com.linecorp.armeria.xds;
 
+import java.util.HashSet;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SafeCloseable;
 
@@ -30,9 +36,14 @@ import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 public final class ListenerRoot extends AbstractNode<ListenerResourceHolder>
         implements SafeCloseable, SnapshotListener {
 
+    private static final Logger logger = LoggerFactory.getLogger(ListenerRoot.class);
+
     private final String resourceName;
     @Nullable
     private final ResourceNode<?> node;
+    @Nullable
+    private ListenerSnapshot listenerSnapshot;
+    private final Set<ResourceWatcher<ListenerSnapshot>> snapshotWatchers = new HashSet<>();
 
     ListenerRoot(WatchersStorage watchersStorage, String resourceName, boolean autoSubscribe) {
         super(watchersStorage);
@@ -45,9 +56,9 @@ public final class ListenerRoot extends AbstractNode<ListenerResourceHolder>
         watchersStorage().addWatcher(XdsType.LISTENER, resourceName, this);
     }
 
-    public ListenerAggregatingRoot aggregatingNode() {
-        return new ListenerAggregatingRoot(this);
-    }
+//    public ListenerAggregatingRoot aggregatingNode() {
+//        return new ListenerAggregatingRoot(this);
+//    }
 
     /**
      * Returns a node representation of the {@link RouteConfiguration} contained by this listener.
@@ -64,8 +75,33 @@ public final class ListenerRoot extends AbstractNode<ListenerResourceHolder>
         watchersStorage().removeWatcher(XdsType.LISTENER, resourceName, this);
     }
 
+    public void addSnapshotWatcher(ResourceWatcher<ListenerSnapshot> watcher) {
+        if (!eventLoop().inEventLoop()) {
+            eventLoop().execute(() -> addSnapshotWatcher(watcher));
+            return;
+        }
+        snapshotWatchers.add(watcher);
+    }
+
+    public void removeSnapshotWatcher(ResourceWatcher<ListenerSnapshot> watcher) {
+        if (!eventLoop().inEventLoop()) {
+            eventLoop().execute(() -> removeSnapshotWatcher(watcher));
+            return;
+        }
+        snapshotWatchers.remove(watcher);
+    }
+
     @Override
     public void newSnapshot(Snapshot<?> child) {
         assert child instanceof ListenerSnapshot;
+        listenerSnapshot = (ListenerSnapshot) child;
+        for (ResourceWatcher<ListenerSnapshot> watcher: snapshotWatchers) {
+            try {
+                watcher.onChanged(listenerSnapshot);
+            } catch (Throwable t) {
+                logger.warn("Unexpected exception while invoking {}.onChanged",
+                            watcher.getClass().getSimpleName(), t);
+            }
+        }
     }
 }

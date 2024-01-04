@@ -88,7 +88,7 @@ class AggregatingNodeTest {
             final ClusterRoot clusterRoot = xdsBootstrap.clusterRoot("cluster0");
 
             final Deque<ClusterSnapshot> snapshotRef = new ConcurrentLinkedDeque<>();
-            clusterRoot.snapshot().addWatcher(snapshotRef::add);
+            clusterRoot.addSnapshotWatcher(snapshotRef::add);
             await().untilAsserted(() -> assertThat(snapshotRef).isNotEmpty());
 
             final ClusterSnapshot clusterSnapshot = snapshotRef.removeFirst();
@@ -105,7 +105,7 @@ class AggregatingNodeTest {
             final ClusterRoot clusterRoot = xdsBootstrap.clusterRoot("cluster0");
 
             final Deque<ClusterSnapshot> snapshotRef = new ConcurrentLinkedDeque<>();
-            clusterRoot.snapshot().addWatcher(snapshotRef::add);
+            clusterRoot.addSnapshotWatcher(snapshotRef::add);
 
             await().untilAsserted(() -> assertThat(snapshotRef).isNotEmpty());
             ClusterSnapshot clusterSnapshot = snapshotRef.removeFirst();
@@ -135,7 +135,7 @@ class AggregatingNodeTest {
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap)) {
             final ListenerRoot listenerRoot = xdsBootstrap.listenerRoot("listener0");
             final Deque<ListenerSnapshot> snapshotRef = new ConcurrentLinkedDeque<>();
-            listenerRoot.aggregatingNode().addWatcher(snapshotRef::add);
+            listenerRoot.addSnapshotWatcher(snapshotRef::add);
             await().untilAsserted(() -> assertThat(snapshotRef).isNotEmpty());
 
             final ListenerSnapshot listenerSnapshot = snapshotRef.removeFirst();
@@ -151,7 +151,7 @@ class AggregatingNodeTest {
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap)) {
             final ListenerRoot listenerRoot = xdsBootstrap.listenerRoot("listener0");
             final Deque<ListenerSnapshot> snapshotRef = new ConcurrentLinkedDeque<>();
-            listenerRoot.aggregatingNode().addWatcher(snapshotRef::add);
+            listenerRoot.addSnapshotWatcher(snapshotRef::add);
 
             await().untilAsserted(() -> assertThat(snapshotRef).isNotEmpty());
             ListenerSnapshot listenerSnapshot = snapshotRef.removeFirst();

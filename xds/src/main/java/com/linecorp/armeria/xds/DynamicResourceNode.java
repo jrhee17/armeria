@@ -105,7 +105,8 @@ abstract class DynamicResourceNode<U extends ResourceHolder<?>> implements Resou
     @Override
     public final void onChanged(U update) {
         initialized = true;
-        setCurrent((U) update.withParent(parent));
+        update = (U) update.withParent(parent);
+        setCurrent(update);
         watchersStorage.notifyListeners(update.type(), update.name());
 
         final Deque<ResourceNode<?>> prevChildren = new ArrayDeque<>(children);

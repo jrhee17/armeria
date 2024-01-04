@@ -22,12 +22,12 @@ import java.util.Objects;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 
+import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.route.v3.Route;
 import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 
-final class ClusterResourceNode extends DynamicResourceNode<ClusterResourceHolder>
-        implements ClusterNodeProcessor {
+final class ClusterResourceNode extends DynamicResourceNode<ClusterResourceHolder> {
 
     private final VirtualHost virtualHost;
     private final Route route;
@@ -37,9 +37,9 @@ final class ClusterResourceNode extends DynamicResourceNode<ClusterResourceHolde
                         String resourceName, WatchersStorage watchersStorage,
                         @Nullable ResourceHolder<?> parent, SnapshotListener parentNode) {
         super(watchersStorage, configSource, CLUSTER, resourceName, parent, parentNode);
-        this.virtualHost = null;
-        this.route = null;
-        this.index = -1;
+        virtualHost = null;
+        route = null;
+        index = -1;
     }
 
     ClusterResourceNode(@Nullable ConfigSource configSource,
@@ -54,11 +54,28 @@ final class ClusterResourceNode extends DynamicResourceNode<ClusterResourceHolde
 
     @Override
     public void process(ClusterResourceHolder update) {
-        ClusterNodeProcessor.super.process(update);
+        final Cluster cluster = update.data();
+        switch (cluster.getType()) {
+            case EDS:
+                final ConfigSource configSource = cluster.getEdsClusterConfig().getEdsConfig();
+                children().add(watchersStorage().subscribe(update, self(), configSource,
+                                                           XdsType.ENDPOINT, cluster.getName()));
+                break;
+            case STATIC:
+                children().add(watchersStorage().addStaticNode(update, self(), XdsType.ENDPOINT, cluster.getName(),
+                                                               cluster.getLoadAssignment()));
+                break;
+            default:
+                throw new IllegalArgumentException(
+                        "Unsupported endpoint discovery type '" + cluster.getType() + "'.");
+        }
     }
 
     @Override
     public void newSnapshot(Snapshot<?> child) {
+        if (snapshotListener() == null) {
+            return;
+        }
         assert child instanceof EndpointSnapshot;
         final EndpointSnapshot endpointSnapshot = (EndpointSnapshot) child;
         final ClusterResourceHolder current = current();

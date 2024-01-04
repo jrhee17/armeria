@@ -32,11 +32,11 @@ final class EndpointResourceNode extends DynamicResourceNode<EndpointResourceHol
 
     @Override
     void process(EndpointResourceHolder update) {
-        // no-op
+        snapshotListener().newSnapshot(new EndpointSnapshot(update));
     }
 
     @Override
-    public void newSnapshot(Snapshot child) {
-
+    public void newSnapshot(Snapshot<?> child) {
+        throw new UnsupportedOperationException();
     }
 }

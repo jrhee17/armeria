@@ -16,6 +16,12 @@
 
 package com.linecorp.armeria.xds;
 
+import java.util.HashSet;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SafeCloseable;
 
@@ -27,18 +33,24 @@ import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
  * Users may query the latest value of this resource or add a watcher to be notified of changes.
  * Note that it is important to close this resource to avoid leaking connections to the control plane server.
  */
-public final class ClusterRoot extends AbstractNode<ClusterResourceHolder> implements SafeCloseable {
+public final class ClusterRoot extends AbstractNode<ClusterResourceHolder>
+        implements SafeCloseable, SnapshotListener {
+
+    private static final Logger logger = LoggerFactory.getLogger(ClusterRoot.class);
 
     private final String resourceName;
     @Nullable
     private final ResourceNode<?> node;
     private final ClusterAggregatingRoot clusterAggregatingRoot;
+    @Nullable
+    private ClusterSnapshot clusterSnapshot;
+    private final Set<ResourceWatcher<ClusterSnapshot>> snapshotWatchers = new HashSet<>();
 
     ClusterRoot(WatchersStorage watchersStorage, String resourceName, boolean autoSubscribe) {
         super(watchersStorage);
         this.resourceName = resourceName;
         if (autoSubscribe) {
-            node = watchersStorage().subscribe(null, null, XdsType.CLUSTER, resourceName);
+            node = watchersStorage().subscribe(null, this, XdsType.CLUSTER, resourceName);
         } else {
             node = null;
         }
@@ -53,8 +65,24 @@ public final class ClusterRoot extends AbstractNode<ClusterResourceHolder> imple
         return new EndpointNode(watchersStorage(), this);
     }
 
-    public ClusterAggregatingRoot snapshot() {
-        return new ClusterAggregatingRoot(this);
+//    public ClusterAggregatingRoot snapshot() {
+//        return new ClusterAggregatingRoot(this);
+//    }
+
+    public void addSnapshotWatcher(ResourceWatcher<ClusterSnapshot> watcher) {
+        if (!eventLoop().inEventLoop()) {
+            eventLoop().execute(() -> addSnapshotWatcher(watcher));
+            return;
+        }
+        snapshotWatchers.add(watcher);
+    }
+
+    public void removeSnapshotWatcher(ResourceWatcher<ClusterSnapshot> watcher) {
+        if (!eventLoop().inEventLoop()) {
+            eventLoop().execute(() -> removeSnapshotWatcher(watcher));
+            return;
+        }
+        snapshotWatchers.remove(watcher);
     }
 
     @Override
@@ -64,5 +92,19 @@ public final class ClusterRoot extends AbstractNode<ClusterResourceHolder> imple
         }
         watchersStorage().removeWatcher(XdsType.CLUSTER, resourceName, this);
         clusterAggregatingRoot.close();
+    }
+
+    @Override
+    public void newSnapshot(Snapshot<?> child) {
+        assert child instanceof ClusterSnapshot;
+        clusterSnapshot = (ClusterSnapshot) child;
+        for (ResourceWatcher<ClusterSnapshot> watcher: snapshotWatchers) {
+            try {
+                watcher.onChanged(clusterSnapshot);
+            } catch (Throwable t) {
+                logger.warn("Unexpected exception while invoking {}.onChanged",
+                            watcher.getClass().getSimpleName(), t);
+            }
+        }
     }
 }

@@ -16,7 +16,7 @@
 
 package com.linecorp.armeria.xds;
 
-interface Snapshot<T extends ResourceHolder<?>> {
+public interface Snapshot<T extends ResourceHolder<?>> {
 
     T holder();
 }
