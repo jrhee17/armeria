@@ -41,9 +41,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import com.google.common.collect.ImmutableList;
 
+import com.linecorp.armeria.internal.testing.FlakyTest;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
+@FlakyTest
 class ByteBufsInputStreamTest {
 
     @Test

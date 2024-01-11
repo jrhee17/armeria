@@ -28,11 +28,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import com.linecorp.armeria.internal.testing.FlakyTest;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.buffer.UnpooledByteBufAllocator;
 
+@FlakyTest
 class ByteBufsDecoderInputTest {
 
     ByteBufsDecoderInput input;

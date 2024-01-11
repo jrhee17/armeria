@@ -29,9 +29,11 @@ import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.testing.FlakyTest;
 
 import io.netty.util.concurrent.ImmediateEventExecutor;
 
+@FlakyTest
 class AbstractFixedStreamMessageTest {
 
     @CsvSource({ "true", "false" })

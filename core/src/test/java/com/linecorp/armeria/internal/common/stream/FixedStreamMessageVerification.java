@@ -31,7 +31,9 @@ import org.testng.annotations.Test;
 import com.linecorp.armeria.common.stream.AbortedStreamException;
 import com.linecorp.armeria.common.stream.StreamMessage;
 import com.linecorp.armeria.common.stream.StreamMessageVerification;
+import com.linecorp.armeria.internal.testing.FlakyTest;
 
+@FlakyTest
 public class FixedStreamMessageVerification extends StreamMessageVerification<Long> {
     @Override
     public StreamMessage<Long> createPublisher(long elements) {

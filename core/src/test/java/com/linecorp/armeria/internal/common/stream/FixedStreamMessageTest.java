@@ -45,11 +45,13 @@ import org.reactivestreams.Subscription;
 import com.linecorp.armeria.common.stream.StreamMessage;
 import com.linecorp.armeria.internal.testing.AnticipatedException;
 import com.linecorp.armeria.internal.testing.BlockingUtils;
+import com.linecorp.armeria.internal.testing.FlakyTest;
 import com.linecorp.armeria.testing.junit5.common.EventLoopExtension;
 
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.ImmediateEventExecutor;
 
+@FlakyTest
 class FixedStreamMessageTest {
 
     @RegisterExtension

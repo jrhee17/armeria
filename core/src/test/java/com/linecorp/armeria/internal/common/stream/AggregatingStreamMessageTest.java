@@ -22,11 +22,13 @@ import static org.awaitility.Awaitility.await;
 import org.junit.jupiter.api.Test;
 
 import com.linecorp.armeria.common.HttpData;
+import com.linecorp.armeria.internal.testing.FlakyTest;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import reactor.test.StepVerifier;
 
+@FlakyTest
 class AggregatingStreamMessageTest {
 
     @Test

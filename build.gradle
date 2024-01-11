@@ -229,6 +229,7 @@ configure(projectsWithFlags('java')) {
 
         // Test-time dependencies
         testImplementation libs.guava.testlib
+        testRuntimeOnly libs.junit.testng.engine
         testImplementation libs.junit4
         testImplementation libs.junit5.jupiter.api
         testImplementation libs.junit5.jupiter.params

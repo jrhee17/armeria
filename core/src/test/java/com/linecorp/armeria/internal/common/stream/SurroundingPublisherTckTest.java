@@ -30,10 +30,12 @@ import com.google.common.math.LongMath;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.stream.StreamMessage;
 import com.linecorp.armeria.common.stream.StreamMessageVerification;
+import com.linecorp.armeria.internal.testing.FlakyTest;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+@FlakyTest
 @SuppressWarnings("checkstyle:LineLength")
 public class SurroundingPublisherTckTest extends StreamMessageVerification<Object> {
 

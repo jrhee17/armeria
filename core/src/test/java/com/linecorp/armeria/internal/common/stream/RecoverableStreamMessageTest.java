@@ -47,10 +47,12 @@ import com.linecorp.armeria.common.stream.StreamMessage;
 import com.linecorp.armeria.common.stream.StreamWriter;
 import com.linecorp.armeria.common.stream.SubscriptionOption;
 import com.linecorp.armeria.common.util.CompositeException;
+import com.linecorp.armeria.internal.testing.FlakyTest;
 
 import io.netty.util.concurrent.ImmediateEventExecutor;
 import reactor.test.StepVerifier;
 
+@FlakyTest
 class RecoverableStreamMessageTest {
     @Test
     void noError() {

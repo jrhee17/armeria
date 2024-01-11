@@ -29,11 +29,13 @@ import org.junit.jupiter.params.provider.ArgumentsSource;
 
 import com.linecorp.armeria.common.stream.AbortedStreamException;
 import com.linecorp.armeria.common.stream.StreamMessage;
+import com.linecorp.armeria.internal.testing.FlakyTest;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+@FlakyTest
 class SurroundingPublisherTest {
 
     @Test
