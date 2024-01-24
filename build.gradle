@@ -131,6 +131,11 @@ allprojects {
         predictiveSelection {
             enabled.set(!isCi)
         }
+
+        distribution {
+            enabled = true
+            maxRemoteExecutors = 0
+        }
     }
 }
 
