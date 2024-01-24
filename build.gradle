@@ -134,8 +134,9 @@ allprojects {
 
         distribution {
             enabled = true
-            maxLocalExecutors = 0
-            maxRemoteExecutors = 1
+            remoteOnly {
+                includeAnnotationClasses.addAll("com.linecorp.armeria.internal.testing.FlakyTest")
+            }
         }
     }
 }
