@@ -134,7 +134,8 @@ allprojects {
 
         distribution {
             enabled = true
-            maxRemoteExecutors = 0
+            maxLocalExecutors = 0
+            maxRemoteExecutors = 1
         }
     }
 }
