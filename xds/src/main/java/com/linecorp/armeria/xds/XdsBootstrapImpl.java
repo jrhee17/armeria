@@ -40,6 +40,7 @@ final class XdsBootstrapImpl implements XdsBootstrap {
 
     private final BootstrapApiConfigs bootstrapApiConfigs;
     private final BootstrapClusters bootstrapClusters;
+    private final BootstrapListeners bootstrapListeners;
     private final Consumer<GrpcClientBuilder> configClientCustomizer;
     private final Node bootstrapNode;
     private boolean closed;
@@ -59,6 +60,7 @@ final class XdsBootstrapImpl implements XdsBootstrap {
         this.configClientCustomizer = configClientCustomizer;
         bootstrapApiConfigs = new BootstrapApiConfigs(bootstrap);
         bootstrapClusters = new BootstrapClusters(bootstrap, this);
+        bootstrapListeners = new BootstrapListeners(bootstrap);
         bootstrapNode = bootstrap.hasNode() ? bootstrap.getNode() : Node.getDefaultInstance();
     }
 
@@ -103,7 +105,7 @@ final class XdsBootstrapImpl implements XdsBootstrap {
 
     @Override
     public ListenerRoot listenerRoot(String resourceName) {
-        return new ListenerRoot(this, resourceName);
+        return new ListenerRoot(this, resourceName, bootstrapListeners);
     }
 
     @Override

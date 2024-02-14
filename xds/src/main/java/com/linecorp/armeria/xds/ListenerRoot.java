@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.xds;
 
+import java.util.Map;
+
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
 import io.envoyproxy.envoy.config.listener.v3.Listener;
@@ -30,10 +32,15 @@ public final class ListenerRoot extends AbstractRoot<ListenerSnapshot> {
 
     private final ListenerResourceNode node;
 
-    ListenerRoot(XdsBootstrapImpl xdsBootstrap, String resourceName) {
+    ListenerRoot(XdsBootstrapImpl xdsBootstrap, String resourceName, BootstrapListeners bootstrapListeners) {
         super(xdsBootstrap.eventLoop());
-        node = new ListenerResourceNode(null, resourceName, xdsBootstrap, this, ResourceNodeType.DYNAMIC);
-        xdsBootstrap.subscribe(node);
+        final Map<String, ListenerXdsResource> staticMap = bootstrapListeners.staticListenersMap();
+        if (staticMap.containsKey(resourceName)) {
+            node = new ListenerResourceNode(null, resourceName, xdsBootstrap, this, ResourceNodeType.STATIC);
+        } else {
+            node = new ListenerResourceNode(null, resourceName, xdsBootstrap, this, ResourceNodeType.DYNAMIC);
+            xdsBootstrap.subscribe(node);
+        }
     }
 
     @Override
