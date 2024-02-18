@@ -39,18 +39,18 @@ public final class EndpointSelectionTimeoutException extends EndpointGroupExcept
      * Returns an {@link EndpointSelectionTimeoutException} which prints a message about
      * the {@link EndpointGroup} when thrown.
      */
-    public static EndpointSelectionTimeoutException get(EndpointGroup endpointGroup,
+    public static EndpointSelectionTimeoutException get(EndpointSelector endpointSelector,
                                                         long selectionTimeoutMillis) {
-        requireNonNull(endpointGroup, "endpointGroup");
+        requireNonNull(endpointSelector, "endpointGroup");
         checkArgument(selectionTimeoutMillis >= 0, "selectionTimeoutMillis: %s (expected: >= 0)",
                       selectionTimeoutMillis);
         return Flags.verboseExceptionSampler().isSampled(EndpointSelectionTimeoutException.class) ?
-               new EndpointSelectionTimeoutException(endpointGroup, selectionTimeoutMillis) : INSTANCE;
+               new EndpointSelectionTimeoutException(endpointSelector, selectionTimeoutMillis) : INSTANCE;
     }
 
     private EndpointSelectionTimeoutException() {}
 
-    private EndpointSelectionTimeoutException(EndpointGroup endpointGroup, long selectionTimeoutMillis) {
-        super("Failed to select within " + selectionTimeoutMillis + " ms an endpoint from: " + endpointGroup);
+    private EndpointSelectionTimeoutException(EndpointSelector endpointSelector, long selectionTimeoutMillis) {
+        super("Failed to select within " + selectionTimeoutMillis + " ms an endpoint from: " + endpointSelector);
     }
 }
