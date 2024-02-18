@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import com.google.common.base.MoreObjects;
 
@@ -72,6 +73,24 @@ public final class RouteSnapshot implements Snapshot<RouteXdsResource> {
      */
     public Map<VirtualHost, List<ClusterSnapshot>> virtualHostMap() {
         return virtualHostMap;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+        if (object == null || getClass() != object.getClass()) {
+            return false;
+        }
+        final RouteSnapshot that = (RouteSnapshot) object;
+        return Objects.equals(routeXdsResource, that.routeXdsResource) &&
+               Objects.equals(clusterSnapshots, that.clusterSnapshots);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(routeXdsResource, clusterSnapshots);
     }
 
     @Override

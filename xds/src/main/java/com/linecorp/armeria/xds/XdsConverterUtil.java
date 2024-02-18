@@ -30,6 +30,7 @@ import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.envoyproxy.envoy.config.core.v3.ApiConfigSource;
@@ -42,6 +43,13 @@ import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 final class XdsConverterUtil {
 
     private XdsConverterUtil() {}
+
+    static EndpointGroup convertEndpoints(ClusterSnapshot clusterSnapshot) {
+        final EndpointSnapshot endpointSnapshot = clusterSnapshot.endpointSnapshot();
+        checkArgument(endpointSnapshot != null,
+                      "Cluster (%s) should have an endpoint", clusterSnapshot);
+        return EndpointGroup.of(convertEndpoints(endpointSnapshot.xdsResource().resource()));
+    }
 
     static List<Endpoint> convertEndpoints(ClusterLoadAssignment clusterLoadAssignment) {
         return convertEndpoints(clusterLoadAssignment, lbEndpoint -> true);

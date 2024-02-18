@@ -36,7 +36,14 @@ import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
 
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenCustomHashSet;
 
-abstract class AsyncEndpointSelector implements EndpointSelector {
+/**
+ * An {@link EndpointSelector} which allows users to only implement
+ * {@link #selectNow(ClientRequestContext)}.
+ * When a request is executed, {@link #selectNow(ClientRequestContext)} will be called
+ * when a request starts or every time {@link #notifyPendingFutures()} is called.
+ * If a certain timeout passes, the request will fail with an {@link EndpointSelectionTimeoutException}.
+ */
+public abstract class AsyncEndpointSelector implements EndpointSelector {
 
     private final ReentrantShortLock lock = new ReentrantShortLock();
     @GuardedBy("lock")
@@ -67,7 +74,12 @@ abstract class AsyncEndpointSelector implements EndpointSelector {
         }
     }
 
-    void notifyPendingFutures() {
+    /**
+     * Manually triggers a {@link #selectNow(ClientRequestContext)} for all pending futures.
+     * This can be useful if it is possible that {@link #selectNow(ClientRequestContext)}
+     * will return a valid {@link Endpoint}.
+     */
+    protected void notifyPendingFutures() {
         lock.lock();
         try {
             pendingFutures.removeIf(ListeningFuture::tryComplete);
