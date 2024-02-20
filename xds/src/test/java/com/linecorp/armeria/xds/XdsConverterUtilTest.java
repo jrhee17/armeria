@@ -17,7 +17,7 @@
 package com.linecorp.armeria.xds;
 
 import static com.linecorp.armeria.xds.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
-import static com.linecorp.armeria.xds.XdsConverterUtil.convertEndpoints;
+import static com.linecorp.armeria.xds.XdsConverterUtil.convertEndpointGroups;
 import static com.linecorp.armeria.xds.XdsTestResources.endpoint;
 import static com.linecorp.armeria.xds.XdsTestResources.stringValue;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,17 +36,6 @@ import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
 
 class XdsConverterUtilTest {
-
-    @Test
-    void convertEndpointsWithFilterMetadata() {
-        final ClusterLoadAssignment loadAssignment = sampleClusterLoadAssignment();
-        final List<Endpoint> endpoints =
-                convertEndpoints(loadAssignment, Struct.newBuilder()
-                                                       .putFields("foo", stringValue("foo1"))
-                                                       .putFields("bar", stringValue("bar1"))
-                                                       .build());
-        assertThat(endpoints).containsExactly(Endpoint.of("127.0.0.1", 8082));
-    }
 
     static ClusterLoadAssignment sampleClusterLoadAssignment() {
         final Metadata metadata1 =

@@ -332,7 +332,7 @@ class ProxyClientIntegrationTest {
 
     @Test
     void testSelectFailureFailsImmediately() throws Exception {
-        final RuntimeException selectException = new RuntimeException("select exception");
+        final RuntimeException selectException = new RuntimeException("subselect exception");
         final TestProxyConfigSelector selector = new TestProxyConfigSelector(new ProxyConfigSelector() {
             @Override
             public ProxyConfig select(SessionProtocol protocol, Endpoint endpoint) {

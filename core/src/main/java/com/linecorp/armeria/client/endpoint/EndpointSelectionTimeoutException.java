@@ -51,6 +51,6 @@ public final class EndpointSelectionTimeoutException extends EndpointGroupExcept
     private EndpointSelectionTimeoutException() {}
 
     private EndpointSelectionTimeoutException(EndpointSelector endpointSelector, long selectionTimeoutMillis) {
-        super("Failed to select within " + selectionTimeoutMillis + " ms an endpoint from: " + endpointSelector);
+        super("Failed to subselect within " + selectionTimeoutMillis + " ms an endpoint from: " + endpointSelector);
     }
 }

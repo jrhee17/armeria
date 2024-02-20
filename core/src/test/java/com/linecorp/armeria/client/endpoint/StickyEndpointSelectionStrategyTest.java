@@ -71,7 +71,7 @@ class StickyEndpointSelectionStrategyTest {
         final Endpoint ep2 = staticGroup.selectNow(contextWithHeader(STICKY_HEADER_NAME, "armeria2"));
         final Endpoint ep3 = staticGroup.selectNow(contextWithHeader(STICKY_HEADER_NAME, "armeria3"));
 
-        // select few times to confirm that same header will be routed to same endpoint
+        // subselect few times to confirm that same header will be routed to same endpoint
         for (int i = 0; i < selectTime; i++) {
             assertThat(staticGroup.selectNow(contextWithHeader(STICKY_HEADER_NAME, "armeria1"))).isEqualTo(ep1);
             assertThat(staticGroup.selectNow(contextWithHeader(STICKY_HEADER_NAME, "armeria2"))).isEqualTo(ep2);

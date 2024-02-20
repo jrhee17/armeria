@@ -315,7 +315,7 @@ public final class DefaultClientRequestContext
 
         try {
             // Note: context customizer must be run before:
-            //       - EndpointSelector.select() so that the customizer can inject the attributes which may be
+            //       - EndpointSelector.subselect() so that the customizer can inject the attributes which may be
             //         required by the EndpointSelector.
             //       - mapEndpoint() to give an opportunity to override an Endpoint when using
             //         an additional authority.

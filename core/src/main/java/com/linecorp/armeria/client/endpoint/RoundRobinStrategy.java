@@ -34,9 +34,9 @@ final class RoundRobinStrategy implements EndpointSelectionStrategy {
     }
 
     /**
-     * A round robin select strategy.
+     * A round robin subselect strategy.
      *
-     * <p>For example, with node a, b and c, then select result is abc abc ...
+     * <p>For example, with node a, b and c, then subselect result is abc abc ...
      */
     static class RoundRobinSelector extends AbstractEndpointSelector {
         private final AtomicInteger sequence = new AtomicInteger();

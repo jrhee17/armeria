@@ -16,7 +16,7 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.linecorp.armeria.xds.XdsConverterUtil.convertEndpoints;
+import static com.linecorp.armeria.xds.XdsConverterUtil.convertEndpointGroups;
 
 import java.util.List;
 import java.util.Map;
@@ -24,11 +24,13 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import com.google.protobuf.Struct;
 import com.spotify.futures.CompletableFutures;
 
 import com.linecorp.armeria.client.ClientRequestContext;
@@ -40,8 +42,8 @@ import com.linecorp.armeria.common.util.AsyncCloseable;
 
 import io.netty.util.concurrent.EventExecutor;
 
-final class XdsEndpointSelector extends AsyncEndpointSelector implements SnapshotWatcher<ListenerSnapshot>,
-                                                                         AsyncCloseable {
+final class XdsEndpointSelector extends AsyncEndpointSelector
+        implements SnapshotWatcher<ListenerSnapshot>, AsyncCloseable, Consumer<List<Endpoint>> {
 
     private final EventExecutor eventLoop;
     private final CompletableFuture<Void> closeFuture = new CompletableFuture<>();
@@ -60,6 +62,7 @@ final class XdsEndpointSelector extends AsyncEndpointSelector implements Snapsho
         final Map<ClusterSnapshot, EndpointGroup> endpointGroups = cachedEndpointGroups;
         final Optional<Entry<ClusterSnapshot, EndpointGroup>> first =
                 endpointGroups.entrySet().stream().findFirst();
+        ClusterSnapshot clusterSnapshot = first.get().getKey();
         if (!first.isPresent()) {
             return null;
         }
@@ -68,6 +71,10 @@ final class XdsEndpointSelector extends AsyncEndpointSelector implements Snapsho
 
     @Override
     public void snapshotUpdated(ListenerSnapshot listenerSnapshot) {
+        if (!eventLoop.inEventLoop()) {
+            eventLoop.execute(() -> snapshotUpdated(listenerSnapshot));
+            return;
+        }
         if (closed) {
             return;
         }
@@ -87,7 +94,8 @@ final class XdsEndpointSelector extends AsyncEndpointSelector implements Snapsho
             }
             EndpointGroup endpointGroup = oldEndpointGroups.get(clusterSnapshot);
             if (endpointGroup == null) {
-                endpointGroup = convertEndpoints(clusterSnapshot);
+                endpointGroup = convertEndpointGroups(clusterSnapshot);
+                endpointGroup.addListener(this, true);
             }
             mappingBuilder.put(clusterSnapshot, endpointGroup);
         }
@@ -103,6 +111,7 @@ final class XdsEndpointSelector extends AsyncEndpointSelector implements Snapsho
                 continue;
             }
             final EndpointGroup endpointGroup = entry.getValue();
+            endpointGroup.removeListener(this);
             final CompletableFuture<?> closeFuture = endpointGroup.closeAsync();
             pendingRemovals.add(closeFuture);
             closeFuture.handle((ignored, t) -> {
@@ -132,5 +141,10 @@ final class XdsEndpointSelector extends AsyncEndpointSelector implements Snapsho
     @Override
     public void close() {
         closeAsync().join();
+    }
+
+    @Override
+    public void accept(List<Endpoint> endpoints) {
+        notifyPendingFutures();
     }
 }

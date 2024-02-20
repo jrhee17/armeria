@@ -481,7 +481,7 @@ public final class Flags {
      * SPI provider implementation will be selected.</p>
      *
      * <p>By specifying the {@code -Dcom.linecorp.armeria.requestContextStorageProvider=<FQCN>} JVM option, you
-     * are able to select which {@link RequestContextStorageProvider} SPI provider implementation to used.
+     * are able to subselect which {@link RequestContextStorageProvider} SPI provider implementation to used.
      * If none of them matches, the next {@link FlagsProvider#requestContextStorageProvider()} will be
      * selected.</p>
      */

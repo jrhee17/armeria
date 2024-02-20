@@ -352,7 +352,7 @@ class SelectionTimeoutTest {
             assertThat(elapsed).isGreaterThanOrEqualTo(2000);
             assertThat(ClientPendingThrowableUtil.pendingThrowable(ctx))
                     .isInstanceOf(EndpointSelectionTimeoutException.class)
-                    .hasMessageContaining("Failed to select within 4000 ms an endpoint from");
+                    .hasMessageContaining("Failed to subselect within 4000 ms an endpoint from");
         }
     }
 

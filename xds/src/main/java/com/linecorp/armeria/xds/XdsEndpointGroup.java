@@ -17,38 +17,28 @@
 package com.linecorp.armeria.xds;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.linecorp.armeria.xds.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
-import static com.linecorp.armeria.xds.XdsConverterUtil.convertEndpoints;
 import static java.util.Objects.requireNonNull;
 
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.protobuf.ProtocolStringList;
-import com.google.protobuf.Struct;
-import com.google.protobuf.Value;
-
+import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.DynamicEndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.SafeCloseable;
 
-import io.envoyproxy.envoy.config.cluster.v3.Cluster;
-import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig;
-import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetFallbackPolicy;
-import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetSelector;
 import io.envoyproxy.envoy.config.core.v3.SocketAddress;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
-import io.envoyproxy.envoy.config.route.v3.Route;
-import io.envoyproxy.envoy.config.route.v3.RouteAction;
 
 /**
- * Provides a simple {@link EndpointGroup} which listens to an xDS cluster to select endpoints.
+ * Provides a simple {@link EndpointGroup} which listens to an xDS cluster to subselect endpoints.
  * Listening to EDS can be done like the following:
  * <pre>{@code
  * XdsBootstrap watchersStorage = XdsBootstrap.of(...);
@@ -62,7 +52,7 @@ import io.envoyproxy.envoy.config.route.v3.RouteAction;
  * for the provided {@link XdsBootstrap}.
  */
 @UnstableApi
-public final class XdsEndpointGroup extends DynamicEndpointGroup {
+public final class XdsEndpointGroup implements EndpointGroup {
 
     private static final Logger logger = LoggerFactory.getLogger(XdsEndpointGroup.class);
 
@@ -77,110 +67,53 @@ public final class XdsEndpointGroup extends DynamicEndpointGroup {
     }
 
     XdsEndpointGroup(ListenerRoot listenerRoot) {
-        final SnapshotWatcher<ListenerSnapshot> watcher = update -> {
-            final RouteSnapshot routeSnapshot = update.routeSnapshot();
-            if (routeSnapshot == null) {
-                return;
-            }
-
-            final List<ClusterSnapshot> clusterSnapshots = routeSnapshot.clusterSnapshots();
-            if (clusterSnapshots.isEmpty()) {
-                return;
-            }
-
-            if (clusterSnapshots.size() > 1) {
-                // Currently, the first cluster is only used until we implement EndpointGroupSelector.
-                logger.debug("The clusters from the second one are ignored. Ignored clusters: {}",
-                             clusterSnapshots.subList(1, clusterSnapshots.size()));
-            }
-
-            final ClusterSnapshot clusterSnapshot = clusterSnapshots.get(0);
-            final EndpointSnapshot endpointSnapshot = clusterSnapshot.endpointSnapshot();
-            if (endpointSnapshot == null) {
-                logger.debug("Skipping cluster without an endpoint. {}", clusterSnapshot.xdsResource());
-                return;
-            }
-
-            final Struct filterMetadata = filterMetadata(clusterSnapshot);
-            if (filterMetadata.getFieldsCount() == 0) {
-                // No metadata. Use the whole endpoints.
-                setEndpoints(endpointSnapshot);
-                return;
-            }
-
-            final Cluster cluster = clusterSnapshot.xdsResource().resource();
-            final LbSubsetConfig lbSubsetConfig = cluster.getLbSubsetConfig();
-            if (lbSubsetConfig == LbSubsetConfig.getDefaultInstance()) {
-                // No lbSubsetConfig. Use the whole endpoints.
-                setEndpoints(endpointSnapshot);
-                return;
-            }
-            final LbSubsetFallbackPolicy fallbackPolicy = lbSubsetConfig.getFallbackPolicy();
-            if (fallbackPolicy != LbSubsetFallbackPolicy.ANY_ENDPOINT) {
-                logger.warn("Currently, only {} is supported.", LbSubsetFallbackPolicy.ANY_ENDPOINT);
-            }
-
-            if (!findMatchedSubsetSelector(lbSubsetConfig, filterMetadata)) {
-                // No matched subset selector. Use the whole endpoints.
-                setEndpoints(endpointSnapshot);
-                return;
-            }
-            final List<Endpoint> endpoints = convertEndpoints(endpointSnapshot.xdsResource().resource(),
-                                                              filterMetadata);
-            if (endpoints.isEmpty()) {
-                // No matched metadata. Use the whole endpoints.
-                setEndpoints(endpointSnapshot);
-                return;
-            }
-            setEndpoints(endpoints);
-        };
-        listenerRoot.addSnapshotWatcher(watcher);
-        safeCloseable = () -> listenerRoot.removeSnapshotWatcher(watcher);
+        safeCloseable = () -> {};
     }
 
     XdsEndpointGroup(ClusterSnapshot clusterSnapshot) {
         final EndpointSnapshot endpointSnapshot = clusterSnapshot.endpointSnapshot();
         checkArgument(endpointSnapshot != null, "No endpoints are defined for cluster %s", clusterSnapshot);
-        setEndpoints(endpointSnapshot);
         safeCloseable = () -> {};
     }
 
     @Override
-    protected void doCloseAsync(CompletableFuture<?> future) {
-        safeCloseable.close();
-        super.doCloseAsync(future);
+    public List<Endpoint> endpoints() {
+        return null;
     }
 
-    private void setEndpoints(EndpointSnapshot endpointSnapshot) {
-        setEndpoints(convertEndpoints(endpointSnapshot.xdsResource().resource()));
+    @Override
+    public EndpointSelectionStrategy selectionStrategy() {
+        return null;
     }
 
-    private static Struct filterMetadata(ClusterSnapshot clusterSnapshot) {
-        final Route route = clusterSnapshot.route();
-        assert route != null;
-        final RouteAction action = route.getRoute();
-        return action.getMetadataMatch().getFilterMetadataOrDefault(SUBSET_LOAD_BALANCING_FILTER_NAME,
-                                                                    Struct.getDefaultInstance());
+    @Override
+    public Endpoint selectNow(ClientRequestContext ctx) {
+        return null;
     }
 
-    private static boolean findMatchedSubsetSelector(LbSubsetConfig lbSubsetConfig, Struct filterMetadata) {
-        for (LbSubsetSelector subsetSelector : lbSubsetConfig.getSubsetSelectorsList()) {
-            final ProtocolStringList keysList = subsetSelector.getKeysList();
-            if (filterMetadata.getFieldsCount() != keysList.size()) {
-                continue;
-            }
-            boolean found = true;
-            final Map<String, Value> filterMetadataMap = filterMetadata.getFieldsMap();
-            for (String key : filterMetadataMap.keySet()) {
-                if (!keysList.contains(key)) {
-                    found = false;
-                    break;
-                }
-            }
-            if (found) {
-                return true;
-            }
-        }
-        return false;
+    @Override
+    public CompletableFuture<Endpoint> select(ClientRequestContext ctx, ScheduledExecutorService executor,
+                                              long timeoutMillis) {
+        return null;
+    }
+
+    @Override
+    public long selectionTimeoutMillis() {
+        return 0;
+    }
+
+    @Override
+    public CompletableFuture<List<Endpoint>> whenReady() {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<?> closeAsync() {
+        return null;
+    }
+
+    @Override
+    public void close() {
+
     }
 }

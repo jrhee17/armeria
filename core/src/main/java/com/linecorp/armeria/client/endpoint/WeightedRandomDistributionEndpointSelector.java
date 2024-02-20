@@ -103,7 +103,7 @@ final class WeightedRandomDistributionEndpointSelector {
             lock.unlock();
         }
 
-        // Since `allEntries` is not empty, should select one Endpoint from `allEntries`.
+        // Since `allEntries` is not empty, should subselect one Endpoint from `allEntries`.
         throw new Error("Should never reach here");
     }
 

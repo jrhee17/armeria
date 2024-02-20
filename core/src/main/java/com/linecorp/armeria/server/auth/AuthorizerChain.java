@@ -31,7 +31,7 @@ import com.linecorp.armeria.server.ServiceRequestContext;
 
 /**
  * Chains multiple {@link Authorizer}s together into a single {@link Authorizer}.
- * Utilizes {@link AuthorizerSelectionStrategy} to select corresponding {@link AuthFailureHandler}.
+ * Utilizes {@link AuthorizerSelectionStrategy} to subselect corresponding {@link AuthFailureHandler}.
  */
 final class AuthorizerChain<T> extends AbstractAuthorizerWithHandlers<T> {
 

@@ -53,7 +53,7 @@ public final class EmptyEndpointGroupException extends EndpointGroupException {
     private EmptyEndpointGroupException() {}
 
     private EmptyEndpointGroupException(EndpointGroup endpointGroup) {
-        super("Unable to select endpoints from: " + endpointGroup);
+        super("Unable to subselect endpoints from: " + endpointGroup);
     }
 
     private EmptyEndpointGroupException(@SuppressWarnings("unused") boolean dummy) {

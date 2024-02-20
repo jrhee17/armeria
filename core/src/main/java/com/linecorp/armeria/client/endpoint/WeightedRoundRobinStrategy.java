@@ -41,13 +41,13 @@ final class WeightedRoundRobinStrategy implements EndpointSelectionStrategy {
     }
 
     /**
-     * A weighted round robin select strategy.
+     * A weighted round robin subselect strategy.
      *
      * <p>For example, with node a, b and c:
      * <ul>
-     *   <li>if endpoint weights are 1,1,1 (or 2,2,2), then select result is abc abc ...</li>
-     *   <li>if endpoint weights are 1,2,3 (or 2,4,6), then select result is abcbcc(or abcabcbcbccc) ...</li>
-     *   <li>if endpoint weights are 3,5,7, then select result is abcabcabcbcbccc abcabcabcbcbccc ...</li>
+     *   <li>if endpoint weights are 1,1,1 (or 2,2,2), then subselect result is abc abc ...</li>
+     *   <li>if endpoint weights are 1,2,3 (or 2,4,6), then subselect result is abcbcc(or abcabcbcbccc) ...</li>
+     *   <li>if endpoint weights are 3,5,7, then subselect result is abcabcabcbcbccc abcabcabcbcbccc ...</li>
      * </ul>
      */
     private static final class WeightedRoundRobinSelector extends AbstractEndpointSelector {
