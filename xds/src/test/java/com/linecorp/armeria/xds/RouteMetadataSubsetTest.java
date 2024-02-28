@@ -16,7 +16,7 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.linecorp.armeria.xds.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
+import static com.linecorp.armeria.xds.internal.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
 import static com.linecorp.armeria.xds.XdsConverterUtilTest.sampleClusterLoadAssignment;
 import static com.linecorp.armeria.xds.XdsTestResources.stringValue;
 import static org.assertj.core.api.Assertions.assertThat;

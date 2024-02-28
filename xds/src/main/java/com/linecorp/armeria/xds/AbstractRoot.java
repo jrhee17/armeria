@@ -48,7 +48,7 @@ abstract class AbstractRoot<T extends Snapshot<? extends XdsResource>>
         this.eventLoop = eventLoop;
     }
 
-    final EventExecutor eventLoop() {
+    public final EventExecutor eventLoop() {
         return eventLoop;
     }
 

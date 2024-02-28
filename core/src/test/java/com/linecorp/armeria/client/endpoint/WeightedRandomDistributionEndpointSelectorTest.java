@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.WeightRampingUpStrategyTest.EndpointComparator;
-import com.linecorp.armeria.client.endpoint.WeightedRandomDistributionEndpointSelector.Entry;
+import com.linecorp.armeria.client.endpoint.WeightedRandomDistributionEndpointSelector.EndpointEntry;
 import com.linecorp.armeria.common.CommonPools;
 import com.linecorp.armeria.common.util.Exceptions;
 
@@ -94,7 +94,7 @@ final class WeightedRandomDistributionEndpointSelectorTest {
                     finalLatch0.countDown();
                     finalLatch0.await();
 
-                    final int sum = selector.entries().stream().mapToInt(Entry::counter).sum();
+                    final int sum = selector.entries().stream().mapToInt(EndpointEntry::counter).sum();
                     // Since all entries were full, `Entry.counter()` should be reset.
                     assertThat(sum).isZero();
 
@@ -111,7 +111,7 @@ final class WeightedRandomDistributionEndpointSelectorTest {
         }
 
         finalLatch1.await();
-        final int sum = selector.entries().stream().mapToInt(Entry::counter).sum();
+        final int sum = selector.entries().stream().mapToInt(EndpointEntry::counter).sum();
         assertThat(sum).isZero();
     }
 }

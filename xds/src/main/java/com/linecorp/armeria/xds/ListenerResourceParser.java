@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.xds;
 
+import com.linecorp.armeria.xds.internal.XdsConverterUtil;
+
 import io.envoyproxy.envoy.config.listener.v3.Listener;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.Rds;

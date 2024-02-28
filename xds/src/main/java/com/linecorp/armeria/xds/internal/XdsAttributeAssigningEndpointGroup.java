@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds;
+package com.linecorp.armeria.xds.internal;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -25,14 +25,21 @@ import com.linecorp.armeria.client.endpoint.DynamicEndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 
 import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
+import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
 
-final class XdsAttributeAssigningEndpointGroup extends DynamicEndpointGroup
+public final class XdsAttributeAssigningEndpointGroup extends DynamicEndpointGroup
         implements Consumer<List<Endpoint>> {
 
+    private final LocalityLbEndpoints localityLbEndpoints;
     private final LbEndpoint lbEndpoint;
+    private final int weight;
 
-    XdsAttributeAssigningEndpointGroup(EndpointGroup delegate, LbEndpoint lbEndpoint) {
+    public XdsAttributeAssigningEndpointGroup(EndpointGroup delegate, LocalityLbEndpoints localityLbEndpoints,
+                                              LbEndpoint lbEndpoint) {
+        this.localityLbEndpoints = localityLbEndpoints;
         this.lbEndpoint = lbEndpoint;
+        weight = lbEndpoint.hasLoadBalancingWeight() ?
+                 Math.max(1, lbEndpoint.getLoadBalancingWeight().getValue()) : 1;
         delegate.addListener(this, true);
     }
 
@@ -40,7 +47,9 @@ final class XdsAttributeAssigningEndpointGroup extends DynamicEndpointGroup
     public void accept(List<Endpoint> endpoints) {
         final List<Endpoint> mappedEndpoints =
                 endpoints.stream()
-                         .map(endpoint -> endpoint.withAttr(XdsAttributesKeys.LB_ENDPOINT_KEY, lbEndpoint))
+                         .map(endpoint -> endpoint.withAttr(XdsAttributesKeys.LB_ENDPOINT_KEY, lbEndpoint)
+                                                  .withAttr(XdsAttributesKeys.LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints)
+                                                  .withWeight(weight))
                          .collect(Collectors.toList());
         setEndpoints(mappedEndpoints);
     }

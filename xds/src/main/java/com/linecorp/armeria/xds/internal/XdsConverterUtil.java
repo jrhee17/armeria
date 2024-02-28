@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 LINE Corporation
+ * Copyright 2024 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -14,11 +14,11 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds;
+package com.linecorp.armeria.xds.internal;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.linecorp.armeria.xds.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
+import static com.linecorp.armeria.xds.internal.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
 
 import java.util.List;
 import java.util.Objects;
@@ -32,6 +32,8 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.endpoint.dns.DnsAddressEndpointGroup;
 import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckedEndpointGroup;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.xds.ClusterSnapshot;
+import com.linecorp.armeria.xds.EndpointSnapshot;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.DiscoveryType;
@@ -44,26 +46,33 @@ import io.envoyproxy.envoy.config.core.v3.SocketAddress;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 import io.envoyproxy.envoy.config.endpoint.v3.Endpoint.HealthCheckConfig;
 import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
+import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
 import io.envoyproxy.envoy.config.route.v3.Route;
 import io.envoyproxy.envoy.config.route.v3.RouteAction;
 
-final class XdsConverterUtil {
+public final class XdsConverterUtil {
 
     private XdsConverterUtil() {}
 
-    static EndpointGroup convertEndpointGroups(ClusterSnapshot clusterSnapshot) {
+    public static EndpointGroup convertEndpointGroups(ClusterSnapshot clusterSnapshot) {
         final EndpointSnapshot endpointSnapshot = clusterSnapshot.endpointSnapshot();
         checkArgument(endpointSnapshot != null,
                       "Cluster (%s) should have an endpoint", clusterSnapshot);
         final Cluster cluster = clusterSnapshot.xdsResource().resource();
         final Optional<HttpHealthCheck> optionalHealthCheck =
-                cluster.getHealthChecksList().stream().filter(HealthCheck::hasHttpHealthCheck)
-                       .map(HealthCheck::getHttpHealthCheck)
-                       .findFirst();
+                healthCheckConfig(cluster);
         final ClusterLoadAssignment loadAssignment = endpointSnapshot.xdsResource().resource();
         final List<EndpointGroup> endpoints = convertEndpointGroups(loadAssignment, cluster.getType(),
                                                                     optionalHealthCheck);
         return EndpointGroup.of(endpoints);
+    }
+
+    public static Optional<HttpHealthCheck> healthCheckConfig(Cluster cluster) {
+        final Optional<HttpHealthCheck> optionalHealthCheck =
+                cluster.getHealthChecksList().stream().filter(HealthCheck::hasHttpHealthCheck)
+                       .map(HealthCheck::getHttpHealthCheck)
+                       .findFirst();
+        return optionalHealthCheck;
     }
 
     private static List<EndpointGroup> convertEndpointGroups(ClusterLoadAssignment clusterLoadAssignment,
@@ -82,9 +91,9 @@ final class XdsConverterUtil {
                             final String address = socketAddress.getAddress();
                             final int port = socketAddress.getPortValue();
                             if (type == DiscoveryType.EDS || type == DiscoveryType.STATIC) {
-                                return staticEndpoint(lbEndpoint, hostname, port, address, optionalHealthCheck);
+                                return staticEndpoint(localityLbEndpoints, lbEndpoint, hostname, port, address, optionalHealthCheck);
                             } else if (type == DiscoveryType.LOGICAL_DNS || type == DiscoveryType.STRICT_DNS) {
-                                return dnsEndpointGroup(lbEndpoint, optionalHealthCheck, address, port);
+                                return dnsEndpointGroup(localityLbEndpoints, lbEndpoint, optionalHealthCheck, address, port);
                             } else {
                                 return null;
                             }
@@ -92,13 +101,14 @@ final class XdsConverterUtil {
         ).filter(Objects::nonNull).collect(toImmutableList());
     }
 
-    private static EndpointGroup dnsEndpointGroup(LbEndpoint lbEndpoint,
+    private static EndpointGroup dnsEndpointGroup(LocalityLbEndpoints localityLbEndpoints,
+                                                  LbEndpoint lbEndpoint,
                                                   Optional<HttpHealthCheck> optionalHealthCheck,
                                                   String address,
                                                   int port) {
         final XdsAttributeAssigningEndpointGroup endpointGroup =
                 new XdsAttributeAssigningEndpointGroup(
-                        DnsAddressEndpointGroup.of(address, port), lbEndpoint);
+                        DnsAddressEndpointGroup.of(address, port), localityLbEndpoints, lbEndpoint);
         return maybeHealthCheck(endpointGroup, lbEndpoint, optionalHealthCheck, port);
     }
 
@@ -118,21 +128,21 @@ final class XdsConverterUtil {
                 .build();
     }
 
-    private static EndpointGroup staticEndpoint(LbEndpoint lbEndpoint, String hostname, int port, String address,
+    private static EndpointGroup staticEndpoint(LocalityLbEndpoints localityLbEndpoints, LbEndpoint lbEndpoint,
+                                                String hostname, int port, String address,
                                                 Optional<HttpHealthCheck> optionalHealthCheck) {
-        final Endpoint endpoint;
+        EndpointGroup endpoint;
         if (!Strings.isNullOrEmpty(hostname)) {
             endpoint = Endpoint.of(hostname, port)
-                               .withIpAddr(address)
-                               .withAttr(XdsAttributesKeys.LB_ENDPOINT_KEY, lbEndpoint);
+                               .withIpAddr(address);
         } else {
-            endpoint = Endpoint.of(address, port)
-                               .withAttr(XdsAttributesKeys.LB_ENDPOINT_KEY, lbEndpoint);
+            endpoint = Endpoint.of(address, port);
         }
+        endpoint = new XdsAttributeAssigningEndpointGroup(endpoint, localityLbEndpoints, lbEndpoint);
         return maybeHealthCheck(endpoint, lbEndpoint, optionalHealthCheck, port);
     }
 
-    static void validateConfigSource(@Nullable ConfigSource configSource) {
+    public static void validateConfigSource(@Nullable ConfigSource configSource) {
         if (configSource == null || configSource.equals(ConfigSource.getDefaultInstance())) {
             return;
         }
@@ -151,7 +161,7 @@ final class XdsConverterUtil {
         }
     }
 
-    static Struct filterMetadata(ClusterSnapshot clusterSnapshot) {
+    public static Struct filterMetadata(ClusterSnapshot clusterSnapshot) {
         final Route route = clusterSnapshot.route();
         assert route != null;
         final RouteAction action = route.getRoute();

@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.xds;
 
+import com.linecorp.armeria.xds.internal.XdsConverterUtil;
+
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.EdsClusterConfig;
 

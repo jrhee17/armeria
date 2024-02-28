@@ -16,23 +16,22 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledExecutorService;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
-import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.DynamicEndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
+import com.linecorp.armeria.client.endpoint.EndpointSelector;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
-import com.linecorp.armeria.common.util.SafeCloseable;
+import com.linecorp.armeria.common.util.AsyncCloseable;
+import com.linecorp.armeria.common.util.UnmodifiableFuture;
+import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
+import com.linecorp.armeria.xds.endpoint.XdsEndpointSelector;
 
 import io.envoyproxy.envoy.config.core.v3.SocketAddress;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
@@ -52,68 +51,82 @@ import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
  * for the provided {@link XdsBootstrap}.
  */
 @UnstableApi
-public final class XdsEndpointGroup implements EndpointGroup {
+public final class XdsEndpointGroup extends DynamicEndpointGroup {
 
-    private static final Logger logger = LoggerFactory.getLogger(XdsEndpointGroup.class);
-
-    private final SafeCloseable safeCloseable;
+    private final AsyncCloseable asyncCloseable;
 
     /**
      * Creates a {@link XdsEndpointGroup} which listens to the specified listener.
      */
     public static EndpointGroup of(ListenerRoot listenerRoot) {
         requireNonNull(listenerRoot, "listenerRoot");
-        return new XdsEndpointGroup(listenerRoot);
+        return new XdsEndpointGroup(new XdsSelectionStrategy(listenerRoot));
     }
 
-    XdsEndpointGroup(ListenerRoot listenerRoot) {
-        safeCloseable = () -> {};
-    }
-
-    XdsEndpointGroup(ClusterSnapshot clusterSnapshot) {
-        final EndpointSnapshot endpointSnapshot = clusterSnapshot.endpointSnapshot();
-        checkArgument(endpointSnapshot != null, "No endpoints are defined for cluster %s", clusterSnapshot);
-        safeCloseable = () -> {};
+    XdsEndpointGroup(XdsSelectionStrategy selectionStrategy) {
+        super(selectionStrategy);
+        asyncCloseable = selectionStrategy;
     }
 
     @Override
-    public List<Endpoint> endpoints() {
-        return null;
-    }
-
-    @Override
-    public EndpointSelectionStrategy selectionStrategy() {
-        return null;
-    }
-
-    @Override
-    public Endpoint selectNow(ClientRequestContext ctx) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<Endpoint> select(ClientRequestContext ctx, ScheduledExecutorService executor,
-                                              long timeoutMillis) {
-        return null;
+    protected void doCloseAsync(CompletableFuture<?> future) {
+        asyncCloseable.close();
+        super.doCloseAsync(future);
     }
 
     @Override
     public long selectionTimeoutMillis() {
-        return 0;
+        return Long.MAX_VALUE;
     }
 
-    @Override
-    public CompletableFuture<List<Endpoint>> whenReady() {
-        return null;
-    }
+    private static class XdsSelectionStrategy implements EndpointSelectionStrategy, AsyncCloseable {
 
-    @Override
-    public CompletableFuture<?> closeAsync() {
-        return null;
-    }
+        private final ListenerRoot listenerRoot;
 
-    @Override
-    public void close() {
+        private final ReentrantShortLock closeLock = new ReentrantShortLock();
+        private boolean closed;
+        @GuardedBy("closeLock")
+        @Nullable
+        private XdsEndpointSelector xdsEndpointSelector;
 
+        XdsSelectionStrategy(ListenerRoot listenerRoot) {
+            this.listenerRoot = listenerRoot;
+        }
+
+        @Override
+        public EndpointSelector newSelector(EndpointGroup endpointGroup) {
+            closeLock.lock();
+            try {
+                if (closed) {
+                    throw new IllegalStateException("Cannot select from a closed EndpointGroup");
+                }
+                return xdsEndpointSelector = new XdsEndpointSelector(listenerRoot, endpointGroup);
+            } finally {
+                closeLock.unlock();
+            }
+        }
+
+        @Override
+        public CompletableFuture<?> closeAsync() {
+            if (closed) {
+                return UnmodifiableFuture.completedFuture(null);
+            }
+            closeLock.lock();
+            try {
+                closed = true;
+                if (xdsEndpointSelector != null) {
+                    return xdsEndpointSelector.closeAsync();
+                } else {
+                    return UnmodifiableFuture.completedFuture(null);
+                }
+            } finally {
+                closeLock.unlock();
+            }
+        }
+
+        @Override
+        public void close() {
+            closeAsync().join();
+        }
     }
 }

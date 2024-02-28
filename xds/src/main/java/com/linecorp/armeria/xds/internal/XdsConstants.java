@@ -14,15 +14,12 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds;
+package com.linecorp.armeria.xds.internal;
 
-import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
-import io.netty.util.AttributeKey;
+public final class XdsConstants {
 
-public final class XdsAttributesKeys {
+    // https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/subsets
+    public static final String SUBSET_LOAD_BALANCING_FILTER_NAME = "envoy.lb";
 
-    static final AttributeKey<LbEndpoint> LB_ENDPOINT_KEY =
-            AttributeKey.valueOf(XdsAttributesKeys.class, "LB_ENDPOINT_KEY");
-
-    private XdsAttributesKeys() {}
+    private XdsConstants() {}
 }

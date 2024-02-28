@@ -38,7 +38,7 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.WeightRampingUpStrategy.EndpointsRampingUpEntry.EndpointAndStep;
 import com.linecorp.armeria.client.endpoint.WeightRampingUpStrategy.RampingUpEndpointWeightSelector;
-import com.linecorp.armeria.client.endpoint.WeightedRandomDistributionEndpointSelector.Entry;
+import com.linecorp.armeria.client.endpoint.WeightedRandomDistributionEndpointSelector.EndpointEntry;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 
@@ -407,7 +407,7 @@ final class WeightRampingUpStrategyTest {
 
     private static List<Endpoint> endpointsFromSelectorEntry(RampingUpEndpointWeightSelector selector) {
         final ImmutableList.Builder<Endpoint> builder = new ImmutableList.Builder<>();
-        final List<Entry> entries = selector.endpointSelector().entries();
+        final List<EndpointEntry> entries = selector.endpointSelector().entries();
         entries.forEach(entry -> builder.add(entry.endpoint()));
         return builder.build();
     }

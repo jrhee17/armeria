@@ -73,6 +73,7 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
                                                        resource, snapshotWatcher, loadAssignment);
             children().add(node);
         } else if (cluster.hasEdsClusterConfig()) {
+            cluster.getEdsClusterConfig().getServiceName();
             final ConfigSource configSource = cluster.getEdsClusterConfig().getEdsConfig();
             final EndpointResourceNode node =
                     new EndpointResourceNode(configSource, cluster.getName(), xdsBootstrap(), resource,
