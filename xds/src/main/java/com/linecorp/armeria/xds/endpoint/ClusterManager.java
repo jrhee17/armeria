@@ -17,6 +17,7 @@
 package com.linecorp.armeria.xds.endpoint;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -30,6 +31,7 @@ import javax.annotation.concurrent.GuardedBy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -50,7 +52,7 @@ import com.linecorp.armeria.xds.SnapshotWatcher;
 import io.netty.util.concurrent.EventExecutor;
 
 final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCloseable,
-                                      Listenable<Void>, Consumer<List<Endpoint>> {
+                                      Listenable<List<Endpoint>>, Consumer<List<Endpoint>> {
 
     private static final Logger logger = LoggerFactory.getLogger(ClusterManager.class);
 
@@ -61,11 +63,11 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
     private boolean closed;
 
     @GuardedBy("listenersLock")
-    private final List<Consumer<? super Void>> listeners = new ArrayList<>();
+    private final List<Consumer<? super List<Endpoint>>> listeners = new ArrayList<>();
     private final ReentrantShortLock listenersLock = new ReentrantShortLock();
 
-    ClusterManager(ListenerRoot listenerRoot, EventExecutor eventLoop) {
-        this.eventLoop = eventLoop;
+    ClusterManager(ListenerRoot listenerRoot) {
+        eventLoop = listenerRoot.eventLoop();
         listenerRoot.addSnapshotWatcher(this);
     }
 
@@ -127,7 +129,7 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
     }
 
     @Override
-    public void addListener(Consumer<? super Void> listener) {
+    public void addListener(Consumer<? super List<Endpoint>> listener) {
         listenersLock.lock();
         try {
             listeners.add(listener);
@@ -151,12 +153,24 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
         notifyListeners();
     }
 
+    private List<Endpoint> endpoints() {
+        final Map<ClusterSnapshot, ClusterEntry> clusterEntries = this.clusterEntries;
+        if (clusterEntries.isEmpty()) {
+            return Collections.emptyList();
+        }
+        final ImmutableList.Builder<Endpoint> endpointsBuilder = ImmutableList.builder();
+        for (ClusterEntry clusterEntry: clusterEntries.values()) {
+            endpointsBuilder.addAll(clusterEntry.allEndpoints());
+        }
+        return endpointsBuilder.build();
+    }
+
     void notifyListeners() {
         listenersLock.lock();
         try {
-            for (Consumer<? super Void> listener : listeners) {
+            for (Consumer<? super List<Endpoint>> listener : listeners) {
                 try {
-                    listener.accept(null);
+                    listener.accept(endpoints());
                 } catch (Exception e) {
                     logger.warn("Unexpected exception while notifying listeners");
                 }

@@ -14,24 +14,19 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds;
+package com.linecorp.armeria.xds.endpoint;
 
 import static java.util.Objects.requireNonNull;
 
 import java.util.concurrent.CompletableFuture;
 
-import com.google.errorprone.annotations.concurrent.GuardedBy;
-
 import com.linecorp.armeria.client.endpoint.DynamicEndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
 import com.linecorp.armeria.client.endpoint.EndpointSelector;
-import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
-import com.linecorp.armeria.common.util.AsyncCloseable;
-import com.linecorp.armeria.common.util.UnmodifiableFuture;
-import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
-import com.linecorp.armeria.xds.endpoint.XdsEndpointSelector;
+import com.linecorp.armeria.xds.ListenerRoot;
+import com.linecorp.armeria.xds.XdsBootstrap;
 
 import io.envoyproxy.envoy.config.core.v3.SocketAddress;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
@@ -53,80 +48,38 @@ import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 @UnstableApi
 public final class XdsEndpointGroup extends DynamicEndpointGroup {
 
-    private final AsyncCloseable asyncCloseable;
-
     /**
      * Creates a {@link XdsEndpointGroup} which listens to the specified listener.
      */
     public static EndpointGroup of(ListenerRoot listenerRoot) {
         requireNonNull(listenerRoot, "listenerRoot");
-        return new XdsEndpointGroup(new XdsSelectionStrategy(listenerRoot));
+        return new XdsEndpointGroup(new ClusterManager(listenerRoot));
     }
 
-    XdsEndpointGroup(XdsSelectionStrategy selectionStrategy) {
-        super(selectionStrategy);
-        asyncCloseable = selectionStrategy;
+    private final ClusterManager clusterManager;
+
+    XdsEndpointGroup(ClusterManager clusterManager) {
+        super(new XdsEndpointSelectionStrategy(clusterManager));
+        clusterManager.addListener(this::setEndpoints);
+        this.clusterManager = clusterManager;
     }
 
     @Override
     protected void doCloseAsync(CompletableFuture<?> future) {
-        asyncCloseable.close();
-        super.doCloseAsync(future);
+        clusterManager.closeAsync().thenRun(() -> future.complete(null));
     }
 
-    @Override
-    public long selectionTimeoutMillis() {
-        return Long.MAX_VALUE;
-    }
+    static class XdsEndpointSelectionStrategy implements EndpointSelectionStrategy {
 
-    private static class XdsSelectionStrategy implements EndpointSelectionStrategy, AsyncCloseable {
+        private final ClusterManager clusterManager;
 
-        private final ListenerRoot listenerRoot;
-
-        private final ReentrantShortLock closeLock = new ReentrantShortLock();
-        private boolean closed;
-        @GuardedBy("closeLock")
-        @Nullable
-        private XdsEndpointSelector xdsEndpointSelector;
-
-        XdsSelectionStrategy(ListenerRoot listenerRoot) {
-            this.listenerRoot = listenerRoot;
+        XdsEndpointSelectionStrategy(ClusterManager clusterManager) {
+            this.clusterManager = clusterManager;
         }
 
         @Override
         public EndpointSelector newSelector(EndpointGroup endpointGroup) {
-            closeLock.lock();
-            try {
-                if (closed) {
-                    throw new IllegalStateException("Cannot select from a closed EndpointGroup");
-                }
-                return xdsEndpointSelector = new XdsEndpointSelector(listenerRoot, endpointGroup);
-            } finally {
-                closeLock.unlock();
-            }
-        }
-
-        @Override
-        public CompletableFuture<?> closeAsync() {
-            if (closed) {
-                return UnmodifiableFuture.completedFuture(null);
-            }
-            closeLock.lock();
-            try {
-                closed = true;
-                if (xdsEndpointSelector != null) {
-                    return xdsEndpointSelector.closeAsync();
-                } else {
-                    return UnmodifiableFuture.completedFuture(null);
-                }
-            } finally {
-                closeLock.unlock();
-            }
-        }
-
-        @Override
-        public void close() {
-            closeAsync().join();
+            return new XdsEndpointSelector(clusterManager, endpointGroup);
         }
     }
 }

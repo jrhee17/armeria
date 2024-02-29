@@ -16,38 +16,21 @@
 
 package com.linecorp.armeria.xds.endpoint;
 
-import java.util.concurrent.CompletableFuture;
-
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.client.endpoint.AbstractEndpointSelector;
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
-import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.common.util.AsyncCloseable;
 
-final class XdsEndpointSelector extends AbstractEndpointSelector
-        implements AsyncCloseable {
+final class SubsetLoadBalancer implements LoadBalancer {
 
-    private final ClusterManager clusterManager;
-
-    XdsEndpointSelector(ClusterManager clusterManager, EndpointGroup endpointGroup) {
-        super(endpointGroup);
-        this.clusterManager = clusterManager;
+    SubsetLoadBalancer() {
     }
 
     @Override
-    @Nullable
     public Endpoint selectNow(ClientRequestContext ctx) {
-        return clusterManager.selectNow(ctx);
+        return null;
     }
 
     @Override
-    public CompletableFuture<?> closeAsync() {
-        return clusterManager.closeAsync();
-    }
+    public void prioritySetUpdated(PrioritySet prioritySet) {
 
-    @Override
-    public void close() {
-        clusterManager.close();
     }
 }

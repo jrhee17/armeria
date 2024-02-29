@@ -17,6 +17,7 @@
 package com.linecorp.armeria.xds.endpoint;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,8 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+
+import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
@@ -51,7 +54,8 @@ public class ClusterEntry implements Consumer<List<Endpoint>>, AsyncCloseable {
     private final boolean weightedPriorityHealth;
     private final int overProvisionFactor;
     private final LoadBalancer loadBalancer;
-    EndpointSelectionStrategy endpointSelectionStrategy;
+    private final EndpointSelectionStrategy endpointSelectionStrategy;
+    private List<Endpoint> endpoints = Collections.emptyList();
 
     ClusterEntry(ClusterSnapshot clusterSnapshot, ClusterManager clusterManager) {
         endpointGroup = XdsConverterUtil.convertEndpointGroups(clusterSnapshot);
@@ -62,16 +66,13 @@ public class ClusterEntry implements Consumer<List<Endpoint>>, AsyncCloseable {
         clusterLoadAssignment = endpointSnapshot.xdsResource().resource();
         final Policy policy = clusterLoadAssignment.getPolicy();
         weightedPriorityHealth = policy.getWeightedPriorityHealth();
-        overProvisionFactor = policy.hasOverprovisioningFactor()
-                              ? policy.getOverprovisioningFactor().getValue() : 140;
-        if (policy.hasOverprovisioningFactor()) {
-
-        }
+        overProvisionFactor =
+                policy.hasOverprovisioningFactor() ? policy.getOverprovisioningFactor().getValue() : 140;
 
         // only cluster.getLbPolicy() == ROUND_ROBIN is supported for now
         endpointSelectionStrategy = EndpointSelectionStrategy.weightedRoundRobin();
         if (cluster.hasLbSubsetConfig()) {
-            loadBalancer = new ZoneAwareLoadBalancer();
+            loadBalancer = new SubsetLoadBalancer();
         } else {
             loadBalancer = new ZoneAwareLoadBalancer();
         }
@@ -88,6 +89,7 @@ public class ClusterEntry implements Consumer<List<Endpoint>>, AsyncCloseable {
 
     @Override
     public void accept(List<Endpoint> endpoints) {
+        this.endpoints = ImmutableList.copyOf(endpoints);
         final PrioritySet prioritySet = new PrioritySet(cluster, clusterLoadAssignment,
                                                         endpointSelectionStrategy);
         final PriorityStateManager priorityStateManager = new PriorityStateManager();
@@ -98,6 +100,10 @@ public class ClusterEntry implements Consumer<List<Endpoint>>, AsyncCloseable {
             priorityStateManager.updateClusterPrioritySet(priority, weightedPriorityHealth, overProvisionFactor, prioritySet);
         }
         loadBalancer.prioritySetUpdated(prioritySet);
+    }
+
+    List<Endpoint> allEndpoints() {
+        return endpoints;
     }
 
     @Override
