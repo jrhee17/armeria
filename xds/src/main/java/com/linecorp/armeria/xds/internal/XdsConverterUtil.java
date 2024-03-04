@@ -20,12 +20,17 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.linecorp.armeria.xds.internal.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.protobuf.ListValue;
 import com.google.protobuf.Struct;
+import com.google.protobuf.Value;
 
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -165,7 +170,45 @@ public final class XdsConverterUtil {
         final Route route = clusterSnapshot.route();
         assert route != null;
         final RouteAction action = route.getRoute();
-        return action.getMetadataMatch().getFilterMetadataOrDefault(SUBSET_LOAD_BALANCING_FILTER_NAME,
-                                                                    Struct.getDefaultInstance());
+        final Struct metadata = action.getMetadataMatch().getFilterMetadataOrDefault(
+                SUBSET_LOAD_BALANCING_FILTER_NAME,
+                Struct.getDefaultInstance());
+        if (!metadata.containsFields(XdsConstants.ENVOY_LB_FALLBACK_LIST)) {
+            return metadata;
+        }
+        final Struct.Builder builder = Struct.newBuilder();
+        for (Entry<String, Value> entry: metadata.getFieldsMap().entrySet()) {
+            if (XdsConstants.ENVOY_LB_FALLBACK_LIST.equals(entry.getKey())) {
+                continue;
+            }
+            builder.putFields(entry.getKey(), entry.getValue());
+        }
+        return builder.build();
+    }
+
+    public static List<Struct> fallbackMetadataList(ClusterSnapshot clusterSnapshot) {
+        final Route route = clusterSnapshot.route();
+        assert route != null;
+        final RouteAction action = route.getRoute();
+        final Struct metadata = action.getMetadataMatch().getFilterMetadataOrDefault(
+                SUBSET_LOAD_BALANCING_FILTER_NAME,
+                Struct.getDefaultInstance());
+        if (!metadata.containsFields(XdsConstants.ENVOY_LB_FALLBACK_LIST)) {
+            return Collections.emptyList();
+        }
+        final Value fallbackValue =
+                metadata.getFieldsOrDefault(XdsConstants.ENVOY_LB_FALLBACK_LIST,
+                                            Value.getDefaultInstance());
+        if (!fallbackValue.hasListValue()) {
+            return Collections.emptyList();
+        }
+        final ListValue fallbackListValue = fallbackValue.getListValue();
+        final ImmutableList.Builder<Struct> fallbackMetadataList = ImmutableList.builder();
+        for (Value value: fallbackListValue.getValuesList()) {
+            if (value.hasStructValue()) {
+                fallbackMetadataList.add(value.getStructValue());
+            }
+        }
+        return fallbackMetadataList.build();
     }
 }

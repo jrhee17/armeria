@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 
 import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.endpoint.ClusterEntry.CoarseHealth;
+import com.linecorp.armeria.xds.endpoint.UpstreamHost.CoarseHealth;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.CommonLbConfig;
@@ -42,6 +42,10 @@ class PrioritySet {
     private final ClusterLoadAssignment clusterLoadAssignment;
     private final int panicThreshold;
     private final EndpointSelectionStrategy selectionStrategy;
+
+    PrioritySet(PrioritySet delegate) {
+        this(delegate.cluster, delegate.clusterLoadAssignment, delegate.selectionStrategy);
+    }
 
     PrioritySet(Cluster cluster, ClusterLoadAssignment clusterLoadAssignment,
                 EndpointSelectionStrategy selectionStrategy) {
@@ -123,10 +127,10 @@ class PrioritySet {
      */
     static class UpdateHostsParam {
         private final List<UpstreamHost> hosts;
-        private final Map<Locality, List<UpstreamHost>> hostsPerLocality;
         private final List<UpstreamHost> healthyHosts;
-        private final Map<Locality, List<UpstreamHost>> healthyHostsPerLocality;
         private final List<UpstreamHost> degradedHosts;
+        private final Map<Locality, List<UpstreamHost>> hostsPerLocality;
+        private final Map<Locality, List<UpstreamHost>> healthyHostsPerLocality;
         private final Map<Locality, List<UpstreamHost>> degradedHostsPerLocality;
 
         UpdateHostsParam(List<UpstreamHost> hosts, Map<Locality, List<UpstreamHost>> hostsPerLocality) {
@@ -135,11 +139,24 @@ class PrioritySet {
             healthyHosts = hosts.stream().filter(host -> host.coarseHealth() == CoarseHealth.HEALTHY)
                                 .collect(Collectors.toList());
             healthyHostsPerLocality = withPredicate(hostsPerLocality,
-                                                    host -> host.coarseHealth() == CoarseHealth.HEALTHY);
+                                                    host -> host.coarseHealth() == CoarseHealth.UNHEALTHY);
             degradedHosts = hosts.stream().filter(host -> host.coarseHealth() == CoarseHealth.DEGRADED)
                                  .collect(Collectors.toList());
             degradedHostsPerLocality = withPredicate(hostsPerLocality,
                                                      host -> host.coarseHealth() == CoarseHealth.DEGRADED);
+        }
+
+        UpdateHostsParam(List<UpstreamHost> hosts, List<UpstreamHost> healthyHosts,
+                         List<UpstreamHost> degradedHosts,
+                         Map<Locality, List<UpstreamHost>> hostsPerLocality,
+                         Map<Locality, List<UpstreamHost>> healthyHostsPerLocality,
+                         Map<Locality, List<UpstreamHost>> degradedHostsPerLocality) {
+            this.hosts = hosts;
+            this.healthyHosts = healthyHosts;
+            this.degradedHosts = degradedHosts;
+            this.hostsPerLocality = hostsPerLocality;
+            this.healthyHostsPerLocality = healthyHostsPerLocality;
+            this.degradedHostsPerLocality = degradedHostsPerLocality;
         }
 
         public List<UpstreamHost> hosts() {

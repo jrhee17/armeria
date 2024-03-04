@@ -16,14 +16,8 @@
 
 package com.linecorp.armeria.xds.endpoint;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -37,11 +31,9 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.EndpointSnapshot;
-import com.linecorp.armeria.xds.endpoint.PrioritySet.UpdateHostsParam;
 import com.linecorp.armeria.xds.internal.XdsConverterUtil;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
-import io.envoyproxy.envoy.config.core.v3.Locality;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment.Policy;
 
@@ -72,7 +64,7 @@ public class ClusterEntry implements Consumer<List<Endpoint>>, AsyncCloseable {
         // only cluster.getLbPolicy() == ROUND_ROBIN is supported for now
         endpointSelectionStrategy = EndpointSelectionStrategy.weightedRoundRobin();
         if (cluster.hasLbSubsetConfig()) {
-            loadBalancer = new SubsetLoadBalancer();
+            loadBalancer = new SubsetLoadBalancer(cluster.getLbSubsetConfig());
         } else {
             loadBalancer = new ZoneAwareLoadBalancer();
         }
@@ -118,48 +110,4 @@ public class ClusterEntry implements Consumer<List<Endpoint>>, AsyncCloseable {
         endpointGroup.close();
     }
 
-    enum CoarseHealth {
-        HEALTHY,
-        DEGRADED,
-        UNHEALTHY,
-    }
-
-    /**
-     * Contains a list of all the current updated hosts
-     */
-    static class PriorityState {
-        private final List<UpstreamHost> hosts = new ArrayList<>();
-        private final Map<Locality, Integer> localityWeightsMap = new HashMap<>();
-    }
-
-    static class PriorityStateManager {
-        private final SortedMap<Integer, PriorityState> priorityStateMap = new TreeMap<>();
-
-        Set<Integer> priorities() {
-            return priorityStateMap.keySet();
-        }
-
-        private void registerEndpoint(UpstreamHost host) {
-            final PriorityState priorityState =
-                    priorityStateMap.computeIfAbsent(host.priority(), ignored -> new PriorityState());
-            priorityState.hosts.add(host);
-            if (host.locality() != Locality.getDefaultInstance()) {
-                priorityState.localityWeightsMap.put(host.locality(), host.weight());
-            }
-        }
-
-        public void updateClusterPrioritySet(int priority, boolean weightedPriorityHealth, int overProvisionFactor,
-                                             PrioritySet prioritySet) {
-            final PriorityState priorityState = priorityStateMap.get(priority);
-            assert priorityState != null;
-            final Map<Locality, List<UpstreamHost>> hostsPerLocality = new HashMap<>();
-            for (UpstreamHost host: priorityState.hosts) {
-                hostsPerLocality.computeIfAbsent(host.locality(), ignored -> new ArrayList<>())
-                                .add(host);
-            }
-            final UpdateHostsParam params = new UpdateHostsParam(priorityState.hosts, hostsPerLocality);
-            prioritySet.updateHosts(priority, params, priorityState.localityWeightsMap,
-                                    weightedPriorityHealth, overProvisionFactor);
-        }
-    }
 }

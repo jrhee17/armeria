@@ -14,13 +14,12 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.internal;
+package com.linecorp.armeria.xds.endpoint;
 
-public final class XdsConstants {
+import java.util.HashMap;
+import java.util.Map;
 
-    // https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/subsets
-    public static final String SUBSET_LOAD_BALANCING_FILTER_NAME = "envoy.lb";
-    public static final String ENVOY_LB_FALLBACK_LIST = "fallback_list";
+public class AbstractPrioritySet {
 
-    private XdsConstants() {}
+    private final Map<Integer, HostSet> hostSets = new HashMap<>();
 }

@@ -17,10 +17,10 @@
 package com.linecorp.armeria.xds.endpoint;
 
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.xds.endpoint.ClusterEntry.CoarseHealth;
 import com.linecorp.armeria.xds.internal.XdsAttributesKeys;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
+import io.envoyproxy.envoy.config.core.v3.Metadata;
 import io.envoyproxy.envoy.config.endpoint.v3.Endpoint.HealthCheckConfig;
 import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
@@ -53,7 +53,7 @@ class UpstreamHost {
         switch (lbEndpoint.getHealthStatus()) {
             case HEALTHY:
             // handle UNKNOWN as the case where health checking isn't used
-//            case UNKNOWN:
+            case UNKNOWN:
                 return CoarseHealth.HEALTHY;
             case DEGRADED:
                 return CoarseHealth.DEGRADED;
@@ -80,5 +80,15 @@ class UpstreamHost {
 
     public int priority() {
         return priority;
+    }
+
+    public Metadata metadata() {
+        return lbEndpoint.getMetadata();
+    }
+
+    public enum CoarseHealth {
+        HEALTHY,
+        DEGRADED,
+        UNHEALTHY,
     }
 }
