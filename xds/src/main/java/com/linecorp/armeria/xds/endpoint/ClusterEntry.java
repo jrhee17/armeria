@@ -64,7 +64,7 @@ public class ClusterEntry implements Consumer<List<Endpoint>>, AsyncCloseable {
         // only cluster.getLbPolicy() == ROUND_ROBIN is supported for now
         endpointSelectionStrategy = EndpointSelectionStrategy.weightedRoundRobin();
         if (cluster.hasLbSubsetConfig()) {
-            loadBalancer = new SubsetLoadBalancer(cluster.getLbSubsetConfig());
+            loadBalancer = new SubsetLoadBalancer(clusterSnapshot, cluster.getLbSubsetConfig());
         } else {
             loadBalancer = new ZoneAwareLoadBalancer();
         }

@@ -16,7 +16,6 @@
 
 package com.linecorp.armeria.xds.endpoint;
 
-import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -221,14 +220,14 @@ final class SubsetLoadBalancer implements LoadBalancer {
 
 
         LbSubsetEntry initSubsetAnyOnce() {
-            if (subsetAny != null) {
+            if (subsetAny == null) {
                 subsetAny = new LbSubsetEntry();
             }
             return subsetAny;
         }
 
         LbSubsetEntry initSubsetDefaultOnce() {
-            if (subsetDefault != null) {
+            if (subsetDefault == null) {
                 subsetDefault = new LbSubsetEntry();
             }
             return subsetDefault;
@@ -457,7 +456,6 @@ final class SubsetLoadBalancer implements LoadBalancer {
     static class CollectionComparator implements Comparator<Collection<String>>, Serializable {
 
         static final CollectionComparator INSTANCE = new CollectionComparator();
-        @Serial
         private static final long serialVersionUID = 5835645231445633543L;
 
         @Override

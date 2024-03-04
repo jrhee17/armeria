@@ -96,6 +96,7 @@ class PrioritySet {
 
     HostSet getOrCreateHostSet(int priority, UpdateHostsParam params, Map<Locality, Integer> localityWeightsMap,
                                boolean weightedPriorityHealth, int overProvisioningFactor) {
+        priorities.add(priority);
         return hostSets.computeIfAbsent(priority,
                                         ignored -> new HostSet(priority, params,
                                                                localityWeightsMap, weightedPriorityHealth,
@@ -105,7 +106,6 @@ class PrioritySet {
     public void updateHosts(int priority, UpdateHostsParam params,
                             Map<Locality, Integer> localityWeightsMap,
                             boolean weightedPriorityHealth, int overProvisioningFactor) {
-        priorities.add(priority);
         getOrCreateHostSet(priority, params, localityWeightsMap, weightedPriorityHealth,
                            overProvisioningFactor);
     }

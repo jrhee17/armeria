@@ -33,6 +33,7 @@ final class XdsEndpointSelector extends AbstractEndpointSelector
     XdsEndpointSelector(ClusterManager clusterManager, EndpointGroup endpointGroup) {
         super(endpointGroup);
         this.clusterManager = clusterManager;
+        initialize();
     }
 
     @Override
