@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.endpoint;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.HashMap;
 import java.util.List;
@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 
 import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.endpoint.UpstreamHost.CoarseHealth;
+import com.linecorp.armeria.xds.client.endpoint.UpstreamHost.CoarseHealth;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.CommonLbConfig;
@@ -94,6 +94,10 @@ final class PrioritySet {
         return Math.min((int) Math.round(commonLbConfig.getHealthyPanicThreshold().getValue()), 100);
     }
 
+    int panicThreshold() {
+        return panicThreshold;
+    }
+
     HostSet getOrCreateHostSet(int priority, UpdateHostsParam params, Map<Locality, Integer> localityWeightsMap,
                                boolean weightedPriorityHealth, int overProvisioningFactor) {
         priorities.add(priority);
@@ -103,23 +107,19 @@ final class PrioritySet {
                                                                overProvisioningFactor, selectionStrategy));
     }
 
-    public void updateHosts(int priority, UpdateHostsParam params,
-                            Map<Locality, Integer> localityWeightsMap,
-                            boolean weightedPriorityHealth, int overProvisioningFactor) {
+    void updateHosts(int priority, UpdateHostsParam params,
+                     Map<Locality, Integer> localityWeightsMap,
+                     boolean weightedPriorityHealth, int overProvisioningFactor) {
         getOrCreateHostSet(priority, params, localityWeightsMap, weightedPriorityHealth,
                            overProvisioningFactor);
     }
 
-    public SortedSet<Integer> priorities() {
+    SortedSet<Integer> priorities() {
         return priorities;
     }
 
-    public Map<Integer, HostSet> hostSets() {
+    Map<Integer, HostSet> hostSets() {
         return hostSets;
-    }
-
-    public int panicThreshold() {
-        return panicThreshold;
     }
 
     /**

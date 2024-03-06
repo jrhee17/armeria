@@ -16,11 +16,11 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.linecorp.armeria.xds.XdsConverterUtilTest.sampleClusterLoadAssignment;
 import static com.linecorp.armeria.xds.XdsTestResources.BOOTSTRAP_CLUSTER_NAME;
 import static com.linecorp.armeria.xds.XdsTestResources.bootstrapCluster;
+import static com.linecorp.armeria.xds.XdsTestResources.endpoint;
 import static com.linecorp.armeria.xds.XdsTestResources.stringValue;
-import static com.linecorp.armeria.xds.internal.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
+import static com.linecorp.armeria.xds.internal.client.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
@@ -41,7 +41,7 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
-import com.linecorp.armeria.xds.endpoint.XdsEndpointGroup;
+import com.linecorp.armeria.xds.client.endpoint.XdsEndpointGroup;
 
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
 import io.envoyproxy.controlplane.cache.v3.Snapshot;
@@ -56,6 +56,8 @@ import io.envoyproxy.envoy.config.core.v3.ApiVersion;
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.core.v3.Metadata;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
+import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
+import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
 import io.envoyproxy.envoy.config.listener.v3.ApiListener;
 import io.envoyproxy.envoy.config.listener.v3.Listener;
 import io.envoyproxy.envoy.config.route.v3.Route;
@@ -211,5 +213,45 @@ class RouteMetadataSubsetTest {
                .setName("listener")
                .setApiListener(ApiListener.newBuilder().setApiListener(Any.pack(manager)))
                .build();
+    }
+
+    static ClusterLoadAssignment sampleClusterLoadAssignment() {
+        final Metadata metadata1 =
+                Metadata.newBuilder()
+                        .putFilterMetadata(SUBSET_LOAD_BALANCING_FILTER_NAME,
+                                           Struct.newBuilder()
+                                                 .putFields("foo", stringValue("foo1"))
+                                                 .build())
+                        .build();
+        final LbEndpoint endpoint1 = endpoint("127.0.0.1", 8080, metadata1);
+        final Metadata metadata2 =
+                Metadata.newBuilder()
+                        .putFilterMetadata(SUBSET_LOAD_BALANCING_FILTER_NAME,
+                                           Struct.newBuilder()
+                                                 .putFields("foo", stringValue("foo1"))
+                                                 .putFields("bar", stringValue("bar2"))
+                                                 .build())
+                        .build();
+        final LbEndpoint endpoint2 = endpoint("127.0.0.1", 8081, metadata2);
+        final Metadata metadata3 =
+                Metadata.newBuilder()
+                        .putFilterMetadata(SUBSET_LOAD_BALANCING_FILTER_NAME,
+                                           Struct.newBuilder()
+                                                 .putFields("foo", stringValue("foo1"))
+                                                 .putFields("bar", stringValue("bar1"))
+                                                 .putFields("baz", stringValue("baz1"))
+                                                 .build())
+                        .build();
+        final LbEndpoint endpoint3 = endpoint("127.0.0.1", 8082, metadata3);
+        final LocalityLbEndpoints lbEndpoints =
+                LocalityLbEndpoints.newBuilder()
+                                   .addLbEndpoints(endpoint1)
+                                   .addLbEndpoints(endpoint2)
+                                   .addLbEndpoints(endpoint3)
+                                   .build();
+        return ClusterLoadAssignment.newBuilder()
+                                    .setClusterName("cluster")
+                                    .addEndpoints(lbEndpoints)
+                                    .build();
     }
 }

@@ -14,13 +14,12 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.internal;
+/**
+ * Internal APIs for Armeria's xDS implementation.
+ */
+@NonNullByDefault
+@UnstableApi
+package com.linecorp.armeria.xds.internal.client;
 
-public final class XdsConstants {
-
-    // https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/subsets
-    public static final String SUBSET_LOAD_BALANCING_FILTER_NAME = "envoy.lb";
-    public static final String ENVOY_LB_FALLBACK_LIST = "fallback_list";
-
-    private XdsConstants() {}
-}
+import com.linecorp.armeria.common.annotation.NonNullByDefault;
+import com.linecorp.armeria.common.annotation.UnstableApi;

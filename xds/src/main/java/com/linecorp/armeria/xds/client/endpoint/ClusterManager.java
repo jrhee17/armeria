@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.endpoint;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.ArrayList;
 import java.util.Collections;

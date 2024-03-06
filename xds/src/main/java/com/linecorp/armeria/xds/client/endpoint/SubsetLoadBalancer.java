@@ -14,7 +14,9 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.endpoint;
+package com.linecorp.armeria.xds.client.endpoint;
+
+import static com.linecorp.armeria.xds.internal.client.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -46,8 +48,7 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
-import com.linecorp.armeria.xds.endpoint.PrioritySet.UpdateHostsParam;
-import com.linecorp.armeria.xds.internal.XdsConstants;
+import com.linecorp.armeria.xds.client.endpoint.PrioritySet.UpdateHostsParam;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetFallbackPolicy;
@@ -66,9 +67,9 @@ final class SubsetLoadBalancer implements LoadBalancer {
     private LbState lbState;
     private final Struct filterMetadata;
 
-    SubsetLoadBalancer(ClusterSnapshot clusterSnapshot, LbSubsetConfig lbSubsetConfig) {
+    SubsetLoadBalancer(ClusterSnapshot clusterSnapshot) {
         this.clusterSnapshot = clusterSnapshot;
-        this.lbSubsetConfig = lbSubsetConfig;
+        lbSubsetConfig = clusterSnapshot.xdsResource().resource().getLbSubsetConfig();
         subsetInfo = new SubsetInfo(lbSubsetConfig);
         filterMetadata = MetadataUtil.filterMetadata(clusterSnapshot);
     }
@@ -201,22 +202,24 @@ final class SubsetLoadBalancer implements LoadBalancer {
             return null;
         }
 
-        Endpoint chooseHostForSelectorFallbackPolicy(SubsetSelector subsetSelector, LoadBalancerContext context) {
+        Endpoint chooseHostForSelectorFallbackPolicy(SubsetSelector subsetSelector,
+                                                     LoadBalancerContext context) {
             final ClientRequestContext ctx = context.ctx;
             if (subsetSelector.fallbackPolicy == LbSubsetSelectorFallbackPolicy.ANY_ENDPOINT &&
                 subsetAny != null) {
                 return subsetAny.loadBalancer().selectNow(ctx);
-            } else if (subsetSelector.fallbackPolicy == LbSubsetSelectorFallbackPolicy.DEFAULT_SUBSET &&
+            }
+            if (subsetSelector.fallbackPolicy == LbSubsetSelectorFallbackPolicy.DEFAULT_SUBSET &&
                        subsetDefault != null) {
                 return subsetDefault.loadBalancer().selectNow(ctx);
-            } else if (subsetSelector.fallbackPolicy == LbSubsetSelectorFallbackPolicy.KEYS_SUBSET) {
+            }
+            if (subsetSelector.fallbackPolicy == LbSubsetSelectorFallbackPolicy.KEYS_SUBSET) {
                 final Set<String> fallbackKeysSubset = subsetSelector.fallbackKeysSubset();
                 final LoadBalancerContext newContext = context.withFilterKeys(fallbackKeysSubset);
                 return chooseHostIteration(newContext);
             }
             return null;
         }
-
 
         LbSubsetEntry initSubsetAnyOnce() {
             if (subsetAny == null) {
@@ -289,15 +292,15 @@ final class SubsetLoadBalancer implements LoadBalancer {
                 subsetAny.update(subsetPrioritySet);
             }
             if (subsetDefault != null) {
-                final SubsetPrioritySet subsetPrioritySet = updateSubset(priority, hostSet,
-                                                                         host -> hostMatches(defaultSubsetMetadata, host));
+                final SubsetPrioritySet subsetPrioritySet =
+                        updateSubset(priority, hostSet, host -> hostMatches(defaultSubsetMetadata, host));
                 subsetDefault.update(subsetPrioritySet);
             }
         }
 
         boolean hostMatches(Struct metadata, UpstreamHost host) {
-            return MetadataUtil.metadataLabelMatch(metadata, host.metadata(), XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME,
-                                                   listAsAny);
+            return MetadataUtil.metadataLabelMatch(
+                    metadata, host.metadata(), SUBSET_LOAD_BALANCING_FILTER_NAME, listAsAny);
         }
 
         SubsetPrioritySet updateSubset(int priority, HostSet hostSet,
@@ -319,10 +322,10 @@ final class SubsetLoadBalancer implements LoadBalancer {
             if (metadata == Metadata.getDefaultInstance()) {
                 return Collections.emptyList();
             }
-            if (!metadata.containsFilterMetadata(XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME)) {
+            if (!metadata.containsFilterMetadata(SUBSET_LOAD_BALANCING_FILTER_NAME)) {
                 return Collections.emptyList();
             }
-            final Struct filter = metadata.getFilterMetadataOrThrow(XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME);
+            final Struct filter = metadata.getFilterMetadataOrThrow(SUBSET_LOAD_BALANCING_FILTER_NAME);
             final Map<String, Value> fields = filter.getFieldsMap();
             List<Map<String, Value>> allKvs = new ArrayList<>();
             for (String subsetKey: subsetKeys) {
@@ -514,7 +517,8 @@ final class SubsetLoadBalancer implements LoadBalancer {
             final Map<Locality, List<UpstreamHost>> degradedHostsPerLocality =
                     filterByLocality(origHostSet.degradedHostsPerLocality(), newHostSet::contains);
 
-            final Map<Locality, Integer> localityWeightsMap = determineLocalityWeights(hostsPerLocality, origHostSet);
+            final Map<Locality, Integer> localityWeightsMap =
+                    determineLocalityWeights(hostsPerLocality, origHostSet);
             final UpdateHostsParam params = new UpdateHostsParam(hosts, healthyHosts, degradedHosts,
                                                                  hostsPerLocality, healthyHostsPerLocality,
                                                                  degradedHostsPerLocality);
@@ -530,7 +534,8 @@ final class SubsetLoadBalancer implements LoadBalancer {
             final Map<Locality, List<UpstreamHost>> origHostsPerLocality = origHostSet.hostsPerLocality();
             final ImmutableMap.Builder<Locality, Integer> scaledLocalityWeightsMap = ImmutableMap.builder();
             for (Entry<Locality, Integer> entry: localityWeightsMap.entrySet()) {
-                final float scale = 1.0f * hostsPerLocality.get(entry.getKey()).size() / origHostsPerLocality.get(entry.getKey()).size();
+                final float scale = 1.0f * hostsPerLocality.get(entry.getKey()).size() /
+                                    origHostsPerLocality.get(entry.getKey()).size();
                 scaledLocalityWeightsMap.put(entry.getKey(), Math.round(scale * entry.getValue()));
             }
             return scaledLocalityWeightsMap.build();

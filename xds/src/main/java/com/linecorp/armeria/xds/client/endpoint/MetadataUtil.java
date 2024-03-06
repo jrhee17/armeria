@@ -14,9 +14,9 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.endpoint;
+package com.linecorp.armeria.xds.client.endpoint;
 
-import static com.linecorp.armeria.xds.internal.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
+import static com.linecorp.armeria.xds.internal.client.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
 
 import java.util.Collections;
 import java.util.List;
@@ -30,7 +30,7 @@ import com.google.protobuf.Value;
 import com.google.protobuf.Value.KindCase;
 
 import com.linecorp.armeria.xds.ClusterSnapshot;
-import com.linecorp.armeria.xds.internal.XdsConstants;
+import com.linecorp.armeria.xds.internal.client.XdsConstants;
 
 import io.envoyproxy.envoy.config.core.v3.Metadata;
 import io.envoyproxy.envoy.config.route.v3.Route;

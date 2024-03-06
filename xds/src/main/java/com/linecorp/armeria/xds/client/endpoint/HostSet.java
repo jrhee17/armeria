@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.endpoint;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.Collections;
 import java.util.List;
@@ -29,7 +29,7 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.endpoint.WeightedRandomDistributionSelector;
-import com.linecorp.armeria.xds.endpoint.PrioritySet.UpdateHostsParam;
+import com.linecorp.armeria.xds.client.endpoint.PrioritySet.UpdateHostsParam;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
 
@@ -94,59 +94,59 @@ class HostSet {
                                                         .collect(ImmutableList.toImmutableList()));
     }
 
-    public List<UpstreamHost> hosts() {
+    List<UpstreamHost> hosts() {
         return hosts;
     }
 
-    public Map<Locality, List<UpstreamHost>> hostsPerLocality() {
+    Map<Locality, List<UpstreamHost>> hostsPerLocality() {
         return hostsPerLocality;
     }
 
-    public List<UpstreamHost> healthyHosts() {
+    List<UpstreamHost> healthyHosts() {
         return healthyHosts;
     }
 
-    public Map<Locality, List<UpstreamHost>> healthyHostsPerLocality() {
+    Map<Locality, List<UpstreamHost>> healthyHostsPerLocality() {
         return healthyHostsPerLocality;
     }
 
-    public List<UpstreamHost> degradedHosts() {
+    List<UpstreamHost> degradedHosts() {
         return degradedHosts;
     }
 
-    public Map<Locality, List<UpstreamHost>> degradedHostsPerLocality() {
+    Map<Locality, List<UpstreamHost>> degradedHostsPerLocality() {
         return degradedHostsPerLocality;
     }
 
-    public Map<Locality, Integer> localityWeightsMap() {
+    Map<Locality, Integer> localityWeightsMap() {
         return localityWeightsMap;
     }
 
-    public EndpointGroup hostsEndpointGroup() {
+    EndpointGroup hostsEndpointGroup() {
         return hostsEndpointGroup;
     }
 
-    public EndpointGroup healthyHostsEndpointGroup() {
+    EndpointGroup healthyHostsEndpointGroup() {
         return healthyHostsEndpointGroup;
     }
 
-    public Map<Locality, EndpointGroup> healthyEndpointGroupPerLocality() {
+    Map<Locality, EndpointGroup> healthyEndpointGroupPerLocality() {
         return healthyEndpointGroupPerLocality;
     }
 
-    public EndpointGroup degradedHostsEndpointGroup() {
+    EndpointGroup degradedHostsEndpointGroup() {
         return degradedHostsEndpointGroup;
     }
 
-    public Map<Locality, EndpointGroup> degradedEndpointGroupPerLocality() {
+    Map<Locality, EndpointGroup> degradedEndpointGroupPerLocality() {
         return degradedEndpointGroupPerLocality;
     }
 
-    public boolean weightedPriorityHealth() {
+    boolean weightedPriorityHealth() {
         return weightedPriorityHealth;
     }
 
-    public int overProvisioningFactor() {
+    int overProvisioningFactor() {
         return overProvisioningFactor;
     }
 
@@ -186,7 +186,7 @@ class HostSet {
     }
 
     @Nullable
-    public Locality chooseDegradedLocality() {
+    Locality chooseDegradedLocality() {
         final LocalityEntry localityEntry = degradedLocalitySelector.select();
         if (localityEntry == null) {
             return null;
@@ -195,7 +195,7 @@ class HostSet {
     }
 
     @Nullable
-    public Locality chooseHealthyLocality() {
+    Locality chooseHealthyLocality() {
         final LocalityEntry localityEntry = healthyLocalitySelector.select();
         if (localityEntry == null) {
             return null;

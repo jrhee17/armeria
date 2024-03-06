@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.internal;
+package com.linecorp.armeria.xds.internal.client;
 
 import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;

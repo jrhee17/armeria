@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.endpoint;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -31,7 +31,7 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.endpoint.PrioritySet.DistributeLoadState;
+import com.linecorp.armeria.xds.client.endpoint.PrioritySet.DistributeLoadState;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
 
@@ -220,7 +220,9 @@ final class ZoneAwareLoadBalancer implements LoadBalancer {
             final int hostCount = hostSet.hosts().size();
 
             if (hostCount > 0) {
-                long healthyWeight = 0, degradedWeight = 0, totalWeight = 0;
+                long healthyWeight = 0;
+                long degradedWeight = 0;
+                long totalWeight = 0;
                 if (hostSet.weightedPriorityHealth()) {
                     for (UpstreamHost host: hostSet.healthyHosts()) {
                         healthyWeight += host.weight();
@@ -260,10 +262,12 @@ final class ZoneAwareLoadBalancer implements LoadBalancer {
                 final int firstHealthy = firstHealthyAndRemaining.firstAvailablePriority;
                 final int firstDegraded = firstDegradedAndRemaining.firstAvailablePriority;
                 if (firstHealthy != -1) {
-                    healthyPriorityLoad.put(firstHealthy, healthyPriorityLoad.get(firstHealthy) + remainingLoad);
+                    healthyPriorityLoad.put(firstHealthy,
+                                            healthyPriorityLoad.get(firstHealthy) + remainingLoad);
                 } else {
                     assert firstDegraded != -1;
-                    degradedPriorityLoad.put(firstDegraded, degradedPriorityLoad.get(firstDegraded) + remainingLoad);
+                    degradedPriorityLoad.put(firstDegraded,
+                                             degradedPriorityLoad.get(firstDegraded) + remainingLoad);
                 }
             }
 

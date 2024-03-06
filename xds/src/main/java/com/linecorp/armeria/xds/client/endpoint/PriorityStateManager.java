@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.endpoint;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,7 +24,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-import com.linecorp.armeria.xds.endpoint.PrioritySet.UpdateHostsParam;
+import com.linecorp.armeria.xds.client.endpoint.PrioritySet.UpdateHostsParam;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
 

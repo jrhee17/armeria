@@ -14,7 +14,10 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.internal;
+package com.linecorp.armeria.xds.internal.client;
+
+import static com.linecorp.armeria.xds.internal.client.XdsAttributesKeys.LB_ENDPOINT_KEY;
+import static com.linecorp.armeria.xds.internal.client.XdsAttributesKeys.LOCALITY_LB_ENDPOINTS_KEY;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -44,8 +47,8 @@ final class XdsAttributeAssigningEndpointGroup extends DynamicEndpointGroup
     public void accept(List<Endpoint> endpoints) {
         final List<Endpoint> mappedEndpoints =
                 endpoints.stream()
-                         .map(endpoint -> endpoint.withAttr(XdsAttributesKeys.LB_ENDPOINT_KEY, lbEndpoint)
-                                                  .withAttr(XdsAttributesKeys.LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints)
+                         .map(endpoint -> endpoint.withAttr(LB_ENDPOINT_KEY, lbEndpoint)
+                                                  .withAttr(LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints)
                                                   .withWeight(XdsEndpointUtil.endpointWeight(lbEndpoint)))
                          .collect(Collectors.toList());
         setEndpoints(mappedEndpoints);

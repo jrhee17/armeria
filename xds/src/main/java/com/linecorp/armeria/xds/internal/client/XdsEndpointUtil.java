@@ -14,22 +14,15 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.internal;
+package com.linecorp.armeria.xds.internal.client;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.linecorp.armeria.xds.internal.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.function.Predicate;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import com.google.protobuf.Struct;
-import com.google.protobuf.Value;
 
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -89,8 +82,8 @@ public final class XdsEndpointUtil {
         final HttpHealthCheck httpHealthCheck = healthCheck.getHttpHealthCheck();
         final String path = httpHealthCheck.getPath();
 
-        // TODO: @jrhee17 We can't support SessionProtocol, Excluded endpoints,
-        // Per cluster member health checking, etc.. without refactoring.
+        // We can't support SessionProtocol, excluded endpoints,
+        // per-cluster-member health checking, etc without refactoring how we deal with health checking.
         // For now, just simply health check all targets depending on the cluster configuration.
         return HealthCheckedEndpointGroup.builder(delegate, path)
                                          .useGet(healthCheckMethod(httpHealthCheck) == HttpMethod.GET)
@@ -107,17 +100,16 @@ public final class XdsEndpointUtil {
     private static EndpointGroup staticEndpointGroup(ClusterSnapshot clusterSnapshot) {
         final EndpointSnapshot endpointSnapshot = clusterSnapshot.endpointSnapshot();
         assert endpointSnapshot != null;
-        final List<Endpoint> endpoints = convertEndpointGroup(endpointSnapshot.xdsResource().resource());
+        final List<Endpoint> endpoints = convertLoadAssignment(endpointSnapshot.xdsResource().resource());
         return EndpointGroup.of(endpoints);
     }
 
-    static EndpointGroup strictDnsEndpointGroup(ClusterSnapshot clusterSnapshot) {
+    private static EndpointGroup strictDnsEndpointGroup(ClusterSnapshot clusterSnapshot) {
         final EndpointSnapshot endpointSnapshot = clusterSnapshot.endpointSnapshot();
         assert endpointSnapshot != null;
         final Cluster cluster = clusterSnapshot.xdsResource().resource();
 
-
-        final ImmutableList.Builder<EndpointGroup > endpointGroupBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<EndpointGroup> endpointGroupBuilder = ImmutableList.builder();
         final ClusterLoadAssignment loadAssignment = endpointSnapshot.xdsResource().resource();
         for (LocalityLbEndpoints localityLbEndpoints: loadAssignment.getEndpointsList()) {
             for (LbEndpoint lbEndpoint: localityLbEndpoints.getLbEndpointsList()) {
@@ -158,63 +150,40 @@ public final class XdsEndpointUtil {
         return EndpointGroup.of(endpointGroupBuilder.build());
     }
 
-    public static List<Endpoint> convertEndpointGroup(ClusterLoadAssignment clusterLoadAssignment) {
-        return convertEndpointGroup(clusterLoadAssignment, lbEndpoint -> true);
-    }
-
-    public static List<Endpoint> convertEndpointGroup(ClusterLoadAssignment clusterLoadAssignment, Struct filterMetadata) {
-        checkArgument(filterMetadata.getFieldsCount() > 0,
-                      "filterMetadata.getFieldsCount(): %s (expected: > 0)", filterMetadata.getFieldsCount());
-        final Predicate<LbEndpoint> lbEndpointPredicate = lbEndpoint -> {
-            final Struct endpointMetadata = lbEndpoint.getMetadata().getFilterMetadataOrDefault(
-                    SUBSET_LOAD_BALANCING_FILTER_NAME, Struct.getDefaultInstance());
-            if (endpointMetadata.getFieldsCount() == 0) {
-                return false;
-            }
-            return containsFilterMetadata(filterMetadata, endpointMetadata);
-        };
-        return convertEndpointGroup(clusterLoadAssignment, lbEndpointPredicate);
-    }
-
-    private static List<Endpoint> convertEndpointGroup(ClusterLoadAssignment clusterLoadAssignment,
-                                                       Predicate<LbEndpoint> lbEndpointPredicate) {
+    private static List<Endpoint> convertLoadAssignment(ClusterLoadAssignment clusterLoadAssignment) {
         return clusterLoadAssignment.getEndpointsList().stream().flatMap(
                 localityLbEndpoints -> localityLbEndpoints
                         .getLbEndpointsList()
                         .stream()
-                        .filter(lbEndpointPredicate)
-                        .map(lbEndpoint -> {
-                            final SocketAddress socketAddress =
-                                    lbEndpoint.getEndpoint().getAddress().getSocketAddress();
-                            final String hostname = lbEndpoint.getEndpoint().getHostname();
-                            final int weight = endpointWeight(lbEndpoint);
-                            if (!Strings.isNullOrEmpty(hostname)) {
-                                return Endpoint.of(hostname, socketAddress.getPortValue())
-                                               .withIpAddr(socketAddress.getAddress())
-                                               .withAttr(XdsAttributesKeys.LB_ENDPOINT_KEY, lbEndpoint)
-                                               .withAttr(XdsAttributesKeys.LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints);
-                            } else {
-                                return Endpoint.of(socketAddress.getAddress(), socketAddress.getPortValue())
-                                               .withAttr(XdsAttributesKeys.LB_ENDPOINT_KEY, lbEndpoint)
-                                               .withAttr(XdsAttributesKeys.LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints)
-                                               .withWeight(weight);
-                            }
-                        })).collect(toImmutableList());
+                        .map(lbEndpoint -> convertToEndpoint(localityLbEndpoints, lbEndpoint)))
+                                    .collect(toImmutableList());
+    }
+
+    private static Endpoint convertToEndpoint(LocalityLbEndpoints localityLbEndpoints, LbEndpoint lbEndpoint) {
+        final SocketAddress socketAddress =
+                lbEndpoint.getEndpoint().getAddress().getSocketAddress();
+        final String hostname = lbEndpoint.getEndpoint().getHostname();
+        final int weight = endpointWeight(lbEndpoint);
+        final Endpoint endpoint;
+        if (!Strings.isNullOrEmpty(hostname)) {
+            endpoint = Endpoint.of(hostname)
+                               .withIpAddr(socketAddress.getAddress())
+                               .withAttr(XdsAttributesKeys.LB_ENDPOINT_KEY, lbEndpoint)
+                               .withAttr(XdsAttributesKeys.LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints);
+        } else {
+            endpoint = Endpoint.of(socketAddress.getAddress())
+                               .withAttr(XdsAttributesKeys.LB_ENDPOINT_KEY, lbEndpoint)
+                               .withAttr(XdsAttributesKeys.LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints)
+                               .withWeight(weight);
+        }
+        if (socketAddress.hasPortValue()) {
+            return endpoint.withPort(socketAddress.getPortValue());
+        }
+        return endpoint;
     }
 
     static int endpointWeight(LbEndpoint lbEndpoint) {
         return lbEndpoint.hasLoadBalancingWeight() ?
                Math.max(1, lbEndpoint.getLoadBalancingWeight().getValue()) : 1;
-    }
-
-    private static boolean containsFilterMetadata(Struct filterMetadata, Struct endpointMetadata) {
-        final Map<String, Value> endpointMetadataMap = endpointMetadata.getFieldsMap();
-        for (Entry<String, Value> entry : filterMetadata.getFieldsMap().entrySet()) {
-            final Value value = endpointMetadataMap.get(entry.getKey());
-            if (value == null || !value.equals(entry.getValue())) {
-                return false;
-            }
-        }
-        return true;
     }
 }

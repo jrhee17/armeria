@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.endpoint;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.Collections;
 import java.util.List;
@@ -31,13 +31,13 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.EndpointSnapshot;
-import com.linecorp.armeria.xds.internal.XdsEndpointUtil;
+import com.linecorp.armeria.xds.internal.client.XdsEndpointUtil;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment.Policy;
 
-public class ClusterEntry implements Consumer<List<Endpoint>>, AsyncCloseable {
+final class ClusterEntry implements Consumer<List<Endpoint>>, AsyncCloseable {
 
     private final EndpointGroup endpointGroup;
     private final ClusterManager clusterManager;
@@ -63,7 +63,7 @@ public class ClusterEntry implements Consumer<List<Endpoint>>, AsyncCloseable {
 
         endpointSelectionStrategy = selectionStrategy(cluster);
         if (cluster.hasLbSubsetConfig()) {
-            loadBalancer = new SubsetLoadBalancer(clusterSnapshot, cluster.getLbSubsetConfig());
+            loadBalancer = new SubsetLoadBalancer(clusterSnapshot);
         } else {
             loadBalancer = new ZoneAwareLoadBalancer();
         }
@@ -101,7 +101,8 @@ public class ClusterEntry implements Consumer<List<Endpoint>>, AsyncCloseable {
             priorityStateManager.registerEndpoint(new UpstreamHost(endpoint));
         }
         for (Integer priority: priorityStateManager.priorities()) {
-            priorityStateManager.updateClusterPrioritySet(priority, weightedPriorityHealth, overProvisionFactor, prioritySet);
+            priorityStateManager.updateClusterPrioritySet(priority, weightedPriorityHealth,
+                                                          overProvisionFactor, prioritySet);
         }
         loadBalancer.prioritySetUpdated(prioritySet);
     }
@@ -121,5 +122,4 @@ public class ClusterEntry implements Consumer<List<Endpoint>>, AsyncCloseable {
     public void close() {
         endpointGroup.close();
     }
-
 }

@@ -14,18 +14,15 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.endpoint;
-
-import static com.google.common.base.Preconditions.checkArgument;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.annotation.Nullable;
 
-import io.envoyproxy.envoy.config.core.v3.Locality;
-
 interface LoadBalancer {
 
+    @Nullable
     Endpoint selectNow(ClientRequestContext ctx);
 
     void prioritySetUpdated(PrioritySet prioritySet);

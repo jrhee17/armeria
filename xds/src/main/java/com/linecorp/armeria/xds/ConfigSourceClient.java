@@ -30,7 +30,7 @@ import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.client.retry.Backoff;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.util.SafeCloseable;
-import com.linecorp.armeria.xds.internal.XdsEndpointUtil;
+import com.linecorp.armeria.xds.internal.client.XdsEndpointUtil;
 
 import io.envoyproxy.envoy.config.core.v3.ApiConfigSource;
 import io.envoyproxy.envoy.config.core.v3.ApiConfigSource.ApiType;

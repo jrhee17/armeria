@@ -14,21 +14,19 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.endpoint;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.xds.internal.XdsAttributesKeys;
+import com.linecorp.armeria.xds.internal.client.XdsAttributesKeys;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
 import io.envoyproxy.envoy.config.core.v3.Metadata;
-import io.envoyproxy.envoy.config.endpoint.v3.Endpoint.HealthCheckConfig;
 import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
 
 class UpstreamHost {
     private final Endpoint endpoint;
     private final Locality locality;
-    private final HealthCheckConfig healthCheckConfig;
     private final int priority;
     final LbEndpoint lbEndpoint;
     final LocalityLbEndpoints localityLbEndpoints;
@@ -45,12 +43,11 @@ class UpstreamHost {
         this.localityLbEndpoints = localityLbEndpoints;
         locality = localityLbEndpoints.hasLocality() ? localityLbEndpoints.getLocality()
                                                      : Locality.getDefaultInstance();
-        healthCheckConfig = lbEndpoint.getEndpoint().getHealthCheckConfig();
         priority = localityLbEndpoints.getPriority();
     }
 
     CoarseHealth coarseHealth() {
-        if (healthCheckConfig == null) {
+        if (!lbEndpoint.getEndpoint().hasHealthCheckConfig()) {
             return CoarseHealth.HEALTHY;
         }
         switch (lbEndpoint.getHealthStatus()) {
