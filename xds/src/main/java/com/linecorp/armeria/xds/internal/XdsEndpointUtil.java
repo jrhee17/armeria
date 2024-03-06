@@ -1,0 +1,220 @@
+/*
+ * Copyright 2024 LINE Corporation
+ *
+ * LINE Corporation licenses this file to you under the Apache License,
+ * version 2.0 (the "License"); you may not use this file except in compliance
+ * with the License. You may obtain a copy of the License at:
+ *
+ *   https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ */
+
+package com.linecorp.armeria.xds.internal;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.linecorp.armeria.xds.internal.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.function.Predicate;
+
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
+import com.google.protobuf.Struct;
+import com.google.protobuf.Value;
+
+import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.client.endpoint.dns.DnsAddressEndpointGroup;
+import com.linecorp.armeria.client.endpoint.dns.DnsAddressEndpointGroupBuilder;
+import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckedEndpointGroup;
+import com.linecorp.armeria.client.retry.Backoff;
+import com.linecorp.armeria.common.HttpMethod;
+import com.linecorp.armeria.xds.ClusterSnapshot;
+import com.linecorp.armeria.xds.EndpointSnapshot;
+
+import io.envoyproxy.envoy.config.cluster.v3.Cluster;
+import io.envoyproxy.envoy.config.cluster.v3.Cluster.RefreshRate;
+import io.envoyproxy.envoy.config.core.v3.HealthCheck;
+import io.envoyproxy.envoy.config.core.v3.HealthCheck.HttpHealthCheck;
+import io.envoyproxy.envoy.config.core.v3.RequestMethod;
+import io.envoyproxy.envoy.config.core.v3.SocketAddress;
+import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
+import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
+import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
+
+public final class XdsEndpointUtil {
+
+    private XdsEndpointUtil() {}
+
+    public static EndpointGroup convertEndpointGroup(ClusterSnapshot clusterSnapshot) {
+        final EndpointSnapshot endpointSnapshot = clusterSnapshot.endpointSnapshot();
+        if (endpointSnapshot == null) {
+            return EndpointGroup.of();
+        }
+        final Cluster cluster = clusterSnapshot.xdsResource().resource();
+        final EndpointGroup endpointGroup;
+        switch (cluster.getType()) {
+            case STATIC:
+            case EDS:
+                endpointGroup = staticEndpointGroup(clusterSnapshot);
+                break;
+            case STRICT_DNS:
+                endpointGroup = strictDnsEndpointGroup(clusterSnapshot);
+                break;
+            default:
+                throw new UnsupportedOperationException("Unsupported cluster type: " + cluster.getType() + '.' +
+                                                        "Only (STATIC, STRICT_DNS, EDS) are supported.");
+        }
+        if (!cluster.getHealthChecksList().isEmpty()) {
+            // multiple health-checks aren't supported
+            final HealthCheck healthCheck = cluster.getHealthChecksList().get(0);
+            return maybeHealthChecked(endpointGroup, healthCheck);
+        }
+        return endpointGroup;
+    }
+
+    private static EndpointGroup maybeHealthChecked(EndpointGroup delegate, HealthCheck healthCheck) {
+        if (healthCheck.hasHttpHealthCheck()) {
+            return delegate;
+        }
+        final HttpHealthCheck httpHealthCheck = healthCheck.getHttpHealthCheck();
+        final String path = httpHealthCheck.getPath();
+
+        // TODO: @jrhee17 We can't support SessionProtocol, Excluded endpoints,
+        // Per cluster member health checking, etc.. without refactoring.
+        // For now, just simply health check all targets depending on the cluster configuration.
+        return HealthCheckedEndpointGroup.builder(delegate, path)
+                                         .useGet(healthCheckMethod(httpHealthCheck) == HttpMethod.GET)
+                                         .build();
+    }
+
+    private static HttpMethod healthCheckMethod(HttpHealthCheck httpHealthCheck) {
+        if (httpHealthCheck.getMethod() == RequestMethod.GET) {
+            return HttpMethod.GET;
+        }
+        return HttpMethod.HEAD;
+    }
+
+    private static EndpointGroup staticEndpointGroup(ClusterSnapshot clusterSnapshot) {
+        final EndpointSnapshot endpointSnapshot = clusterSnapshot.endpointSnapshot();
+        assert endpointSnapshot != null;
+        final List<Endpoint> endpoints = convertEndpointGroup(endpointSnapshot.xdsResource().resource());
+        return EndpointGroup.of(endpoints);
+    }
+
+    static EndpointGroup strictDnsEndpointGroup(ClusterSnapshot clusterSnapshot) {
+        final EndpointSnapshot endpointSnapshot = clusterSnapshot.endpointSnapshot();
+        assert endpointSnapshot != null;
+        final Cluster cluster = clusterSnapshot.xdsResource().resource();
+
+
+        final ImmutableList.Builder<EndpointGroup > endpointGroupBuilder = ImmutableList.builder();
+        final ClusterLoadAssignment loadAssignment = endpointSnapshot.xdsResource().resource();
+        for (LocalityLbEndpoints localityLbEndpoints: loadAssignment.getEndpointsList()) {
+            for (LbEndpoint lbEndpoint: localityLbEndpoints.getLbEndpointsList()) {
+                final SocketAddress socketAddress = lbEndpoint.getEndpoint().getAddress().getSocketAddress();
+                final String dnsAddress = socketAddress.getAddress();
+                final DnsAddressEndpointGroupBuilder builder = DnsAddressEndpointGroup.builder(dnsAddress);
+                if (socketAddress.hasPortValue()) {
+                    builder.port(socketAddress.getPortValue());
+                }
+                if (!cluster.getRespectDnsTtl()) {
+                    final int refreshRateSeconds =
+                            cluster.hasDnsRefreshRate() ?
+                            Ints.saturatedCast(cluster.getDnsRefreshRate().getSeconds()) : 5;
+                    builder.ttl(refreshRateSeconds, refreshRateSeconds);
+
+                    if (cluster.hasDnsFailureRefreshRate()) {
+                        final RefreshRate failureRefreshRate = cluster.getDnsFailureRefreshRate();
+                        int baseSeconds = refreshRateSeconds;
+                        int maxSeconds = refreshRateSeconds;
+                        if (failureRefreshRate.hasBaseInterval()) {
+                            baseSeconds = Ints.saturatedCast(failureRefreshRate.getBaseInterval().getSeconds());
+                        }
+                        if (failureRefreshRate.hasMaxInterval()) {
+                            maxSeconds = Ints.saturatedCast(failureRefreshRate.getMaxInterval().getSeconds());
+                        }
+                        builder.backoff(Backoff.random(baseSeconds, maxSeconds));
+                    }
+                }
+                // We could also use cluster.getDnsLookupFamily() after publicly opening
+                // DnsAddressEndpointGroupBuilder#resolvedAddressTypes
+
+                // wrap in an assigning EndpointGroup to set appropriate attributes
+                final EndpointGroup xdsEndpointGroup = new XdsAttributeAssigningEndpointGroup(
+                        builder.build(), localityLbEndpoints, lbEndpoint);
+                endpointGroupBuilder.add(xdsEndpointGroup);
+            }
+        }
+        return EndpointGroup.of(endpointGroupBuilder.build());
+    }
+
+    public static List<Endpoint> convertEndpointGroup(ClusterLoadAssignment clusterLoadAssignment) {
+        return convertEndpointGroup(clusterLoadAssignment, lbEndpoint -> true);
+    }
+
+    public static List<Endpoint> convertEndpointGroup(ClusterLoadAssignment clusterLoadAssignment, Struct filterMetadata) {
+        checkArgument(filterMetadata.getFieldsCount() > 0,
+                      "filterMetadata.getFieldsCount(): %s (expected: > 0)", filterMetadata.getFieldsCount());
+        final Predicate<LbEndpoint> lbEndpointPredicate = lbEndpoint -> {
+            final Struct endpointMetadata = lbEndpoint.getMetadata().getFilterMetadataOrDefault(
+                    SUBSET_LOAD_BALANCING_FILTER_NAME, Struct.getDefaultInstance());
+            if (endpointMetadata.getFieldsCount() == 0) {
+                return false;
+            }
+            return containsFilterMetadata(filterMetadata, endpointMetadata);
+        };
+        return convertEndpointGroup(clusterLoadAssignment, lbEndpointPredicate);
+    }
+
+    private static List<Endpoint> convertEndpointGroup(ClusterLoadAssignment clusterLoadAssignment,
+                                                       Predicate<LbEndpoint> lbEndpointPredicate) {
+        return clusterLoadAssignment.getEndpointsList().stream().flatMap(
+                localityLbEndpoints -> localityLbEndpoints
+                        .getLbEndpointsList()
+                        .stream()
+                        .filter(lbEndpointPredicate)
+                        .map(lbEndpoint -> {
+                            final SocketAddress socketAddress =
+                                    lbEndpoint.getEndpoint().getAddress().getSocketAddress();
+                            final String hostname = lbEndpoint.getEndpoint().getHostname();
+                            final int weight = endpointWeight(lbEndpoint);
+                            if (!Strings.isNullOrEmpty(hostname)) {
+                                return Endpoint.of(hostname, socketAddress.getPortValue())
+                                               .withIpAddr(socketAddress.getAddress())
+                                               .withAttr(XdsAttributesKeys.LB_ENDPOINT_KEY, lbEndpoint)
+                                               .withAttr(XdsAttributesKeys.LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints);
+                            } else {
+                                return Endpoint.of(socketAddress.getAddress(), socketAddress.getPortValue())
+                                               .withAttr(XdsAttributesKeys.LB_ENDPOINT_KEY, lbEndpoint)
+                                               .withAttr(XdsAttributesKeys.LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints)
+                                               .withWeight(weight);
+                            }
+                        })).collect(toImmutableList());
+    }
+
+    static int endpointWeight(LbEndpoint lbEndpoint) {
+        return lbEndpoint.hasLoadBalancingWeight() ?
+               Math.max(1, lbEndpoint.getLoadBalancingWeight().getValue()) : 1;
+    }
+
+    private static boolean containsFilterMetadata(Struct filterMetadata, Struct endpointMetadata) {
+        final Map<String, Value> endpointMetadataMap = endpointMetadata.getFieldsMap();
+        for (Entry<String, Value> entry : filterMetadata.getFieldsMap().entrySet()) {
+            final Value value = endpointMetadataMap.get(entry.getKey());
+            if (value == null || !value.equals(entry.getValue())) {
+                return false;
+            }
+        }
+        return true;
+    }
+}

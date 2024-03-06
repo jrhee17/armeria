@@ -16,10 +16,9 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.linecorp.armeria.xds.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
-import static com.linecorp.armeria.xds.XdsConverterUtil.convertEndpoints;
 import static com.linecorp.armeria.xds.XdsTestResources.endpoint;
 import static com.linecorp.armeria.xds.XdsTestResources.stringValue;
+import static com.linecorp.armeria.xds.internal.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -29,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import com.google.protobuf.Struct;
 
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.xds.internal.XdsEndpointUtil;
 
 import io.envoyproxy.envoy.config.core.v3.Metadata;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
@@ -41,10 +41,11 @@ class XdsConverterUtilTest {
     void convertEndpointsWithFilterMetadata() {
         final ClusterLoadAssignment loadAssignment = sampleClusterLoadAssignment();
         final List<Endpoint> endpoints =
-                convertEndpoints(loadAssignment, Struct.newBuilder()
-                                                       .putFields("foo", stringValue("foo1"))
-                                                       .putFields("bar", stringValue("bar1"))
-                                                       .build());
+                XdsEndpointUtil.convertEndpointGroup(loadAssignment,
+                                                     Struct.newBuilder()
+                                                           .putFields("foo", stringValue("foo1"))
+                                                           .putFields("bar", stringValue("bar1"))
+                                                           .build());
         assertThat(endpoints).containsExactly(Endpoint.of("127.0.0.1", 8082));
     }
 
