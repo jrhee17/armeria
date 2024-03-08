@@ -24,29 +24,20 @@ import io.envoyproxy.envoy.config.core.v3.Metadata;
 import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
 
-class UpstreamHost {
-    private final Endpoint endpoint;
-    private final Locality locality;
-    private final int priority;
-    final LbEndpoint lbEndpoint;
-    final LocalityLbEndpoints localityLbEndpoints;
+final class EndpointUtil {
 
-    UpstreamHost(Endpoint endpoint) {
-        this.endpoint = endpoint;
-
-        final LbEndpoint lbEndpoint = endpoint.attr(XdsAttributesKeys.LB_ENDPOINT_KEY);
-        final LocalityLbEndpoints localityLbEndpoints = endpoint.attr(
-                XdsAttributesKeys.LOCALITY_LB_ENDPOINTS_KEY);
-        assert lbEndpoint != null;
-        assert localityLbEndpoints != null;
-        this.lbEndpoint = lbEndpoint;
-        this.localityLbEndpoints = localityLbEndpoints;
-        locality = localityLbEndpoints.hasLocality() ? localityLbEndpoints.getLocality()
-                                                     : Locality.getDefaultInstance();
-        priority = localityLbEndpoints.getPriority();
+    static Metadata metadata(Endpoint endpoint) {
+        return lbEndpoint(endpoint).getMetadata();
     }
 
-    CoarseHealth coarseHealth() {
+    static Locality locality(Endpoint endpoint) {
+        final LocalityLbEndpoints localityLbEndpoints = localityLbEndpoints(endpoint);
+        return localityLbEndpoints.hasLocality() ? localityLbEndpoints.getLocality()
+                                                 : Locality.getDefaultInstance();
+    }
+
+    static CoarseHealth coarseHealth(Endpoint endpoint) {
+        final LbEndpoint lbEndpoint = lbEndpoint(endpoint);
         if (!lbEndpoint.getEndpoint().hasHealthCheckConfig()) {
             return CoarseHealth.HEALTHY;
         }
@@ -60,29 +51,28 @@ class UpstreamHost {
         }
     }
 
-    public Endpoint endpoint() {
-        return endpoint;
+    static int priority(Endpoint endpoint) {
+        return localityLbEndpoints(endpoint).getPriority();
     }
 
-    public int weight() {
-        return endpoint.weight();
+    private static LbEndpoint lbEndpoint(Endpoint endpoint) {
+        final LbEndpoint lbEndpoint = endpoint.attr(XdsAttributesKeys.LB_ENDPOINT_KEY);
+        assert lbEndpoint != null;
+        return lbEndpoint;
     }
 
-    public Locality locality() {
-        return locality;
+    private static LocalityLbEndpoints localityLbEndpoints(Endpoint endpoint) {
+        final LocalityLbEndpoints localityLbEndpoints = endpoint.attr(
+                XdsAttributesKeys.LOCALITY_LB_ENDPOINTS_KEY);
+        assert localityLbEndpoints != null;
+        return localityLbEndpoints;
     }
 
-    public int priority() {
-        return priority;
-    }
-
-    public Metadata metadata() {
-        return lbEndpoint.getMetadata();
-    }
-
-    public enum CoarseHealth {
+    enum CoarseHealth {
         HEALTHY,
         DEGRADED,
         UNHEALTHY,
     }
+
+    private EndpointUtil() {}
 }

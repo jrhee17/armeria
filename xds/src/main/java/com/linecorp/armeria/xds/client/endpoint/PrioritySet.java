@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import static com.linecorp.armeria.xds.client.endpoint.EndpointUtil.coarseHealth;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,9 +27,11 @@ import java.util.TreeSet;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.UpstreamHost.CoarseHealth;
+import com.linecorp.armeria.xds.client.endpoint.EndpointUtil.CoarseHealth;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.CommonLbConfig;
@@ -104,7 +108,7 @@ final class PrioritySet {
         return hostSets.computeIfAbsent(priority,
                                         ignored -> new HostSet(params,
                                                                localityWeightsMap, weightedPriorityHealth,
-                                                               overProvisioningFactor, selectionStrategy));
+                                                               overProvisioningFactor));
     }
 
     void updateHosts(int priority, UpdateHostsParam params,
@@ -126,31 +130,30 @@ final class PrioritySet {
      * Hosts per partition.
      */
     static class UpdateHostsParam {
-        private final List<UpstreamHost> hosts;
-        private final List<UpstreamHost> healthyHosts;
-        private final List<UpstreamHost> degradedHosts;
-        private final Map<Locality, List<UpstreamHost>> hostsPerLocality;
-        private final Map<Locality, List<UpstreamHost>> healthyHostsPerLocality;
-        private final Map<Locality, List<UpstreamHost>> degradedHostsPerLocality;
+        private final EndpointGroup hosts;
+        private final EndpointGroup healthyHosts;
+        private final EndpointGroup degradedHosts;
+        private final Map<Locality, EndpointGroup> hostsPerLocality;
+        private final Map<Locality, EndpointGroup> healthyHostsPerLocality;
+        private final Map<Locality, EndpointGroup> degradedHostsPerLocality;
 
-        UpdateHostsParam(List<UpstreamHost> hosts, Map<Locality, List<UpstreamHost>> hostsPerLocality) {
-            this.hosts = hosts;
-            this.hostsPerLocality = hostsPerLocality;
-            healthyHosts = hosts.stream().filter(host -> host.coarseHealth() == CoarseHealth.HEALTHY)
-                                .collect(Collectors.toList());
-            healthyHostsPerLocality = withPredicate(hostsPerLocality,
-                                                    host -> host.coarseHealth() == CoarseHealth.UNHEALTHY);
-            degradedHosts = hosts.stream().filter(host -> host.coarseHealth() == CoarseHealth.DEGRADED)
-                                 .collect(Collectors.toList());
-            degradedHostsPerLocality = withPredicate(hostsPerLocality,
-                                                     host -> host.coarseHealth() == CoarseHealth.DEGRADED);
+        UpdateHostsParam(List<Endpoint> endpoints, Map<Locality, List<Endpoint>> endpointsPerLocality,
+                         EndpointSelectionStrategy strategy) {
+            hosts = EndpointGroupUtil.filter(endpoints, strategy, ignored -> true);
+            hostsPerLocality = EndpointGroupUtil.filterByLocality(endpointsPerLocality, strategy, ignored -> true);
+            healthyHosts = EndpointGroupUtil.filter(endpoints, strategy, endpoint -> coarseHealth(endpoint) == CoarseHealth.HEALTHY);
+            healthyHostsPerLocality = EndpointGroupUtil.filterByLocality(endpointsPerLocality, strategy,
+                                                                         endpoint -> coarseHealth(endpoint) == CoarseHealth.HEALTHY);
+            degradedHosts = EndpointGroupUtil.filter(endpoints, strategy, endpoint -> coarseHealth(endpoint) == CoarseHealth.DEGRADED);
+            degradedHostsPerLocality = EndpointGroupUtil.filterByLocality(endpointsPerLocality, strategy,
+                                                                          endpoint -> coarseHealth(endpoint) == CoarseHealth.DEGRADED);
         }
 
-        UpdateHostsParam(List<UpstreamHost> hosts, List<UpstreamHost> healthyHosts,
-                         List<UpstreamHost> degradedHosts,
-                         Map<Locality, List<UpstreamHost>> hostsPerLocality,
-                         Map<Locality, List<UpstreamHost>> healthyHostsPerLocality,
-                         Map<Locality, List<UpstreamHost>> degradedHostsPerLocality) {
+        UpdateHostsParam(EndpointGroup hosts, EndpointGroup healthyHosts,
+                         EndpointGroup degradedHosts,
+                         Map<Locality, EndpointGroup> hostsPerLocality,
+                         Map<Locality, EndpointGroup> healthyHostsPerLocality,
+                         Map<Locality, EndpointGroup> degradedHostsPerLocality) {
             this.hosts = hosts;
             this.healthyHosts = healthyHosts;
             this.degradedHosts = degradedHosts;
@@ -159,37 +162,37 @@ final class PrioritySet {
             this.degradedHostsPerLocality = degradedHostsPerLocality;
         }
 
-        public List<UpstreamHost> hosts() {
+        public EndpointGroup hosts() {
             return hosts;
         }
 
-        public Map<Locality, List<UpstreamHost>> hostsPerLocality() {
+        public Map<Locality, EndpointGroup> hostsPerLocality() {
             return hostsPerLocality;
         }
 
-        public List<UpstreamHost> healthyHosts() {
+        public EndpointGroup healthyHosts() {
             return healthyHosts;
         }
 
-        public Map<Locality, List<UpstreamHost>> healthyHostsPerLocality() {
+        public Map<Locality, EndpointGroup> healthyHostsPerLocality() {
             return healthyHostsPerLocality;
         }
 
-        public List<UpstreamHost> degradedHosts() {
+        public EndpointGroup degradedHosts() {
             return degradedHosts;
         }
 
-        public Map<Locality, List<UpstreamHost>> degradedHostsPerLocality() {
+        public Map<Locality, EndpointGroup> degradedHostsPerLocality() {
             return degradedHostsPerLocality;
         }
 
-        static Map<Locality, List<UpstreamHost>> withPredicate(
-                Map<Locality, List<UpstreamHost>> hostsPerLocality,
-                Predicate<UpstreamHost> hostPredicate) {
-            final Map<Locality, List<UpstreamHost>> retMap = new HashMap<>();
-            for (Entry<Locality, List<UpstreamHost>> entry : hostsPerLocality.entrySet()) {
-                final List<UpstreamHost> filtered = entry.getValue().stream()
-                                                         .filter(hostPredicate).collect(Collectors.toList());
+        static Map<Locality, List<Endpoint>> withPredicate(
+                Map<Locality, List<Endpoint>> hostsPerLocality,
+                Predicate<Endpoint> hostPredicate) {
+            final Map<Locality, List<Endpoint>> retMap = new HashMap<>();
+            for (Entry<Locality, List<Endpoint>> entry : hostsPerLocality.entrySet()) {
+                final List<Endpoint> filtered = entry.getValue().stream()
+                                                     .filter(hostPredicate).collect(Collectors.toList());
                 retMap.put(entry.getKey(), filtered);
             }
             return retMap;

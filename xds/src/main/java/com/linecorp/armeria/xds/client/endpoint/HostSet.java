@@ -16,17 +16,14 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
+import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
-import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.endpoint.WeightedRandomDistributionSelector;
 import com.linecorp.armeria.xds.client.endpoint.PrioritySet.UpdateHostsParam;
@@ -34,13 +31,6 @@ import com.linecorp.armeria.xds.client.endpoint.PrioritySet.UpdateHostsParam;
 import io.envoyproxy.envoy.config.core.v3.Locality;
 
 class HostSet {
-
-    private final List<UpstreamHost> hosts;
-    private final Map<Locality, List<UpstreamHost>> hostsPerLocality;
-    private final List<UpstreamHost> healthyHosts;
-    private final Map<Locality, List<UpstreamHost>> healthyHostsPerLocality;
-    private final List<UpstreamHost> degradedHosts;
-    private final Map<Locality, List<UpstreamHost>> degradedHostsPerLocality;
     private final Map<Locality, Integer> localityWeightsMap;
     private final boolean weightedPriorityHealth;
     private final int overProvisioningFactor;
@@ -50,80 +40,49 @@ class HostSet {
     private final WeightedRandomDistributionSelector<LocalityEntry> degradedLocalitySelector;
 
     private final EndpointGroup hostsEndpointGroup;
+    private final Map<Locality, EndpointGroup> endpointGroupPerLocality;
     private final EndpointGroup healthyHostsEndpointGroup;
     private final Map<Locality, EndpointGroup> healthyEndpointGroupPerLocality;
     private final EndpointGroup degradedHostsEndpointGroup;
     private final Map<Locality, EndpointGroup> degradedEndpointGroupPerLocality;
 
     HostSet(UpdateHostsParam params, Map<Locality, Integer> localityWeightsMap,
-            boolean weightedPriorityHealth, int overProvisioningFactor,
-            EndpointSelectionStrategy selectionStrategy) {
-        hosts = params.hosts();
-        hostsPerLocality = params.hostsPerLocality();
-        healthyHosts = params.healthyHosts();
-        healthyHostsPerLocality = params.healthyHostsPerLocality();
-        degradedHosts = params.degradedHosts();
-        degradedHostsPerLocality = params.degradedHostsPerLocality();
+            boolean weightedPriorityHealth, int overProvisioningFactor) {
         this.localityWeightsMap = localityWeightsMap;
         this.weightedPriorityHealth = weightedPriorityHealth;
         this.overProvisioningFactor = overProvisioningFactor;
 
-        healthyLocalitySelector = rebuildLocalityScheduler(healthyHostsPerLocality, hostsPerLocality,
+        healthyLocalitySelector = rebuildLocalityScheduler(params.healthyHostsPerLocality(), params.hostsPerLocality(),
                                                            localityWeightsMap, overProvisioningFactor);
-        degradedLocalitySelector = rebuildLocalityScheduler(degradedHostsPerLocality, hostsPerLocality,
+        degradedLocalitySelector = rebuildLocalityScheduler(params.degradedHostsPerLocality(), params.hostsPerLocality(),
                                                             localityWeightsMap, overProvisioningFactor);
 
-        hostsEndpointGroup = endpointGroup(selectionStrategy, hosts);
-        healthyHostsEndpointGroup = endpointGroup(selectionStrategy, healthyHosts);
-        degradedHostsEndpointGroup = endpointGroup(selectionStrategy, degradedHosts);
-        healthyEndpointGroupPerLocality =
-                healthyHostsPerLocality.entrySet().stream()
-                                       .collect(Collectors.toMap(
-                                               Entry::getKey,
-                                               e -> endpointGroup(selectionStrategy, e.getValue())));
-        degradedEndpointGroupPerLocality =
-                degradedHostsPerLocality.entrySet().stream()
-                                        .collect(Collectors.toMap(
-                                                Entry::getKey,
-                                                e -> endpointGroup(selectionStrategy, e.getValue())));
-    }
-
-    static EndpointGroup endpointGroup(EndpointSelectionStrategy selectionStrategy,
-                                       List<UpstreamHost> hosts) {
-        return EndpointGroup.of(selectionStrategy, hosts.stream().map(UpstreamHost::endpoint)
-                                                        .collect(ImmutableList.toImmutableList()));
-    }
-
-    List<UpstreamHost> hosts() {
-        return hosts;
-    }
-
-    Map<Locality, List<UpstreamHost>> hostsPerLocality() {
-        return hostsPerLocality;
-    }
-
-    List<UpstreamHost> healthyHosts() {
-        return healthyHosts;
-    }
-
-    Map<Locality, List<UpstreamHost>> healthyHostsPerLocality() {
-        return healthyHostsPerLocality;
-    }
-
-    List<UpstreamHost> degradedHosts() {
-        return degradedHosts;
-    }
-
-    Map<Locality, List<UpstreamHost>> degradedHostsPerLocality() {
-        return degradedHostsPerLocality;
+        hostsEndpointGroup = params.hosts();
+        healthyHostsEndpointGroup = params.healthyHosts();
+        degradedHostsEndpointGroup = params.degradedHosts();
+        endpointGroupPerLocality = params.hostsPerLocality();
+        healthyEndpointGroupPerLocality = params.healthyHostsPerLocality();
+        degradedEndpointGroupPerLocality = params.degradedHostsPerLocality();
     }
 
     Map<Locality, Integer> localityWeightsMap() {
         return localityWeightsMap;
     }
 
+    List<Endpoint> hosts() {
+        return hostsEndpointGroup.endpoints();
+    }
+
     EndpointGroup hostsEndpointGroup() {
         return hostsEndpointGroup;
+    }
+
+    Map<Locality, EndpointGroup> endpointGroupPerLocality() {
+        return endpointGroupPerLocality;
+    }
+
+    List<Endpoint> healthyHosts() {
+        return healthyHostsEndpointGroup.endpoints();
     }
 
     EndpointGroup healthyHostsEndpointGroup() {
@@ -132,6 +91,10 @@ class HostSet {
 
     Map<Locality, EndpointGroup> healthyEndpointGroupPerLocality() {
         return healthyEndpointGroupPerLocality;
+    }
+
+    List<Endpoint> degradedHosts() {
+        return degradedHostsEndpointGroup.endpoints();
     }
 
     EndpointGroup degradedHostsEndpointGroup() {
@@ -151,8 +114,8 @@ class HostSet {
     }
 
     private static WeightedRandomDistributionSelector<LocalityEntry> rebuildLocalityScheduler(
-            Map<Locality, List<UpstreamHost>> eligibleHostsPerLocality,
-            Map<Locality, List<UpstreamHost>> allHostsPerLocality,
+            Map<Locality, EndpointGroup> eligibleHostsPerLocality,
+            Map<Locality, EndpointGroup> allHostsPerLocality,
             Map<Locality, Integer> localityWeightsMap,
             int overProvisioningFactor) {
         final ImmutableList.Builder<LocalityEntry> localityWeightsBuilder = ImmutableList.builder();
@@ -168,17 +131,17 @@ class HostSet {
     }
 
     static double effectiveLocalityWeight(Locality locality,
-                                          Map<Locality, List<UpstreamHost>> eligibleHostsPerLocality,
-                                          Map<Locality, List<UpstreamHost>> allHostsPerLocality,
+                                          Map<Locality, EndpointGroup> eligibleHostsPerLocality,
+                                          Map<Locality, EndpointGroup> allHostsPerLocality,
                                           Map<Locality, Integer> localityWeightsMap,
                                           int overProvisioningFactor) {
-        final List<UpstreamHost> localityEligibleHosts =
-                eligibleHostsPerLocality.getOrDefault(locality, Collections.emptyList());
-        final int hostCount = allHostsPerLocality.getOrDefault(locality, Collections.emptyList()).size();
+        final EndpointGroup localityEligibleHosts =
+                eligibleHostsPerLocality.getOrDefault(locality, EndpointGroup.of());
+        final int hostCount = allHostsPerLocality.getOrDefault(locality, EndpointGroup.of()).endpoints().size();
         if (hostCount <= 0) {
             return 0;
         }
-        final double localityAvailabilityRatio = 1.0 * localityEligibleHosts.size() / hostCount;
+        final double localityAvailabilityRatio = 1.0 * localityEligibleHosts.endpoints().size() / hostCount;
         final int weight = localityWeightsMap.getOrDefault(locality, 0);
         final double effectiveLocalityAvailabilityRatio =
                 Math.min(1.0, (overProvisioningFactor / 100.0) * localityAvailabilityRatio);

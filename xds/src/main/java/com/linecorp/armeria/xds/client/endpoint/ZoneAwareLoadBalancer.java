@@ -224,13 +224,13 @@ final class ZoneAwareLoadBalancer implements LoadBalancer {
                 long degradedWeight = 0;
                 long totalWeight = 0;
                 if (hostSet.weightedPriorityHealth()) {
-                    for (UpstreamHost host: hostSet.healthyHosts()) {
+                    for (Endpoint host: hostSet.healthyHosts()) {
                         healthyWeight += host.weight();
                     }
-                    for (UpstreamHost host: hostSet.degradedHosts()) {
+                    for (Endpoint host: hostSet.degradedHosts()) {
                         degradedWeight += host.weight();
                     }
-                    for (UpstreamHost host: hostSet.hosts()) {
+                    for (Endpoint host: hostSet.hosts()) {
                         totalWeight += host.weight();
                     }
                 } else {

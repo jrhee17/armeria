@@ -46,6 +46,7 @@ import com.google.protobuf.Value.KindCase;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.client.endpoint.PrioritySet.UpdateHostsParam;
@@ -265,14 +266,14 @@ final class SubsetLoadBalancer implements LoadBalancer {
 
         void processSubsets(int priority, HostSet hostSet) {
             final Map<Struct, SubsetPrioritySet> prioritySets = new HashMap<>();
-            for (UpstreamHost host: hostSet.hosts()) {
+            for (Endpoint endpoint: hostSet.hosts()) {
                 for (SubsetSelector selector: subsetInfo.subsetSelectors()) {
                     final List<Struct> allKvs =
-                            extractSubsetMetadata(selector.keys, host);
+                            extractSubsetMetadata(selector.keys, endpoint);
                     for (Struct kvs: allKvs) {
                         prioritySets.computeIfAbsent(kvs, ignored -> new SubsetPrioritySet(
                                             origPrioritySet, scaleLocalityWeight))
-                               .pushHost(priority, host);
+                               .pushHost(priority, endpoint);
                     }
                 }
             }
@@ -298,27 +299,27 @@ final class SubsetLoadBalancer implements LoadBalancer {
             }
         }
 
-        boolean hostMatches(Struct metadata, UpstreamHost host) {
+        boolean hostMatches(Struct metadata, Endpoint endpoint) {
             return MetadataUtil.metadataLabelMatch(
-                    metadata, host.metadata(), SUBSET_LOAD_BALANCING_FILTER_NAME, listAsAny);
+                    metadata, EndpointUtil.metadata(endpoint), SUBSET_LOAD_BALANCING_FILTER_NAME, listAsAny);
         }
 
         SubsetPrioritySet updateSubset(int priority, HostSet hostSet,
-                                       Predicate<UpstreamHost> hostPredicate) {
+                                       Predicate<Endpoint> hostPredicate) {
             final SubsetPrioritySet subsetPrioritySet = new SubsetPrioritySet(origPrioritySet,
                                                                               scaleLocalityWeight);
-            for (UpstreamHost upstreamHost: hostSet.hosts()) {
-                if (!hostPredicate.test(upstreamHost)) {
+            for (Endpoint endpoint: hostSet.hosts()) {
+                if (!hostPredicate.test(endpoint)) {
                     continue;
                 }
-                subsetPrioritySet.pushHost(priority, upstreamHost);
+                subsetPrioritySet.pushHost(priority, endpoint);
             }
             subsetPrioritySet.finalize(priority);
             return subsetPrioritySet;
         }
 
-        List<Struct> extractSubsetMetadata(Set<String> subsetKeys, UpstreamHost host) {
-            final Metadata metadata = host.metadata();
+        List<Struct> extractSubsetMetadata(Set<String> subsetKeys, Endpoint endpoint) {
+            final Metadata metadata = EndpointUtil.metadata(endpoint);
             if (metadata == Metadata.getDefaultInstance()) {
                 return Collections.emptyList();
             }
@@ -480,7 +481,7 @@ final class SubsetLoadBalancer implements LoadBalancer {
 
     static class SubsetPrioritySet {
 
-        private final Map<Integer, Set<UpstreamHost>> rawHostsSet = new HashMap<>();
+        private final Map<Integer, Set<Endpoint>> rawHostsSet = new HashMap<>();
         private final PrioritySet origPrioritySet;
         private final PrioritySet prioritySet;
         private final boolean scaleLocalityWeight;
@@ -492,30 +493,27 @@ final class SubsetLoadBalancer implements LoadBalancer {
             this.scaleLocalityWeight = scaleLocalityWeight;
         }
 
-        void pushHost(int priority, UpstreamHost host) {
+        void pushHost(int priority, Endpoint host) {
             rawHostsSet.computeIfAbsent(priority, ignored -> new HashSet<>())
                        .add(host);
         }
 
         void finalize(int priority) {
             final HostSet origHostSet = origPrioritySet.hostSets().get(priority);
-            final Set<UpstreamHost> newHostSet = rawHostsSet.get(priority);
+            final Set<Endpoint> newHostSet = rawHostsSet.get(priority);
             assert origHostSet != null;
-            final List<UpstreamHost> hosts = origHostSet.hosts().stream()
-                                                        .filter(newHostSet::contains)
-                                                        .collect(Collectors.toList());
-            final List<UpstreamHost> healthyHosts = origHostSet.healthyHosts().stream()
-                                                               .filter(newHostSet::contains)
-                                                               .collect(Collectors.toList());
-            final List<UpstreamHost> degradedHosts = origHostSet.degradedHosts().stream()
-                                                                .filter(newHostSet::contains)
-                                                                .collect(Collectors.toList());
-            final Map<Locality, List<UpstreamHost>> hostsPerLocality =
-                    filterByLocality(origHostSet.hostsPerLocality(), newHostSet::contains);
-            final Map<Locality, List<UpstreamHost>> healthyHostsPerLocality =
-                    filterByLocality(origHostSet.healthyHostsPerLocality(), newHostSet::contains);
-            final Map<Locality, List<UpstreamHost>> degradedHostsPerLocality =
-                    filterByLocality(origHostSet.degradedHostsPerLocality(), newHostSet::contains);
+            final EndpointGroup hosts =
+                    EndpointGroupUtil.filter(origHostSet.hostsEndpointGroup(), newHostSet::contains);
+            final EndpointGroup healthyHosts =
+                    EndpointGroupUtil.filter(origHostSet.healthyHostsEndpointGroup(), newHostSet::contains);
+            final EndpointGroup degradedHosts =
+                    EndpointGroupUtil.filter(origHostSet.degradedHostsEndpointGroup(), newHostSet::contains);
+            final Map<Locality, EndpointGroup> hostsPerLocality =
+                    EndpointGroupUtil.filterByLocality(origHostSet.endpointGroupPerLocality(), newHostSet::contains);
+            final Map<Locality, EndpointGroup> healthyHostsPerLocality =
+                    EndpointGroupUtil.filterByLocality(origHostSet.healthyEndpointGroupPerLocality(), newHostSet::contains);
+            final Map<Locality, EndpointGroup> degradedHostsPerLocality =
+                    EndpointGroupUtil.filterByLocality(origHostSet.degradedEndpointGroupPerLocality(), newHostSet::contains);
 
             final Map<Locality, Integer> localityWeightsMap =
                     determineLocalityWeights(hostsPerLocality, origHostSet);
@@ -525,34 +523,20 @@ final class SubsetLoadBalancer implements LoadBalancer {
             prioritySet.getOrCreateHostSet(priority, params, localityWeightsMap, false, 140);
         }
 
-        Map<Locality, Integer> determineLocalityWeights(Map<Locality, List<UpstreamHost>> hostsPerLocality,
+        Map<Locality, Integer> determineLocalityWeights(Map<Locality, EndpointGroup> hostsPerLocality,
                                                         HostSet origHostSet) {
             final Map<Locality, Integer> localityWeightsMap = origHostSet.localityWeightsMap();
             if (!scaleLocalityWeight) {
                 return localityWeightsMap;
             }
-            final Map<Locality, List<UpstreamHost>> origHostsPerLocality = origHostSet.hostsPerLocality();
+            final Map<Locality, EndpointGroup> origHostsPerLocality = origHostSet.endpointGroupPerLocality();
             final ImmutableMap.Builder<Locality, Integer> scaledLocalityWeightsMap = ImmutableMap.builder();
             for (Entry<Locality, Integer> entry: localityWeightsMap.entrySet()) {
-                final float scale = 1.0f * hostsPerLocality.get(entry.getKey()).size() /
-                                    origHostsPerLocality.get(entry.getKey()).size();
+                final float scale = 1.0f * hostsPerLocality.get(entry.getKey()).endpoints().size() /
+                                    origHostsPerLocality.get(entry.getKey()).endpoints().size();
                 scaledLocalityWeightsMap.put(entry.getKey(), Math.round(scale * entry.getValue()));
             }
             return scaledLocalityWeightsMap.build();
-        }
-
-        Map<Locality, List<UpstreamHost>> filterByLocality(Map<Locality, List<UpstreamHost>> origLocality,
-                                                           Predicate<UpstreamHost> predicate) {
-            final ImmutableMap.Builder<Locality, List<UpstreamHost>> filteredLocality = ImmutableMap.builder();
-            for (Entry<Locality, List<UpstreamHost>> entry: origLocality.entrySet()) {
-                final List<UpstreamHost> filteredHosts = entry.getValue().stream().filter(predicate).collect(
-                        Collectors.toList());
-                if (filteredHosts.isEmpty()) {
-                    continue;
-                }
-                filteredLocality.put(entry.getKey(), filteredHosts);
-            }
-            return filteredLocality.build();
         }
     }
 }
