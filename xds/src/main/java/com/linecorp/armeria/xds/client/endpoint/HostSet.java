@@ -26,7 +26,6 @@ import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.endpoint.WeightedRandomDistributionSelector;
-import com.linecorp.armeria.xds.client.endpoint.PrioritySet.UpdateHostsParam;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
 

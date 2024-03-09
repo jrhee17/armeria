@@ -25,5 +25,5 @@ interface LoadBalancer {
     @Nullable
     Endpoint selectNow(ClientRequestContext ctx);
 
-    void prioritySetUpdated(PrioritySet prioritySet);
+    void prioritySetUpdated(PrioritySetBuilder.PrioritySet prioritySet);
 }

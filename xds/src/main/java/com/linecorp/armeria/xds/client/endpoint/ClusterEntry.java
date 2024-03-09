@@ -16,8 +16,14 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import static com.linecorp.armeria.xds.client.endpoint.EndpointUtil.priority;
+
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -31,9 +37,12 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.EndpointSnapshot;
+import com.linecorp.armeria.xds.client.endpoint.PrioritySetBuilder.PrioritySet;
+import com.linecorp.armeria.xds.client.endpoint.PriorityStateBuilder.PriorityState;
 import com.linecorp.armeria.xds.internal.client.XdsEndpointUtil;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
+import io.envoyproxy.envoy.config.core.v3.Locality;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment.Policy;
 
@@ -94,16 +103,25 @@ final class ClusterEntry implements Consumer<List<Endpoint>>, AsyncCloseable {
     @Override
     public void accept(List<Endpoint> endpoints) {
         this.endpoints = ImmutableList.copyOf(endpoints);
-        final PrioritySet prioritySet = new PrioritySet(cluster, clusterLoadAssignment,
-                                                        endpointSelectionStrategy);
-        final PriorityStateManager priorityStateManager = new PriorityStateManager(endpointSelectionStrategy);
+        final PrioritySetBuilder prioritySetBuilder =
+                new PrioritySetBuilder(cluster, clusterLoadAssignment,
+                                       weightedPriorityHealth, overProvisionFactor);
+        final SortedMap<Integer, PriorityStateBuilder> priorityStateMap = new TreeMap<>();
         for (Endpoint endpoint: endpoints) {
-            priorityStateManager.registerEndpoint(endpoint);
+            final PriorityStateBuilder priorityStateBuilder =
+                    priorityStateMap.computeIfAbsent(priority(endpoint), ignored -> new PriorityStateBuilder());
+            priorityStateBuilder.addEndpoint(endpoint);
         }
-        for (Integer priority: priorityStateManager.priorities()) {
-            priorityStateManager.updateClusterPrioritySet(priority, weightedPriorityHealth,
-                                                          overProvisionFactor, prioritySet);
+        for (Entry<Integer, PriorityStateBuilder> entry: priorityStateMap.entrySet()) {
+            final int priority = entry.getKey();
+            final PriorityState priorityState = entry.getValue().build();
+            final Map<Locality, List<Endpoint>> endpointsPerLocality =
+                    EndpointGroupUtil.endpointsByLocality(priorityState.hosts());
+            final UpdateHostsParam params =
+                    new UpdateHostsParam(priorityState.hosts(), endpointsPerLocality, endpointSelectionStrategy);
+            prioritySetBuilder.createHostSet(priority, params, priorityState.localityWeightsMap());
         }
+        final PrioritySet prioritySet = prioritySetBuilder.build();
         loadBalancer.prioritySetUpdated(prioritySet);
     }
 

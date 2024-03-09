@@ -31,7 +31,6 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.PrioritySet.DistributeLoadState;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
 
@@ -47,7 +46,7 @@ final class ZoneAwareLoadBalancer implements LoadBalancer {
         if (lbState == null) {
             return null;
         }
-        final PrioritySet prioritySet = lbState.prioritySet();
+        final PrioritySetBuilder.PrioritySet prioritySet = lbState.prioritySet();
         if (prioritySet.priorities().isEmpty()) {
             return null;
         }
@@ -90,7 +89,7 @@ final class ZoneAwareLoadBalancer implements LoadBalancer {
     @Nullable
     HostsSource hostSourceToUse(LbState lbState, int hash) {
         final PriorityAndAvailability priorityAndAvailability = lbState.choosePriority(hash);
-        final PrioritySet prioritySet = lbState.prioritySet();
+        final PrioritySetBuilder.PrioritySet prioritySet = lbState.prioritySet();
         final int priority = priorityAndAvailability.priority;
         final HostSet hostSet = prioritySet.hostSets().get(priority);
         final HostAvailability hostAvailability = priorityAndAvailability.hostAvailability;
@@ -149,7 +148,7 @@ final class ZoneAwareLoadBalancer implements LoadBalancer {
     }
 
     @Override
-    public void prioritySetUpdated(PrioritySet prioritySet) {
+    public void prioritySetUpdated(PrioritySetBuilder.PrioritySet prioritySet) {
         final LbState lbState = new LbState(prioritySet);
         for (Integer priority: prioritySet.priorities()) {
             lbState.recalculatePerPriorityState(priority);
@@ -170,7 +169,7 @@ final class ZoneAwareLoadBalancer implements LoadBalancer {
 
     private static class LbState {
 
-        private final PrioritySet prioritySet;
+        private final PrioritySetBuilder.PrioritySet prioritySet;
 
         private final Map<Integer, Integer> perPriorityHealth = new HashMap<>();
         private final Map<Integer, Integer> perPriorityDegraded = new HashMap<>();
@@ -179,7 +178,7 @@ final class ZoneAwareLoadBalancer implements LoadBalancer {
         private final Map<Integer, Integer> healthyPriorityLoad = new HashMap<>();
         private final Map<Integer, Integer> degradedPriorityLoad = new HashMap<>();
 
-        LbState(PrioritySet prioritySet) {
+        LbState(PrioritySetBuilder.PrioritySet prioritySet) {
             this.prioritySet = prioritySet;
         }
 
@@ -207,7 +206,7 @@ final class ZoneAwareLoadBalancer implements LoadBalancer {
             throw new Error("shouldn't reach here");
         }
 
-        PrioritySet prioritySet() {
+        PrioritySetBuilder.PrioritySet prioritySet() {
             return prioritySet;
         }
 
@@ -397,5 +396,15 @@ final class ZoneAwareLoadBalancer implements LoadBalancer {
     enum HostAvailability {
         HEALTHY,
         DEGRADED,
+    }
+
+    static class DistributeLoadState {
+        final int totalLoad;
+        final int firstAvailablePriority;
+
+        DistributeLoadState(int totalLoad, int firstAvailablePriority) {
+            this.totalLoad = totalLoad;
+            this.firstAvailablePriority = firstAvailablePriority;
+        }
     }
 }

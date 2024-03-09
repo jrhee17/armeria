@@ -16,11 +16,8 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import static com.linecorp.armeria.xds.client.endpoint.EndpointUtil.locality;
 import static com.linecorp.armeria.xds.client.endpoint.EndpointUtil.priority;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +26,7 @@ import java.util.TreeMap;
 
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
-import com.linecorp.armeria.xds.client.endpoint.PrioritySet.UpdateHostsParam;
+import com.linecorp.armeria.xds.client.endpoint.PriorityStateBuilder.PriorityState;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
 
@@ -41,38 +38,28 @@ class PriorityStateManager {
         this.strategy = strategy;
     }
 
-    static class PriorityState {
-        private final List<Endpoint> hosts = new ArrayList<>();
-        private final Map<Locality, Integer> localityWeightsMap = new HashMap<>();
-    }
-
-    private final SortedMap<Integer, PriorityState> priorityStateMap = new TreeMap<>();
+    private final SortedMap<Integer, PriorityStateBuilder> priorityStateMap = new TreeMap<>();
 
     Set<Integer> priorities() {
         return priorityStateMap.keySet();
     }
 
     void registerEndpoint(Endpoint endpoint) {
-        final PriorityState priorityState =
-                priorityStateMap.computeIfAbsent(priority(endpoint), ignored -> new PriorityState());
-        priorityState.hosts.add(endpoint);
-        if (locality(endpoint) != Locality.getDefaultInstance()) {
-            priorityState.localityWeightsMap.put(locality(endpoint), endpoint.weight());
-        }
+        final PriorityStateBuilder priorityStateBuilder =
+                priorityStateMap.computeIfAbsent(priority(endpoint), ignored -> new PriorityStateBuilder());
+        priorityStateBuilder.addEndpoint(endpoint);
     }
 
-    public void updateClusterPrioritySet(int priority, boolean weightedPriorityHealth, int overProvisionFactor,
-                                         PrioritySet prioritySet) {
-        final PriorityState priorityState = priorityStateMap.get(priority);
-        assert priorityState != null;
-        final Map<Locality, List<Endpoint>> endpointsPerLocality = new HashMap<>();
-        for (Endpoint endpoint : priorityState.hosts) {
-            endpointsPerLocality.computeIfAbsent(locality(endpoint), ignored -> new ArrayList<>())
-                                .add(endpoint);
-        }
+    public void updateHostsParams(
+            int priority, boolean weightedPriorityHealth, int overProvisionFactor,
+            EndpointSelectionStrategy strategy, PrioritySetBuilder.PrioritySet prioritySet) {
+        final PriorityStateBuilder priorityStateBuilder = priorityStateMap.get(priority);
+        assert priorityStateBuilder != null;
+        final PriorityState priorityState = priorityStateBuilder.build();
+        final Map<Locality, List<Endpoint>> endpointsPerLocality = EndpointGroupUtil.endpointsByLocality(priorityState.hosts());
         final UpdateHostsParam params =
-                new UpdateHostsParam(priorityState.hosts, endpointsPerLocality, strategy);
-        prioritySet.updateHosts(priority, params, priorityState.localityWeightsMap,
+                new UpdateHostsParam(priorityState.hosts(), endpointsPerLocality, strategy);
+        prioritySet.updateHosts(priority, params, priorityState.localityWeightsMap(),
                                 weightedPriorityHealth, overProvisionFactor);
     }
 }

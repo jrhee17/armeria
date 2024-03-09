@@ -24,7 +24,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +48,7 @@ import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
-import com.linecorp.armeria.xds.client.endpoint.PrioritySet.UpdateHostsParam;
+import com.linecorp.armeria.xds.client.endpoint.PrioritySetBuilder.PrioritySet;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetFallbackPolicy;
@@ -86,7 +85,7 @@ final class SubsetLoadBalancer implements LoadBalancer {
     }
 
     @Override
-    public void prioritySetUpdated(PrioritySet prioritySet) {
+    public void prioritySetUpdated(PrioritySetBuilder.PrioritySet prioritySet) {
         lbState = new LbState(prioritySet, subsetInfo, lbSubsetConfig, clusterSnapshot);
     }
 
@@ -118,7 +117,7 @@ final class SubsetLoadBalancer implements LoadBalancer {
 
     static class LbState {
 
-        private final PrioritySet origPrioritySet;
+        private final PrioritySetBuilder.PrioritySet origPrioritySet;
         private final SubsetInfo subsetInfo;
         private final LbSubsetMetadataFallbackPolicy metadataFallbackPolicy;
         @Nullable
@@ -137,7 +136,7 @@ final class SubsetLoadBalancer implements LoadBalancer {
 
         private final List<Struct> fallbackMetadataList;
 
-        LbState(PrioritySet origPrioritySet, SubsetInfo subsetInfo, LbSubsetConfig lbSubsetConfig,
+        LbState(PrioritySetBuilder.PrioritySet origPrioritySet, SubsetInfo subsetInfo, LbSubsetConfig lbSubsetConfig,
                 ClusterSnapshot clusterSnapshot) {
             this.origPrioritySet = origPrioritySet;
             this.subsetInfo = subsetInfo;
@@ -253,6 +252,16 @@ final class SubsetLoadBalancer implements LoadBalancer {
             return selectorMap;
         }
 
+        void refresh() {
+            final Map<Struct, PrioritySet> prioritySets = new HashMap<>();
+            for (SubsetSelector selector: subsetInfo.subsetSelectors()) {
+                final PrioritySetBuilder prioritySetBuilder = new PrioritySetBuilder(origPrioritySet);
+                for (Entry<Integer, HostSet> entry: origPrioritySet.hostSets().entrySet()) {
+
+                }
+            }
+        }
+
         void refreshSubsets() {
             for (Entry<Integer, HostSet> entry: origPrioritySet.hostSets().entrySet()) {
                 update(entry.getKey(), entry.getValue());
@@ -265,20 +274,19 @@ final class SubsetLoadBalancer implements LoadBalancer {
         }
 
         void processSubsets(int priority, HostSet hostSet) {
-            final Map<Struct, SubsetPrioritySet> prioritySets = new HashMap<>();
             for (Endpoint endpoint: hostSet.hosts()) {
                 for (SubsetSelector selector: subsetInfo.subsetSelectors()) {
                     final List<Struct> allKvs =
                             extractSubsetMetadata(selector.keys, endpoint);
                     for (Struct kvs: allKvs) {
-                        prioritySets.computeIfAbsent(kvs, ignored -> new SubsetPrioritySet(
-                                            origPrioritySet, scaleLocalityWeight))
+                        priorityStateMap.computeIfAbsent()
+                        prioritySets.computeIfAbsent(kvs, ignored -> new PriorityStateBuilder())
                                .pushHost(priority, endpoint);
                     }
                 }
             }
             final Map<Struct, LbSubsetEntry> subsets = new HashMap<>();
-            for (Entry<Struct, SubsetPrioritySet> entry: prioritySets.entrySet()) {
+            for (Entry<Struct, SubsetPrioritySetBuilder> entry: prioritySets.entrySet()) {
                 entry.getValue().finalize(priority);
                 final LbSubsetEntry lbSubsetEntry = new LbSubsetEntry();
                 lbSubsetEntry.update(entry.getValue());
@@ -289,13 +297,13 @@ final class SubsetLoadBalancer implements LoadBalancer {
 
         void updateFallbackSubset(int priority, HostSet hostSet) {
             if (subsetAny != null) {
-                final SubsetPrioritySet subsetPrioritySet = updateSubset(priority, hostSet, ignored -> true);
-                subsetAny.update(subsetPrioritySet);
+                final SubsetPrioritySetBuilder subsetPrioritySetBuilder = updateSubset(priority, hostSet, ignored -> true);
+                subsetAny.update(subsetPrioritySetBuilder);
             }
             if (subsetDefault != null) {
-                final SubsetPrioritySet subsetPrioritySet =
+                final SubsetPrioritySetBuilder subsetPrioritySetBuilder =
                         updateSubset(priority, hostSet, host -> hostMatches(defaultSubsetMetadata, host));
-                subsetDefault.update(subsetPrioritySet);
+                subsetDefault.update(subsetPrioritySetBuilder);
             }
         }
 
@@ -304,18 +312,19 @@ final class SubsetLoadBalancer implements LoadBalancer {
                     metadata, EndpointUtil.metadata(endpoint), SUBSET_LOAD_BALANCING_FILTER_NAME, listAsAny);
         }
 
-        SubsetPrioritySet updateSubset(int priority, HostSet hostSet,
-                                       Predicate<Endpoint> hostPredicate) {
-            final SubsetPrioritySet subsetPrioritySet = new SubsetPrioritySet(origPrioritySet,
-                                                                              scaleLocalityWeight);
+        SubsetPrioritySetBuilder updateSubset(int priority, HostSet hostSet,
+                                              Predicate<Endpoint> hostPredicate) {
+            final SubsetPrioritySetBuilder
+                    subsetPrioritySetBuilder = new SubsetPrioritySetBuilder(origPrioritySet,
+                                                                            scaleLocalityWeight);
             for (Endpoint endpoint: hostSet.hosts()) {
                 if (!hostPredicate.test(endpoint)) {
                     continue;
                 }
-                subsetPrioritySet.pushHost(priority, endpoint);
+                subsetPrioritySetBuilder.pushHost(priority, endpoint);
             }
-            subsetPrioritySet.finalize(priority);
-            return subsetPrioritySet;
+            subsetPrioritySetBuilder.finalize(priority);
+            return subsetPrioritySetBuilder;
         }
 
         List<Struct> extractSubsetMetadata(Set<String> subsetKeys, Endpoint endpoint) {
@@ -373,9 +382,9 @@ final class SubsetLoadBalancer implements LoadBalancer {
 
         ZoneAwareLoadBalancer zoneAwareLoadBalancer;
 
-        void update(SubsetPrioritySet subsetPrioritySet) {
+        void update(SubsetPrioritySetBuilder subsetPrioritySetBuilder) {
             zoneAwareLoadBalancer = new ZoneAwareLoadBalancer();
-            zoneAwareLoadBalancer.prioritySetUpdated(subsetPrioritySet.prioritySet);
+            zoneAwareLoadBalancer.prioritySetUpdated(subsetPrioritySetBuilder.prioritySet);
         }
 
         public ZoneAwareLoadBalancer loadBalancer() {
@@ -479,23 +488,26 @@ final class SubsetLoadBalancer implements LoadBalancer {
         }
     }
 
-    static class SubsetPrioritySet {
+    static class SubsetPrioritySetBuilder {
 
-        private final Map<Integer, Set<Endpoint>> rawHostsSet = new HashMap<>();
-        private final PrioritySet origPrioritySet;
-        private final PrioritySet prioritySet;
+        private final Map<Integer, PriorityStateBuilder> rawHostsSet = new HashMap<>();
+        private final PrioritySetBuilder.PrioritySet origPrioritySet;
+        private final PrioritySetBuilder.PrioritySet prioritySet;
+        private final PrioritySetBuilder prioritySetBuilder;
         private final boolean scaleLocalityWeight;
 
-        SubsetPrioritySet(PrioritySet origPrioritySet,
-                          boolean scaleLocalityWeight) {
+        SubsetPrioritySetBuilder(PrioritySetBuilder.PrioritySet origPrioritySet,
+                                 boolean scaleLocalityWeight) {
             this.origPrioritySet = origPrioritySet;
-            prioritySet = new PrioritySet(origPrioritySet);
+            prioritySet = new PrioritySetBuilder.PrioritySet(origPrioritySet);
+            prioritySetBuilder = new PrioritySetBuilder(prioritySet);
             this.scaleLocalityWeight = scaleLocalityWeight;
         }
 
         void pushHost(int priority, Endpoint host) {
-            rawHostsSet.computeIfAbsent(priority, ignored -> new HashSet<>())
-                       .add(host);
+
+            rawHostsSet.computeIfAbsent(priority, ignored -> new PriorityStateBuilder())
+                       .addEndpoint(host);
         }
 
         void finalize(int priority) {

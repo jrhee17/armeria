@@ -16,6 +16,10 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import static com.linecorp.armeria.xds.client.endpoint.EndpointUtil.locality;
+
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -31,6 +35,15 @@ import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
 import io.envoyproxy.envoy.config.core.v3.Locality;
 
 final class EndpointGroupUtil {
+
+    static Map<Locality, List<Endpoint>> endpointsByLocality(List<Endpoint> endpoints) {
+        final Map<Locality, List<Endpoint>> endpointsPerLocality = new HashMap<>();
+        for (Endpoint endpoint : endpoints) {
+            endpointsPerLocality.computeIfAbsent(locality(endpoint), ignored -> new ArrayList<>())
+                                .add(endpoint);
+        }
+        return ImmutableMap.copyOf(endpointsPerLocality);
+    }
 
     static EndpointGroup filter(List<Endpoint> endpoints, EndpointSelectionStrategy strategy,
                                 Predicate<Endpoint> predicate) {
