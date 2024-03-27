@@ -94,7 +94,8 @@ final class Http2ServerConnectionHandler extends AbstractHttp2ConnectionHandler 
     @Override
     protected boolean needsImmediateDisconnection() {
         return gracefulShutdownSupport.isShuttingDown() ||
-               requestDecoder.goAwayHandler().receivedErrorGoAway() || keepAliveHandler().isClosing();
+               requestDecoder.goAwayHandler().receivedErrorGoAway() || keepAliveHandler().isClosing() ||
+               keepAliveHandler().needsForcedConnectionShutdown();
     }
 
     @Override

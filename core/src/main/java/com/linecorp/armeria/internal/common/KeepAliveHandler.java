@@ -76,4 +76,14 @@ public interface KeepAliveHandler {
      * Increases the number of requests received or sent.
      */
     void increaseNumRequests();
+
+    /**
+     * Sets whether the shutdown should be forced without waiting for other requests.
+     */
+    void setForcedConnectionShutdown();
+
+    /**
+     * Returns whether the shutdown should be forced without waiting for other requests.
+     */
+    boolean needsForcedConnectionShutdown();
 }

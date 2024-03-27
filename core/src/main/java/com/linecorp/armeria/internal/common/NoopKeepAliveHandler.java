@@ -22,6 +22,7 @@ public class NoopKeepAliveHandler implements KeepAliveHandler {
 
     private boolean closed;
     private boolean disconnectWhenFinished;
+    private boolean forcedConnectionShutdown;
 
     @Override
     public void initialize(ChannelHandlerContext ctx) {}
@@ -64,4 +65,14 @@ public class NoopKeepAliveHandler implements KeepAliveHandler {
 
     @Override
     public void increaseNumRequests() {}
+
+    @Override
+    public void setForcedConnectionShutdown() {
+        forcedConnectionShutdown = true;
+    }
+
+    @Override
+    public boolean needsForcedConnectionShutdown() {
+        return forcedConnectionShutdown;
+    }
 }

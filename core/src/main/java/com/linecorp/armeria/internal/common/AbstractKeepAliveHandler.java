@@ -79,6 +79,7 @@ public abstract class AbstractKeepAliveHandler implements KeepAliveHandler {
     private boolean isInitialized;
     private boolean closed;
     private boolean disconnectWhenFinished;
+    private boolean forcedConnectionShutdown;
     private PingState pingState = PingState.IDLE;
 
     @Nullable
@@ -300,6 +301,16 @@ public abstract class AbstractKeepAliveHandler implements KeepAliveHandler {
 
         /* Not active anymore */
         SHUTDOWN
+    }
+
+    @Override
+    public void setForcedConnectionShutdown() {
+        forcedConnectionShutdown = true;
+    }
+
+    @Override
+    public boolean needsForcedConnectionShutdown() {
+        return forcedConnectionShutdown;
     }
 
     private class PingWriteListener implements ChannelFutureListener {

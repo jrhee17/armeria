@@ -765,6 +765,8 @@ final class HttpServerHandler extends ChannelInboundHandlerAdapter implements Ht
                     unfinishedRequests.remove(req);
                 }
 
+                final ServerHttpObjectEncoder responseEncoder = HttpServerHandler.this.responseEncoder;
+                assert responseEncoder != null;
                 final boolean needsDisconnection =
                         ctx.channel().isActive() &&
                         (handledLastRequest || responseEncoder.keepAliveHandler().needsDisconnection());
@@ -779,8 +781,9 @@ final class HttpServerHandler extends ChannelInboundHandlerAdapter implements Ht
                     } else {
                         // Stop receiving new requests.
                         handledLastRequest = true;
-                        if (unfinishedRequests.isEmpty()) {
-                            ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(CLOSE);
+                        if (unfinishedRequests.isEmpty() || responseEncoder.keepAliveHandler().needsForcedConnectionShutdown()) {
+                            ctx.executor().schedule(() -> ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(CLOSE),
+                                                    100, TimeUnit.MILLISECONDS);
                         }
                     }
                 }
