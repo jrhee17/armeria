@@ -36,6 +36,8 @@ import java.util.function.Function;
 
 import javax.net.ssl.SSLSession;
 
+import com.google.common.net.HostAndPort;
+
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
@@ -765,8 +767,8 @@ public final class DefaultClientRequestContext
         if (authority == null) {
             return null;
         }
-        final URI authorityUri = ArmeriaHttpUtil.toURI(null, authority);
-        return authorityUri.getHost();
+        final HostAndPort hostAndPort = ArmeriaHttpUtil.toHostAndPort(null, authority);
+        return hostAndPort.getHost();
     }
 
     @Override
