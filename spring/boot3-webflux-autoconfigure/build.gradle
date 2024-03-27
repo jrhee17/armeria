@@ -10,6 +10,7 @@ dependencies {
     // To let a user choose between thrift and thrift0.9.
     compileOnly project(':thrift0.18')
     implementation project(':logback')
+    implementation project(':spring:spring6')
 
     api libs.spring.boot3.starter.webflux
     api libs.jakarta.inject
@@ -29,6 +30,7 @@ dependencies {
     testImplementation project(':spring:boot3-actuator-autoconfigure')
     testImplementation project(':thrift0.18')
     testImplementation libs.spring.boot3.starter.test
+    testImplementation libs.spring6.web
     // Added for sharing test suites with boot2
     testImplementation libs.javax.inject
 }

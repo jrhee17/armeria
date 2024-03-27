@@ -69,6 +69,7 @@ import com.linecorp.armeria.spring.ArmeriaServerConfigurator;
 import com.linecorp.armeria.spring.ArmeriaSettings;
 import com.linecorp.armeria.spring.InternalServices;
 import com.linecorp.armeria.spring.MetricCollectingServiceConfigurator;
+import com.linecorp.armeria.spring.internal.common.DataBufferFactoryWrapper;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.handler.ssl.ClientAuth;
@@ -348,7 +349,7 @@ public class ArmeriaReactiveWebServerFactory extends AbstractReactiveWebServerFa
                  .defaultServiceName("SpringWebFlux")
                  .build((ctx, req) -> {
                      final CompletableFuture<HttpResponse> future = new CompletableFuture<>();
-                     final HttpResponse response = HttpResponse.from(future);
+                     final HttpResponse response = HttpResponse.of(future);
                      final Disposable disposable = handler.handle(ctx, req, future, serverHeader).subscribe();
                      response.whenComplete().handle((unused, cause) -> {
                          if (cause != null) {
