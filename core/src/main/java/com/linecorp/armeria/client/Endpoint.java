@@ -44,7 +44,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
-import com.google.common.net.HostAndPort;
 import com.google.common.net.InternetDomainName;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -110,8 +109,8 @@ public final class Endpoint implements Comparable<Endpoint>, EndpointGroup {
                 // HostAndPort.fromString() does not validate an authority that ends with ':' such as "0.0.0.0:"
                 throw new IllegalArgumentException("Missing port number: " + key);
             }
-            final HostAndPort hostAndPort = ArmeriaHttpUtil.toHostAndPort(null, authority).withDefaultPort(0);
-            return create(hostAndPort.getHost(), hostAndPort.getPort(), true);
+            final URI authorityUri = ArmeriaHttpUtil.toURI(null, authority);
+            return create(authorityUri.getHost(), authorityUri.getPort(), true);
         });
     }
 

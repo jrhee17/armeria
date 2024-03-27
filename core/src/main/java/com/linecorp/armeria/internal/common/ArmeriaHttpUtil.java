@@ -59,7 +59,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.net.HostAndPort;
 
 import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.Http1HeaderNaming;
@@ -1265,11 +1264,6 @@ public final class ArmeriaHttpUtil {
                 writer.accept(output, HttpHeaderNames.HOST, v);
             }
         }
-    }
-
-    public static HostAndPort toHostAndPort(@Nullable String scheme, String authority) {
-        final URI uri = toURI(scheme, authority);
-        return HostAndPort.fromString(uri.getRawAuthority());
     }
 
     public static URI toURI(@Nullable String scheme, String authority) {

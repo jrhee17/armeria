@@ -36,8 +36,6 @@ import java.util.function.Function;
 
 import javax.net.ssl.SSLSession;
 
-import com.google.common.net.HostAndPort;
-
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
@@ -471,11 +469,21 @@ public final class DefaultClientRequestContext
 
     // TODO(ikhoon): Consider moving the logic for filling authority to `HttpClientDelegate.exceute()`.
     private void autoFillSchemeAuthorityAndOrigin() {
+<<<<<<< HEAD
         final String host = host();
         if (host != null && endpoint != null && endpoint.isIpAddrOnly()) {
             // The connection will be established with the IP address but `host` set to the `Endpoint`
             // could be used for SNI. It would make users send HTTPS requests with CSLB or configure a reverse
             // proxy based on an authority.
+=======
+        final String authority = authority();
+        if (authority != null && endpoint != null && endpoint.isIpAddrOnly()) {
+            final URI authorityUri = ArmeriaHttpUtil.toURI(null, authority);
+            // The connection will be established with the IP address but `host` set to the `Endpoint`
+            // could be used for SNI. It would make users send HTTPS requests with CSLB or configure a reverse
+            // proxy based on an authority.
+            final String host = authorityUri.getHost();
+>>>>>>> 598b8b860 (Revert "working version")
             if (!NetUtil.isValidIpV4Address(host) && !NetUtil.isValidIpV6Address(host)) {
                 endpoint = endpoint.withHost(host);
             }
