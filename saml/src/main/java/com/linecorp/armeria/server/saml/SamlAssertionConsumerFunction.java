@@ -87,17 +87,15 @@ final class SamlAssertionConsumerFunction implements SamlServiceFunction {
     @Override
     public HttpResponse serve(ServiceRequestContext ctx, AggregatedHttpRequest req,
                               String defaultHostname, SamlPortConfig portConfig) {
+        final SamlBindingProtocol bindingProtocol = cfg.endpoint().bindingProtocol();
+        final MessageContext<Response> messageContext;
         try {
-            final SamlBindingProtocol bindingProtocol = cfg.endpoint().bindingProtocol();
-            final MessageContext<Response> messageContext;
-            if (bindingProtocol == SamlBindingProtocol.HTTP_REDIRECT) {
-                messageContext = HttpRedirectBindingUtil.toSamlObject(req, SAML_RESPONSE,
-                                                                      idpConfigs, defaultIdpConfig,
-                                                                      signatureRequired);
-            } else {
-                messageContext = HttpPostBindingUtil.toSamlObject(req, SAML_RESPONSE);
-            }
+            messageContext = parseMessageContext(req, bindingProtocol);
+        } catch (SamlException e) {
+            return ssoHandler.loginFailed(ctx, req, null, e);
+        }
 
+        try {
             final String endpointUri = cfg.endpoint().toUriString(portConfig.scheme().uriText(),
                                                                   defaultHostname, portConfig.port());
             final Response response = messageContext.getMessage();
@@ -116,8 +114,21 @@ final class SamlAssertionConsumerFunction implements SamlServiceFunction {
 
             return ssoHandler.loginSucceeded(ctx, req, messageContext, sessionIndex, relayState);
         } catch (SamlException e) {
-            return ssoHandler.loginFailed(ctx, req, null, e);
+            return ssoHandler.loginFailed(ctx, req, messageContext, e);
         }
+    }
+
+    private MessageContext<Response> parseMessageContext(AggregatedHttpRequest req,
+                                                         SamlBindingProtocol bindingProtocol) {
+        final MessageContext<Response> messageContext;
+        if (bindingProtocol == SamlBindingProtocol.HTTP_REDIRECT) {
+            messageContext = HttpRedirectBindingUtil.toSamlObject(req, SAML_RESPONSE,
+                                                                  idpConfigs, defaultIdpConfig,
+                                                                  signatureRequired);
+        } else {
+            messageContext = HttpPostBindingUtil.toSamlObject(req, SAML_RESPONSE);
+        }
+        return messageContext;
     }
 
     private SamlIdentityProviderConfig resolveIdpConfig(Issuer issuer) {
