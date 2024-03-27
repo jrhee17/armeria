@@ -454,8 +454,9 @@ public final class DefaultRequestTarget implements RequestTarget {
         }
 
         // Normalize scheme and authority.
-        schemeAndAuthority = normalizeSchemeAndAuthority(scheme, authority);
-        if (schemeAndAuthority == null) {
+        try {
+            schemeAndAuthority = ArmeriaHttpUtil.toURI(scheme, authority);
+        } catch (Exception e) {
             // Invalid scheme or authority.
             return null;
         }

@@ -44,7 +44,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
-import com.google.common.net.HostAndPort;
 import com.google.common.net.InternetDomainName;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -58,6 +57,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.DomainSocketAddress;
 import com.linecorp.armeria.common.util.UnmodifiableFuture;
+import com.linecorp.armeria.internal.common.ArmeriaHttpUtil;
 import com.linecorp.armeria.internal.common.util.IpAddrUtil;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
 
@@ -109,17 +109,9 @@ public final class Endpoint implements Comparable<Endpoint>, EndpointGroup {
                 // HostAndPort.fromString() does not validate an authority that ends with ':' such as "0.0.0.0:"
                 throw new IllegalArgumentException("Missing port number: " + key);
             }
-            final HostAndPort hostAndPort = HostAndPort.fromString(removeUserInfo(key)).withDefaultPort(0);
-            return create(hostAndPort.getHost(), hostAndPort.getPort(), true);
+            final URI authorityUri = ArmeriaHttpUtil.toURI(null, authority);
+            return create(authorityUri.getHost(), authorityUri.getPort(), true);
         });
-    }
-
-    private static String removeUserInfo(String authority) {
-        final int indexOfDelimiter = authority.lastIndexOf('@');
-        if (indexOfDelimiter == -1) {
-            return authority;
-        }
-        return authority.substring(indexOfDelimiter + 1);
     }
 
     /**

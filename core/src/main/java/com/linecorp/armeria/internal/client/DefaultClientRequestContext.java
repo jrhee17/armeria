@@ -36,8 +36,6 @@ import java.util.function.Function;
 
 import javax.net.ssl.SSLSession;
 
-import com.google.common.net.HostAndPort;
-
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
@@ -71,6 +69,7 @@ import com.linecorp.armeria.common.util.ReleasableHolder;
 import com.linecorp.armeria.common.util.TextFormatter;
 import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.common.util.UnmodifiableFuture;
+import com.linecorp.armeria.internal.common.ArmeriaHttpUtil;
 import com.linecorp.armeria.internal.common.CancellationScheduler;
 import com.linecorp.armeria.internal.common.NonWrappingRequestContext;
 import com.linecorp.armeria.internal.common.RequestContextExtension;
@@ -470,12 +469,11 @@ public final class DefaultClientRequestContext
 
     // TODO(ikhoon): Consider moving the logic for filling authority to `HttpClientDelegate.exceute()`.
     private void autoFillSchemeAuthorityAndOrigin() {
-        final String authority = authority();
-        if (authority != null && endpoint != null && endpoint.isIpAddrOnly()) {
+        final String host = host();
+        if (host != null && endpoint != null && endpoint.isIpAddrOnly()) {
             // The connection will be established with the IP address but `host` set to the `Endpoint`
             // could be used for SNI. It would make users send HTTPS requests with CSLB or configure a reverse
             // proxy based on an authority.
-            final String host = authorityToHost(authority);
             if (!NetUtil.isValidIpV4Address(host) && !NetUtil.isValidIpV6Address(host)) {
                 endpoint = endpoint.withHost(host);
             }
@@ -496,10 +494,6 @@ public final class DefaultClientRequestContext
             }
         }
         internalRequestHeaders = headersBuilder.build();
-    }
-
-    private static String authorityToHost(String authority) {
-        return HostAndPort.fromString(removeUserInfo(authority)).getHost();
     }
 
     private static String removeUserInfo(String authority) {
@@ -771,8 +765,8 @@ public final class DefaultClientRequestContext
         if (authority == null) {
             return null;
         }
-
-        return authorityToHost(authority);
+        final URI authorityUri = ArmeriaHttpUtil.toURI(null, authority);
+        return authorityUri.getHost();
     }
 
     @Override

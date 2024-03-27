@@ -40,6 +40,7 @@ import static java.util.Objects.requireNonNull;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -1263,6 +1264,25 @@ public final class ArmeriaHttpUtil {
                 writer.accept(output, HttpHeaderNames.HOST, v);
             }
         }
+    }
+
+    public static URI toURI(@Nullable String scheme, String authority) {
+        final String host = removeUserInfo(authority);
+        final URI uri;
+        if (scheme == null) {
+            uri = URI.create("//" + host);
+        } else {
+            uri = URI.create(scheme + "://" + host);
+        }
+        return uri;
+    }
+
+    private static String removeUserInfo(String authority) {
+        final int indexOfDelimiter = authority.lastIndexOf('@');
+        if (indexOfDelimiter == -1) {
+            return authority;
+        }
+        return authority.substring(indexOfDelimiter + 1);
     }
 
     // TODO(minwoox): Will provide this interface to public API
