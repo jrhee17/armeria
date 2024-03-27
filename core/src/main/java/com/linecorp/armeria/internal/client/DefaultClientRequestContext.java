@@ -70,6 +70,7 @@ import com.linecorp.armeria.common.util.TextFormatter;
 import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.common.util.UnmodifiableFuture;
 import com.linecorp.armeria.internal.common.ArmeriaHttpUtil;
+import com.linecorp.armeria.internal.common.ArmeriaHttpUtil.HostAndPort;
 import com.linecorp.armeria.internal.common.CancellationScheduler;
 import com.linecorp.armeria.internal.common.NonWrappingRequestContext;
 import com.linecorp.armeria.internal.common.RequestContextExtension;
@@ -469,21 +470,11 @@ public final class DefaultClientRequestContext
 
     // TODO(ikhoon): Consider moving the logic for filling authority to `HttpClientDelegate.exceute()`.
     private void autoFillSchemeAuthorityAndOrigin() {
-<<<<<<< HEAD
         final String host = host();
         if (host != null && endpoint != null && endpoint.isIpAddrOnly()) {
             // The connection will be established with the IP address but `host` set to the `Endpoint`
             // could be used for SNI. It would make users send HTTPS requests with CSLB or configure a reverse
             // proxy based on an authority.
-=======
-        final String authority = authority();
-        if (authority != null && endpoint != null && endpoint.isIpAddrOnly()) {
-            final URI authorityUri = ArmeriaHttpUtil.toURI(null, authority);
-            // The connection will be established with the IP address but `host` set to the `Endpoint`
-            // could be used for SNI. It would make users send HTTPS requests with CSLB or configure a reverse
-            // proxy based on an authority.
-            final String host = authorityUri.getHost();
->>>>>>> 598b8b860 (Revert "working version")
             if (!NetUtil.isValidIpV4Address(host) && !NetUtil.isValidIpV6Address(host)) {
                 endpoint = endpoint.withHost(host);
             }
@@ -776,7 +767,7 @@ public final class DefaultClientRequestContext
             return null;
         }
         final HostAndPort hostAndPort = ArmeriaHttpUtil.toHostAndPort(null, authority);
-        return hostAndPort.getHost();
+        return hostAndPort.host();
     }
 
     @Override

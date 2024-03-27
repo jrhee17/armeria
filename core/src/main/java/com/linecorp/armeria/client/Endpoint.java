@@ -17,6 +17,7 @@
 package com.linecorp.armeria.client;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.linecorp.armeria.internal.common.ArmeriaHttpUtil.isDomainSocketAuthority;
 import static com.linecorp.armeria.internal.common.util.DomainSocketUtil.DOMAIN_SOCKET_IP;
 import static com.linecorp.armeria.internal.common.util.DomainSocketUtil.DOMAIN_SOCKET_PORT;
 import static java.util.Objects.requireNonNull;
@@ -42,7 +43,6 @@ import java.util.regex.Pattern;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.InternetDomainName;
 
@@ -58,6 +58,7 @@ import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.DomainSocketAddress;
 import com.linecorp.armeria.common.util.UnmodifiableFuture;
 import com.linecorp.armeria.internal.common.ArmeriaHttpUtil;
+import com.linecorp.armeria.internal.common.ArmeriaHttpUtil.HostAndPort;
 import com.linecorp.armeria.internal.common.util.IpAddrUtil;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
 
@@ -109,8 +110,9 @@ public final class Endpoint implements Comparable<Endpoint>, EndpointGroup {
                 // HostAndPort.fromString() does not validate an authority that ends with ':' such as "0.0.0.0:"
                 throw new IllegalArgumentException("Missing port number: " + key);
             }
-            final URI authorityUri = ArmeriaHttpUtil.toURI(null, authority);
-            return create(authorityUri.getHost(), authorityUri.getPort(), true);
+            final HostAndPort authorityUri = ArmeriaHttpUtil.toHostAndPort(null, authority)
+                    .withDefaultPort(0);
+            return create(authorityUri.host(), authorityUri.port(), true);
         });
     }
 
@@ -200,13 +202,6 @@ public final class Endpoint implements Comparable<Endpoint>, EndpointGroup {
             }
             return new Endpoint(Type.HOSTNAME_ONLY, host, null, port, DEFAULT_WEIGHT, null);
         }
-    }
-
-    private static boolean isDomainSocketAuthority(String host) {
-        // Return true if `host` starts with `unix%3A` or `unix%3a`.
-        return host.length() > 7 &&
-               host.startsWith("unix%3") &&
-               Ascii.toUpperCase(host.charAt(6)) == 'A';
     }
 
     private static String normalizeHost(String host) {

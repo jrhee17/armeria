@@ -1266,7 +1266,14 @@ public final class ArmeriaHttpUtil {
         }
     }
 
-    public static URI toURI(@Nullable String scheme, String authority) {
+    public static boolean isDomainSocketAuthority(String host) {
+        // Return true if `host` starts with `unix%3A` or `unix%3a`.
+        return host.length() > 7 &&
+               host.startsWith("unix%3") &&
+               Ascii.toUpperCase(host.charAt(6)) == 'A';
+    }
+
+    public static HostAndPort toHostAndPort(@Nullable String scheme, String authority) {
         final String host = removeUserInfo(authority);
         final URI uri;
         if (scheme == null) {
@@ -1274,7 +1281,10 @@ public final class ArmeriaHttpUtil {
         } else {
             uri = URI.create(scheme + "://" + host);
         }
-        return uri;
+        if (isDomainSocketAuthority(authority)) {
+            return new HostAndPort(authority, uri);
+        }
+        return new HostAndPort(uri);
     }
 
     private static String removeUserInfo(String authority) {
@@ -1283,6 +1293,49 @@ public final class ArmeriaHttpUtil {
             return authority;
         }
         return authority.substring(indexOfDelimiter + 1);
+    }
+
+    public static class HostAndPort {
+        private final URI uri;
+        private String host;
+        private int port;
+
+        public HostAndPort(String host, URI uri) {
+            this.uri = uri;
+            this.host = host;
+            port = -1;
+        }
+
+        public HostAndPort(URI uri) {
+            this.uri = uri;
+            host = uri.getHost();
+            port = uri.getPort();
+        }
+
+        private HostAndPort(URI uri, String host, int port) {
+            this.uri = uri;
+            this.host = host;
+            this.port = port;
+        }
+
+        public String host() {
+            return host;
+        }
+
+        public int port() {
+            return port;
+        }
+
+        public URI uri() {
+            return uri;
+        }
+
+        public HostAndPort withDefaultPort(int port) {
+            if (this.port >= 0) {
+                return this;
+            }
+            return new HostAndPort(uri, host, port);
+        }
     }
 
     // TODO(minwoox): Will provide this interface to public API
