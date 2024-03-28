@@ -24,13 +24,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.common.HttpMethod;
@@ -66,35 +66,18 @@ public final class CorsServiceBuilder {
     boolean shortCircuit;
 
     /**
-     * Creates a new instance for a {@link CorsService} with a {@link CorsPolicy} allowing {@code origins}.
-     *
-     */
-    CorsServiceBuilder(List<String> origins) {
-        anyOriginSupported = false;
-        firstPolicyBuilder = new ChainedCorsPolicyBuilder(this, origins);
-    }
-
-    /**
      * Creates a new instance for a {@link CorsService} with a {@link CorsPolicy} allowing origins matched by
      * {@code originPredicate}.
      */
-    CorsServiceBuilder(Predicate<String> originPredicate) {
-        anyOriginSupported = false;
+    CorsServiceBuilder(CorsOriginPredicate originPredicate) {
+        anyOriginSupported = originPredicate.origins().contains("*");
         firstPolicyBuilder = new ChainedCorsPolicyBuilder(this, originPredicate);
-    }
-
-    /**
-     * Creates a new instance for a {@link CorsService} with a {@link CorsPolicy} allowing origins matched by
-     * {@code originRegex}.
-     */
-    CorsServiceBuilder(Pattern originRegex) {
-        anyOriginSupported = false;
-        firstPolicyBuilder = new ChainedCorsPolicyBuilder(this, originRegex);
     }
 
     /**
      * Creates a new instance for a {@link CorsService} with a {@link CorsPolicy} allowing any origin.
      */
+    @VisibleForTesting
     CorsServiceBuilder() {
         anyOriginSupported = true;
         firstPolicyBuilder = new ChainedCorsPolicyBuilder(this);
@@ -472,7 +455,7 @@ public final class CorsServiceBuilder {
      * Creates a new builder instance for a new {@link CorsPolicy}.
      * @return {@link ChainedCorsPolicyBuilder} to support method chaining.
      */
-    public ChainedCorsPolicyBuilder andForOrigin(Predicate<String> originPredicate) {
+    public ChainedCorsPolicyBuilder andForOrigin(CorsOriginPredicate originPredicate) {
         return new ChainedCorsPolicyBuilder(this, originPredicate);
     }
 

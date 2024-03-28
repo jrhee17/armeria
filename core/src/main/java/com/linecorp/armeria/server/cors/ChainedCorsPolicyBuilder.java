@@ -19,7 +19,6 @@ package com.linecorp.armeria.server.cors;
 import static java.util.Objects.requireNonNull;
 
 import java.util.List;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
@@ -48,7 +47,7 @@ public final class ChainedCorsPolicyBuilder extends AbstractCorsPolicyBuilder {
         serviceBuilder = builder;
     }
 
-    ChainedCorsPolicyBuilder(CorsServiceBuilder builder, Predicate<String> originPredicate) {
+    ChainedCorsPolicyBuilder(CorsServiceBuilder builder, CorsOriginPredicate originPredicate) {
         super(originPredicate);
         requireNonNull(builder, "builder");
         serviceBuilder = builder;

@@ -31,16 +31,18 @@ public final class CorsDecoratorFactoryFunction implements DecoratorFactoryFunct
     @Override
     public Function<? super HttpService, ? extends HttpService> newDecorator(CorsDecorator parameter) {
         requireNonNull(parameter, "parameter");
-        final CorsServiceBuilder cb;
-        if (parameter.origins().length > 0) {
-            cb = CorsService.builder(parameter.origins());
-        } else if (!parameter.originRegex().isEmpty()) {
-            cb = CorsService.builderForOriginRegex(parameter.originRegex());
-        } else {
+        if (parameter.origins().length == 0 && parameter.originRegex().isEmpty()) {
             throw new IllegalArgumentException("Either origins or originRegex must be configured");
         }
+        CorsOriginPredicate predicate = CorsOriginPredicate.alwaysFalse();
+        if (parameter.origins().length > 0) {
+            predicate = predicate.or(CorsOriginPredicate.origins(parameter.origins()));
+        }
+        if (!parameter.originRegex().isEmpty()) {
+            predicate = predicate.or(CorsOriginPredicate.regex(parameter.originRegex()));
+        }
+        final CorsServiceBuilder cb = CorsService.builder(predicate);
         cb.firstPolicyBuilder.setConfig(parameter);
-
         final Function<? super HttpService, CorsService> decorator = cb.newDecorator();
         return service -> {
             if (service.as(CorsService.class) != null) {

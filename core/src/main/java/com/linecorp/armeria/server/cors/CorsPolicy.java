@@ -23,7 +23,6 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -81,7 +80,7 @@ public final class CorsPolicy {
     /**
      * Returns a new {@link CorsPolicyBuilder} with origins matching the {@code predicate}.
      */
-    public static CorsPolicyBuilder builder(Predicate<String> predicate) {
+    public static CorsPolicyBuilder builder(CorsOriginPredicate predicate) {
         return new CorsPolicyBuilder(predicate);
     }
 
@@ -99,9 +98,7 @@ public final class CorsPolicy {
         return new CorsPolicyBuilder(regex);
     }
 
-    private final Set<String> origins;
-    @Nullable
-    private final Predicate<String> originPredicate;
+    private final CorsOriginPredicate originPredicate;
     private final List<Route> routes;
     private final boolean credentialsAllowed;
     private final boolean nullOriginAllowed;
@@ -115,13 +112,12 @@ public final class CorsPolicy {
     private final String joinedAllowedRequestMethods;
     private final Map<AsciiString, Supplier<?>> preflightResponseHeaders;
 
-    CorsPolicy(Set<String> origins, @Nullable Predicate<String> originPredicate,
+    CorsPolicy(CorsOriginPredicate originPredicate,
                List<Route> routes, boolean credentialsAllowed, long maxAge,
                boolean nullOriginAllowed, Set<AsciiString> exposedHeaders,
                boolean allowAllRequestHeaders, Set<AsciiString> allowedRequestHeaders,
                EnumSet<HttpMethod> allowedRequestMethods, boolean preflightResponseHeadersDisabled,
                Map<AsciiString, Supplier<?>> preflightResponseHeaders) {
-        this.origins = ImmutableSet.copyOf(origins);
         this.originPredicate = originPredicate;
         this.routes = ImmutableList.copyOf(routes);
         this.credentialsAllowed = credentialsAllowed;
@@ -153,21 +149,22 @@ public final class CorsPolicy {
      * @return the value that will be used for the CORS response header {@code "Access-Control-Allow-Origin"}
      */
     public String origin() {
-        return Iterables.getFirst(origins, ANY_ORIGIN);
+        return Iterables.getFirst(originPredicate.origins(), ANY_ORIGIN);
     }
 
     /**
      * Returns the set of allowed origins.
+     * @deprecated do not use
      */
+    @Deprecated
     public Set<String> origins() {
-        return origins;
+        return originPredicate.origins();
     }
 
     /**
-     * Returns predicate to match origins.
+     * TBU.
      */
-    @Nullable
-    public Predicate<String> originPredicate() {
+    public CorsOriginPredicate originPredicate() {
         return originPredicate;
     }
 
@@ -345,12 +342,12 @@ public final class CorsPolicy {
 
     @Override
     public String toString() {
-        return toString(this, origins, routes, nullOriginAllowed, credentialsAllowed, maxAge,
+        return toString(this, originPredicate, routes, nullOriginAllowed, credentialsAllowed, maxAge,
                         exposedHeaders, allowedRequestMethods, allowAllRequestHeaders, allowedRequestHeaders,
                         preflightResponseHeaders);
     }
 
-    static String toString(Object obj, @Nullable Set<String> origins, List<Route> routes,
+    static String toString(Object obj, CorsOriginPredicate predicate, List<Route> routes,
                            boolean nullOriginAllowed, boolean credentialsAllowed,
                            long maxAge, @Nullable Set<AsciiString> exposedHeaders,
                            @Nullable Set<HttpMethod> allowedRequestMethods,
@@ -359,7 +356,7 @@ public final class CorsPolicy {
                            @Nullable Map<AsciiString, Supplier<?>> preflightResponseHeaders) {
         return MoreObjects.toStringHelper(obj)
                           .omitNullValues()
-                          .add("origins", origins)
+                          .add("origins", predicate.origins())
                           .add("routes", routes)
                           .add("nullOriginAllowed", nullOriginAllowed)
                           .add("credentialsAllowed", credentialsAllowed)
