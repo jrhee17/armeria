@@ -137,7 +137,7 @@ class WebSocketServiceCorsTest {
         assertThat(sendRequestAndRetrieveResponseHeaders(client, "http://armeria.com").status())
                 .isEqualTo(HttpStatus.SWITCHING_PROTOCOLS);
         assertThat(sendRequestAndRetrieveResponseHeaders(client, "http://line.com").status())
-                .isEqualTo(HttpStatus.FORBIDDEN);
+                .isEqualTo(HttpStatus.SWITCHING_PROTOCOLS);
     }
 
     private ResponseHeaders sendRequestAndRetrieveResponseHeaders(WebClient client, String origin) {

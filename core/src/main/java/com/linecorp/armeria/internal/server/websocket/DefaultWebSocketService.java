@@ -21,7 +21,6 @@ import static com.linecorp.armeria.internal.common.websocket.WebSocketUtil.isHtt
 import static com.linecorp.armeria.internal.common.websocket.WebSocketUtil.newCloseWebSocketFrame;
 
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import org.slf4j.Logger;
@@ -50,6 +49,7 @@ import com.linecorp.armeria.internal.common.websocket.WebSocketWrapper;
 import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.ServiceConfig;
 import com.linecorp.armeria.server.ServiceRequestContext;
+import com.linecorp.armeria.server.cors.CorsOriginPredicate;
 import com.linecorp.armeria.server.websocket.WebSocketProtocolHandler;
 import com.linecorp.armeria.server.websocket.WebSocketService;
 import com.linecorp.armeria.server.websocket.WebSocketServiceBuilder;
@@ -92,24 +92,18 @@ public final class DefaultWebSocketService implements WebSocketService, WebSocke
     private final int maxFramePayloadLength;
     private final boolean allowMaskMismatch;
     private final Set<String> subprotocols;
-    private final Set<String> allowedOrigins;
-    private final boolean allowAnyOrigin;
     private final boolean aggregateContinuation;
-    @Nullable
-    private final Predicate<String> originPredicate;
+    private final CorsOriginPredicate originPredicate;
 
     public DefaultWebSocketService(WebSocketServiceHandler handler, @Nullable HttpService fallbackService,
                                    int maxFramePayloadLength, boolean allowMaskMismatch,
-                                   Set<String> subprotocols, Set<String> allowedOrigins,
-                                   boolean allowAnyOrigin, boolean aggregateContinuation,
-                                   @Nullable Predicate<String> originPredicate) {
+                                   Set<String> subprotocols, boolean aggregateContinuation,
+                                   CorsOriginPredicate originPredicate) {
         this.handler = handler;
         this.fallbackService = fallbackService;
         this.maxFramePayloadLength = maxFramePayloadLength;
         this.allowMaskMismatch = allowMaskMismatch;
         this.subprotocols = subprotocols;
-        this.allowedOrigins = allowedOrigins;
-        this.allowAnyOrigin = allowAnyOrigin;
         this.aggregateContinuation = aggregateContinuation;
         this.originPredicate = originPredicate;
     }
@@ -275,7 +269,7 @@ public final class DefaultWebSocketService implements WebSocketService, WebSocke
 
     @Nullable
     private HttpResponse checkOrigin(ServiceRequestContext ctx, RequestHeaders headers) {
-        if (allowAnyOrigin) {
+        if (originPredicate.origins().contains("*")) {
             return null;
         }
         final String origin = headers.get(HttpHeaderNames.ORIGIN, "");
@@ -284,24 +278,18 @@ public final class DefaultWebSocketService implements WebSocketService, WebSocke
                                    "missing the origin header");
         }
 
-        if (originPredicate != null) {
-            if (!originPredicate.test(origin)) {
+        if (originPredicate == CorsOriginPredicate.alwaysFalse()) {
+            // Only the same-origin is allowed.
+            if (!isSameOrigin(ctx, headers, origin)) {
                 return HttpResponse.of(HttpStatus.FORBIDDEN, MediaType.PLAIN_TEXT_UTF_8,
-                                       "not allowed origin: " + origin + ", please check originPredicate");
+                                       "not allowed origin: " + origin);
             }
-        } else {
-            if (allowedOrigins.isEmpty()) {
-                // Only the same-origin is allowed.
-                if (!isSameOrigin(ctx, headers, origin)) {
-                    return HttpResponse.of(HttpStatus.FORBIDDEN, MediaType.PLAIN_TEXT_UTF_8,
-                                           "not allowed origin: " + origin);
-                }
-                return null;
-            }
-            if (!allowedOrigins.contains(origin)) {
-                return HttpResponse.of(HttpStatus.FORBIDDEN, MediaType.PLAIN_TEXT_UTF_8,
-                                       "not allowed origin: " + origin + ", allowed: " + allowedOrigins);
-            }
+            return null;
+        }
+
+        if (!originPredicate.test(origin)) {
+            return HttpResponse.of(HttpStatus.FORBIDDEN, MediaType.PLAIN_TEXT_UTF_8,
+                                   "not allowed origin: (" + origin + ')');
         }
 
         return null;

@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
@@ -66,38 +65,12 @@ public final class CorsServiceBuilder {
     boolean shortCircuit;
 
     /**
-     * Creates a new instance for a {@link CorsService} with a {@link CorsPolicy} allowing {@code origins}.
-     *
-     */
-    CorsServiceBuilder(List<String> origins) {
-        anyOriginSupported = false;
-        firstPolicyBuilder = new ChainedCorsPolicyBuilder(this, origins);
-    }
-
-    /**
      * Creates a new instance for a {@link CorsService} with a {@link CorsPolicy} allowing origins matched by
      * {@code originPredicate}.
      */
-    CorsServiceBuilder(Predicate<String> originPredicate) {
-        anyOriginSupported = false;
+    CorsServiceBuilder(CorsOriginPredicate originPredicate) {
+        anyOriginSupported = originPredicate.origins().contains("*");
         firstPolicyBuilder = new ChainedCorsPolicyBuilder(this, originPredicate);
-    }
-
-    /**
-     * Creates a new instance for a {@link CorsService} with a {@link CorsPolicy} allowing origins matched by
-     * {@code originRegex}.
-     */
-    CorsServiceBuilder(Pattern originRegex) {
-        anyOriginSupported = false;
-        firstPolicyBuilder = new ChainedCorsPolicyBuilder(this, originRegex);
-    }
-
-    /**
-     * Creates a new instance for a {@link CorsService} with a {@link CorsPolicy} allowing any origin.
-     */
-    CorsServiceBuilder() {
-        anyOriginSupported = true;
-        firstPolicyBuilder = new ChainedCorsPolicyBuilder(this);
     }
 
     private void ensureForNewPolicy() {
@@ -456,7 +429,7 @@ public final class CorsServiceBuilder {
     public ChainedCorsPolicyBuilder andForOrigins(Iterable<String> origins) {
         requireNonNull(origins, "origins");
         ensureForNewPolicy();
-        return new ChainedCorsPolicyBuilder(this, ImmutableList.copyOf(origins));
+        return new ChainedCorsPolicyBuilder(this, CorsOriginPredicate.origins(origins));
     }
 
     /**
@@ -472,7 +445,7 @@ public final class CorsServiceBuilder {
      * Creates a new builder instance for a new {@link CorsPolicy}.
      * @return {@link ChainedCorsPolicyBuilder} to support method chaining.
      */
-    public ChainedCorsPolicyBuilder andForOrigin(Predicate<String> originPredicate) {
+    public ChainedCorsPolicyBuilder andForOrigin(CorsOriginPredicate originPredicate) {
         return new ChainedCorsPolicyBuilder(this, originPredicate);
     }
 
@@ -489,7 +462,7 @@ public final class CorsServiceBuilder {
      * @return {@link ChainedCorsPolicyBuilder} to support method chaining.
      */
     public ChainedCorsPolicyBuilder andForOriginRegex(Pattern regex) {
-        return new ChainedCorsPolicyBuilder(this, regex);
+        return new ChainedCorsPolicyBuilder(this, CorsOriginPredicate.regex(regex));
     }
 
     @Override

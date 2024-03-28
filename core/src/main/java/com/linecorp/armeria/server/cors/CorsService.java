@@ -19,10 +19,7 @@ package com.linecorp.armeria.server.cors;
 import static com.linecorp.armeria.internal.common.ArmeriaHttpUtil.isCorsPreflightRequest;
 import static java.util.Objects.requireNonNull;
 
-import java.util.List;
-import java.util.function.Predicate;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +55,7 @@ public final class CorsService extends SimpleDecoratingHttpService {
      * Returns a new {@link CorsServiceBuilder} with its origin set with {@code "*"} (any origin).
      */
     public static CorsServiceBuilder builderForAnyOrigin() {
-        return new CorsServiceBuilder();
+        return new CorsServiceBuilder(CorsOriginPredicate.any());
     }
 
     /**
@@ -73,23 +70,13 @@ public final class CorsService extends SimpleDecoratingHttpService {
      */
     public static CorsServiceBuilder builder(Iterable<String> origins) {
         requireNonNull(origins, "origins");
-        final List<String> copied = ImmutableList.copyOf(origins);
-        if (copied.contains(ANY_ORIGIN)) {
-            if (copied.size() > 1) {
-                logger.warn("Any origin (*) has been already included. Other origins ({}) will be ignored.",
-                            copied.stream()
-                                  .filter(c -> !ANY_ORIGIN.equals(c))
-                                  .collect(Collectors.joining(",")));
-            }
-            return builderForAnyOrigin();
-        }
-        return new CorsServiceBuilder(copied);
+        return new CorsServiceBuilder(CorsOriginPredicate.origins(origins));
     }
 
     /**
      * Returns a new {@link CorsServiceBuilder} with origins matching the {@code originPredicate}.
      */
-    public static CorsServiceBuilder builder(Predicate<String> originPredicate) {
+    public static CorsServiceBuilder builder(CorsOriginPredicate originPredicate) {
         return new CorsServiceBuilder(originPredicate);
     }
 
@@ -104,7 +91,7 @@ public final class CorsService extends SimpleDecoratingHttpService {
      * Returns a new {@link CorsServiceBuilder} with origins matching the {@code originRegex}.
      */
     public static CorsServiceBuilder builderForOriginRegex(Pattern originRegex) {
-        return new CorsServiceBuilder(originRegex);
+        return new CorsServiceBuilder(CorsOriginPredicate.regex(originRegex));
     }
 
     private final CorsConfig config;

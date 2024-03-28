@@ -19,8 +19,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 import java.util.Set;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +33,7 @@ import com.linecorp.armeria.internal.common.websocket.WebSocketUtil;
 import com.linecorp.armeria.internal.server.websocket.DefaultWebSocketService;
 import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.ServiceConfig;
+import com.linecorp.armeria.server.cors.CorsOriginPredicate;
 
 /**
  * Builds a {@link WebSocketService}.
@@ -62,12 +61,10 @@ public final class WebSocketServiceBuilder {
     private int maxFramePayloadLength = DEFAULT_MAX_FRAME_PAYLOAD_LENGTH;
     private boolean allowMaskMismatch;
     private Set<String> subprotocols = ImmutableSet.of();
-    private Set<String> allowedOrigins = ImmutableSet.of();
     private boolean aggregateContinuation;
     @Nullable
     private HttpService fallbackService;
-    @Nullable
-    private Predicate<String> originPredicate;
+    private CorsOriginPredicate originPredicate = CorsOriginPredicate.alwaysFalse();
 
     WebSocketServiceBuilder(WebSocketServiceHandler handler) {
         this.handler = requireNonNull(handler, "handler");
@@ -145,7 +142,7 @@ public final class WebSocketServiceBuilder {
      * @see <a href="https://datatracker.ietf.org/doc/html/rfc6455#section-10.2">Origin Considerations</a>
      */
     public WebSocketServiceBuilder allowedOrigins(Iterable<String> allowedOrigins) {
-        this.allowedOrigins = validateOrigins(allowedOrigins);
+        originPredicate = originPredicate.or(CorsOriginPredicate.origins(allowedOrigins));
         return this;
     }
 
@@ -154,23 +151,9 @@ public final class WebSocketServiceBuilder {
      *
      * @see <a href="https://datatracker.ietf.org/doc/html/rfc6455#section-10.2">Origin Considerations</a>
      */
-    public WebSocketServiceBuilder allowedOrigins(Predicate<String> originPredicate) {
-        this.originPredicate = originPredicate;
+    public WebSocketServiceBuilder allowedOrigins(CorsOriginPredicate originPredicate) {
+        this.originPredicate = this.originPredicate.or(requireNonNull(originPredicate, "originPredicate"));
         return this;
-    }
-
-    private static Set<String> validateOrigins(Iterable<String> allowedOrigins) {
-        //TODO(minwoox): Dedup the same logic in cors service.
-        final Set<String> copied = ImmutableSet.copyOf(requireNonNull(allowedOrigins, "allowedOrigins"));
-        if (copied.contains(ANY_ORIGIN)) {
-            if (copied.size() > 1) {
-                logger.warn("Any origin (*) has been already included. Other origins ({}) will be ignored.",
-                            copied.stream()
-                                  .filter(c -> !ANY_ORIGIN.equals(c))
-                                  .collect(Collectors.joining(",")));
-            }
-        }
-        return copied;
     }
 
     /**
@@ -187,7 +170,6 @@ public final class WebSocketServiceBuilder {
      */
     public WebSocketService build() {
         return new DefaultWebSocketService(handler, fallbackService, maxFramePayloadLength, allowMaskMismatch,
-                                           subprotocols, allowedOrigins, allowedOrigins.contains(ANY_ORIGIN),
-                                           aggregateContinuation, originPredicate);
+                                           subprotocols, aggregateContinuation, originPredicate);
     }
 }
