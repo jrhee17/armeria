@@ -265,11 +265,11 @@ class DefaultDnsCacheTest {
 
         final DnsQuestionWithoutTrailingDot query0 =
                 DnsQuestionWithoutTrailingDot.of("foo.com.", DnsRecordType.A);
-        final DnsRecord record0 = newRecord("foo.com.", "1.1.1.0", 20);
+        final DnsRecord record0 = newRecord("foo.com.", "1.1.1.0", 1000);
 
         final DnsQuestionWithoutTrailingDot query1 =
                 DnsQuestionWithoutTrailingDot.of("bar.com.", DnsRecordType.A);
-        final DnsRecord record1 = newRecord("bar.com.", "1.1.1.1", 40);
+        final DnsRecord record1 = newRecord("bar.com.", "1.1.1.1", 1000);
         final AtomicBoolean removed = new AtomicBoolean();
         final AtomicBoolean evicted = new AtomicBoolean();
         dnsCache.addListener(new DnsCacheListener() {
