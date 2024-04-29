@@ -180,16 +180,9 @@ final class Http1RequestDecoder extends ChannelDuplexHandler {
                         return;
                     }
 
-                    assert msg instanceof NettyHttp1Request;
-                    // Precompute values that rely on CONNECTION related headers since they will be cleaned
-                    // after ArmeriaHttpUtil#toArmeria is called
-                    final boolean keepAlive = HttpUtil.isKeepAlive(nettyReq);
-                    final boolean transferEncodingChunked = HttpUtil.isTransferEncodingChunked(nettyReq);
-
-                    final NettyHttp1Headers nettyHttp1Headers = (NettyHttp1Headers) nettyReq.headers();
+                    // Convert the Netty HttpHeaders into Armeria RequestHeaders.
                     final RequestHeaders headers =
-                            ArmeriaHttpUtil.toArmeria(ctx, nettyReq, nettyHttp1Headers.delegate(),
-                                                      cfg, scheme.toString(), reqTarget);
+                            ArmeriaHttpUtil.toArmeria(ctx, nettyReq, cfg, scheme.toString(), reqTarget);
                     // Do not accept unsupported methods.
                     final HttpMethod method = headers.method();
                     switch (method) {
@@ -275,7 +268,8 @@ final class Http1RequestDecoder extends ChannelDuplexHandler {
                         }
                     }
 
-                    final boolean endOfStream = contentEmpty && !transferEncodingChunked;
+                    final boolean keepAlive = HttpUtil.isKeepAlive(nettyReq);
+                    final boolean endOfStream = contentEmpty && !HttpUtil.isTransferEncodingChunked(nettyReq);
                     this.req = req = DecodedHttpRequest.of(endOfStream, eventLoop, id, 1, headers,
                                                            keepAlive, inboundTrafficController, routingCtx);
 
