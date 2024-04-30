@@ -36,6 +36,7 @@ import com.linecorp.armeria.internal.common.NoopKeepAliveHandler;
 
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoop;
+import io.netty.channel.local.LocalChannel;
 import reactor.test.StepVerifier;
 
 class HttpResponseWrapperTest {
@@ -164,7 +165,7 @@ class HttpResponseWrapperTest {
     }
 
     private static class TestHttpResponseDecoder extends AbstractHttpResponseDecoder {
-        private final KeepAliveHandler keepAliveHandler = new NoopKeepAliveHandler();
+        private final KeepAliveHandler keepAliveHandler = new NoopKeepAliveHandler(new LocalChannel());
 
         TestHttpResponseDecoder(Channel channel, InboundTrafficController inboundTrafficController) {
             super(channel, inboundTrafficController);

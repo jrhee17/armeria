@@ -16,12 +16,21 @@
 
 package com.linecorp.armeria.internal.common;
 
+import static io.netty.channel.ChannelFutureListener.CLOSE;
+
+import io.netty.buffer.Unpooled;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 
 public class NoopKeepAliveHandler implements KeepAliveHandler {
 
+    private final Channel ch;
     private boolean closed;
     private boolean disconnectWhenFinished;
+
+    public NoopKeepAliveHandler(Channel ch) {
+        this.ch = ch;
+    }
 
     @Override
     public void initialize(ChannelHandlerContext ctx) {}
@@ -64,4 +73,9 @@ public class NoopKeepAliveHandler implements KeepAliveHandler {
 
     @Override
     public void increaseNumRequests() {}
+
+    @Override
+    public void closeImmediately() {
+        ch.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(CLOSE);
+    }
 }

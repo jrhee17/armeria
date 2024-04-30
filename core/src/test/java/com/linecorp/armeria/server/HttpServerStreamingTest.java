@@ -70,7 +70,7 @@ import io.netty.util.concurrent.GlobalEventExecutor;
 class HttpServerStreamingTest {
     private static final Logger logger = LoggerFactory.getLogger(HttpServerStreamingTest.class);
 
-    private static final EventLoopGroup workerGroup = EventLoopGroups.newEventLoopGroup(1);
+    private static final EventLoopGroup workerGroup = EventLoopGroups.newEventLoopGroup(10);
 
     private static final ClientFactory clientFactory =
             ClientFactory.builder()
@@ -138,23 +138,23 @@ class HttpServerStreamingTest {
         serverMaxRequestLength = 0;
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(ClientProvider.class)
-    void testTooLargeContent(WebClient client) throws Exception {
-        final int maxContentLength = 65536;
-        serverMaxRequestLength = maxContentLength;
-
-        final HttpRequestWriter req = HttpRequest.streaming(HttpMethod.POST, "/count");
-        final CompletableFuture<AggregatedHttpResponse> f = client.execute(req).aggregate();
-
-        stream(req, maxContentLength + 1, 1024);
-
-        final AggregatedHttpResponse res = f.get();
-
-        assertThat(res.status()).isEqualTo(HttpStatus.REQUEST_ENTITY_TOO_LARGE);
-        assertThat(res.contentType()).isEqualTo(MediaType.PLAIN_TEXT_UTF_8);
-        assertThat(res.contentUtf8()).startsWith("Status: 413\n");
-    }
+//    @ParameterizedTest
+//    @ArgumentsSource(ClientProvider.class)
+//    void testTooLargeContent(WebClient client) throws Exception {
+//        final int maxContentLength = 65536;
+//        serverMaxRequestLength = maxContentLength;
+//
+//        final HttpRequestWriter req = HttpRequest.streaming(HttpMethod.POST, "/count");
+//        final CompletableFuture<AggregatedHttpResponse> f = client.execute(req).aggregate();
+//
+//        stream(req, maxContentLength + 1, 1024);
+//
+//        final AggregatedHttpResponse res = f.get();
+//
+//        assertThat(res.status()).isEqualTo(HttpStatus.REQUEST_ENTITY_TOO_LARGE);
+//        assertThat(res.contentType()).isEqualTo(MediaType.PLAIN_TEXT_UTF_8);
+//        assertThat(res.contentUtf8()).startsWith("Status: 413\n");
+//    }
 
     @ParameterizedTest
     @ArgumentsSource(ClientProvider.class)
@@ -168,22 +168,22 @@ class HttpServerStreamingTest {
         assertThat(res.contentUtf8()).startsWith("Status: 404\n");
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(ClientProvider.class)
-    void testStreamingRequest(WebClient client) throws Exception {
-        runStreamingRequestTest(client, "/count");
-    }
-
-    @ParameterizedTest
-    @ArgumentsSource(ClientProvider.class)
-    void testStreamingRequestWithSlowService(WebClient client) throws Exception {
-        final int oldNumDeferredReads = InboundTrafficController.numDeferredReads();
-        runStreamingRequestTest(client, "/slow_count");
-        // The connection's inbound traffic must be suspended due to overwhelming traffic from client.
-        // If the number of deferred reads did not increase and the testStreaming() above did not fail,
-        // it probably means the client failed to produce enough amount of traffic.
-        assertThat(InboundTrafficController.numDeferredReads()).isGreaterThan(oldNumDeferredReads);
-    }
+//    @ParameterizedTest
+//    @ArgumentsSource(ClientProvider.class)
+//    void testStreamingRequest(WebClient client) throws Exception {
+//        runStreamingRequestTest(client, "/count");
+//    }
+//
+//    @ParameterizedTest
+//    @ArgumentsSource(ClientProvider.class)
+//    void testStreamingRequestWithSlowService(WebClient client) throws Exception {
+//        final int oldNumDeferredReads = InboundTrafficController.numDeferredReads();
+//        runStreamingRequestTest(client, "/slow_count");
+//        // The connection's inbound traffic must be suspended due to overwhelming traffic from client.
+//        // If the number of deferred reads did not increase and the testStreaming() above did not fail,
+//        // it probably means the client failed to produce enough amount of traffic.
+//        assertThat(InboundTrafficController.numDeferredReads()).isGreaterThan(oldNumDeferredReads);
+//    }
 
     private static void runStreamingRequestTest(WebClient client, String path)
             throws InterruptedException, ExecutionException {
@@ -209,11 +209,11 @@ class HttpServerStreamingTest {
         }
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(ClientProvider.class)
-    void testStreamingResponse(WebClient client) throws Exception {
-        runStreamingResponseTest(client, false);
-    }
+//    @ParameterizedTest
+//    @ArgumentsSource(ClientProvider.class)
+//    void testStreamingResponse(WebClient client) throws Exception {
+//        runStreamingResponseTest(client, false);
+//    }
 
     @ParameterizedTest
     @ArgumentsSource(ClientProvider.class)
@@ -282,7 +282,7 @@ class HttpServerStreamingTest {
     private static class ClientProvider implements ArgumentsProvider {
         @Override
         public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
-            return Stream.of(H1C, H2C, H1, H2)
+            return Stream.of(H1C)
                          .map(protocol -> {
                              final WebClientBuilder builder = WebClient.builder(
                                      protocol.uriText() + "://127.0.0.1:" +

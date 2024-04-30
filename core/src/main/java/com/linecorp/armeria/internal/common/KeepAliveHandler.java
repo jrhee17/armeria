@@ -76,4 +76,6 @@ public interface KeepAliveHandler {
      * Increases the number of requests received or sent.
      */
     void increaseNumRequests();
+
+    void closeImmediately();
 }

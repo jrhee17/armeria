@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.internal.common;
 
+import static io.netty.channel.ChannelFutureListener.CLOSE;
+
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -31,6 +33,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Exceptions;
 
 import io.micrometer.core.instrument.Timer;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -238,6 +241,11 @@ public abstract class AbstractKeepAliveHandler implements KeepAliveHandler {
     protected abstract boolean pingResetsPreviousPing();
 
     protected abstract boolean hasRequestsInProgress(ChannelHandlerContext ctx);
+
+    @Override
+    public void closeImmediately() {
+        channel.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(CLOSE);
+    }
 
     @Nullable
     protected final Future<?> shutdownFuture() {
