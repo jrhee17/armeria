@@ -29,7 +29,7 @@
   <appender name="NOP" class="ch.qos.logback.core.helpers.NOPAppender" />
 
   <logger name="com.linecorp.armeria" level="DEBUG" />
-  <logger name="com.linecorp.armeria.logging.traffic.server" level="OFF" />
+  <logger name="com.linecorp.armeria.logging.traffic.server" level="trace" />
   <logger name="com.linecorp.armeria.logging.traffic.server.http2" level="OFF" />
   <logger name="com.linecorp.armeria.logging.traffic.client" level="OFF" />
   <logger name="com.linecorp.armeria.logging.traffic.client.http2" level="OFF" />
