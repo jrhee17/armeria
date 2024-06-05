@@ -14,20 +14,16 @@
  * under the License.
  */
 
-package com.linecorp.armeria.internal.testing;
+package com.linecorp.armeria;
 
-import com.linecorp.armeria.common.FlagsProvider;
+import org.junit.jupiter.api.Test;
 
-public final class TestFlagsProvider implements FlagsProvider {
-    @Override
-    public int priority() {
-        return 0;
-    }
+import com.linecorp.armeria.client.ClientFactory;
 
-    @Override
-    public Long defaultClientFactoryGracefulShutdownTimeoutMillis() {
-        // Disable the graceful shutdown timeout for rapid iterative testing.
-        // It's not recommended to disable the graceful shutdown timeout in production.
-        return null;
+class SimpleTest {
+
+    @Test
+    void asdf() {
+        ClientFactory.closeDefault();
     }
 }
