@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 LINE Corporation
+ * Copyright 2024 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -14,9 +14,9 @@
  * under the License.
  */
 
-package com.linecorp.armeria.client.endpoint.healthcheck;
+package com.linecorp.armeria.internal.client.endpoint.healthcheck;
 
-import static com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckAttributes.HEALTHY_ATTR;
+import static com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckAttributes.HEALTHY_ATTR;
 
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -40,6 +40,7 @@ import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.InvalidResponseException;
+import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckerContext;
 import com.linecorp.armeria.client.retry.Backoff;
 import com.linecorp.armeria.common.Attributes;
 import com.linecorp.armeria.common.ResponseHeaders;
@@ -52,7 +53,7 @@ import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
 import io.netty.channel.EventLoopGroup;
 import io.netty.util.concurrent.Future;
 
-final class DefaultHealthCheckerContext
+public final class DefaultHealthCheckerContext
         extends AbstractExecutorService implements HealthCheckerContext, ScheduledExecutorService {
 
     private final Endpoint originalEndpoint;
@@ -313,7 +314,7 @@ final class DefaultHealthCheckerContext
     }
 
     @VisibleForTesting
-    int refCnt() {
+    public int refCnt() {
         return refCnt;
     }
 

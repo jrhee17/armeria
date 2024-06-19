@@ -14,9 +14,9 @@
  * under the License.
  */
 
-package com.linecorp.armeria.client.endpoint.healthcheck;
+package com.linecorp.armeria.internal.client.endpoint.healthcheck;
 
-import static com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckAttributes.HEALTHY_ATTR;
+import static com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckAttributes.HEALTHY_ATTR;
 import static com.linecorp.armeria.internal.common.util.CollectionUtil.truncate;
 
 import java.util.ArrayDeque;
@@ -41,6 +41,7 @@ import com.spotify.futures.CompletableFutures;
 
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckerContext;
 import com.linecorp.armeria.client.retry.Backoff;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -48,7 +49,8 @@ import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
 
-public final class HealthCheckedEndpointPool extends AbstractListenable<List<Endpoint>> implements AsyncCloseable {
+public final class HealthCheckedEndpointPool extends AbstractListenable<List<Endpoint>>
+        implements AsyncCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(HealthCheckedEndpointPool.class);
 
@@ -139,12 +141,12 @@ public final class HealthCheckedEndpointPool extends AbstractListenable<List<End
 
     @SuppressWarnings("GuardedBy")
     @VisibleForTesting
-    Queue<HealthCheckContextGroup> contextGroupChain() {
+    public Queue<HealthCheckContextGroup> contextGroupChain() {
         return contextGroupChain;
     }
 
     @VisibleForTesting
-    List<Endpoint> healthyEndpoints() {
+    public List<Endpoint> healthyEndpoints() {
         return allEndpoints().stream().filter(endpoint -> Boolean.TRUE.equals(endpoint.attr(HEALTHY_ATTR)))
                              .collect(Collectors.toList());
     }

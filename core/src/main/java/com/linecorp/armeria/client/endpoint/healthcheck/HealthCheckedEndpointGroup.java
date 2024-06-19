@@ -15,7 +15,7 @@
  */
 package com.linecorp.armeria.client.endpoint.healthcheck;
 
-import static com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckAttributes.HEALTHY_ATTR;
+import static com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckAttributes.HEALTHY_ATTR;
 import static com.linecorp.armeria.internal.common.util.CollectionUtil.truncate;
 import static java.util.Objects.requireNonNull;
 
@@ -38,6 +38,7 @@ import com.linecorp.armeria.client.retry.Backoff;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.metric.MeterIdPrefix;
 import com.linecorp.armeria.common.util.AsyncCloseable;
+import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckedEndpointPool;
 
 import io.micrometer.core.instrument.binder.MeterBinder;
 

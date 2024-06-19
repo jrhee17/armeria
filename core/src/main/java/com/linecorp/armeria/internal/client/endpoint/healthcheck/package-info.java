@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LINE Corporation
+ * Copyright 2024 LY Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -14,14 +14,10 @@
  * under the License.
  */
 
-package com.linecorp.armeria.client.endpoint.healthcheck;
+/**
+ * Various classes used internally. Anything in this package can be changed or removed at any time.
+ */
+@NonNullByDefault
+package com.linecorp.armeria.internal.client.endpoint.healthcheck;
 
-import io.netty.util.AttributeKey;
-
-final class HealthCheckAttributes {
-
-    static final AttributeKey<Boolean> HEALTHY_ATTR =
-            AttributeKey.valueOf(HealthCheckAttributes.class, "HEALTHY");
-
-    private HealthCheckAttributes() {}
-}
+import com.linecorp.armeria.common.annotation.NonNullByDefault;

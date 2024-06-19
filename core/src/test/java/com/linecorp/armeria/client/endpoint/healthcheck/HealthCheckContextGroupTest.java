@@ -35,6 +35,7 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.common.util.AsyncCloseableSupport;
+import com.linecorp.armeria.internal.client.endpoint.healthcheck.DefaultHealthCheckerContext;
 import com.linecorp.armeria.internal.testing.AnticipatedException;
 
 class HealthCheckContextGroupTest {
