@@ -31,6 +31,15 @@ public interface HealthCheckerParams {
     /**
      * TBU.
      */
+    @UnstableApi
+    static HealthCheckerParams of(String path, HttpMethod method, @Nullable String host,
+                                  SessionProtocol protocol, int port, Endpoint endpoint) {
+        return new DefaultHealthCheckParams(path, method, host, protocol, port, endpoint);
+    }
+
+    /**
+     * TBU.
+     */
     String path();
 
     /**
