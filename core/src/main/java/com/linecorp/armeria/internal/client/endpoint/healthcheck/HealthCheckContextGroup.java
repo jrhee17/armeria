@@ -61,7 +61,7 @@ public final class HealthCheckContextGroup {
         return candidates.stream().map(endpoint -> {
             final DefaultHealthCheckerContext context = contexts.get(endpoint);
             assert context != null;
-            return endpoint.mergeAttrs(context.endpointAttributes());
+            return endpoint.withAttrs(context.endpointAttributes());
         }).collect(Collectors.toList());
     }
 

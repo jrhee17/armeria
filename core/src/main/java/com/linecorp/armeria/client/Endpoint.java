@@ -693,7 +693,7 @@ public final class Endpoint implements Comparable<Endpoint>, EndpointGroup {
             if (value == null) {
                 return this;
             }
-            return withAttrs(Attributes.of(key, value));
+            return replaceAttrs(Attributes.of(key, value));
         }
 
         if (attributes.attr(key) == value) {
@@ -701,7 +701,7 @@ public final class Endpoint implements Comparable<Endpoint>, EndpointGroup {
         } else {
             final AttributesBuilder attributesBuilder = attributes.toBuilder();
             attributesBuilder.set(key, value);
-            return withAttrs(attributesBuilder.build());
+            return replaceAttrs(attributesBuilder.build());
         }
     }
 
@@ -711,7 +711,7 @@ public final class Endpoint implements Comparable<Endpoint>, EndpointGroup {
      * {@link Attributes}.
      */
     @UnstableApi
-    public Endpoint withAttrs(Attributes newAttributes) {
+    public Endpoint replaceAttrs(Attributes newAttributes) {
         requireNonNull(newAttributes, "newAttributes");
         if (attrs().isEmpty() && newAttributes.isEmpty()) {
             return this;
@@ -727,13 +727,13 @@ public final class Endpoint implements Comparable<Endpoint>, EndpointGroup {
      * in {@param newAttributes} has higher precedence.
      */
     @SuppressWarnings("unchecked")
-    public Endpoint mergeAttrs(Attributes newAttributes) {
+    public Endpoint withAttrs(Attributes newAttributes) {
         requireNonNull(newAttributes, "newAttributes");
         if (newAttributes.isEmpty()) {
             return this;
         }
         if (attrs().isEmpty()) {
-            return withAttrs(newAttributes);
+            return replaceAttrs(newAttributes);
         }
         final AttributesBuilder builder = attrs().toBuilder();
         newAttributes.attrs().forEachRemaining(entry -> {
