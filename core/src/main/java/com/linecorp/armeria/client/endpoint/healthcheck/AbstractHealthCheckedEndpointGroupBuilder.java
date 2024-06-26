@@ -43,7 +43,6 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.auth.AuthToken;
 import com.linecorp.armeria.common.util.AsyncCloseable;
-import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckerParams;
 import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckerParamsAdapter;
 
 /**

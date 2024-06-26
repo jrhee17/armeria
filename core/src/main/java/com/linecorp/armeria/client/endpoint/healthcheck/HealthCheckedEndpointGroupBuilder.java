@@ -24,7 +24,6 @@ import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.util.AsyncCloseable;
-import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckerParams;
 import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckerParamsAdapter;
 import com.linecorp.armeria.internal.client.endpoint.healthcheck.HttpHealthChecker;
 

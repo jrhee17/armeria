@@ -42,6 +42,7 @@ import com.spotify.futures.CompletableFutures;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckerContext;
+import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckerParams;
 import com.linecorp.armeria.client.retry.Backoff;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractListenable;

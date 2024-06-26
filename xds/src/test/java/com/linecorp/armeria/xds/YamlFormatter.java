@@ -14,23 +14,12 @@
  * under the License.
  */
 
-package com.linecorp.armeria.internal.client.endpoint.healthcheck;
+package com.linecorp.armeria.xds;
 
-import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.common.HttpMethod;
-import com.linecorp.armeria.common.SessionProtocol;
-import com.linecorp.armeria.common.annotation.Nullable;
+import java.io.File;
 
-public interface HealthCheckerParams {
+public class YamlFormatter {
 
-    String path();
-
-    HttpMethod httpMethod();
-
-    @Nullable
-    String host();
-
-    SessionProtocol protocol();
-
-    Endpoint endpoint();
+    YamlFormatter(File yamlFile) {
+    }
 }

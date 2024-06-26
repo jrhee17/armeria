@@ -22,7 +22,6 @@ import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckerParams;
 
 final class TestHealthCheckParamsFactory implements Function<Endpoint, HealthCheckerParams> {
 

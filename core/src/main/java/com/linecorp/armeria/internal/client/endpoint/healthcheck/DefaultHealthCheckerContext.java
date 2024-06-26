@@ -44,6 +44,7 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.InvalidResponseException;
 import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckerContext;
+import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckerParams;
 import com.linecorp.armeria.client.retry.Backoff;
 import com.linecorp.armeria.common.Attributes;
 import com.linecorp.armeria.common.ResponseHeaders;

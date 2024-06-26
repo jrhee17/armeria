@@ -14,39 +14,43 @@
  * under the License.
  */
 
-package com.linecorp.armeria.internal.client.endpoint.healthcheck;
+package com.linecorp.armeria.client.endpoint.healthcheck;
 
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckerParams;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.annotation.UnstableApi;
 
-public class HealthCheckerParamsAdapter implements HealthCheckerParams {
+/**
+ * TBU.
+ */
+@UnstableApi
+public interface HealthCheckerParams {
 
-    @Override
-    public String path() {
-        throw new UnsupportedOperationException();
-    }
+    /**
+     * TBU.
+     */
+    String path();
 
-    @Override
-    public HttpMethod httpMethod() {
-        throw new UnsupportedOperationException();
-    }
+    /**
+     * TBU.
+     */
+    HttpMethod httpMethod();
 
-    @Override
+    /**
+     * TBU.
+     */
     @Nullable
-    public String host() {
-        throw new UnsupportedOperationException();
-    }
+    String host();
 
-    @Override
-    public SessionProtocol protocol() {
-        throw new UnsupportedOperationException();
-    }
+    /**
+     * TBU.
+     */
+    SessionProtocol protocol();
 
-    @Override
-    public Endpoint endpoint() {
-        return null;
-    }
+    /**
+     * TBU.
+     */
+    Endpoint endpoint();
 }

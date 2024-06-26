@@ -38,7 +38,6 @@ import com.linecorp.armeria.client.retry.Backoff;
 import com.linecorp.armeria.common.metric.MeterIdPrefix;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckedEndpointPool;
-import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckerParams;
 
 import io.micrometer.core.instrument.binder.MeterBinder;
 

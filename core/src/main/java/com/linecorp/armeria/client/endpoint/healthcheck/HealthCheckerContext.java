@@ -26,7 +26,6 @@ import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckerParams;
 
 /**
  * Provides the properties and operations required for sending health check requests.
