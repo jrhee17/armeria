@@ -403,7 +403,7 @@ public abstract class AbstractHealthCheckedEndpointGroupBuilder
                                               newCheckerFactory(), healthCheckStrategy, paramsFactory);
     }
 
-    static class AbstractHealthCheckerParams extends HealthCheckerParamsAdapter {
+    static class AbstractHealthCheckerParams implements HealthCheckerParams {
 
         private final HealthCheckerParams delegate;
         private final SessionProtocol protocol;
@@ -414,6 +414,16 @@ public abstract class AbstractHealthCheckedEndpointGroupBuilder
             this.delegate = delegate;
             this.protocol = protocol;
             this.port = port;
+        }
+
+        @Override
+        public String path() {
+            return delegate.path();
+        }
+
+        @Override
+        public HttpMethod httpMethod() {
+            return delegate.httpMethod();
         }
 
         @Override
@@ -441,9 +451,9 @@ public abstract class AbstractHealthCheckedEndpointGroupBuilder
     }
 
     /**
-     * TODO: revisit if we really need to expose this.
+     * A dummy implementation to avoid breaking changes in {@link AbstractHealthCheckedEndpointGroupBuilder}.
      */
-    protected Function<Endpoint, HealthCheckerParams> paramsFactory() {
+    Function<Endpoint, HealthCheckerParams> paramsFactory() {
         return endpoint -> new HealthCheckerParamsAdapter() {
             @Override
             public String path() {
@@ -453,6 +463,11 @@ public abstract class AbstractHealthCheckedEndpointGroupBuilder
             @Override
             public HttpMethod httpMethod() {
                 return HttpMethod.GET;
+            }
+
+            @Override
+            public Endpoint endpoint() {
+                return endpoint;
             }
         };
     }

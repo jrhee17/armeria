@@ -55,11 +55,10 @@ final class EndpointGroupConverter {
 
     HealthCheckedEndpointPool endpointPool = new HealthCheckedEndpointPool(
             Backoff.ofDefault(), ClientOptions.of(), ctx -> {
-        HttpHealthChecker checker = new HttpHealthChecker(ctx);
+        final HttpHealthChecker checker = new HttpHealthChecker(ctx);
         checker.start();
         return checker;
-    }, healthCheckerParams
-    );
+    }, healthCheckerParams);
 
     EndpointGroup convertEndpointGroup(ClusterSnapshot clusterSnapshot) {
         final EndpointSnapshot endpointSnapshot = clusterSnapshot.endpointSnapshot();
@@ -160,9 +159,7 @@ final class EndpointGroupConverter {
         XdsHealthCheckedEndpointGroup(EndpointGroup delegate, HealthCheckedEndpointPool pool) {
             this.delegate = delegate;
             this.pool = pool;
-            delegateListener = endpoints -> {
-                pool.setEndpoints(endpoints);
-            };
+            delegateListener = pool::setEndpoints;
             delegate.addListener(delegateListener, true);
             pool.addListener(this, true);
         }

@@ -60,7 +60,7 @@ public final class HealthCheckedEndpointGroupBuilder
     }
 
     @Override
-    protected Function<Endpoint, HealthCheckerParams> paramsFactory() {
+    Function<Endpoint, HealthCheckerParams> paramsFactory() {
         return endpoint -> new DefaultHealthCheckerParams(path, useGet, endpoint);
     }
 

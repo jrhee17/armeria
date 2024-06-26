@@ -182,9 +182,13 @@ public final class DefaultHealthCheckerContext
     public void updateHealth(double health, ClientRequestContext ctx,
                              @Nullable ResponseHeaders headers, @Nullable Throwable cause) {
         final boolean isHealthy = health > 0;
-        final boolean isDegraded = headers.contains("x-envoy-degraded");
-        endpointAttributes = Attributes.of(HEALTHY_ATTR, isHealthy,
-                                           DEGRADED_ATTR, isDegraded);
+
+        if (headers != null && headers.contains("x-envoy-degraded")) {
+            endpointAttributes = Attributes.of(HEALTHY_ATTR, isHealthy,
+                                               DEGRADED_ATTR, true);
+        } else {
+            endpointAttributes = Attributes.of(HEALTHY_ATTR, isHealthy);
+        }
         onUpdateHealth.accept(originalEndpoint, isHealthy);
 
         if (!initialCheckFuture.isDone()) {

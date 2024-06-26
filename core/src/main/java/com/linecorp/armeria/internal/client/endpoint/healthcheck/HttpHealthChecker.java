@@ -87,7 +87,7 @@ public final class HttpHealthChecker implements AsyncCloseable {
             }
 
             final HealthCheckerParams params = ctx.paramsFactory().get();
-            final Endpoint endpoint = ctx.endpoint();
+            final Endpoint endpoint = params.endpoint();
             final WebClient webClient = WebClient.builder(ctx.protocol(), endpoint)
                                                  .options(ctx.clientOptions())
                                                  .decorator(ResponseTimeoutUpdater::new)
@@ -114,6 +114,8 @@ public final class HttpHealthChecker implements AsyncCloseable {
                                        reqCtx.eventLoop().withoutContext(),
                                        SubscriptionOption.WITH_POOLED_OBJECTS);
             }
+        } catch (Exception e) {
+            logger.warn("Unexpected exception while sending a health check request, e: ", e);
         } finally {
             unlock();
         }
