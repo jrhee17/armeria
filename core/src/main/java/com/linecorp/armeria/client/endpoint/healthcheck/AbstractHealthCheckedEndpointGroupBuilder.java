@@ -36,12 +36,15 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.retry.Backoff;
 import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.HttpHeaderNames;
+import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.auth.AuthToken;
 import com.linecorp.armeria.common.util.AsyncCloseable;
+import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckerParams;
+import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckerParamsAdapter;
 
 /**
  * A skeletal builder implementation for creating a new {@link HealthCheckedEndpointGroup}.
@@ -387,12 +390,71 @@ public abstract class AbstractHealthCheckedEndpointGroupBuilder
                 LongMath.saturatedAdd(this.initialSelectionTimeoutMillis, delegate.selectionTimeoutMillis());
         final long selectionTimeoutMillis =
                 LongMath.saturatedAdd(this.selectionTimeoutMillis, delegate.selectionTimeoutMillis());
+        final SessionProtocol protocol = this.protocol;
+        final int port = this.port;
+        final Function<Endpoint, HealthCheckerParams> paramsFactory = endpoint -> {
+            final HealthCheckerParams delegate = paramsFactory().apply(endpoint);
+            return new AbstractHealthCheckerParams(delegate, protocol, port);
+        };
 
         return new HealthCheckedEndpointGroup(delegate, shouldAllowEmptyEndpoints(),
                                               initialSelectionTimeoutMillis, selectionTimeoutMillis,
-                                              protocol, port, retryBackoff,
-                                              clientOptionsBuilder.build(),
-                                              newCheckerFactory(), healthCheckStrategy);
+                                              retryBackoff, clientOptionsBuilder.build(),
+                                              newCheckerFactory(), healthCheckStrategy, paramsFactory);
+    }
+
+    static class AbstractHealthCheckerParams extends HealthCheckerParamsAdapter {
+
+        private final HealthCheckerParams delegate;
+        private final SessionProtocol protocol;
+        private final int port;
+
+        AbstractHealthCheckerParams(HealthCheckerParams delegate, SessionProtocol protocol,
+                                    int port) {
+            this.delegate = delegate;
+            this.protocol = protocol;
+            this.port = port;
+        }
+
+        @Override
+        @Nullable
+        public String host() {
+            return null;
+        }
+
+        @Override
+        public SessionProtocol protocol() {
+            return protocol;
+        }
+
+        @Override
+        public Endpoint endpoint() {
+            final Endpoint endpoint = delegate.endpoint();
+            if (port == 0) {
+                return endpoint.withoutDefaultPort(protocol);
+            } else if (port == protocol.defaultPort()) {
+                return endpoint.withoutPort();
+            } else {
+                return endpoint.withPort(port);
+            }
+        }
+    }
+
+    /**
+     * TODO: revisit if we really need to expose this.
+     */
+    protected Function<Endpoint, HealthCheckerParams> paramsFactory() {
+        return endpoint -> new HealthCheckerParamsAdapter() {
+            @Override
+            public String path() {
+                return "/";
+            }
+
+            @Override
+            public HttpMethod httpMethod() {
+                return HttpMethod.GET;
+            }
+        };
     }
 
     /**

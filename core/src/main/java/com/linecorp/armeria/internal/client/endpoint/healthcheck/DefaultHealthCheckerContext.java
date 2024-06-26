@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.internal.client.endpoint.healthcheck;
 
+import static com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckAttributes.DEGRADED_ATTR;
 import static com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckAttributes.HEALTHY_ATTR;
 
 import java.util.IdentityHashMap;
@@ -30,6 +31,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -57,9 +60,8 @@ public final class DefaultHealthCheckerContext
         extends AbstractExecutorService implements HealthCheckerContext, ScheduledExecutorService {
 
     private final Endpoint originalEndpoint;
-    private final Endpoint endpoint;
+    Function<Endpoint, HealthCheckerParams> paramsFactory;
     private volatile Attributes endpointAttributes;
-    private final SessionProtocol protocol;
     private final ClientOptions clientOptions;
     private final ReentrantLock lock = new ReentrantShortLock();
 
@@ -79,20 +81,14 @@ public final class DefaultHealthCheckerContext
     private boolean destroyed;
     private int refCnt = 1;
 
-    DefaultHealthCheckerContext(Endpoint endpoint, int port, SessionProtocol protocol,
+    DefaultHealthCheckerContext(Endpoint endpoint,
                                 ClientOptions clientOptions, Backoff retryBackoff,
-                                BiConsumer<Endpoint, Boolean> onUpdateHealth) {
+                                BiConsumer<Endpoint, Boolean> onUpdateHealth,
+                                Function<Endpoint, HealthCheckerParams> paramsFactory) {
         originalEndpoint = endpoint;
+        this.paramsFactory = paramsFactory;
         endpointAttributes = Attributes.of(HEALTHY_ATTR, false);
 
-        if (port == 0) {
-            this.endpoint = endpoint.withoutDefaultPort(protocol);
-        } else if (port == protocol.defaultPort()) {
-            this.endpoint = endpoint.withoutPort();
-        } else {
-            this.endpoint = endpoint.withPort(port);
-        }
-        this.protocol = protocol;
         this.clientOptions = clientOptions;
         this.retryBackoff = retryBackoff;
         this.onUpdateHealth = onUpdateHealth;
@@ -142,7 +138,7 @@ public final class DefaultHealthCheckerContext
 
     @Override
     public Endpoint endpoint() {
-        return endpoint;
+        return paramsFactory.apply(originalEndpoint).endpoint();
     }
 
     Attributes endpointAttributes() {
@@ -151,7 +147,7 @@ public final class DefaultHealthCheckerContext
 
     @Override
     public SessionProtocol protocol() {
-        return protocol;
+        return paramsFactory.apply(endpoint()).protocol();
     }
 
     @Override
@@ -169,7 +165,7 @@ public final class DefaultHealthCheckerContext
         final long delayMillis = retryBackoff.nextDelayMillis(1);
         if (delayMillis < 0) {
             throw new IllegalStateException(
-                    "retryBackoff.nextDelayMillis(1) returned a negative value for " + endpoint +
+                    "retryBackoff.nextDelayMillis(1) returned a negative value for " + originalEndpoint +
                     ": " + delayMillis);
         }
 
@@ -186,7 +182,9 @@ public final class DefaultHealthCheckerContext
     public void updateHealth(double health, ClientRequestContext ctx,
                              @Nullable ResponseHeaders headers, @Nullable Throwable cause) {
         final boolean isHealthy = health > 0;
-        endpointAttributes = Attributes.of(HEALTHY_ATTR, isHealthy);
+        final boolean isDegraded = headers.contains("x-envoy-degraded");
+        endpointAttributes = Attributes.of(HEALTHY_ATTR, isHealthy,
+                                           DEGRADED_ATTR, isDegraded);
         onUpdateHealth.accept(originalEndpoint, isHealthy);
 
         if (!initialCheckFuture.isDone()) {
@@ -202,6 +200,11 @@ public final class DefaultHealthCheckerContext
                 }
             }
         }
+    }
+
+    @Override
+    public Supplier<HealthCheckerParams> paramsFactory() {
+        return () -> paramsFactory.apply(originalEndpoint);
     }
 
     @Override
@@ -293,7 +296,7 @@ public final class DefaultHealthCheckerContext
     private void rejectIfDestroyed(Object command) {
         if (destroyed) {
             throw new RejectedExecutionException(
-                    HealthCheckerContext.class.getSimpleName() + " for '" + endpoint +
+                    HealthCheckerContext.class.getSimpleName() + " for '" + originalEndpoint +
                     "' has been destroyed already. Task: " + command);
         }
     }
@@ -340,7 +343,6 @@ public final class DefaultHealthCheckerContext
     public String toString() {
         return MoreObjects.toStringHelper(this)
                           .add("originalEndpoint", originalEndpoint)
-                          .add("endpoint", endpoint)
                           .add("initializationStarted", initializationStarted())
                           .add("initialized", initialCheckFuture.isDone())
                           .add("destroyed", destroyed)

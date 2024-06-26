@@ -43,7 +43,6 @@ import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckerContext;
 import com.linecorp.armeria.client.retry.Backoff;
-import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
@@ -54,8 +53,6 @@ public final class HealthCheckedEndpointPool extends AbstractListenable<List<End
 
     private static final Logger logger = LoggerFactory.getLogger(HealthCheckedEndpointPool.class);
 
-    private final SessionProtocol protocol;
-    private final int port;
     private final Backoff retryBackoff;
     private final ClientOptions clientOptions;
     private final Function<? super HealthCheckerContext, ? extends AsyncCloseable> checkerFactory;
@@ -64,15 +61,16 @@ public final class HealthCheckedEndpointPool extends AbstractListenable<List<End
     @GuardedBy("lock")
     private final Deque<HealthCheckContextGroup> contextGroupChain = new ArrayDeque<>(4);
     private volatile boolean initialized;
+    Function<Endpoint, HealthCheckerParams> paramsFactory;
 
     public HealthCheckedEndpointPool(
-            SessionProtocol protocol, int port, Backoff retryBackoff, ClientOptions clientOptions,
-            Function<? super HealthCheckerContext, ? extends AsyncCloseable> checkerFactory) {
-        this.protocol = protocol;
-        this.port = port;
+            Backoff retryBackoff, ClientOptions clientOptions,
+            Function<? super HealthCheckerContext, ? extends AsyncCloseable> checkerFactory,
+            Function<Endpoint, HealthCheckerParams> paramsFactory) {
         this.retryBackoff = retryBackoff;
         this.clientOptions = clientOptions;
         this.checkerFactory = checkerFactory;
+        this.paramsFactory = paramsFactory;
     }
 
     public void setEndpoints(List<Endpoint> endpoints) {
@@ -197,8 +195,8 @@ public final class HealthCheckedEndpointPool extends AbstractListenable<List<End
     }
 
     private DefaultHealthCheckerContext newCheckerContext(Endpoint endpoint) {
-        return new DefaultHealthCheckerContext(endpoint, port, protocol, clientOptions, retryBackoff,
-                                               this::updateHealth);
+        return new DefaultHealthCheckerContext(endpoint, clientOptions, retryBackoff,
+                                               this::updateHealth, paramsFactory);
     }
 
     private void destroyOldContexts(HealthCheckContextGroup contextGroup) {

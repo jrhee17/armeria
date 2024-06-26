@@ -35,10 +35,10 @@ import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.DynamicEndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.retry.Backoff;
-import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.metric.MeterIdPrefix;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckedEndpointPool;
+import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckerParams;
 
 import io.micrometer.core.instrument.binder.MeterBinder;
 
@@ -103,18 +103,18 @@ public final class HealthCheckedEndpointGroup extends DynamicEndpointGroup {
     HealthCheckedEndpointGroup(
             EndpointGroup delegate, boolean allowEmptyEndpoints,
             long initialSelectionTimeoutMillis, long selectionTimeoutMillis,
-            SessionProtocol protocol, int port,
             Backoff retryBackoff, ClientOptions clientOptions,
             Function<? super HealthCheckerContext, ? extends AsyncCloseable> checkerFactory,
-            HealthCheckStrategy healthCheckStrategy) {
+            HealthCheckStrategy healthCheckStrategy,
+            Function<Endpoint, HealthCheckerParams> paramsFactory) {
 
         super(requireNonNull(delegate, "delegate").selectionStrategy(), allowEmptyEndpoints);
 
         this.delegate = delegate;
         this.initialSelectionTimeoutMillis = initialSelectionTimeoutMillis;
         this.selectionTimeoutMillis = selectionTimeoutMillis;
-        endpointPool = new HealthCheckedEndpointPool(protocol, port, retryBackoff,
-                                                     clientOptions, checkerFactory);
+        endpointPool = new HealthCheckedEndpointPool(retryBackoff,
+                                                     clientOptions, checkerFactory, paramsFactory);
         this.healthCheckStrategy = requireNonNull(healthCheckStrategy, "healthCheckStrategy");
 
         clientOptions.factory().whenClosed().thenRun(this::closeAsync);

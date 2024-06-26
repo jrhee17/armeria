@@ -22,7 +22,10 @@ import java.util.function.Function;
 
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.util.AsyncCloseable;
+import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckerParams;
+import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckerParamsAdapter;
 import com.linecorp.armeria.internal.client.endpoint.healthcheck.HttpHealthChecker;
 
 /**
@@ -57,25 +60,43 @@ public final class HealthCheckedEndpointGroupBuilder
     }
 
     @Override
-    protected Function<? super HealthCheckerContext, ? extends AsyncCloseable> newCheckerFactory() {
-        return new HttpHealthCheckerFactory(path, useGet);
+    protected Function<Endpoint, HealthCheckerParams> paramsFactory() {
+        return endpoint -> new DefaultHealthCheckerParams(path, useGet, endpoint);
     }
 
-    private static class HttpHealthCheckerFactory implements Function<HealthCheckerContext, AsyncCloseable> {
+    @Override
+    protected Function<? super HealthCheckerContext, ? extends AsyncCloseable> newCheckerFactory() {
+        return ctx -> {
+            final HttpHealthChecker checker = new HttpHealthChecker(ctx);
+            checker.start();
+            return checker;
+        };
+    }
 
+    private static final class DefaultHealthCheckerParams extends HealthCheckerParamsAdapter {
         private final String path;
         private final boolean useGet;
+        private final Endpoint endpoint;
 
-        HttpHealthCheckerFactory(String path, boolean useGet) {
+        private DefaultHealthCheckerParams(String path, boolean useGet, Endpoint endpoint) {
             this.path = path;
             this.useGet = useGet;
+            this.endpoint = endpoint;
         }
 
         @Override
-        public AsyncCloseable apply(HealthCheckerContext ctx) {
-            final HttpHealthChecker checker = new HttpHealthChecker(ctx, path, useGet);
-            checker.start();
-            return checker;
+        public String path() {
+            return path;
+        }
+
+        @Override
+        public HttpMethod httpMethod() {
+            return useGet ? HttpMethod.GET : HttpMethod.HEAD;
+        }
+
+        @Override
+        public Endpoint endpoint() {
+            return endpoint;
         }
     }
 }

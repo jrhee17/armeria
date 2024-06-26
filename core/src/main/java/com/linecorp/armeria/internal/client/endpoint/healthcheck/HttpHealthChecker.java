@@ -37,7 +37,6 @@ import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckedEndpointGroup;
 import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckerContext;
 import com.linecorp.armeria.common.HttpHeaderNames;
-import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpObject;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
@@ -65,10 +64,6 @@ public final class HttpHealthChecker implements AsyncCloseable {
 
     private final ReentrantLock lock = new ReentrantShortLock();
     private final HealthCheckerContext ctx;
-    private final WebClient webClient;
-    private final String authority;
-    private final String path;
-    private final boolean useGet;
     private boolean wasHealthy;
     private int maxLongPollingSeconds;
     private int pingIntervalSeconds;
@@ -76,16 +71,8 @@ public final class HttpHealthChecker implements AsyncCloseable {
     private HttpResponse lastResponse;
     private final AsyncCloseableSupport closeable = AsyncCloseableSupport.of(this::closeAsync);
 
-    public HttpHealthChecker(HealthCheckerContext ctx, String path, boolean useGet) {
-        final Endpoint endpoint = ctx.endpoint();
+    public HttpHealthChecker(HealthCheckerContext ctx) {
         this.ctx = ctx;
-        webClient = WebClient.builder(ctx.protocol(), endpoint)
-                             .options(ctx.clientOptions())
-                             .decorator(ResponseTimeoutUpdater::new)
-                             .build();
-        authority = endpoint.authority();
-        this.path = path;
-        this.useGet = useGet;
     }
 
     public void start() {
@@ -99,10 +86,18 @@ public final class HttpHealthChecker implements AsyncCloseable {
                 return;
             }
 
-            final RequestHeaders headers;
+            final HealthCheckerParams params = ctx.paramsFactory().get();
+            final Endpoint endpoint = ctx.endpoint();
+            final WebClient webClient = WebClient.builder(ctx.protocol(), endpoint)
+                                                 .options(ctx.clientOptions())
+                                                 .decorator(ResponseTimeoutUpdater::new)
+                                                 .build();
+            final String host = params.host();
+            final String authority = host != null ? host : endpoint.authority();
             final RequestHeadersBuilder builder =
-                    RequestHeaders.builder(useGet ? HttpMethod.GET : HttpMethod.HEAD, path)
+                    RequestHeaders.builder(params.httpMethod(), params.path())
                                   .authority(authority);
+            final RequestHeaders headers;
             if (maxLongPollingSeconds > 0) {
                 headers = builder.add(HttpHeaderNames.IF_NONE_MATCH,
                                       wasHealthy ? "\"healthy\"" : "\"unhealthy\"")

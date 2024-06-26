@@ -17,26 +17,35 @@
 package com.linecorp.armeria.internal.client.endpoint.healthcheck;
 
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.common.HttpMethod;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 
-import io.netty.util.AttributeKey;
+public class HealthCheckerParamsAdapter implements HealthCheckerParams {
 
-public final class HealthCheckAttributes {
-
-    public static final AttributeKey<Boolean> HEALTHY_ATTR =
-            AttributeKey.valueOf(HealthCheckAttributes.class, "HEALTHY");
-    public static final AttributeKey<Boolean> DEGRADED_ATTR =
-            AttributeKey.valueOf(HealthCheckAttributes.class, "DEGRADED");
-
-    @Nullable
-    public static Boolean healthy(Endpoint endpoint) {
-        return endpoint.attr(HEALTHY_ATTR);
+    @Override
+    public String path() {
+        throw new UnsupportedOperationException();
     }
 
-    @Nullable
-    public static Boolean degraded(Endpoint endpoint) {
-        return endpoint.attr(DEGRADED_ATTR);
+    @Override
+    public HttpMethod httpMethod() {
+        throw new UnsupportedOperationException();
     }
 
-    private HealthCheckAttributes() {}
+    @Override
+    @Nullable
+    public String host() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public SessionProtocol protocol() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Endpoint endpoint() {
+        return null;
+    }
 }

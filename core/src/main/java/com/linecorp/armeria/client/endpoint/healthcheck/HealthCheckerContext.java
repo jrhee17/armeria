@@ -17,6 +17,7 @@ package com.linecorp.armeria.client.endpoint.healthcheck;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
 
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientOptions;
@@ -25,6 +26,7 @@ import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckerParams;
 
 /**
  * Provides the properties and operations required for sending health check requests.
@@ -88,4 +90,9 @@ public interface HealthCheckerContext {
         // TODO(ikhoon): Make this method abstract in Armeria 2.0
         updateHealth(health);
     }
+
+    /**
+     * Provides the parameters for health checking.
+     */
+    Supplier<HealthCheckerParams> paramsFactory();
 }
