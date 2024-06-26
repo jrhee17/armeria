@@ -24,10 +24,10 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Strings;
 
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckerParams;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckerParams;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.core.v3.HealthCheck.HttpHealthCheck;
