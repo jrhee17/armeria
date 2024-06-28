@@ -65,11 +65,9 @@ public interface CancellationScheduler {
 
     void init(EventExecutor eventLoop);
 
-    void start(CancellationTask task);
+    void start();
 
     void clearTimeout();
-
-    void clearTimeout(boolean resetTimeout);
 
     void setTimeoutNanos(TimeoutMode mode, long timeoutNanos);
 
@@ -94,6 +92,8 @@ public interface CancellationScheduler {
 
     @Deprecated
     CompletableFuture<Void> whenTimedOut();
+
+    void stop();
 
     enum State {
         INIT,

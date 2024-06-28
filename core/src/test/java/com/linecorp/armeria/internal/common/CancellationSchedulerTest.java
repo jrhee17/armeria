@@ -48,15 +48,7 @@ class CancellationSchedulerTest {
 
     private static final EventExecutor eventExecutor = CommonPools.workerGroup().next();
 
-    private static final CancellationTask noopTask = new CancellationTask() {
-        @Override
-        public boolean canSchedule() {
-            return true;
-        }
-
-        @Override
-        public void run(Throwable cause) {}
-    };
+    private static final CancellationTask noopTask = cause -> {};
 
     private static void executeInEventLoop(long initTimeoutNanos,
                                            Consumer<DefaultCancellationScheduler> task) {
@@ -365,7 +357,7 @@ class CancellationSchedulerTest {
         scheduler.setTimeoutNanos(SET_FROM_NOW, 1000);
         assertThat(scheduler.timeoutNanos()).isEqualTo(1000);
 
-        scheduler.clearTimeout(false);
+        scheduler.stop();
         assertThat(scheduler.timeoutNanos()).isEqualTo(1000);
         scheduler.clearTimeout();
         assertThat(scheduler.timeoutNanos()).isZero();
@@ -390,7 +382,7 @@ class CancellationSchedulerTest {
             assertTimeoutWithTolerance(scheduler.timeoutNanos(), MILLISECONDS.toNanos(1000));
 
             scheduler = new DefaultCancellationScheduler(MILLISECONDS.toNanos(1000));
-            scheduler.clearTimeout(false);
+            scheduler.stop();
             scheduler.initAndStart(eventExecutor, noopTask);
             assertThat(scheduler.timeoutNanos()).isEqualTo(MILLISECONDS.toNanos(1000));
 
@@ -432,8 +424,8 @@ class CancellationSchedulerTest {
         final AtomicBoolean completed = new AtomicBoolean();
         final CancellationScheduler scheduler = new DefaultCancellationScheduler(MILLISECONDS.toNanos(100));
         scheduler.whenCancelling().thenRun(() -> {
-            scheduler.clearTimeout(false);
-            scheduler.clearTimeout(false);
+            scheduler.stop();
+            scheduler.stop();
             completed.set(true);
         });
         eventExecutor.execute(() -> {

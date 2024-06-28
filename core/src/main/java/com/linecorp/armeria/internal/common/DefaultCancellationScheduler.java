@@ -22,17 +22,16 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.math.LongMath;
 
 import com.linecorp.armeria.client.ResponseTimeoutException;
-import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.common.util.UnmodifiableFuture;
+import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
 import com.linecorp.armeria.server.HttpResponseException;
 import com.linecorp.armeria.server.HttpStatusException;
 import com.linecorp.armeria.server.RequestTimeoutException;
@@ -50,24 +49,6 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
             whenCancelledUpdater = AtomicReferenceFieldUpdater.newUpdater(
             DefaultCancellationScheduler.class, CancellationFuture.class, "whenCancelled");
 
-    private static final AtomicReferenceFieldUpdater<DefaultCancellationScheduler, TimeoutFuture>
-            whenTimingOutUpdater = AtomicReferenceFieldUpdater.newUpdater(
-            DefaultCancellationScheduler.class, TimeoutFuture.class, "whenTimingOut");
-
-    private static final AtomicReferenceFieldUpdater<DefaultCancellationScheduler, TimeoutFuture>
-            whenTimedOutUpdater = AtomicReferenceFieldUpdater.newUpdater(
-            DefaultCancellationScheduler.class, TimeoutFuture.class, "whenTimedOut");
-
-    private static final AtomicReferenceFieldUpdater<DefaultCancellationScheduler, Runnable>
-            pendingTaskUpdater = AtomicReferenceFieldUpdater.newUpdater(
-            DefaultCancellationScheduler.class, Runnable.class, "pendingTask");
-
-    private static final AtomicLongFieldUpdater<DefaultCancellationScheduler> pendingTimeoutNanosUpdater =
-            AtomicLongFieldUpdater.newUpdater(DefaultCancellationScheduler.class, "pendingTimeoutNanos");
-
-    private static final Runnable noopPendingTask = () -> {
-    };
-
     static final CancellationScheduler serverFinishedCancellationScheduler = finished0(true);
     static final CancellationScheduler clientFinishedCancellationScheduler = finished0(false);
 
@@ -76,25 +57,19 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
     private long startTimeNanos;
     @Nullable
     private EventExecutor eventLoop;
-    @Nullable
-    private CancellationTask task;
-    @Nullable
-    private volatile Runnable pendingTask;
+    private CancellationTask task = noopCancellationTask;
     @Nullable
     private ScheduledFuture<?> scheduledFuture;
     @Nullable
     private volatile CancellationFuture whenCancelling;
     @Nullable
     private volatile CancellationFuture whenCancelled;
-    @Nullable
-    private volatile TimeoutFuture whenTimingOut;
-    @Nullable
-    private volatile TimeoutFuture whenTimedOut;
-    @SuppressWarnings("FieldMayBeFinal")
-    private volatile long pendingTimeoutNanos;
+    private long setFromNowStartNanos;
+    private TimeoutMode timeoutMode = TimeoutMode.SET_FROM_START;
     private final boolean server;
     @Nullable
     private Throwable cause;
+    private final ReentrantShortLock lock = new ReentrantShortLock();
 
     @VisibleForTesting
     DefaultCancellationScheduler(long timeoutNanos) {
@@ -103,7 +78,6 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
 
     DefaultCancellationScheduler(long timeoutNanos, boolean server) {
         this.timeoutNanos = timeoutNanos;
-        pendingTimeoutNanos = timeoutNanos;
         this.server = server;
     }
 
@@ -113,86 +87,94 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
     @Override
     public void initAndStart(EventExecutor eventLoop, CancellationTask task) {
         init(eventLoop);
-        if (!eventLoop.inEventLoop()) {
-            eventLoop.execute(() -> start(task));
-        } else {
-            start(task);
-        }
+        updateTask(task);
+        start();
     }
 
     @Override
     public void init(EventExecutor eventLoop) {
-        checkState(this.eventLoop == null, "Can't init() more than once");
-        this.eventLoop = eventLoop;
+        lock.lock();
+        try {
+            checkState(this.eventLoop == null, "Can't init() more than once");
+            this.eventLoop = eventLoop;
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
-    public void start(CancellationTask task) {
-        assert eventLoop != null;
-        assert eventLoop.inEventLoop();
-        if (isFinished()) {
-            assert cause != null;
-            task.run(cause);
-            return;
+    public void start() {
+        lock.lock();
+        try {
+            checkState(state == State.INIT, "Can't start() more than once");
+            startTimeNanos = System.nanoTime();
+            if (timeoutNanos != 0) {
+                if (timeoutMode == TimeoutMode.SET_FROM_NOW) {
+                    final long elapsedTimeNanos = startTimeNanos - setFromNowStartNanos;
+                    timeoutNanos = Math.max(1, timeoutNanos - elapsedTimeNanos);
+                }
+                state = State.SCHEDULED;
+                scheduledFuture =
+                        eventLoop.schedule(() -> invokeTask(null), timeoutNanos, NANOSECONDS);
+            } else {
+                state = State.INACTIVE;
+            }
+        } finally {
+            lock.unlock();
         }
-        if (this.task != null) {
+    }
+
+    @Override
+    public void updateTask(CancellationTask task) {
+        lock.lock();
+        try {
+            if (isFinished()) {
+                assert cause != null;
+                if (task.canSchedule()) {
+                    task.run(cause);
+                }
+                return;
+            }
             // just replace the task
             this.task = task;
-            return;
+        } finally {
+            lock.unlock();
         }
-        this.task = task;
-        startTimeNanos = System.nanoTime();
-        if (timeoutNanos != 0) {
-            state = State.SCHEDULED;
-            scheduledFuture =
-                    eventLoop.schedule(() -> invokeTask(null), timeoutNanos, NANOSECONDS);
-        } else {
-            state = State.INACTIVE;
-        }
-        for (;;) {
-            final Runnable pendingTask = this.pendingTask;
-            if (pendingTaskUpdater.compareAndSet(this, pendingTask, noopPendingTask)) {
-                if (pendingTask != null) {
-                    pendingTask.run();
-                }
-                break;
-            }
+    }
+
+    @Override
+    public void stop() {
+        lock.lock();
+        try {
+            cancelScheduled();
+        } finally {
+            lock.unlock();
         }
     }
 
     @Override
     public void clearTimeout() {
-        clearTimeout(true);
-    }
-
-    @Override
-    public void clearTimeout(boolean resetTimeout) {
-        if (timeoutNanos() == 0) {
-            return;
-        }
-        if (isInitialized()) {
-            if (eventLoop.inEventLoop()) {
-                clearTimeout0(resetTimeout);
-            } else {
-                eventLoop.execute(() -> clearTimeout0(resetTimeout));
+        lock.lock();
+        try {
+            if (timeoutNanos() == 0) {
+                return;
             }
-        } else {
-            if (resetTimeout) {
-                setPendingTimeoutNanos(0);
+            timeoutNanos = 0;
+            if (isFinishing()) {
+                return;
             }
-            addPendingTask(() -> clearTimeout0(resetTimeout));
+            if (isStarted()) {
+                cancelScheduled();
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
-    private boolean clearTimeout0(boolean resetTimeout) {
-        assert eventLoop != null && eventLoop.inEventLoop();
-        if (state != State.SCHEDULED) {
+    private boolean cancelScheduled() {
+        if (scheduledFuture == null) {
             return true;
         }
-        if (resetTimeout) {
-            timeoutNanos = 0;
-        }
-        assert scheduledFuture != null;
         final boolean cancelled = scheduledFuture.cancel(false);
         scheduledFuture = null;
         if (cancelled) {
@@ -203,16 +185,24 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
 
     @Override
     public void setTimeoutNanos(TimeoutMode mode, long timeoutNanos) {
-        switch (mode) {
-            case SET_FROM_NOW:
-                setTimeoutNanosFromNow(timeoutNanos);
-                break;
-            case SET_FROM_START:
-                setTimeoutNanosFromStart(timeoutNanos);
-                break;
-            case EXTEND:
-                extendTimeoutNanos(timeoutNanos);
-                break;
+        lock.lock();
+        try {
+            if (isFinishing()) {
+                return;
+            }
+            switch (mode) {
+                case SET_FROM_NOW:
+                    setTimeoutNanosFromNow(timeoutNanos);
+                    break;
+                case SET_FROM_START:
+                    setTimeoutNanosFromStart(timeoutNanos);
+                    break;
+                case EXTEND:
+                    extendTimeoutNanos(timeoutNanos);
+                    break;
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -222,20 +212,15 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
             clearTimeout();
             return;
         }
-        if (isInitialized()) {
-            if (eventLoop.inEventLoop()) {
-                setTimeoutNanosFromStart0(timeoutNanos);
-            } else {
-                eventLoop.execute(() -> setTimeoutNanosFromStart0(timeoutNanos));
-            }
+        if (isStarted()) {
+            setTimeoutNanosFromStart0(timeoutNanos);
         } else {
-            setPendingTimeoutNanos(timeoutNanos);
-            addPendingTask(() -> setTimeoutNanosFromStart0(timeoutNanos));
+            this.timeoutNanos = timeoutNanos;
+            timeoutMode = TimeoutMode.SET_FROM_START;
         }
     }
 
     private void setTimeoutNanosFromStart0(long timeoutNanos) {
-        assert eventLoop != null && eventLoop.inEventLoop();
         final long passedTimeNanos = System.nanoTime() - startTimeNanos;
         final long newTimeoutNanos = LongMath.saturatedSubtract(timeoutNanos, passedTimeNanos);
         if (newTimeoutNanos <= 0) {
@@ -243,80 +228,60 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
             return;
         }
         // Cancel the previously scheduled timeout, if exists.
-        clearTimeout0(true);
-        this.timeoutNanos = timeoutNanos;
-        state = State.SCHEDULED;
-        scheduledFuture = eventLoop.schedule(() -> invokeTask(null), newTimeoutNanos, NANOSECONDS);
+        if (cancelScheduled()) {
+            state = State.SCHEDULED;
+            timeoutMode = TimeoutMode.SET_FROM_START;
+            this.timeoutNanos = timeoutNanos;
+            scheduledFuture = eventLoop.schedule(() -> invokeTask(null), newTimeoutNanos, NANOSECONDS);
+        }
     }
 
     private void extendTimeoutNanos(long adjustmentNanos) {
         if (adjustmentNanos == 0 || timeoutNanos() == 0) {
             return;
         }
-        if (isInitialized()) {
-            if (eventLoop.inEventLoop()) {
-                extendTimeoutNanos0(adjustmentNanos);
-            } else {
-                eventLoop.execute(() -> extendTimeoutNanos0(adjustmentNanos));
-            }
+        if (isStarted()) {
+            extendTimeoutNanos0(adjustmentNanos);
         } else {
-            addPendingTimeoutNanos(adjustmentNanos);
-            addPendingTask(() -> extendTimeoutNanos0(adjustmentNanos));
+            timeoutNanos = LongMath.saturatedAdd(timeoutNanos, adjustmentNanos);
         }
     }
 
     private void extendTimeoutNanos0(long adjustmentNanos) {
-        assert eventLoop != null && eventLoop.inEventLoop() && task != null;
-        if (state != State.SCHEDULED || !task.canSchedule()) {
-            return;
-        }
         final long timeoutNanos = this.timeoutNanos;
         // Cancel the previously scheduled timeout, if exists.
-        clearTimeout0(true);
         this.timeoutNanos = LongMath.saturatedAdd(timeoutNanos, adjustmentNanos);
         if (timeoutNanos <= 0) {
             invokeTask(null);
             return;
         }
-        state = State.SCHEDULED;
-        scheduledFuture = eventLoop.schedule(() -> invokeTask(null), this.timeoutNanos, NANOSECONDS);
+        if (cancelScheduled()) {
+            state = State.SCHEDULED;
+            scheduledFuture = eventLoop.schedule(() -> invokeTask(null), this.timeoutNanos, NANOSECONDS);
+        }
     }
 
     private void setTimeoutNanosFromNow(long timeoutNanos) {
         checkArgument(timeoutNanos > 0, "timeoutNanos: %s (expected: > 0)", timeoutNanos);
-        if (isInitialized()) {
-            if (eventLoop.inEventLoop()) {
-                setTimeoutNanosFromNow0(timeoutNanos);
-            } else {
-                final long eventLoopStartTimeNanos = System.nanoTime();
-                eventLoop.execute(() -> {
-                    final long passedTimeNanos0 = System.nanoTime() - eventLoopStartTimeNanos;
-                    final long timeoutNanos0 = Math.max(1, timeoutNanos - passedTimeNanos0);
-                    setTimeoutNanosFromNow0(timeoutNanos0);
-                });
-            }
+        if (isStarted()) {
+            setTimeoutNanosFromNow0(timeoutNanos);
         } else {
-            final long pendingTaskRegisterTimeNanos = System.nanoTime();
-            setPendingTimeoutNanos(timeoutNanos);
-            addPendingTask(() -> {
-                final long passedTimeNanos0 = System.nanoTime() - pendingTaskRegisterTimeNanos;
-                final long timeoutNanos0 = Math.max(1, timeoutNanos - passedTimeNanos0);
-                setTimeoutNanosFromNow0(timeoutNanos0);
-            });
+            setFromNowStartNanos = System.nanoTime();
+            timeoutMode = TimeoutMode.SET_FROM_NOW;
+            this.timeoutNanos = timeoutNanos;
         }
     }
 
     private void setTimeoutNanosFromNow0(long newTimeoutNanos) {
         assert newTimeoutNanos > 0;
-        assert eventLoop != null && eventLoop.inEventLoop() && task != null;
-        if (isFinishing() || !task.canSchedule()) {
+        final long passedTimeNanos = System.nanoTime() - startTimeNanos;
+
+        // Cancel the previously scheduled timeout, if exists.
+        if (!cancelScheduled()) {
             return;
         }
-        // Cancel the previously scheduled timeout, if exists.
-        clearTimeout0(true);
-        final long passedTimeNanos = System.nanoTime() - startTimeNanos;
         timeoutNanos = LongMath.saturatedAdd(newTimeoutNanos, passedTimeNanos);
-
+        timeoutMode = TimeoutMode.SET_FROM_NOW;
         state = State.SCHEDULED;
         scheduledFuture = eventLoop.schedule(() -> invokeTask(null), newTimeoutNanos, NANOSECONDS);
     }
@@ -328,29 +293,28 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
 
     @Override
     public void finishNow(@Nullable Throwable cause) {
-        if (isFinishing()) {
-            return;
-        }
-        assert eventLoop != null;
-        if (!eventLoop.inEventLoop()) {
-            eventLoop.execute(() -> finishNow(cause));
-            return;
-        }
-        if (isInitialized()) {
-            finishNow0(cause);
-        } else {
-            start(noopCancellationTask);
-            finishNow0(cause);
+        lock.lock();
+        try {
+            if (isFinishing()) {
+                return;
+            }
+            if (isStarted()) {
+                finishNow0(cause);
+            } else {
+                start();
+                finishNow0(cause);
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
     private void finishNow0(@Nullable Throwable cause) {
-        assert eventLoop != null && eventLoop.inEventLoop() && task != null;
         if (isFinishing() || !task.canSchedule()) {
             return;
         }
         if (state == State.SCHEDULED) {
-            if (clearTimeout0(false)) {
+            if (cancelScheduled()) {
                 invokeTask(cause);
             }
         } else {
@@ -375,7 +339,7 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
 
     @Override
     public long timeoutNanos() {
-        return isInitialized() ? timeoutNanos : pendingTimeoutNanos;
+        return timeoutNanos;
     }
 
     @Override
@@ -383,125 +347,11 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
         return startTimeNanos;
     }
 
-    @Override
-    public CompletableFuture<Throwable> whenCancelling() {
-        final CancellationFuture whenCancelling = this.whenCancelling;
-        if (whenCancelling != null) {
-            return whenCancelling;
-        }
-        final CancellationFuture cancellationFuture = new CancellationFuture();
-        if (whenCancellingUpdater.compareAndSet(this, null, cancellationFuture)) {
-            return cancellationFuture;
-        } else {
-            return this.whenCancelling;
-        }
-    }
-
-    @Override
-    public CompletableFuture<Throwable> whenCancelled() {
-        final CancellationFuture whenCancelled = this.whenCancelled;
-        if (whenCancelled != null) {
-            return whenCancelled;
-        }
-        final CancellationFuture cancellationFuture = new CancellationFuture();
-        if (whenCancelledUpdater.compareAndSet(this, null, cancellationFuture)) {
-            return cancellationFuture;
-        } else {
-            return this.whenCancelled;
-        }
-    }
-
-    @Override
-    @Deprecated
-    public CompletableFuture<Void> whenTimingOut() {
-        final TimeoutFuture whenTimingOut = this.whenTimingOut;
-        if (whenTimingOut != null) {
-            return whenTimingOut;
-        }
-        final TimeoutFuture timeoutFuture = new TimeoutFuture();
-        if (whenTimingOutUpdater.compareAndSet(this, null, timeoutFuture)) {
-            whenCancelling().thenAccept(cause -> {
-                if (cause instanceof TimeoutException) {
-                    timeoutFuture.doComplete();
-                }
-            });
-            return timeoutFuture;
-        } else {
-            return this.whenTimingOut;
-        }
-    }
-
-    @Override
-    @Deprecated
-    public CompletableFuture<Void> whenTimedOut() {
-        final TimeoutFuture whenTimedOut = this.whenTimedOut;
-        if (whenTimedOut != null) {
-            return whenTimedOut;
-        }
-        final TimeoutFuture timeoutFuture = new TimeoutFuture();
-        if (whenTimedOutUpdater.compareAndSet(this, null, timeoutFuture)) {
-            whenCancelled().thenAccept(cause -> {
-                if (cause instanceof TimeoutException) {
-                    timeoutFuture.doComplete();
-                }
-            });
-            return timeoutFuture;
-        } else {
-            return this.whenTimedOut;
-        }
-    }
-
-    private boolean isInitialized() {
-        return pendingTask == noopPendingTask && eventLoop != null;
-    }
-
-    private void addPendingTask(Runnable pendingTask) {
-        if (!pendingTaskUpdater.compareAndSet(this, null, pendingTask)) {
-            for (;;) {
-                final Runnable oldPendingTask = this.pendingTask;
-                assert oldPendingTask != null;
-                if (oldPendingTask == noopPendingTask) {
-                    assert eventLoop != null;
-                    eventLoop.execute(pendingTask);
-                    break;
-                }
-                final Runnable newPendingTask = () -> {
-                    oldPendingTask.run();
-                    pendingTask.run();
-                };
-                if (pendingTaskUpdater.compareAndSet(this, oldPendingTask, newPendingTask)) {
-                    break;
-                }
-            }
-        }
-    }
-
-    private void setPendingTimeoutNanos(long pendingTimeoutNanos) {
-        for (;;) {
-            final long oldPendingTimeoutNanos = this.pendingTimeoutNanos;
-            if (pendingTimeoutNanosUpdater.compareAndSet(this, oldPendingTimeoutNanos, pendingTimeoutNanos)) {
-                break;
-            }
-        }
-    }
-
-    private void addPendingTimeoutNanos(long pendingTimeoutNanos) {
-        for (;;) {
-            final long oldPendingTimeoutNanos = this.pendingTimeoutNanos;
-            final long newPendingTimeoutNanos = LongMath.saturatedAdd(oldPendingTimeoutNanos,
-                                                                      pendingTimeoutNanos);
-            if (pendingTimeoutNanosUpdater.compareAndSet(this, oldPendingTimeoutNanos,
-                                                         newPendingTimeoutNanos)) {
-                break;
-            }
-        }
+    private boolean isStarted() {
+        return state != State.INIT;
     }
 
     private void invokeTask(@Nullable Throwable cause) {
-        if (task == null) {
-            return;
-        }
-
         if (cause instanceof HttpStatusException || cause instanceof HttpResponseException) {
             // Log the requestCause only when an Http{Status,Response}Exception was created with a cause.
             cause = cause.getCause();
@@ -536,16 +386,50 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
         return state;
     }
 
+    @Override
+    public CompletableFuture<Throwable> whenCancelling() {
+        final CancellationFuture whenCancelling = this.whenCancelling;
+        if (whenCancelling != null) {
+            return whenCancelling;
+        }
+        final CancellationFuture cancellationFuture = new CancellationFuture();
+        if (whenCancellingUpdater.compareAndSet(this, null, cancellationFuture)) {
+            return cancellationFuture;
+        } else {
+            return this.whenCancelling;
+        }
+    }
+
+    @Override
+    public CompletableFuture<Throwable> whenCancelled() {
+        final CancellationFuture whenCancelled = this.whenCancelled;
+        if (whenCancelled != null) {
+            return whenCancelled;
+        }
+        final CancellationFuture cancellationFuture = new CancellationFuture();
+        if (whenCancelledUpdater.compareAndSet(this, null, cancellationFuture)) {
+            return cancellationFuture;
+        } else {
+            return this.whenCancelled;
+        }
+    }
+
+    @Override
+    @Deprecated
+    public CompletableFuture<Void> whenTimingOut() {
+        return whenCancelling().handle((i, e) -> null);
+    }
+
+    @Override
+    @Deprecated
+    public CompletableFuture<Void> whenTimedOut() {
+        return whenCancelled().handle((i, e) -> null);
+    }
+
     private static class CancellationFuture extends UnmodifiableFuture<Throwable> {
         @Override
         protected void doComplete(@Nullable Throwable cause) {
             super.doComplete(cause);
-        }
-    }
-
-    private static class TimeoutFuture extends UnmodifiableFuture<Void> {
-        void doComplete() {
-            doComplete(null);
         }
     }
 
