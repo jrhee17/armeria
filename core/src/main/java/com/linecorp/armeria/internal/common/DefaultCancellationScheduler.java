@@ -117,7 +117,7 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
                 }
                 state = State.SCHEDULED;
                 scheduledFuture =
-                        eventLoop.schedule(() -> invokeTask(null), timeoutNanos, NANOSECONDS);
+                        eventLoop().schedule(() -> invokeTask(null), timeoutNanos, NANOSECONDS);
             } else {
                 state = State.INACTIVE;
             }
@@ -161,10 +161,10 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
             if (timeoutNanos() == 0) {
                 return;
             }
-            timeoutNanos = 0;
             if (isFinishing()) {
                 return;
             }
+            timeoutNanos = 0;
             if (isStarted()) {
                 cancelScheduled();
             }
@@ -234,7 +234,7 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
             state = State.SCHEDULED;
             timeoutMode = TimeoutMode.SET_FROM_START;
             this.timeoutNanos = timeoutNanos;
-            scheduledFuture = eventLoop.schedule(() -> invokeTask(null), newTimeoutNanos, NANOSECONDS);
+            scheduledFuture = eventLoop().schedule(() -> invokeTask(null), newTimeoutNanos, NANOSECONDS);
         }
     }
 
@@ -259,7 +259,7 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
         }
         if (cancelScheduled()) {
             state = State.SCHEDULED;
-            scheduledFuture = eventLoop.schedule(() -> invokeTask(null), this.timeoutNanos, NANOSECONDS);
+            scheduledFuture = eventLoop().schedule(() -> invokeTask(null), this.timeoutNanos, NANOSECONDS);
         }
     }
 
@@ -285,7 +285,12 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
         timeoutNanos = LongMath.saturatedAdd(newTimeoutNanos, passedTimeNanos);
         timeoutMode = TimeoutMode.SET_FROM_NOW;
         state = State.SCHEDULED;
-        scheduledFuture = eventLoop.schedule(() -> invokeTask(null), newTimeoutNanos, NANOSECONDS);
+        scheduledFuture = eventLoop().schedule(() -> invokeTask(null), newTimeoutNanos, NANOSECONDS);
+    }
+
+    private EventExecutor eventLoop() {
+        assert eventLoop != null;
+        return eventLoop;
     }
 
     @Override
