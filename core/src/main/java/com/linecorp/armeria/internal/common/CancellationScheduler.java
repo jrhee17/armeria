@@ -18,6 +18,8 @@ package com.linecorp.armeria.internal.common;
 
 import java.util.concurrent.CompletableFuture;
 
+import org.checkerframework.checker.units.qual.C;
+
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.TimeoutMode;
 
@@ -53,12 +55,14 @@ public interface CancellationScheduler {
 
     CancellationTask noopCancellationTask = new CancellationTask() {
         @Override
-        public boolean canSchedule() {
-            return true;
-        }
+        public void run(Throwable cause) {
 
+        }
+    };
+    CancellationTask doneCancellationTask = new CancellationTask() {
         @Override
-        public void run(Throwable cause) { /* no-op */ }
+        public void run(Throwable cause) {
+        }
     };
 
     void initAndStart(EventExecutor eventLoop, CancellationTask task);
@@ -71,7 +75,9 @@ public interface CancellationScheduler {
 
     void setTimeoutNanos(TimeoutMode mode, long timeoutNanos);
 
-    void finishNow();
+    default void finishNow() {
+        finishNow(null);
+    }
 
     void finishNow(@Nullable Throwable cause);
 
@@ -99,10 +105,8 @@ public interface CancellationScheduler {
 
     enum State {
         INIT,
-        INACTIVE,
-        SCHEDULED,
-        FINISHING,
-        FINISHED
+        PENDING,
+        FINISHED,
     }
 
     /**

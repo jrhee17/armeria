@@ -445,7 +445,7 @@ public final class DefaultClientRequestContext
                     options().factory().acquireEventLoop(sessionProtocol(), endpointGroup, endpoint);
             eventLoop = releasableEventLoop.get();
             log.whenComplete().thenAccept(unused -> releasableEventLoop.release());
-            responseCancellationScheduler.init(eventLoop());
+            responseCancellationScheduler.init(eventLoop().withoutContext());
         }
     }
 
