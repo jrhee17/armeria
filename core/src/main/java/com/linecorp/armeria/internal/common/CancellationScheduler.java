@@ -95,6 +95,8 @@ public interface CancellationScheduler {
 
     void stop();
 
+    void updateTask(CancellationTask cancellationTask);
+
     enum State {
         INIT,
         INACTIVE,
@@ -110,7 +112,9 @@ public interface CancellationScheduler {
         /**
          * Returns {@code true} if the cancellation task can be scheduled.
          */
-        boolean canSchedule();
+        default boolean canSchedule() {
+            return true;
+        }
 
         /**
          * Invoked by the scheduler with the cause of cancellation.

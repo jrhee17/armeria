@@ -108,4 +108,8 @@ final class NoopCancellationScheduler implements CancellationScheduler {
     @Override
     public void stop() {
     }
+
+    @Override
+    public void updateTask(CancellationTask cancellationTask) {
+    }
 }
