@@ -106,7 +106,9 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
     public void start() {
         lock.lock();
         try {
-            checkState(state == State.INIT, "Can't start() more than once");
+            if (state != State.INIT) {
+                return;
+            }
             startTimeNanos = System.nanoTime();
             if (timeoutNanos != 0) {
                 if (timeoutMode == TimeoutMode.SET_FROM_NOW) {
@@ -352,33 +354,38 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
     }
 
     private void invokeTask(@Nullable Throwable cause) {
-        if (cause instanceof HttpStatusException || cause instanceof HttpResponseException) {
-            // Log the requestCause only when an Http{Status,Response}Exception was created with a cause.
-            cause = cause.getCause();
-        }
-
-        if (cause == null) {
-            if (server) {
-                cause = RequestTimeoutException.get();
-            } else {
-                cause = ResponseTimeoutException.get();
+        lock.lock();
+        try {
+            if (cause instanceof HttpStatusException || cause instanceof HttpResponseException) {
+                // Log the requestCause only when an Http{Status,Response}Exception was created with a cause.
+                cause = cause.getCause();
             }
-        }
 
-        // Set FINISHING to preclude executing other timeout operations from the callbacks of `whenCancelling()`
-        state = State.FINISHING;
-        if (task.canSchedule()) {
-            ((CancellationFuture) whenCancelling()).doComplete(cause);
-        }
-        // Set state first to prevent duplicate execution
-        state = State.FINISHED;
+            if (cause == null) {
+                if (server) {
+                    cause = RequestTimeoutException.get();
+                } else {
+                    cause = ResponseTimeoutException.get();
+                }
+            }
 
-        // The returned value of `canSchedule()` could've been changed by the callbacks of `whenCancelling()`
-        if (task.canSchedule()) {
-            task.run(cause);
+            // Set FINISHING to preclude executing other timeout operations from the callbacks of `whenCancelling()`
+            state = State.FINISHING;
+            if (task.canSchedule()) {
+                ((CancellationFuture) whenCancelling()).doComplete(cause);
+            }
+            // Set state first to prevent duplicate execution
+            state = State.FINISHED;
+
+            // The returned value of `canSchedule()` could've been changed by the callbacks of `whenCancelling()`
+            if (task.canSchedule()) {
+                task.run(cause);
+            }
+            this.cause = cause;
+            ((CancellationFuture) whenCancelled()).doComplete(cause);
+        } finally {
+            lock.unlock();
         }
-        this.cause = cause;
-        ((CancellationFuture) whenCancelled()).doComplete(cause);
     }
 
     @VisibleForTesting
