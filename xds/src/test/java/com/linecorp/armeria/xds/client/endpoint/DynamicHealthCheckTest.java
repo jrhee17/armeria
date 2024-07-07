@@ -158,11 +158,11 @@ class DynamicHealthCheckTest {
             await().untilAsserted(() -> {
                 // WeightRampingUpStrategy guarantees that all endpoints will be considered, so
                 // trying 4 times should be more than enough
-               for (int i = 0; i < 4; i++) {
-                   // after the hc to the first server is updated, requests should only be routed to server2
-                   assertThat(endpointGroup.select(ctx, CommonPools.workerGroup())
-                                           .get().port()).isEqualTo(server2.httpPort());
-               }
+                for (int i = 0; i < 4; i++) {
+                    // after the hc to the first server is updated, requests should only be routed to server2
+                    assertThat(endpointGroup.select(ctx, CommonPools.workerGroup())
+                                            .get().port()).isEqualTo(server2.httpPort());
+                }
             });
         }
     }
