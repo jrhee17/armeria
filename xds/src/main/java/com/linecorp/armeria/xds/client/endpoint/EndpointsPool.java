@@ -81,7 +81,7 @@ final class EndpointsPool implements AsyncCloseable {
 
     @Override
     public CompletableFuture<?> closeAsync() {
-        return delegate.closeAsync();
+        return CompletableFuture.allOf(endpointGroupConverter.closeAsync(), delegate.closeAsync());
     }
 
     @Override

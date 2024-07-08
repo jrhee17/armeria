@@ -33,6 +33,7 @@ import com.linecorp.armeria.client.endpoint.dns.DnsAddressEndpointGroup;
 import com.linecorp.armeria.client.endpoint.dns.DnsAddressEndpointGroupBuilder;
 import com.linecorp.armeria.client.retry.Backoff;
 import com.linecorp.armeria.common.annotation.UnstableApi;
+import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.internal.client.endpoint.healthcheck.HealthCheckedEndpointPool;
 import com.linecorp.armeria.internal.client.endpoint.healthcheck.HttpHealthChecker;
 import com.linecorp.armeria.xds.ClusterSnapshot;
@@ -48,7 +49,7 @@ import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
 
 @UnstableApi
-final class EndpointGroupConverter {
+final class EndpointGroupConverter implements AsyncCloseable {
 
     private final UpdatableHealthCheckerParams healthCheckerParams =
             new UpdatableHealthCheckerParams();
@@ -84,15 +85,18 @@ final class EndpointGroupConverter {
         if (!cluster.getHealthChecksList().isEmpty()) {
             // multiple health-checks aren't supported
             final HealthCheck healthCheck = cluster.getHealthChecksList().get(0);
-            return maybeHealthChecked(endpointGroup, cluster, healthCheck);
+            if (!healthCheck.hasHttpHealthCheck()) {
+                return maybeHealthChecked(endpointGroup, cluster, healthCheck);
+            }
         }
+        // To avoid sending health check requests endpoints that may be in the pool from the previous update.
+        // This is safe because XdsEndpointSelector will attempt another selectNow(ctx) after endpoints
+        // for the new cluster is set.
+        endpointPool.setEndpoints(ImmutableList.of());
         return endpointGroup;
     }
 
     private EndpointGroup maybeHealthChecked(EndpointGroup delegate, Cluster cluster, HealthCheck healthCheck) {
-        if (!healthCheck.hasHttpHealthCheck()) {
-            return delegate;
-        }
         final HttpHealthCheck httpHealthCheck = healthCheck.getHttpHealthCheck();
         healthCheckerParams.updateHttpHealthCheck(cluster, httpHealthCheck);
         return new XdsHealthCheckedEndpointGroup(delegate, endpointPool);
@@ -149,7 +153,21 @@ final class EndpointGroupConverter {
         return EndpointGroup.of(endpointGroupBuilder.build());
     }
 
-    static class XdsHealthCheckedEndpointGroup extends DynamicEndpointGroup
+    @Override
+    public CompletableFuture<?> closeAsync() {
+        return endpointPool.closeAsync();
+    }
+
+    @Override
+    public void close() {
+        closeAsync().join();
+    }
+
+    /**
+     * Functionally almost identical to HealthCheckedEndpointGroup, but doesn't filter out
+     * non-healthy endpoints.
+     */
+    private static class XdsHealthCheckedEndpointGroup extends DynamicEndpointGroup
             implements Consumer<List<Endpoint>> {
 
         private final EndpointGroup delegate;
