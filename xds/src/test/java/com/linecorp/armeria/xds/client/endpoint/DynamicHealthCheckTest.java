@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import static com.linecorp.armeria.server.TransientServiceOption.WITH_SERVICE_LOGGING;
 import static com.linecorp.armeria.xds.XdsTestResources.createStaticCluster;
 import static com.linecorp.armeria.xds.XdsTestResources.endpoint;
 import static com.linecorp.armeria.xds.XdsTestResources.localityLbEndpoints;
@@ -26,6 +27,7 @@ import static org.awaitility.Awaitility.await;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -39,10 +41,12 @@ import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RequestContext;
-import com.linecorp.armeria.server.Route;
 import com.linecorp.armeria.server.ServerBuilder;
+import com.linecorp.armeria.server.ServiceRequestContext;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.healthcheck.HealthCheckService;
+import com.linecorp.armeria.server.healthcheck.SettableHealthChecker;
+import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import com.linecorp.armeria.xds.XdsBootstrap;
 import com.linecorp.armeria.xds.XdsTestResources;
@@ -65,22 +69,35 @@ class DynamicHealthCheckTest {
     private static final String GROUP = "key";
     private static final SimpleCache<String> cache = new SimpleCache<>(node -> GROUP);
 
-    private static final AtomicReference<RequestContext> server1HealthCheckCtxRef = new AtomicReference<>();
+    private static final AtomicReference<ServiceRequestContext> server1Hc1CtxRef = new AtomicReference<>();
+    private static final AtomicReference<ServiceRequestContext> server1Hc2CtxRef = new AtomicReference<>();
+
+    private static final SettableHealthChecker server1Hc1 = new SettableHealthChecker();
 
     @RegisterExtension
     static ServerExtension server1 = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
             sb.http(0);
+            sb.decorator(LoggingService.newDecorator());
             sb.service("/", (ctx, req) -> HttpResponse.of(200));
             sb.route()
               .decorator((delegate, ctx, req) -> {
-                  server1HealthCheckCtxRef.set(ctx);
+                  server1Hc1CtxRef.set(ctx);
                   return delegate.serve(ctx, req);
               })
-              .addRoute(Route.builder().path("/monitor/healthcheck").build())
-              .build(HealthCheckService.builder().build());
-            sb.service("/monitor/healthcheck", HealthCheckService.builder().build());
+              .path("/monitor/healthcheck")
+              .build(HealthCheckService.builder().checkers(server1Hc1).build());
+            sb.route()
+              .decorator((delegate, ctx, req) -> {
+                  server1Hc2CtxRef.set(ctx);
+                  return delegate.serve(ctx, req);
+              })
+              .path("/monitor/healthcheck2")
+              .build(HealthCheckService.builder()
+                                       .checkers(server1Hc1)
+                                       .transientServiceOptions(WITH_SERVICE_LOGGING)
+                                       .build());
 
             final V3DiscoveryServer v3DiscoveryServer = new V3DiscoveryServer(cache);
             sb.service(GrpcService.builder()
@@ -98,13 +115,25 @@ class DynamicHealthCheckTest {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
             sb.http(0);
+            sb.decorator(LoggingService.newDecorator());
             sb.service("/", (ctx, req) -> HttpResponse.of(200));
-            sb.service("/monitor/healthcheck2", HealthCheckService.builder().build());
+            sb.service("/monitor/healthcheck2",
+                       HealthCheckService.builder()
+                                         .transientServiceOptions(WITH_SERVICE_LOGGING)
+                                         .build());
         }
     };
 
+    @BeforeEach
+    void beforeEach() {
+        server1Hc1.setHealthy(true);
+        server1Hc1CtxRef.set(null);
+        server1Hc2CtxRef.set(null);
+    }
+
     @Test
     void pathUpdate() throws Exception {
+        server1Hc1.setHealthy(true);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(server1.httpUri());
         final Listener listener = staticResourceListener();
         final LbEndpoint endpoint1 = endpoint("127.0.0.1", server1.httpPort());
@@ -128,14 +157,15 @@ class DynamicHealthCheckTest {
         cache.setSnapshot(GROUP, Snapshot.create(ImmutableList.of(cluster), ImmutableList.of(),
                                                  ImmutableList.of(listener), ImmutableList.of(),
                                                  ImmutableList.of(), "v1"));
-        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap)) {
-            final EndpointGroup endpointGroup = XdsEndpointGroup.of(xdsBootstrap.listenerRoot("listener"));
+        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
+             EndpointGroup endpointGroup = XdsEndpointGroup.of(xdsBootstrap.listenerRoot("listener"))) {
             endpointGroup.whenReady().get();
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final Endpoint endpoint = endpointGroup.select(ctx, CommonPools.workerGroup()).get();
             assertThat(endpoint.port()).isEqualTo(server1.httpPort());
 
             // now update the health check path
+            server1Hc1.setHealthy(false);
             final HealthCheck hc2 =
                     HealthCheck.newBuilder()
                                .setHttpHealthCheck(HttpHealthCheck.newBuilder()
@@ -151,7 +181,7 @@ class DynamicHealthCheckTest {
                     .isEqualTo(server2.httpPort()));
 
             // cut the connection to server1 health check
-            final RequestContext server1HealthCheckCtx = server1HealthCheckCtxRef.get();
+            final RequestContext server1HealthCheckCtx = server1Hc1CtxRef.get();
             assertThat(server1HealthCheckCtx).isNotNull();
             server1HealthCheckCtx.cancel();
 
@@ -164,6 +194,73 @@ class DynamicHealthCheckTest {
                                             .get().port()).isEqualTo(server2.httpPort());
                 }
             });
+        }
+    }
+
+    @Test
+    void gracefulEndpointUpdate() throws Exception {
+        server1Hc1.setHealthy(true);
+        final Bootstrap bootstrap = XdsTestResources.bootstrap(server1.httpUri());
+        final Listener listener = staticResourceListener();
+        final LbEndpoint endpoint1 = endpoint("127.0.0.1", server1.httpPort());
+        final LbEndpoint endpoint2 = endpoint("127.0.0.1", server2.httpPort());
+        final List<LbEndpoint> allEndpoints = ImmutableList.of(endpoint1, endpoint2);
+        final ClusterLoadAssignment loadAssignment =
+                ClusterLoadAssignment
+                        .newBuilder()
+                        .addEndpoints(localityLbEndpoints(Locality.getDefaultInstance(), allEndpoints))
+                        .setPolicy(Policy.newBuilder().setWeightedPriorityHealth(true))
+                        .build();
+        HealthCheck hc1 =
+                HealthCheck.newBuilder()
+                           .setHttpHealthCheck(HttpHealthCheck.newBuilder()
+                                                              .setPath("/monitor/healthcheck"))
+                           .build();
+        Cluster cluster = createStaticCluster("cluster", loadAssignment)
+                .toBuilder()
+                .addHealthChecks(hc1)
+                .build();
+        cache.setSnapshot(GROUP, Snapshot.create(ImmutableList.of(cluster), ImmutableList.of(),
+                                                 ImmutableList.of(listener), ImmutableList.of(),
+                                                 ImmutableList.of(), "v3"));
+        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap)) {
+            final EndpointGroup endpointGroup = XdsEndpointGroup.of(xdsBootstrap.listenerRoot("listener"));
+            endpointGroup.whenReady().get();
+            final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
+            // WeightRampingUpStrategy guarantees that all endpoints will be considered, so
+            // trying 4 times should be more than enough
+            for (int i = 0; i < 4; i++) {
+                final Endpoint endpoint = endpointGroup.select(ctx, CommonPools.workerGroup()).get();
+                assertThat(endpoint.port()).isEqualTo(server1.httpPort());
+            }
+
+            // now update the cluster information
+            hc1 = HealthCheck.newBuilder()
+                             .setHttpHealthCheck(HttpHealthCheck.newBuilder()
+                                                                .setPath("/monitor/healthcheck2"))
+                             .build();
+            cluster = createStaticCluster("cluster", loadAssignment)
+                    .toBuilder()
+                    .addHealthChecks(hc1)
+                    .build();
+            cache.setSnapshot(GROUP, Snapshot.create(ImmutableList.of(cluster), ImmutableList.of(),
+                                                     ImmutableList.of(listener), ImmutableList.of(),
+                                                     ImmutableList.of(), "v4"));
+
+            // wait until server 2 is also selected
+            await().untilAsserted(() -> {
+                final Endpoint endpoint = endpointGroup.select(ctx, CommonPools.workerGroup()).get();
+                assertThat(endpoint.port()).isEqualTo(server2.httpPort());
+            });
+
+            // cancel the request for the first health check
+            final RequestContext server1Hc1Ctx = server1Hc1CtxRef.get();
+            assertThat(server1Hc1Ctx).isNotNull();
+            server1Hc1Ctx.cancel();
+
+            // check that server 1 connection hasn't been reset for the new health check path
+            await().untilAsserted(() -> assertThat(server1Hc2CtxRef.get()).isNotNull());
+            assertThat(server1Hc2CtxRef.get().remoteAddress()).isEqualTo(server1Hc1Ctx.remoteAddress());
         }
     }
 }

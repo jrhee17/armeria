@@ -85,7 +85,7 @@ final class EndpointGroupConverter implements AsyncCloseable {
         if (!cluster.getHealthChecksList().isEmpty()) {
             // multiple health-checks aren't supported
             final HealthCheck healthCheck = cluster.getHealthChecksList().get(0);
-            if (!healthCheck.hasHttpHealthCheck()) {
+            if (healthCheck.hasHttpHealthCheck()) {
                 return maybeHealthChecked(endpointGroup, cluster, healthCheck);
             }
         }
