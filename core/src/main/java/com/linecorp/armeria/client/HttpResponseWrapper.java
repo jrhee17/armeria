@@ -37,12 +37,9 @@ import com.linecorp.armeria.common.stream.CancelledSubscriptionException;
 import com.linecorp.armeria.common.stream.StreamWriter;
 import com.linecorp.armeria.common.stream.SubscriptionOption;
 import com.linecorp.armeria.common.util.Exceptions;
-import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.client.DecodedHttpResponse;
 import com.linecorp.armeria.internal.common.CancellationScheduler;
-import com.linecorp.armeria.internal.common.CancellationScheduler.CancellationTask;
-import com.linecorp.armeria.internal.common.RequestContextUtil;
 import com.linecorp.armeria.unsafe.PooledObjects;
 
 import io.netty.channel.EventLoop;
@@ -291,29 +288,8 @@ class HttpResponseWrapper implements StreamWriter<HttpObject> {
         if (ctxExtension != null) {
             final CancellationScheduler responseCancellationScheduler =
                     ctxExtension.responseCancellationScheduler();
-            responseCancellationScheduler.updateTask(newCancellationTask());
-            responseCancellationScheduler.start();
+            responseCancellationScheduler.start(null);
         }
-    }
-
-    private CancellationTask newCancellationTask() {
-        return new CancellationTask() {
-            @Override
-            public boolean canSchedule() {
-                return delegate.isOpen() && !done;
-            }
-
-            @Override
-            public void run(Throwable cause) {
-                if (ctx.eventLoop().inEventLoop()) {
-                    try (SafeCloseable ignored = RequestContextUtil.pop()) {
-                        close(cause);
-                    }
-                } else {
-                    ctx.eventLoop().withoutContext().execute(() -> close(cause));
-                }
-            }
-        };
     }
 
     @Override

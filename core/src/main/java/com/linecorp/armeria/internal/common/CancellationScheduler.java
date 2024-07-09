@@ -61,7 +61,7 @@ public interface CancellationScheduler {
 
     void initAndStart(EventExecutor eventLoop, CancellationTask task);
 
-    void init(EventExecutor eventLoop);
+    void init(EventExecutor eventLoop, @Nullable CancellationTask task);
 
     /**
      * Starts the scheduler task. If a timeout has already been configured, then scheduling is done.
@@ -70,9 +70,10 @@ public interface CancellationScheduler {
      * differs from {@link #setTimeoutNanos(TimeoutMode, long)} where a task is invoked immediately in the
      * same thread.
      * This is mostly due to how armeria uses this API - if this behavior is to be changed,
-     * we should make sure all locations invoking {@link #start()} can handle exceptions on invocation.
+     * we should make sure all locations invoking {@link #start(CancellationTask)} can handle exceptions
+     * on invocation.
      */
-    void start();
+    void start(@Nullable CancellationTask task);
 
     /**
      * Clears the timeout. If a scheduled task exists, a best effort is made to cancel it.
@@ -110,14 +111,6 @@ public interface CancellationScheduler {
     CompletableFuture<Throwable> whenCancelling();
 
     CompletableFuture<Throwable> whenCancelled();
-
-    /**
-     * Updates the task that will be executed once this scheduler completes either by the configured timeout,
-     * or immediately via {@link #finishNow()}. If the scheduler hasn't completed yet, the task will simply
-     * be updated. If the scheduler has already been triggered for completion, the supplied
-     * {@link CancellationTask} will be executed after the currently set task has finished executing.
-     */
-    void updateTask(CancellationTask cancellationTask);
 
     enum State {
         INIT,

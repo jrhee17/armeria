@@ -33,13 +33,11 @@ import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.logging.ClientConnectionTimings;
 import com.linecorp.armeria.common.logging.ClientConnectionTimingsBuilder;
-import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.internal.client.ClientPendingThrowableUtil;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.client.DecodedHttpResponse;
 import com.linecorp.armeria.internal.client.HttpSession;
 import com.linecorp.armeria.internal.client.PooledChannel;
-import com.linecorp.armeria.internal.common.RequestContextUtil;
 import com.linecorp.armeria.server.ProxiedAddresses;
 import com.linecorp.armeria.server.ServiceRequestContext;
 
@@ -104,7 +102,7 @@ final class HttpClientDelegate implements HttpClient {
         final EventLoop eventLoop = ctx.eventLoop().withoutContext();
         // TODO(ikhoon) Use ctx.exchangeType() to create an optimized HttpResponse for non-streaming response.
         final DecodedHttpResponse res = new DecodedHttpResponse(eventLoop);
-        updateCancellationTask(ctx, req, res);
+        updateResponse(ctx, res);
 
         final ClientConnectionTimingsBuilder timingsBuilder = ClientConnectionTimings.builder();
 
@@ -121,7 +119,7 @@ final class HttpClientDelegate implements HttpClient {
                     acquireConnectionAndExecute(ctx, resolved, req, res, timingsBuilder, proxyConfig);
                 } else {
                     ctx.logBuilder().session(null, ctx.sessionProtocol(), timingsBuilder.build());
-                    ctx.cancel(cause);
+                    ctx.cancel(UnprocessedRequestException.of(cause));
                 }
             });
         }
@@ -129,21 +127,12 @@ final class HttpClientDelegate implements HttpClient {
         return res;
     }
 
-    private static void updateCancellationTask(ClientRequestContext ctx, HttpRequest req,
-                                               DecodedHttpResponse res) {
+    private static void updateResponse(ClientRequestContext ctx, DecodedHttpResponse res) {
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         if (ctxExt == null) {
             return;
         }
-        ctxExt.responseCancellationScheduler().updateTask(cause -> {
-            try (SafeCloseable ignored = RequestContextUtil.pop()) {
-                final UnprocessedRequestException ure = UnprocessedRequestException.of(cause);
-                req.abort(ure);
-                ctx.logBuilder().endRequest(ure);
-                res.close(ure);
-                ctx.logBuilder().endResponse(ure);
-            }
-        });
+        ctxExt.updateResponse(res);
     }
 
     private void resolveAddress(Endpoint endpoint, ClientRequestContext ctx,
@@ -192,7 +181,7 @@ final class HttpClientDelegate implements HttpClient {
         try {
             pool = factory.pool(ctx.eventLoop().withoutContext());
         } catch (Throwable t) {
-            ctx.cancel(t);
+            ctx.cancel(UnprocessedRequestException.of(t));
             return;
         }
         final SessionProtocol protocol = ctx.sessionProtocol();
@@ -208,7 +197,7 @@ final class HttpClientDelegate implements HttpClient {
                     if (cause == null) {
                         doExecute(newPooledChannel, ctx, req, res);
                     } else {
-                        ctx.cancel(cause);
+                        ctx.cancel(UnprocessedRequestException.of(cause));
                     }
                     return null;
                 });

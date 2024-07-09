@@ -58,7 +58,7 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
     private long startTimeNanos;
     @Nullable
     private EventExecutor eventLoop;
-    private volatile CancellationTask task = noopCancellationTask;
+    private CancellationTask task = noopCancellationTask;
     @Nullable
     private ScheduledFuture<?> scheduledFuture;
     private long setFromNowStartNanos;
@@ -97,27 +97,32 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
     public void initAndStart(EventExecutor eventLoop, CancellationTask task) {
         lock.lock();
         try {
-            init(eventLoop);
-            updateTask(task);
-            start();
+            init(eventLoop, task);
+            start(null);
         } finally {
             lock.unlock();
         }
     }
 
     @Override
-    public void init(EventExecutor eventLoop) {
+    public void init(EventExecutor eventLoop, @Nullable CancellationTask task) {
         lock.lock();
         try {
             checkState(this.eventLoop == null, "Can't init() more than once");
             this.eventLoop = eventLoop;
+            if (task != null) {
+                updateTask(task);
+            }
         } finally {
             lock.unlock();
         }
     }
 
     @Override
-    public void start() {
+    public void start(@Nullable CancellationTask task) {
+        if (task != null) {
+            updateTask(task);
+        }
         lock.lock();
         try {
             if (state != State.INIT) {
@@ -312,8 +317,7 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
         return state == State.FINISHED;
     }
 
-    @Override
-    public void updateTask(CancellationTask task) {
+    private void updateTask(CancellationTask task) {
         lock.lock();
         try {
             if (state != State.FINISHED) {

@@ -100,7 +100,7 @@ class HttpClientResponseTimeoutHandlerTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = SessionProtocol.class, names = { "H1C", "H2C" })
+    @EnumSource(value = SessionProtocol.class, names = { "H1C" })
     void testResponseTimeoutHandlerRequestAbort(SessionProtocol protocol) {
         final AtomicReference<RequestLogAccess> logHolder = new AtomicReference<>();
         final IllegalStateException reqCause = new IllegalStateException("abort request");

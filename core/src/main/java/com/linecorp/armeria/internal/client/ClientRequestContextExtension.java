@@ -22,6 +22,7 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpHeaders;
+import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.logging.RequestLog;
 import com.linecorp.armeria.internal.common.CancellationScheduler;
 import com.linecorp.armeria.internal.common.RequestContextExtension;
@@ -73,4 +74,6 @@ public interface ClientRequestContextExtension extends ClientRequestContext, Req
      * with default values on every request.
      */
     HttpHeaders internalRequestHeaders();
+
+    void updateResponse(HttpResponse httpResponse);
 }

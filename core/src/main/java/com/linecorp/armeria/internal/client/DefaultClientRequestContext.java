@@ -50,6 +50,7 @@ import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.HttpHeadersBuilder;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestContext;
 import com.linecorp.armeria.common.RequestHeaders;
@@ -167,6 +168,9 @@ public final class DefaultClientRequestContext
 
     @Nullable
     private volatile CompletableFuture<Boolean> whenInitialized;
+
+    @Nullable
+    private HttpResponse response;
 
     /**
      * Creates a new instance. Note that {@link #init(EndpointGroup)} method must be invoked to finish
@@ -555,18 +559,30 @@ public final class DefaultClientRequestContext
     }
 
     private void initializeResponseCancellationScheduler() {
-        final CancellationTask cancellationTask = cause -> {
-            try (SafeCloseable ignored = RequestContextUtil.pop()) {
-                final HttpRequest request = request();
-                if (request != null) {
-                    request.abort(cause);
+        final CancellationTask cancellationTask = new CancellationTask() {
+            @Override
+            public void run(Throwable cause) {
+                final HttpResponse response = DefaultClientRequestContext.this.response;
+                try (SafeCloseable ignored = RequestContextUtil.pop()) {
+                    final HttpRequest request = request();
+                    if (request != null) {
+                        request.abort(cause);
+                        log.endRequest(cause);
+                    }
+                    // best-effort to close the corresponding response
+                    // even if we don't get to close the response due to a timing issue, the aborted request
+                    // will close the response once HttpRequestHandler is reached
+                    if (response instanceof DecodedHttpResponse) {
+                        final DecodedHttpResponse decoded = (DecodedHttpResponse) response;
+                        decoded.close(cause);
+                        log.endResponse(cause);
+                    } else {
+                        log.endResponse(cause);
+                    }
                 }
-                log.endRequest(cause);
-                log.endResponse(cause);
             }
         };
-        responseCancellationScheduler.init(eventLoop().withoutContext());
-        responseCancellationScheduler.updateTask(cancellationTask);
+        responseCancellationScheduler.init(eventLoop().withoutContext(), cancellationTask);
     }
 
     @Nullable
@@ -874,6 +890,11 @@ public final class DefaultClientRequestContext
     @Override
     public HttpHeaders internalRequestHeaders() {
         return internalRequestHeaders;
+    }
+
+    @Override
+    public void updateResponse(HttpResponse response) {
+        this.response = response;
     }
 
     @Override

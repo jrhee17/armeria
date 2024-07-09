@@ -41,11 +41,11 @@ final class NoopCancellationScheduler implements CancellationScheduler {
     }
 
     @Override
-    public void init(EventExecutor eventLoop) {
+    public void init(EventExecutor eventLoop, CancellationTask task) {
     }
 
     @Override
-    public void start() {
+    public void start(CancellationTask cancellationTask) {
     }
 
     @Override
@@ -98,9 +98,5 @@ final class NoopCancellationScheduler implements CancellationScheduler {
     @Override
     public CompletableFuture<Throwable> whenCancelled() {
         return THROWABLE_FUTURE;
-    }
-
-    @Override
-    public void updateTask(CancellationTask cancellationTask) {
     }
 }

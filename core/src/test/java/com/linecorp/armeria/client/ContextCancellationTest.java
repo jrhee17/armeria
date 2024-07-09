@@ -146,8 +146,7 @@ class ContextCancellationTest {
                                               .execute(HttpRequest.streaming(HttpMethod.POST, "/"));
             assertThatThrownBy(() -> res.aggregate().join())
                     .isInstanceOf(CompletionException.class)
-                    .hasCauseInstanceOf(UnprocessedRequestException.class)
-                    .hasRootCause(t);
+                    .hasCause(t);
             assertThat(requests).doesNotContain(testInfo.getDisplayName());
             // don't validate the thread since we haven't started with event loop scheduling yet
             validateCallbackChecks(null);
@@ -183,8 +182,7 @@ class ContextCancellationTest {
             }).execute(HttpRequest.streaming(HttpMethod.POST, "/"));
             assertThatThrownBy(() -> res.aggregate().join())
                     .isInstanceOf(CompletionException.class)
-                    .hasCauseInstanceOf(UnprocessedRequestException.class)
-                    .hasRootCause(t);
+                    .hasCause(t);
             assertThat(connListener.opened()).isEqualTo(1);
             assertThat(requests).doesNotContain(testInfo.getDisplayName());
             validateCallbackChecks(eventLoopThreadPrefix);
@@ -218,8 +216,7 @@ class ContextCancellationTest {
             });
             assertThatThrownBy(() -> res.aggregate().join())
                     .isInstanceOf(CompletionException.class)
-                    .hasCauseInstanceOf(UnprocessedRequestException.class)
-                    .hasRootCause(t);
+                    .hasCause(t);
             assertThat(connListener.opened()).isEqualTo(1);
             assertThat(requests).doesNotContain(testInfo.getDisplayName());
             validateCallbackChecks(eventLoopThreadPrefix);

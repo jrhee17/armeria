@@ -25,11 +25,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -445,7 +441,7 @@ class CancellationSchedulerTest {
     @Test
     void immediateFinishTriggersCompletion() {
         final DefaultCancellationScheduler scheduler = new DefaultCancellationScheduler(Long.MAX_VALUE);
-        scheduler.init(eventExecutor);
+        scheduler.init(eventExecutor, t -> {});
 
         final Throwable throwable = new Throwable();
 
@@ -465,7 +461,7 @@ class CancellationSchedulerTest {
     void immediateFinishWithoutCause(boolean server) {
         final DefaultCancellationScheduler scheduler = new DefaultCancellationScheduler(Long.MAX_VALUE, server);
 
-        scheduler.init(eventExecutor);
+        scheduler.init(eventExecutor, t -> {});
 
         assertThat(scheduler.whenCancelling()).isNotCompleted();
         assertThat(scheduler.state()).isEqualTo(State.INIT);
@@ -486,9 +482,8 @@ class CancellationSchedulerTest {
     void immediateCancellation() {
         // Tests that there is no need to go through the event loop for task invocation
         final DefaultCancellationScheduler scheduler = new DefaultCancellationScheduler(Long.MAX_VALUE);
-        scheduler.init(eventExecutor);
         final AtomicReference<Throwable> throwableRef = new AtomicReference<>();
-        scheduler.updateTask(throwableRef::set);
+        scheduler.init(eventExecutor, throwableRef::set);
 
         final Throwable throwable = new Throwable();
         scheduler.finishNow(throwable);
@@ -497,75 +492,11 @@ class CancellationSchedulerTest {
     }
 
     @Test
-    void concurrentUpdateTask_onlyOneExecutedIfNotFinished() throws Exception {
-        final DefaultCancellationScheduler scheduler = new DefaultCancellationScheduler(Long.MAX_VALUE);
-        scheduler.init(eventExecutor);
-        scheduler.start();
-        final int numTasks = 10;
-        final AtomicInteger atomicInteger = new AtomicInteger();
-        final ExecutorService executor = Executors.newFixedThreadPool(numTasks);
-        final CountDownLatch waitLatch = new CountDownLatch(1);
-        final CountDownLatch doneLatch = new CountDownLatch(numTasks);
-        try {
-            for (int i = 0; i < numTasks; i++) {
-                executor.execute(() -> {
-                    try {
-                        waitLatch.await();
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                    scheduler.updateTask(cause -> atomicInteger.incrementAndGet());
-                    doneLatch.countDown();
-                });
-            }
-        } finally {
-            executor.shutdown();
-        }
-        waitLatch.countDown();
-        doneLatch.await();
-
-        scheduler.finishNow();
-        assertThat(atomicInteger.get()).isEqualTo(1);
-    }
-
-    @Test
-    void concurrentUpdateTask_allExecutedIfFinished() throws Exception {
-        final DefaultCancellationScheduler scheduler = new DefaultCancellationScheduler(Long.MAX_VALUE);
-        scheduler.init(eventExecutor);
-        scheduler.start();
-        final int numTasks = 10;
-        final AtomicInteger atomicInteger = new AtomicInteger();
-        final ExecutorService executor = Executors.newFixedThreadPool(numTasks);
-        final CountDownLatch waitLatch = new CountDownLatch(1);
-        final CountDownLatch doneLatch = new CountDownLatch(numTasks);
-        try {
-            for (int i = 0; i < numTasks; i++) {
-                executor.execute(() -> {
-                    try {
-                        waitLatch.await();
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                    scheduler.updateTask(cause -> atomicInteger.incrementAndGet());
-                    doneLatch.countDown();
-                });
-            }
-        } finally {
-            executor.shutdown();
-        }
-        scheduler.finishNow();
-        waitLatch.countDown();
-        doneLatch.await();
-
-        assertThat(atomicInteger.get()).isEqualTo(numTasks);
-    }
-
-    @Test
     void timeoutNanos_fromNow() throws Exception {
         final AtomicLong ticker = new AtomicLong();
         final DefaultCancellationScheduler scheduler =
                 new DefaultCancellationScheduler(1000, false, ticker::get);
-        scheduler.init(eventExecutor);
+        scheduler.init(eventExecutor, t -> {});
         assertThat(scheduler.timeoutNanos()).isEqualTo(1000);
 
         scheduler.setTimeoutNanos(SET_FROM_NOW, 5000);
@@ -573,7 +504,7 @@ class CancellationSchedulerTest {
 
         ticker.addAndGet(2000);
 
-        scheduler.start();
+        scheduler.start(null);
 
         // 5000 (set from now) - 2000 (elapsed time until start)
         assertThat(scheduler.timeoutNanos()).isEqualTo(3000);
@@ -596,8 +527,7 @@ class CancellationSchedulerTest {
         final AtomicReference<Throwable> throwableRef = new AtomicReference<>();
         final DefaultCancellationScheduler scheduler =
                 new DefaultCancellationScheduler(1000, false, ticker::get);
-        scheduler.init(eventExecutor);
-        scheduler.updateTask(throwableRef::set);
+        scheduler.init(eventExecutor, throwableRef::set);
         scheduler.setTimeoutNanos(EXTEND, -2000);
         assertThat(scheduler.timeoutNanos()).isEqualTo(-1000);
 
@@ -606,7 +536,7 @@ class CancellationSchedulerTest {
 
         scheduler.setTimeoutNanos(EXTEND, 2000);
         assertThat(scheduler.timeoutNanos()).isEqualTo(1000);
-        scheduler.start();
+        scheduler.start(null);
         scheduler.setTimeoutNanos(EXTEND, -2000);
         assertThat(throwableRef).hasValueMatching(t -> t instanceof ResponseTimeoutException);
 
@@ -619,8 +549,7 @@ class CancellationSchedulerTest {
         final AtomicReference<Throwable> throwableRef = new AtomicReference<>();
         final DefaultCancellationScheduler scheduler =
                 new DefaultCancellationScheduler(1000, false, ticker::get);
-        scheduler.init(eventExecutor);
-        scheduler.updateTask(throwableRef::set);
+        scheduler.init(eventExecutor, throwableRef::set);
 
         assertThat(scheduler.timeoutNanos()).isEqualTo(1000);
         scheduler.setTimeoutNanos(EXTEND, -1000);

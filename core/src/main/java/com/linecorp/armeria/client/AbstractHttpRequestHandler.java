@@ -46,7 +46,6 @@ import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.client.DecodedHttpResponse;
 import com.linecorp.armeria.internal.client.HttpSession;
 import com.linecorp.armeria.internal.common.CancellationScheduler;
-import com.linecorp.armeria.internal.common.CancellationScheduler.CancellationTask;
 import com.linecorp.armeria.internal.common.RequestContextUtil;
 import com.linecorp.armeria.unsafe.PooledObjects;
 
@@ -196,23 +195,7 @@ abstract class AbstractHttpRequestHandler implements ChannelFutureListener {
                     () -> failAndReset(WriteTimeoutException.get()),
                     timeoutMillis, TimeUnit.MILLISECONDS);
         }
-        final CancellationScheduler scheduler = cancellationScheduler();
-        if (scheduler != null) {
-            scheduler.updateTask(newCancellationTask());
-        }
         return true;
-    }
-
-    private CancellationTask newCancellationTask() {
-        return cause -> {
-            if (ch.eventLoop().inEventLoop()) {
-                try (SafeCloseable ignored = RequestContextUtil.pop()) {
-                    failAndReset(cause);
-                }
-            } else {
-                ch.eventLoop().execute(() -> failAndReset(cause));
-            }
-        };
     }
 
     RequestHeaders mergedRequestHeaders(RequestHeaders headers) {

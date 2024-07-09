@@ -187,7 +187,7 @@ public final class DefaultServiceRequestContext
                     CancellationScheduler.ofServer(TimeUnit.MILLISECONDS.toNanos(cfg.requestTimeoutMillis()));
             // the cancellation scheduler uses channelEventLoop since #start is called
             // from the netty pipeline logic
-            this.requestCancellationScheduler.init(ch.eventLoop());
+            this.requestCancellationScheduler.init(ch.eventLoop(), null);
         }
         this.sslSession = sslSession;
         this.proxiedAddresses = requireNonNull(proxiedAddresses, "proxiedAddresses");
