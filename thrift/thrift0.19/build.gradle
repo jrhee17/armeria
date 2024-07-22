@@ -6,6 +6,8 @@ dependencies {
 
     api libs.javax.annotation
 
+    testImplementation project(':prometheus1')
+
     // thrift api depends on httpclient5
     testImplementation libs.apache.httpclient5
 
@@ -16,7 +18,7 @@ dependencies {
     // Dropwizard and Prometheus, for testing metrics integration
     testImplementation libs.dropwizard.metrics.core
     testImplementation libs.micrometer.prometheus
-    testImplementation libs.prometheus
+    testImplementation libs.prometheus.metrics.exposition.formats
     testImplementation libs.logback14
 
     // micrometer tracing
