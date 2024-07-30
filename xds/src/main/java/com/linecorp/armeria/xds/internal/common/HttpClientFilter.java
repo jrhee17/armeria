@@ -14,22 +14,17 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.xds.internal.common;
 
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.ClusterSnapshot;
 
-interface LoadBalancer {
+import io.envoyproxy.envoy.config.core.v3.Metadata;
 
-    LoadBalancer NOOP = new LoadBalancer() {
-        @Override
-        public @Nullable Endpoint selectNow(ClientRequestContext ctx) {
-            return null;
-        }
-    };
+public interface HttpClientFilter {
 
-    @Nullable
-    Endpoint selectNow(ClientRequestContext ctx);
+    String typeUrl();
+
+    default Metadata preprocess(ClientRequestContext ctx, Metadata metadata) {
+        return metadata;
+    }
 }

@@ -28,11 +28,15 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.client.endpoint.DefaultLbStateFactory.DefaultLbState;
 import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.LocalityRoutingState;
 import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.State;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
+import io.envoyproxy.envoy.config.route.v3.Route;
+import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
+import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 
 final class DefaultLoadBalancer implements XdsLoadBalancer {
 

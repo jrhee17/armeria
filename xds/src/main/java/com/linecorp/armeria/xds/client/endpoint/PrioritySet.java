@@ -28,6 +28,7 @@ import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.EndpointSnapshot;
+import com.linecorp.armeria.xds.RouteSnapshot;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.CommonLbConfig;
@@ -38,13 +39,13 @@ final class PrioritySet {
     private final Map<Integer, HostSet> hostSets;
     private final SortedSet<Integer> priorities;
     private final List<Endpoint> origEndpoints;
-    private final ClusterSnapshot clusterSnapshot;
+    private final Snapshots snapshots;
     private final Cluster cluster;
     private final int panicThreshold;
 
-    PrioritySet(ClusterSnapshot clusterSnapshot, Map<Integer, HostSet> hostSets, List<Endpoint> origEndpoints) {
-        this.clusterSnapshot = clusterSnapshot;
-        cluster = clusterSnapshot.xdsResource().resource();
+    PrioritySet(Snapshots snapshots, Map<Integer, HostSet> hostSets, List<Endpoint> origEndpoints) {
+        this.snapshots = snapshots;
+        cluster = snapshots.clusterSnapshot().xdsResource().resource();
         panicThreshold = EndpointUtil.panicThreshold(cluster);
         this.hostSets = hostSets;
         priorities = new TreeSet<>(hostSets.keySet());
@@ -127,8 +128,17 @@ final class PrioritySet {
         return cluster;
     }
 
+    @Nullable
+    RouteSnapshot routeSnapshot() {
+        return snapshots.routeSnapshot();
+    }
+
     ClusterSnapshot clusterSnapshot() {
-        return clusterSnapshot;
+        return snapshots.clusterSnapshot();
+    }
+
+    Snapshots snapshots() {
+        return snapshots;
     }
 
     @Override
@@ -142,14 +152,14 @@ final class PrioritySet {
     static final class PrioritySetBuilder {
 
         private final ImmutableMap.Builder<Integer, HostSet> hostSetsBuilder = ImmutableMap.builder();
-        private final ClusterSnapshot clusterSnapshot;
+        private final Snapshots snapshots;
         private final List<Endpoint> origEndpoints;
         private final ClusterLoadAssignment clusterLoadAssignment;
 
-        PrioritySetBuilder(ClusterSnapshot clusterSnapshot, List<Endpoint> origEndpoints) {
-            this.clusterSnapshot = clusterSnapshot;
+        PrioritySetBuilder(Snapshots snapshots, List<Endpoint> origEndpoints) {
+            this.snapshots = snapshots;
             this.origEndpoints = origEndpoints;
-            final EndpointSnapshot endpointSnapshot = clusterSnapshot.endpointSnapshot();
+            final EndpointSnapshot endpointSnapshot = snapshots.clusterSnapshot().endpointSnapshot();
             assert endpointSnapshot != null;
             clusterLoadAssignment = endpointSnapshot.xdsResource().resource();
         }
@@ -160,7 +170,7 @@ final class PrioritySet {
         }
 
         PrioritySet build() {
-            return new PrioritySet(clusterSnapshot, hostSetsBuilder.build(), origEndpoints);
+            return new PrioritySet(snapshots, hostSetsBuilder.build(), origEndpoints);
         }
     }
 }

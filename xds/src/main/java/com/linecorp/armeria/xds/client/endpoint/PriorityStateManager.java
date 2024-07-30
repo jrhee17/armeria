@@ -23,7 +23,6 @@ import java.util.Map.Entry;
 import java.util.SortedMap;
 
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.xds.ClusterSnapshot;
 
 import it.unimi.dsi.fastutil.ints.Int2ReferenceAVLTreeMap;
 
@@ -31,11 +30,11 @@ final class PriorityStateManager {
 
     private final SortedMap<Integer, PriorityState.PriorityStateBuilder> priorityStateMap =
             new Int2ReferenceAVLTreeMap<>();
-    private final ClusterSnapshot clusterSnapshot;
+    private final Snapshots snapshots;
     private final List<Endpoint> origEndpoints;
 
-    PriorityStateManager(ClusterSnapshot clusterSnapshot, List<Endpoint> origEndpoints) {
-        this.clusterSnapshot = clusterSnapshot;
+    PriorityStateManager(Snapshots snapshots, List<Endpoint> origEndpoints) {
+        this.snapshots = snapshots;
         this.origEndpoints = origEndpoints;
         for (Endpoint endpoint : origEndpoints) {
             registerEndpoint(endpoint);
@@ -48,14 +47,14 @@ final class PriorityStateManager {
         if (builder == null) {
             builder = priorityStateMap.computeIfAbsent(
                     priority(endpoint),
-                    ignored -> new PriorityState.PriorityStateBuilder(clusterSnapshot));
+                    ignored -> new PriorityState.PriorityStateBuilder(snapshots.clusterSnapshot()));
         }
         builder.addEndpoint(endpoint);
     }
 
     PrioritySet build() {
         final PrioritySet.PrioritySetBuilder prioritySetBuilder =
-                new PrioritySet.PrioritySetBuilder(clusterSnapshot, origEndpoints);
+                new PrioritySet.PrioritySetBuilder(snapshots, origEndpoints);
         for (Entry<Integer, PriorityState.PriorityStateBuilder> entry: priorityStateMap.entrySet()) {
             final Integer priority = entry.getKey();
             final PriorityState priorityState = entry.getValue().build();

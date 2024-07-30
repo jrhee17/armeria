@@ -14,22 +14,16 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.xds.internal.common;
 
-import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
+import com.linecorp.armeria.xds.EndpointSnapshot;
+import com.linecorp.armeria.xds.ListenerSnapshot;
+import com.linecorp.armeria.xds.RouteSnapshot;
 
-interface LoadBalancer {
+@FunctionalInterface
+interface FilterFactory {
 
-    LoadBalancer NOOP = new LoadBalancer() {
-        @Override
-        public @Nullable Endpoint selectNow(ClientRequestContext ctx) {
-            return null;
-        }
-    };
-
-    @Nullable
-    Endpoint selectNow(ClientRequestContext ctx);
+    HttpClientFilter httpClientFilter(ListenerSnapshot listenerSnapshot, RouteSnapshot routeSnapshot,
+                                      ClusterSnapshot clusterSnapshot, EndpointSnapshot endpointSnapshot);
 }

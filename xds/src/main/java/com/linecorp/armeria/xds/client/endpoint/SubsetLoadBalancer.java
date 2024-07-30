@@ -61,14 +61,14 @@ final class SubsetLoadBalancer implements XdsLoadBalancer {
 
     private LoadBalancer createSubsetLoadBalancer(PrioritySet prioritySet,
                                                   LoadBalancer allEndpointsLoadBalancer) {
-        final ClusterSnapshot clusterSnapshot = prioritySet.clusterSnapshot();
-        final Struct filterMetadata = filterMetadata(clusterSnapshot);
+        final Snapshots snapshots = prioritySet.snapshots();
+        final Struct filterMetadata = filterMetadata(snapshots.clusterSnapshot());
         if (filterMetadata.getFieldsCount() == 0) {
             // No metadata. Use the whole endpoints.
             return allEndpointsLoadBalancer;
         }
 
-        final Cluster cluster = clusterSnapshot.xdsResource().resource();
+        final Cluster cluster = snapshots.clusterSnapshot().xdsResource().resource();
         final LbSubsetConfig lbSubsetConfig = cluster.getLbSubsetConfig();
         if (lbSubsetConfig == LbSubsetConfig.getDefaultInstance()) {
             // Route metadata exists but no lbSubsetConfig. Use NO_FALLBACK.
@@ -96,12 +96,11 @@ final class SubsetLoadBalancer implements XdsLoadBalancer {
             }
             return allEndpointsLoadBalancer;
         }
-        return createSubsetLoadBalancer(endpoints, clusterSnapshot);
+        return createSubsetLoadBalancer(endpoints, snapshots);
     }
 
-    private LoadBalancer createSubsetLoadBalancer(List<Endpoint> endpoints,
-                                                  ClusterSnapshot clusterSnapshot) {
-        final PrioritySet subsetPrioritySet = new PriorityStateManager(clusterSnapshot, endpoints).build();
+    private LoadBalancer createSubsetLoadBalancer(List<Endpoint> endpoints, Snapshots snapshots) {
+        final PrioritySet subsetPrioritySet = new PriorityStateManager(snapshots, endpoints).build();
         return new DefaultLoadBalancer(subsetPrioritySet, localityRoutingState);
     }
 

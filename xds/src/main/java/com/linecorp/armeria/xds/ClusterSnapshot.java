@@ -16,8 +16,13 @@
 
 package com.linecorp.armeria.xds;
 
+import static com.linecorp.armeria.xds.RouteSnapshot.toParsedFilterConfigs;
+
+import java.util.Map;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableMap;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
@@ -40,21 +45,26 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
     private final Route route;
     private final int index;
 
-    ClusterSnapshot(ClusterXdsResource clusterXdsResource, EndpointSnapshot endpointSnapshot,
+    private final Map<String, ParsedFilterConfig> routeFilterConfigs;
+    private final Map<String, ParsedFilterConfig> virtualHostFilterConfigs;
+
+    ClusterSnapshot(ClusterXdsResource clusterXdsResource, @Nullable EndpointSnapshot endpointSnapshot,
                     @Nullable VirtualHost virtualHost, @Nullable Route route, int index) {
         this.clusterXdsResource = clusterXdsResource;
         this.endpointSnapshot = endpointSnapshot;
         this.virtualHost = virtualHost;
         this.route = route;
         this.index = index;
+
+        routeFilterConfigs = route != null ? toParsedFilterConfigs(route.getTypedPerFilterConfigMap())
+                                           : ImmutableMap.of();
+        virtualHostFilterConfigs =
+                virtualHost != null ? toParsedFilterConfigs(virtualHost.getTypedPerFilterConfigMap())
+                                    : ImmutableMap.of();
     }
 
     ClusterSnapshot(ClusterXdsResource clusterXdsResource) {
-        this.clusterXdsResource = clusterXdsResource;
-        endpointSnapshot = null;
-        virtualHost = null;
-        route = null;
-        index = -1;
+        this(clusterXdsResource, null, null, null, -1);
     }
 
     @Override
@@ -84,6 +94,18 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
     @Nullable
     public Route route() {
         return route;
+    }
+
+    @Nullable
+    @UnstableApi
+    public ParsedFilterConfig routeFilterConfig(String name) {
+        return routeFilterConfigs.get(name);
+    }
+
+    @Nullable
+    @UnstableApi
+    public ParsedFilterConfig virtualHostFilterConfig(String name) {
+        return virtualHostFilterConfigs.get(name);
     }
 
     int index() {

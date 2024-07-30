@@ -14,22 +14,29 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.xds.internal.common;
 
-import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.Endpoint;
+import java.util.Map;
+
+import com.google.common.collect.ImmutableMap;
+
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.ClusterSnapshot;
 
-interface LoadBalancer {
+public final class FilterFactoryRegistry {
 
-    LoadBalancer NOOP = new LoadBalancer() {
-        @Override
-        public @Nullable Endpoint selectNow(ClientRequestContext ctx) {
-            return null;
-        }
-    };
+    public static final FilterFactoryRegistry INSTANCE = new FilterFactoryRegistry();
+
+    private final Map<String, FilterFactory> filterFactories;
+
+    private FilterFactoryRegistry() {
+        filterFactories = ImmutableMap
+                .<String, FilterFactory>builder()
+                .put(HeaderToMetadataFilterFactory.TYPE_URL, HeaderToMetadataFilterFactory.INSTANCE)
+                .build();
+    }
 
     @Nullable
-    Endpoint selectNow(ClientRequestContext ctx);
+    FilterFactory filterFactory(String name) {
+        return filterFactories.get(name);
+    }
 }

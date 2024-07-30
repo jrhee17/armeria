@@ -21,14 +21,20 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Any;
 
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
+import io.envoyproxy.envoy.config.route.v3.FilterConfig;
 import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 import io.envoyproxy.envoy.config.route.v3.VirtualHost;
+import io.envoyproxy.envoy.extensions.filters.http.header_to_metadata.v3.Config;
 
 /**
  * A snapshot of a {@link RouteConfiguration} resource.
@@ -40,6 +46,7 @@ public final class RouteSnapshot implements Snapshot<RouteXdsResource> {
     private final List<ClusterSnapshot> clusterSnapshots;
 
     private final Map<VirtualHost, List<ClusterSnapshot>> virtualHostMap;
+    private final Map<String, ParsedFilterConfig> filterConfigs;
 
     RouteSnapshot(RouteXdsResource routeXdsResource, List<ClusterSnapshot> clusterSnapshots) {
         this.routeXdsResource = routeXdsResource;
@@ -53,6 +60,8 @@ public final class RouteSnapshot implements Snapshot<RouteXdsResource> {
                           .add(clusterSnapshot);
         }
         this.virtualHostMap = Collections.unmodifiableMap(virtualHostMap);
+
+        filterConfigs = toParsedFilterConfigs(routeXdsResource.resource().getTypedPerFilterConfigMap());
     }
 
     @Override
@@ -68,11 +77,30 @@ public final class RouteSnapshot implements Snapshot<RouteXdsResource> {
     }
 
     /**
+     * Returns the unpacked filter configuration contained by this {@link RouteConfiguration}.
+     * For each key, the configuration may either be a configuration specific to a filter like
+     * {@link Config}, or a generic {@link FilterConfig}.
+     */
+    @Nullable
+    @UnstableApi
+    public ParsedFilterConfig typedPerFilterConfig(String key) {
+        return filterConfigs.get(key);
+    }
+
+    /**
      * A map of {@link VirtualHost}s to {@link ClusterSnapshot}s which belong
      * to this {@link RouteConfiguration}.
      */
     public Map<VirtualHost, List<ClusterSnapshot>> virtualHostMap() {
         return virtualHostMap;
+    }
+
+    static Map<String, ParsedFilterConfig> toParsedFilterConfigs(Map<String, Any> filterConfigMap) {
+        final ImmutableMap.Builder<String, ParsedFilterConfig> filterConfigsBuilder = ImmutableMap.builder();
+        for (Entry<String, Any> e: filterConfigMap.entrySet()) {
+            filterConfigsBuilder.put(e.getKey(), new ParsedFilterConfig(e.getKey(), e.getValue()));
+        }
+        return filterConfigsBuilder.build();
     }
 
     @Override
