@@ -14,22 +14,12 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+/**
+ * Provides internal common implementations related to xDS.
+ */
+@NonNullByDefault
+@UnstableApi
+package com.linecorp.armeria.xds.internal.common;
 
-import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.ClusterSnapshot;
-
-interface LoadBalancer {
-
-    LoadBalancer NOOP = new LoadBalancer() {
-        @Override
-        public @Nullable Endpoint selectNow(ClientRequestContext ctx) {
-            return null;
-        }
-    };
-
-    @Nullable
-    Endpoint selectNow(ClientRequestContext ctx);
-}
+import com.linecorp.armeria.common.annotation.NonNullByDefault;
+import com.linecorp.armeria.common.annotation.UnstableApi;

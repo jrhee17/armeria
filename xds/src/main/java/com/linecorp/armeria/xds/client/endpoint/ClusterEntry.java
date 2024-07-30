@@ -33,7 +33,6 @@ import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
-import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.client.endpoint.ClusterManager.LocalCluster;
 import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.LocalityRoutingState;
 
@@ -74,8 +73,8 @@ final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> implements 
         return loadBalancer.selectNow(ctx);
     }
 
-    void updateClusterSnapshot(ClusterSnapshot clusterSnapshot) {
-        endpointsPool.updateClusterSnapshot(clusterSnapshot, this::updateEndpoints);
+    void updateClusterSnapshot(Snapshots snapshots) {
+        endpointsPool.updateClusterSnapshot(snapshots, this::updateEndpoints);
     }
 
     void updateEndpoints(EndpointsState endpointsState) {
@@ -99,10 +98,10 @@ final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> implements 
             return;
         }
 
-        final ClusterSnapshot clusterSnapshot = endpointsState.clusterSnapshot;
+        final Snapshots snapshots = endpointsState.snapshots;
         final List<Endpoint> endpoints = endpointsState.endpoints;
 
-        final PrioritySet prioritySet = new PriorityStateManager(clusterSnapshot, endpoints).build();
+        final PrioritySet prioritySet = new PriorityStateManager(snapshots, endpoints).build();
         if (logger.isTraceEnabled()) {
             logger.trace("XdsEndpointGroup is using a new PrioritySet({})", prioritySet);
         }
@@ -115,7 +114,7 @@ final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> implements 
             logger.trace("Local routing is enabled with LocalityRoutingState({})", localityRoutingState);
         }
         XdsLoadBalancer loadBalancer = new DefaultLoadBalancer(prioritySet, localityRoutingState);
-        if (clusterSnapshot.xdsResource().resource().hasLbSubsetConfig()) {
+        if (snapshots.clusterSnapshot().xdsResource().resource().hasLbSubsetConfig()) {
             loadBalancer = new SubsetLoadBalancer(prioritySet, loadBalancer);
         }
         this.loadBalancer = loadBalancer;
@@ -160,18 +159,18 @@ final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> implements 
     }
 
     static final class EndpointsState {
-        private final ClusterSnapshot clusterSnapshot;
+        private final Snapshots snapshots;
         private final List<Endpoint> endpoints;
 
-        EndpointsState(ClusterSnapshot clusterSnapshot, List<Endpoint> endpoints) {
-            this.clusterSnapshot = clusterSnapshot;
+        EndpointsState(Snapshots snapshots, List<Endpoint> endpoints) {
+            this.snapshots = snapshots;
             this.endpoints = ImmutableList.copyOf(endpoints);
         }
 
         @Override
         public String toString() {
             return MoreObjects.toStringHelper(this)
-                              .add("clusterSnapshot", clusterSnapshot)
+                              .add("snapshots", snapshots)
                               .add("numEndpoints", endpoints.size())
                               .add("endpoints", truncate(endpoints, 10))
                               .toString();

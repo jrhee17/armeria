@@ -31,16 +31,14 @@ import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 public final class RouteXdsResource extends XdsResourceWithPrimer<RouteXdsResource> {
 
     private final RouteConfiguration routeConfiguration;
-
     @Nullable
     private final XdsResource primer;
 
     RouteXdsResource(RouteConfiguration routeConfiguration) {
-        this.routeConfiguration = routeConfiguration;
-        primer = null;
+        this(routeConfiguration, null);
     }
 
-    RouteXdsResource(RouteConfiguration routeConfiguration, XdsResource primer) {
+    RouteXdsResource(RouteConfiguration routeConfiguration, @Nullable XdsResource primer) {
         this.routeConfiguration = routeConfiguration;
         this.primer = primer;
     }

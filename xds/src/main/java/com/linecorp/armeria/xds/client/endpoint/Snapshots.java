@@ -16,20 +16,26 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
+import com.linecorp.armeria.xds.RouteSnapshot;
 
-interface LoadBalancer {
+final class Snapshots {
+    @Nullable
+    private final RouteSnapshot routeSnapshot;
+    private final ClusterSnapshot clusterSnapshot;
 
-    LoadBalancer NOOP = new LoadBalancer() {
-        @Override
-        public @Nullable Endpoint selectNow(ClientRequestContext ctx) {
-            return null;
-        }
-    };
+    Snapshots(@Nullable RouteSnapshot routeSnapshot, ClusterSnapshot clusterSnapshot) {
+        this.routeSnapshot = routeSnapshot;
+        this.clusterSnapshot = clusterSnapshot;
+    }
 
     @Nullable
-    Endpoint selectNow(ClientRequestContext ctx);
+    RouteSnapshot routeSnapshot() {
+        return routeSnapshot;
+    }
+
+    ClusterSnapshot clusterSnapshot() {
+        return clusterSnapshot;
+    }
 }

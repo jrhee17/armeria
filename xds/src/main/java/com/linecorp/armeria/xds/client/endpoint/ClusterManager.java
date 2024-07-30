@@ -102,7 +102,7 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
         localCluster = null;
         final ClusterEntry clusterEntry = new ClusterEntry(eventLoop, null);
         clusterEntry.addListener(ignored -> notifyListeners(), true);
-        clusterEntry.updateClusterSnapshot(clusterSnapshot);
+        clusterEntry.updateClusterSnapshot(new Snapshots(null, clusterSnapshot));
         clusterEntries =
                 new ClusterEntries(null, ImmutableMap.of(clusterSnapshot.xdsResource().name(), clusterEntry));
     }
@@ -135,13 +135,14 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
             if (clusterSnapshot.endpointSnapshot() == null) {
                 continue;
             }
+            final Snapshots snapshots = new Snapshots(routeSnapshot, clusterSnapshot);
             final String clusterName = clusterSnapshot.xdsResource().name();
             ClusterEntry clusterEntry = oldClusterEntries.get(clusterName);
             if (clusterEntry == null) {
                 clusterEntry = new ClusterEntry(eventLoop, localCluster);
                 clusterEntry.addListener(ignored -> notifyListeners(), false);
             }
-            clusterEntry.updateClusterSnapshot(clusterSnapshot);
+            clusterEntry.updateClusterSnapshot(snapshots);
             mappingBuilder.put(clusterName, clusterEntry);
         }
         final ImmutableMap<String, ClusterEntry> newClusterEntriesMap = mappingBuilder.build();
@@ -340,7 +341,8 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
             localityRoutingStateFactory = new LocalityRoutingStateFactory(node.getLocality());
             clusterEntry = new ClusterEntry(xdsBootstrap.eventLoop(), null);
             localClusterRoot = xdsBootstrap.clusterRoot(localClusterName);
-            localClusterRoot.addSnapshotWatcher(clusterEntry::updateClusterSnapshot);
+            localClusterRoot.addSnapshotWatcher(clusterSnapshot -> clusterEntry
+                    .updateClusterSnapshot(new Snapshots(null, clusterSnapshot)));
         }
 
         ClusterEntry clusterEntry() {
