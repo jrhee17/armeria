@@ -94,6 +94,19 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
         listenerRoot.addSnapshotWatcher(this);
     }
 
+    ClusterManager(String clusterName, XdsBootstrap xdsBootstrap) {
+        eventLoop = CommonPools.workerGroup().next();
+        xdsBootstrap.clusterRoot(clusterName);
+        listenerRoot = null;
+        localCluster = null;
+        final ClusterEntry clusterEntry = new ClusterEntry(eventLoop, null);
+        clusterEntry.addListener(ignored -> notifyListeners(), true);
+
+        clusterEntry.updateClusterSnapshot(new Snapshots(null, clusterSnapshot));
+        clusterEntries =
+                new ClusterEntries(null, ImmutableMap.of(clusterSnapshot.xdsResource().name(), clusterEntry));
+    }
+
     ClusterManager(ClusterSnapshot clusterSnapshot) {
         checkArgument(clusterSnapshot.endpointSnapshot() != null,
                       "An endpoint snapshot must exist for the provided (%s)", clusterSnapshot);

@@ -94,7 +94,7 @@ public final class ListenerXdsResource implements XdsResource {
     }
 
     @Nullable
-    HttpConnectionManager connectionManager() {
+    public HttpConnectionManager connectionManager() {
         return connectionManager;
     }
 
