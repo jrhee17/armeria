@@ -104,7 +104,7 @@ public final class ClientUtil {
         }
     }
 
-    private static <I extends Request, O extends Response, U extends Client<I, O>>
+    public static <I extends Request, O extends Response, U extends Client<I, O>>
     O initContextAndExecuteWithFallback(
             U delegate, ClientRequestContextExtension ctx,
             BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory, boolean succeeded)
@@ -161,7 +161,7 @@ public final class ClientUtil {
         }
     }
 
-    private static void fail(ClientRequestContext ctx, Throwable cause) {
+    public static void fail(ClientRequestContext ctx, Throwable cause) {
         final HttpRequest req = ctx.request();
         if (req != null) {
             req.abort(cause);
