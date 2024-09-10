@@ -16,7 +16,6 @@
 package com.linecorp.armeria.client;
 
 import static com.linecorp.armeria.internal.client.ClientUtil.fail;
-import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
@@ -42,7 +41,6 @@ import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.util.AbstractUnwrappable;
 import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
-import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -187,23 +185,13 @@ public abstract class UserClient<I extends Request, O extends Response>
 
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 meterRegistry, protocol, id, method, reqTarget, options(), httpReq, rpcReq,
-                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros());
+                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros(), endpointGroup);
 
-        Client<I, O> delegate = unwrap();
-        delegate = EndpointInitializingClient.wrap(delegate, endpointGroup, futureConverter,
-                                                   errorResponseFactory);
-        boolean initialized = false;
         try {
-            O res = delegate.execute(ctx, req);
-            initialized = true;
-            return res;
+            return unwrap().execute(ctx, req);
         } catch (Throwable cause) {
             fail(ctx, cause);
             return errorResponseFactory.apply(ctx, cause);
-        } finally {
-            if (initialized) {
-                ctxExt.finishInitialization(success);
-            }
         }
     }
 

@@ -139,7 +139,8 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         }
 
         final HttpRequestWriter req = HttpRequest.streaming(headersBuilder.build());
-        final DefaultClientRequestContext ctx = newContext(HttpMethod.POST, req, method);
+        final DefaultClientRequestContext ctx =
+                newContext(HttpMethod.POST, req, method, params.endpointGroup());
 
         GrpcCallOptions.set(ctx, callOptions);
 
@@ -233,7 +234,8 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
     }
 
     private <I, O> DefaultClientRequestContext newContext(HttpMethod method, HttpRequest req,
-                                                          MethodDescriptor<I, O> methodDescriptor) {
+                                                          MethodDescriptor<I, O> methodDescriptor,
+                                                          EndpointGroup endpointGroup) {
         final String path = req.path();
         final RequestTarget reqTarget = RequestTarget.forClient(path);
         assert reqTarget != null : path;
@@ -253,7 +255,8 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
                 null,
                 requestOptions,
                 System.nanoTime(),
-                SystemInfo.currentTimeMicros());
+                SystemInfo.currentTimeMicros(),
+                endpointGroup);
     }
 
     private static RequestOptions newRequestOptions(ExchangeType exchangeType) {

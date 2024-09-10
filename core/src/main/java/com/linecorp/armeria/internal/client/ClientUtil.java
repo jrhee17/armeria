@@ -54,20 +54,18 @@ public final class ClientUtil {
     O initContextAndExecuteWithFallback(
             U delegate,
             ClientRequestContextExtension ctx,
-            EndpointGroup endpointGroup,
             Function<CompletableFuture<O>, O> futureConverter,
             BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
 
         requireNonNull(delegate, "delegate");
         requireNonNull(ctx, "ctx");
-        requireNonNull(endpointGroup, "endpointGroup");
         requireNonNull(futureConverter, "futureConverter");
         requireNonNull(errorResponseFactory, "errorResponseFactory");
 
         boolean initialized = false;
         boolean success = false;
         try {
-            final CompletableFuture<Boolean> initFuture = ctx.init(endpointGroup);
+            final CompletableFuture<Boolean> initFuture = ctx.init();
             initialized = initFuture.isDone();
             if (initialized) {
                 // Initialization has been done immediately.

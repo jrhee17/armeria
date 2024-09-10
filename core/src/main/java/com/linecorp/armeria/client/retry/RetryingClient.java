@@ -18,7 +18,6 @@ package com.linecorp.armeria.client.retry;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.linecorp.armeria.internal.client.ClientUtil.executeWithFallback;
-import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 
 import java.time.Duration;
 import java.util.Date;
@@ -51,6 +50,7 @@ import com.linecorp.armeria.common.stream.AbortedStreamException;
 import com.linecorp.armeria.internal.client.AggregatedHttpRequestDuplicator;
 import com.linecorp.armeria.internal.client.ClientPendingThrowableUtil;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
+import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 import com.linecorp.armeria.internal.client.TruncatingHttpResponse;
 
 import io.netty.handler.codec.DateFormatter;
@@ -224,6 +224,7 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
         return builderWithMapping(mapping).newDecorator();
     }
 
+    private final HttpClient delegate;
     private final boolean useRetryAfter;
 
     /**
@@ -235,6 +236,7 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
             @Nullable RetryConfig<HttpResponse> retryConfig,
             boolean useRetryAfter) {
         super(delegate, mapping, retryConfig);
+        this.delegate = delegate;
         this.useRetryAfter = useRetryAfter;
     }
 
@@ -317,10 +319,10 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
             endpointGroup != null && derivedCtx.endpoint() == null) {
             // clear the pending throwable to retry endpoint selection
             ClientPendingThrowableUtil.removePendingThrowable(derivedCtx);
-            // if the endpoint hasn't been selected, try to initialize the ctx with a new endpoint/event loop
-            response = initContextAndExecuteWithFallback(
-                    unwrap(), ctxExtension, endpointGroup, HttpResponse::of,
-                    (context, cause) -> HttpResponse.ofFailure(cause));
+            // if the endpoint hasn't been selected, try to initialize the ctx with a new endpoint/event loo
+            response = EndpointInitializingClient.wrap(unwrap(), HttpResponse::of,
+                                                       (ctx0, cause) -> HttpResponse.ofFailure(cause))
+                                                 .execute(ctxExtension, duplicateReq);
         } else {
             response = executeWithFallback(unwrap(), derivedCtx,
                                            (context, cause) -> HttpResponse.ofFailure(cause));

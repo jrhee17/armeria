@@ -53,7 +53,7 @@ public interface ClientRequestContextExtension extends ClientRequestContext, Req
      *         {@code false} if the initialization has failed and this context's {@link RequestLog} has been
      *         completed with the cause of the failure.
      */
-    CompletableFuture<Boolean> init(EndpointGroup endpointGroup);
+    CompletableFuture<Boolean> init();
 
     /**
      * Completes the {@link #whenInitialized()} with the specified value.

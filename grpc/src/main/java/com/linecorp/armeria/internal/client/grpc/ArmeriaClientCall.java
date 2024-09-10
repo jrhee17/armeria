@@ -15,7 +15,6 @@
  */
 package com.linecorp.armeria.internal.client.grpc;
 
-import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 import static com.linecorp.armeria.internal.client.grpc.protocol.InternalGrpcWebUtil.messageBuf;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -256,8 +255,14 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
                     }
                     return HttpResponse.ofFailure(status.asRuntimeException());
                 };
-        final HttpResponse res = initContextAndExecuteWithFallback(
-                httpClient, ctx, endpointGroup, HttpResponse::of, errorResponseFactory);
+        final HttpResponse res;
+        try {
+            res = httpClient.execute(ctx, req);
+        } catch (Exception cause) {
+            final Status status = Status.INTERNAL.withCause(cause);
+            close(status, new Metadata());
+            return;
+        }
 
         final HttpStreamDeframer deframer = new HttpStreamDeframer(
                 decompressorRegistry, ctx, this, exceptionHandler,

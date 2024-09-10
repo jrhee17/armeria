@@ -16,7 +16,6 @@
 package com.linecorp.armeria.client.retry;
 
 import static com.linecorp.armeria.internal.client.ClientUtil.executeWithFallback;
-import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -32,6 +31,7 @@ import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.internal.client.ClientPendingThrowableUtil;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
+import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 import com.linecorp.armeria.internal.common.util.StringUtil;
 
 /**
@@ -179,8 +179,9 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
             // clear the pending throwable to retry endpoint selection
             ClientPendingThrowableUtil.removePendingThrowable(derivedCtx);
             // if the endpoint hasn't been selected, try to initialize the ctx with a new endpoint/event loop
-            res = initContextAndExecuteWithFallback(unwrap(), ctxExtension, endpointGroup, RpcResponse::from,
-                                                    (context, cause) -> RpcResponse.ofFailure(cause));
+            res = EndpointInitializingClient.wrap(unwrap(), RpcResponse::from,
+                                                  (ctx0, cause) -> RpcResponse.ofFailure(cause))
+                                            .execute(ctxExtension, req);
         } else {
             res = executeWithFallback(unwrap(), derivedCtx,
                                       (context, cause) -> RpcResponse.ofFailure(cause));

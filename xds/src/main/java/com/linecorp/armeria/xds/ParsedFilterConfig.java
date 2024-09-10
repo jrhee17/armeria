@@ -25,6 +25,9 @@ import com.linecorp.armeria.common.annotation.UnstableApi;
 
 import io.envoyproxy.envoy.config.route.v3.FilterConfig;
 
+/**
+ * TBU.
+ */
 @UnstableApi
 public final class ParsedFilterConfig {
 
@@ -50,14 +53,23 @@ public final class ParsedFilterConfig {
         }
     }
 
+    /**
+     * TBU.
+     */
     public boolean isOptional() {
         return filterConfig.getIsOptional();
     }
 
+    /**
+     * TBU.
+     */
     public boolean disabled() {
         return filterConfig.getDisabled();
     }
 
+    /**
+     * TBU.
+     */
     @SuppressWarnings("unchecked")
     public <T extends Message> T parsed(Class<T> clazz) {
         if (cached != null) {

@@ -27,7 +27,7 @@ class FilterConfigTest {
 
     @Test
     void testFilterConfig() {
-        String fullName = FilterConfig.getDescriptor().getFullName();
+        final String fullName = FilterConfig.getDescriptor().getFullName();
         System.out.println(fullName);
         Any packed = Any.pack(FilterConfig.getDefaultInstance());
         System.out.println(packed.getTypeUrl());
@@ -35,5 +35,4 @@ class FilterConfigTest {
         packed = Any.pack(Config.getDefaultInstance());
         System.out.println(packed.getTypeUrl());
     }
-
 }

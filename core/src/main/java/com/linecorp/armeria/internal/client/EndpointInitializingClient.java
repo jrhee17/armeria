@@ -26,47 +26,52 @@ import java.util.function.Function;
 
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.UnprocessedRequestException;
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.util.Exceptions;
 
-public final class EndpointInitializingClient<I extends Request, O extends Response, U extends Client<I, O>> implements Client<I, O> {
+public final class EndpointInitializingClient<I extends Request, O extends Response,
+        U extends Client<I, O>> implements Client<I, O> {
 
     private final U delegate;
-    private final EndpointGroup endpointGroup;
     private final Function<CompletableFuture<O>, O> futureConverter;
     private final BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory;
 
-
-    public static <I extends Request, O extends Response> Client<I, O> wrap(
+    public static <I extends Request, O extends Response> EndpointInitializingClient<I, O, Client<I, O>> wrap(
             Client<I, O> delegate,
-            EndpointGroup endpointGroup,
             Function<CompletableFuture<O>, O> futureConverter,
             BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
-        return new EndpointInitializingClient<>(delegate, endpointGroup, futureConverter, errorResponseFactory);
+        return new EndpointInitializingClient<>(delegate, futureConverter, errorResponseFactory);
     }
 
-    EndpointInitializingClient(U delegate, EndpointGroup endpointGroup,
-                               Function<CompletableFuture<O>, O> futureConverter,
+    public static HttpClient wrapHttp(HttpClient delegate,
+            Function<CompletableFuture<HttpResponse>, HttpResponse> futureConverter,
+            BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory) {
+        final EndpointInitializingClient<HttpRequest, HttpResponse, HttpClient>
+                client = new EndpointInitializingClient<>(
+                delegate, futureConverter, errorResponseFactory);
+        return client::execute;
+    }
+
+    EndpointInitializingClient(U delegate, Function<CompletableFuture<O>, O> futureConverter,
                                BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
         this.delegate = requireNonNull(delegate, "delegate");
-        this.endpointGroup = requireNonNull(endpointGroup, "endpointGroup");
         this.futureConverter = requireNonNull(futureConverter, "futureConverter");
         this.errorResponseFactory = requireNonNull(errorResponseFactory, "errorResponseFactory");
     }
 
     @Override
-    public O execute(ClientRequestContext ctx, I req) throws Exception {
+    public O execute(ClientRequestContext ctx, I req) {
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
-        if (ctxExt == null) {
-            return null;
-        }
+        assert ctxExt != null;
         boolean initialized = false;
         boolean success = false;
         try {
-            final CompletableFuture<Boolean> initFuture = ctxExt.init(endpointGroup);
+            final CompletableFuture<Boolean> initFuture = ctxExt.init();
             initialized = initFuture.isDone();
             if (initialized) {
                 // Initialization has been done immediately.
@@ -84,7 +89,8 @@ public final class EndpointInitializingClient<I extends Request, O extends Respo
                             throw UnprocessedRequestException.of(Exceptions.peel(cause));
                         }
 
-                        return initContextAndExecuteWithFallback(delegate, ctxExt, errorResponseFactory, success0);
+                        return initContextAndExecuteWithFallback(delegate, ctxExt,
+                                                                 errorResponseFactory, success0);
                     } catch (Throwable t) {
                         fail(ctx, t);
                         return errorResponseFactory.apply(ctx, t);
