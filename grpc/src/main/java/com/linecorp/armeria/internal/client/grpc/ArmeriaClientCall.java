@@ -28,7 +28,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import java.util.function.BiFunction;
 
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -37,7 +36,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.MoreExecutors;
 
-import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaders;
@@ -246,15 +244,6 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
         // Must come after handling deadline.
         prepareHeaders(compressor, metadata, remainingNanos);
 
-        final BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory =
-                (unused, cause) -> {
-                    final StatusAndMetadata statusAndMetadata = exceptionHandler.handle(ctx, cause);
-                    Status status = statusAndMetadata.status();
-                    if (status.getDescription() == null) {
-                        status = status.withDescription(cause.getMessage());
-                    }
-                    return HttpResponse.ofFailure(status.asRuntimeException());
-                };
         final HttpResponse res;
         try {
             res = httpClient.execute(ctx, req);

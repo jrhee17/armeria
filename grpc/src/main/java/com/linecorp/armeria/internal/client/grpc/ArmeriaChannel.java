@@ -21,12 +21,14 @@ import static com.linecorp.armeria.internal.common.grpc.GrpcExchangeTypeUtil.toE
 import java.net.URI;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.function.BiFunction;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Maps;
 
 import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientOptions;
+import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -36,6 +38,7 @@ import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpRequestWriter;
+import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.RequestHeadersBuilder;
 import com.linecorp.armeria.common.RequestTarget;
@@ -49,8 +52,10 @@ import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.common.util.Unwrappable;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
+import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 import com.linecorp.armeria.internal.common.RequestTargetCache;
 import com.linecorp.armeria.internal.common.grpc.InternalGrpcExceptionHandler;
+import com.linecorp.armeria.internal.common.grpc.StatusAndMetadata;
 
 import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
@@ -61,6 +66,7 @@ import io.grpc.CompressorRegistry;
 import io.grpc.DecompressorRegistry;
 import io.grpc.MethodDescriptor;
 import io.grpc.MethodDescriptor.MethodType;
+import io.grpc.Status;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.handler.codec.http.HttpHeaderValues;
 
@@ -148,7 +154,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         ctx.logBuilder().defer(RequestLogProperty.REQUEST_CONTENT,
                                RequestLogProperty.RESPONSE_CONTENT);
 
-        final HttpClient client;
+        HttpClient client;
 
         CallCredentials credentials = callOptions.getCredentials();
         if (credentials == NullCallCredentials.INSTANCE) {
@@ -166,6 +172,17 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         } else {
             client = httpClient;
         }
+
+        final BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory =
+                (unused, cause) -> {
+                    final StatusAndMetadata statusAndMetadata = exceptionHandler.handle(ctx, cause);
+                    Status status = statusAndMetadata.status();
+                    if (status.getDescription() == null) {
+                        status = status.withDescription(cause.getMessage());
+                    }
+                    return HttpResponse.ofFailure(status.asRuntimeException());
+                };
+        client = EndpointInitializingClient.wrapHttp(client, HttpResponse::of, errorResponseFactory);
 
         return new ArmeriaClientCall<>(
                 ctx,
