@@ -50,10 +50,14 @@ public class DecoratingClientFactory extends AbstractUnwrappable<ClientFactory> 
      * {@link ClientOptions} with the specified {@link ClientBuilderParams}. Note that {@code path} and
      * {@link SerializationFormat} are always {@code "/"} and {@link SerializationFormat#NONE}.
      */
-    protected final HttpClient newHttpClient(ClientBuilderParams params) {
+    protected final HttpClient newHttpClient(ClientBuilderParams params, boolean autoInitializeEndpoint) {
         final URI uri = params.uri();
         final ClientBuilderParams newParams;
-        final ClientOptions newOptions = params.options().toBuilder().factory(unwrap()).build();
+        final ClientOptionValue<Boolean> value =
+                ClientOptions.AUTO_INITIALIZE_ENDPOINT.newValue(autoInitializeEndpoint);
+        final ClientOptions newOptions = params.options().toBuilder()
+                                               .factory(unwrap()).options(value)
+                                               .build();
         if (Clients.isUndefinedUri(uri)) {
             newParams = ClientBuilderParams.of(uri, HttpClient.class, newOptions);
         } else {

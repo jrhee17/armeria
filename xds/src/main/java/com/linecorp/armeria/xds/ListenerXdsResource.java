@@ -58,22 +58,6 @@ public final class ListenerXdsResource implements XdsResource {
         } else {
             connectionManager = null;
         }
-//        connectionManager.getHttpFiltersList();
-//        HttpProtocolOptions options = null;
-//        options.getHttpFiltersList();
-//        Cluster cluster = null;
-//        cluster.getFiltersList().get(0).getTypedConfig();
-//        Router router = null;
-//        router.getUpstreamHttpFiltersList();
-//
-//        VirtualHost virtualHost = null;
-//        virtualHost.getTypedPerFilterConfigMap();
-//        WeightedCluster weightedCluster = null;
-//        Route route = null;
-//        route.getTypedPerFilterConfigMap();
-//        RouteConfiguration routeConfiguration = null;
-//        routeConfiguration.getTypedPerFilterConfigMap();
-//        connectionManager.getUpgradeConfigs(0).getFiltersList();
     }
 
     @Override

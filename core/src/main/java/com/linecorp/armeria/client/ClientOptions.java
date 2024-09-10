@@ -160,6 +160,10 @@ public final class ClientOptions
     public static final ClientOption<ResponseTimeoutMode> RESPONSE_TIMEOUT_MODE =
             ClientOption.define("RESPONSE_TIMEOUT_MODE", Flags.responseTimeoutMode());
 
+    @UnstableApi
+    public static final ClientOption<Boolean> AUTO_INITIALIZE_ENDPOINT =
+            ClientOption.define("AUTO_INITIALIZE_ENDPOINT", true);
+
     private static final List<AsciiString> PROHIBITED_HEADER_NAMES = ImmutableList.of(
             HttpHeaderNames.HTTP2_SETTINGS,
             HttpHeaderNames.METHOD,
@@ -408,6 +412,13 @@ public final class ClientOptions
     @UnstableApi
     public ResponseTimeoutMode responseTimeoutMode() {
         return get(RESPONSE_TIMEOUT_MODE);
+    }
+
+    /**
+     * TBU.
+     */
+    public boolean autoInitializeEndpoint() {
+        return get(AUTO_INITIALIZE_ENDPOINT);
     }
 
     /**

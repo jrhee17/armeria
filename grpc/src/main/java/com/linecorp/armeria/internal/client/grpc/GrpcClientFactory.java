@@ -148,7 +148,7 @@ final class GrpcClientFactory extends DecoratingClientFactory {
 
         final ClientBuilderParams newParams =
                 addTrailersExtractor(params, options, serializationFormat);
-        final HttpClient httpClient = newHttpClient(newParams);
+        final HttpClient httpClient = newHttpClient(newParams, true);
 
         final GrpcJsonMarshaller jsonMarshaller;
         if (GrpcSerializationFormats.isJson(serializationFormat)) {

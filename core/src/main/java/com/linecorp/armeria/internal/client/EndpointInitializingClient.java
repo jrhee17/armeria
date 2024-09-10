@@ -27,11 +27,15 @@ import java.util.function.Function;
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
+import com.linecorp.armeria.client.RpcClient;
 import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
+import com.linecorp.armeria.common.RpcRequest;
+import com.linecorp.armeria.common.RpcResponse;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Exceptions;
 
 public final class EndpointInitializingClient<I extends Request, O extends Response,
@@ -54,7 +58,37 @@ public final class EndpointInitializingClient<I extends Request, O extends Respo
         final EndpointInitializingClient<HttpRequest, HttpResponse, HttpClient>
                 client = new EndpointInitializingClient<>(
                 delegate, futureConverter, errorResponseFactory);
-        return client::execute;
+        return new HttpClient() {
+            @Override
+            public HttpResponse execute(ClientRequestContext ctx, HttpRequest req) throws Exception {
+                return client.execute(ctx, req);
+            }
+
+            @Override
+            public <T> @Nullable T as(Class<T> type) {
+                return client.as(type);
+            }
+        };
+    }
+
+    public static RpcClient wrapRpc(
+            RpcClient delegate,
+            Function<CompletableFuture<RpcResponse>, RpcResponse> futureConverter,
+            BiFunction<ClientRequestContext, Throwable, RpcResponse> errorResponseFactory) {
+        final EndpointInitializingClient<RpcRequest, RpcResponse, RpcClient>
+                client = new EndpointInitializingClient<>(
+                delegate, futureConverter, errorResponseFactory);
+        return new RpcClient() {
+            @Override
+            public RpcResponse execute(ClientRequestContext ctx, RpcRequest req) throws Exception {
+                return client.execute(ctx, req);
+            }
+
+            @Override
+            public <T> @Nullable T as(Class<T> type) {
+                return client.as(type);
+            }
+        };
     }
 
     EndpointInitializingClient(U delegate, Function<CompletableFuture<O>, O> futureConverter,
@@ -107,5 +141,10 @@ public final class EndpointInitializingClient<I extends Request, O extends Respo
                 ctxExt.finishInitialization(success);
             }
         }
+    }
+
+    @Override
+    public <T> @Nullable T as(Class<T> type) {
+        return delegate.as(type);
     }
 }
