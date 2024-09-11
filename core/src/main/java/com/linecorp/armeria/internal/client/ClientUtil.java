@@ -150,10 +150,16 @@ public final class ClientUtil {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private static <I extends Request, O extends Response, U extends Client<I, O>>
     O pushAndExecute(U delegate, ClientRequestContext ctx) throws Exception {
-        @SuppressWarnings("unchecked")
-        final I req = (I) firstNonNull(ctx.request(), ctx.rpcRequest());
+        final I req;
+        final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
+        if (ctxExt == null) {
+            req = (I) firstNonNull(ctx.request(), ctx.rpcRequest());
+        } else {
+            req = (I) requireNonNull(ctxExt.isRpcRequest() ? ctx.rpcRequest() : ctxExt.request());
+        }
         try (SafeCloseable ignored = ctx.push()) {
             return delegate.execute(ctx, req);
         }

@@ -194,7 +194,7 @@ public final class DefaultClientRequestContext
              id, method, reqTarget, options, req, rpcReq, requestOptions, serviceRequestContext(),
              requireNonNull(responseCancellationScheduler, "responseCancellationScheduler"),
              requestStartTimeNanos, requestStartTimeMicros,
-             endpointGroup);
+             endpointGroup, rpcReq != null);
     }
 
     /**
@@ -220,20 +220,33 @@ public final class DefaultClientRequestContext
         this(null, meterRegistry, sessionProtocol,
              id, method, reqTarget, options, req, rpcReq, requestOptions,
              serviceRequestContext(), /* responseCancellationScheduler */ null,
-             requestStartTimeNanos, requestStartTimeMicros, endpointGroup);
+             requestStartTimeNanos, requestStartTimeMicros, endpointGroup, rpcReq != null);
     }
 
-    private DefaultClientRequestContext(
+    public DefaultClientRequestContext(
+            MeterRegistry meterRegistry, SessionProtocol sessionProtocol,
+            RequestId id, HttpMethod method, RequestTarget reqTarget,
+            ClientOptions options, @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
+            RequestOptions requestOptions,
+            long requestStartTimeNanos, long requestStartTimeMicros,
+            EndpointGroup endpointGroup, boolean isRpcRequest) {
+        this(null, meterRegistry, sessionProtocol, id, method, reqTarget, options, req, rpcReq, requestOptions,
+             serviceRequestContext(), null, requestStartTimeNanos, requestStartTimeMicros,
+             endpointGroup, isRpcRequest);
+    }
+
+    public DefaultClientRequestContext(
             @Nullable EventLoop eventLoop, MeterRegistry meterRegistry,
             SessionProtocol sessionProtocol, RequestId id, HttpMethod method,
             RequestTarget reqTarget, ClientOptions options,
             @Nullable HttpRequest req, @Nullable RpcRequest rpcReq, RequestOptions requestOptions,
             @Nullable ServiceRequestContext root, @Nullable CancellationScheduler responseCancellationScheduler,
-            long requestStartTimeNanos, long requestStartTimeMicros, EndpointGroup endpointGroup) {
+            long requestStartTimeNanos, long requestStartTimeMicros, EndpointGroup endpointGroup,
+            boolean isRpcRequest) {
         super(meterRegistry, desiredSessionProtocol(sessionProtocol, options), id, method, reqTarget,
               guessExchangeType(requestOptions, req),
               requestAutoAbortDelayMillis(options, requestOptions), req, rpcReq,
-              getAttributes(root), options.contextHook());
+              getAttributes(root), options.contextHook(), isRpcRequest);
 
         this.eventLoop = eventLoop;
         this.options = requireNonNull(options, "options");
@@ -523,7 +536,8 @@ public final class DefaultClientRequestContext
                                         SessionProtocol sessionProtocol, HttpMethod method,
                                         RequestTarget reqTarget) {
         super(ctx.meterRegistry(), sessionProtocol, id, method, reqTarget, ctx.exchangeType(),
-              ctx.requestAutoAbortDelayMillis(), req, rpcReq, getAttributes(ctx.root()), ctx.hook());
+              ctx.requestAutoAbortDelayMillis(), req, rpcReq, getAttributes(ctx.root()), ctx.hook(),
+              ctx.isRpcRequest());
 
         // The new requests cannot be null if it was previously non-null.
         if (ctx.request() != null) {
