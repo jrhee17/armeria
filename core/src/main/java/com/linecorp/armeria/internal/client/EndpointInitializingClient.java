@@ -16,7 +16,6 @@
 
 package com.linecorp.armeria.internal.client;
 
-import static com.linecorp.armeria.internal.client.ClientUtil.fail;
 import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 import static java.util.Objects.requireNonNull;
 
@@ -28,7 +27,6 @@ import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.RpcClient;
-import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
@@ -36,7 +34,6 @@ import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.common.util.Exceptions;
 
 public final class EndpointInitializingClient<I extends Request, O extends Response,
         U extends Client<I, O>> implements Client<I, O> {
@@ -102,45 +99,7 @@ public final class EndpointInitializingClient<I extends Request, O extends Respo
     public O execute(ClientRequestContext ctx, I req) {
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
-        boolean initialized = false;
-        boolean success = false;
-        try {
-            final CompletableFuture<Boolean> initFuture = ctxExt.init();
-            initialized = initFuture.isDone();
-            if (initialized) {
-                // Initialization has been done immediately.
-                try {
-                    success = initFuture.get();
-                } catch (Exception e) {
-                    throw UnprocessedRequestException.of(Exceptions.peel(e));
-                }
-
-                return initContextAndExecuteWithFallback(delegate, ctxExt, errorResponseFactory, success);
-            } else {
-                return futureConverter.apply(initFuture.handle((success0, cause) -> {
-                    try {
-                        if (cause != null) {
-                            throw UnprocessedRequestException.of(Exceptions.peel(cause));
-                        }
-
-                        return initContextAndExecuteWithFallback(delegate, ctxExt,
-                                                                 errorResponseFactory, success0);
-                    } catch (Throwable t) {
-                        fail(ctx, t);
-                        return errorResponseFactory.apply(ctx, t);
-                    } finally {
-                        ctxExt.finishInitialization(success0);
-                    }
-                }));
-            }
-        } catch (Throwable cause) {
-            fail(ctx, cause);
-            return errorResponseFactory.apply(ctx, cause);
-        } finally {
-            if (initialized) {
-                ctxExt.finishInitialization(success);
-            }
-        }
+        return initContextAndExecuteWithFallback(delegate, ctxExt, futureConverter, errorResponseFactory);
     }
 
     @Override
