@@ -50,12 +50,10 @@ import com.linecorp.armeria.client.circuitbreaker.FailFastException;
 import com.linecorp.armeria.common.AggregationOptions;
 import com.linecorp.armeria.common.CompletableRpcResponse;
 import com.linecorp.armeria.common.HttpData;
-import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.MediaType;
-import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.SerializationFormat;
@@ -148,11 +146,12 @@ final class THttpClientDelegate extends DecoratingClient<HttpRequest, HttpRespon
                 Exceptions.throwUnsafely(t);
             }
 
+            final HttpRequest ctxHttpReq = ctx.request();
+            if (ctxHttpReq == null) {
+                throw new IllegalArgumentException("Http request not found: " + ctx);
+            }
             final HttpRequest httpReq = HttpRequest.of(
-                    RequestHeaders.builder(HttpMethod.POST, ctx.path())
-                                  .scheme(ctx.sessionProtocol())
-                                  .contentType(mediaType)
-                                  .build(),
+                    ctxHttpReq.headers(),
                     HttpData.wrap(buf).withEndOfStream());
 
             ctx.updateRequest(httpReq);

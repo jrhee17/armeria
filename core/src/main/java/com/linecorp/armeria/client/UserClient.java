@@ -191,6 +191,21 @@ public abstract class UserClient<I extends Request, O extends Response>
                                                  futureConverter, errorResponseFactory);
     }
 
+    /**
+     * TBU.
+     */
+    protected final O execute(SessionProtocol protocol, HttpMethod method,
+                              RequestTarget reqTarget, HttpRequest httpRequest, RpcRequest rpcRequest,
+                              RequestOptions requestOptions, boolean isRpcRequest) {
+        final RequestId id = nextRequestId();
+        final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
+                meterRegistry, protocol, id, method, reqTarget, options(), httpRequest, rpcRequest,
+                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros());
+
+        return initContextAndExecuteWithFallback(unwrap(), ctx, endpointGroup(),
+                                                 futureConverter, errorResponseFactory);
+    }
+
     private RequestId nextRequestId() {
         final RequestId id = options().requestIdGenerator().get();
         if (id == null) {

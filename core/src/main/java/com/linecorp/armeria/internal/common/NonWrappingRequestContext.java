@@ -77,6 +77,7 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
     private volatile RpcRequest rpcReq;
     // Updated via `contextHookUpdater`
     private volatile Supplier<AutoCloseable> contextHook;
+    private final boolean isRpcRequest;
 
     /**
      * Creates a new instance.
@@ -86,7 +87,8 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
             RequestId id, HttpMethod method, RequestTarget reqTarget, ExchangeType exchangeType,
             long requestAutoAbortDelayMillis,
             @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
-            @Nullable AttributesGetters rootAttributeMap, Supplier<? extends AutoCloseable> contextHook) {
+            @Nullable AttributesGetters rootAttributeMap, Supplier<? extends AutoCloseable> contextHook,
+            boolean isRpcRequest) {
         assert req != null || rpcReq != null;
 
         this.meterRegistry = requireNonNull(meterRegistry, "meterRegistry");
@@ -102,11 +104,12 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
         this.reqTarget = requireNonNull(reqTarget, "reqTarget");
         this.exchangeType = requireNonNull(exchangeType, "exchangeType");
         this.requestAutoAbortDelayMillis = requestAutoAbortDelayMillis;
-        originalRequest = firstNonNull(req, rpcReq);
+        originalRequest = requireNonNull(isRpcRequest ? rpcReq : req);
         this.req = req;
         this.rpcReq = rpcReq;
         //noinspection unchecked
         this.contextHook = (Supplier<AutoCloseable>) contextHook;
+        this.isRpcRequest = isRpcRequest;
     }
 
     @Nullable
@@ -293,5 +296,10 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
     @Override
     public Supplier<AutoCloseable> hook() {
         return contextHook;
+    }
+
+    @Override
+    public boolean isRpcRequest() {
+        return isRpcRequest;
     }
 }
