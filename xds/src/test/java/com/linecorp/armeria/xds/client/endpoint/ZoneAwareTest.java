@@ -97,7 +97,7 @@ class ZoneAwareTest {
              XdsEndpointGroup endpointGroup = XdsEndpointGroup.of("listener", xdsBootstrap)) {
             await().untilAsserted(() -> assertThat(endpointGroup.whenReady()).isDone());
             await().untilAsserted(() -> {
-                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster");
+                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster").entry();
                 assertThat(clusterEntry).isNotNull();
                 assertThat(clusterEntry.latestValue()).isNotNull();
                 assertThat(clusterEntry.latestValue().localityRoutingState()).isNotNull();
@@ -154,7 +154,7 @@ class ZoneAwareTest {
              XdsEndpointGroup endpointGroup = XdsEndpointGroup.of("listener", xdsBootstrap)) {
             await().untilAsserted(() -> assertThat(endpointGroup.whenReady()).isDone());
             await().untilAsserted(() -> {
-                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster");
+                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster").entry();
                 assertThat(clusterEntry).isNotNull();
                 assertThat(clusterEntry.latestValue()).isNotNull();
                 assertThat(clusterEntry.latestValue().localityRoutingState()).isNotNull();
@@ -211,7 +211,7 @@ class ZoneAwareTest {
              XdsEndpointGroup endpointGroup = XdsEndpointGroup.of("listener", xdsBootstrap)) {
             await().untilAsserted(() -> assertThat(endpointGroup.whenReady()).isDone());
             await().untilAsserted(() -> {
-                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster");
+                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster").entry();
                 assertThat(clusterEntry).isNotNull();
                 assertThat(clusterEntry.latestValue()).isNotNull();
                 assertThat(clusterEntry.latestValue().localityRoutingState()).isNotNull();
@@ -265,7 +265,7 @@ class ZoneAwareTest {
              XdsEndpointGroup endpointGroup = XdsEndpointGroup.of("listener", xdsBootstrap)) {
             await().untilAsserted(() -> assertThat(endpointGroup.whenReady()).isDone());
             await().untilAsserted(() -> {
-                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster");
+                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster").entry();
                 assertThat(clusterEntry).isNotNull();
                 assertThat(clusterEntry.latestValue()).isNotNull();
                 assertThat(clusterEntry.latestValue().localityRoutingState()).isNotNull();
@@ -321,7 +321,7 @@ class ZoneAwareTest {
              XdsEndpointGroup endpointGroup = XdsEndpointGroup.of("listener", xdsBootstrap)) {
             await().untilAsserted(() -> assertThat(endpointGroup.whenReady()).isDone());
             await().untilAsserted(() -> {
-                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster");
+                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster").entry();
                 assertThat(clusterEntry).isNotNull();
                 assertThat(clusterEntry.latestValue()).isNotNull();
                 assertThat(clusterEntry.latestValue().localityRoutingState()).isNotNull();
@@ -381,7 +381,7 @@ class ZoneAwareTest {
              XdsEndpointGroup endpointGroup = XdsEndpointGroup.of("listener", xdsBootstrap)) {
             await().untilAsserted(() -> assertThat(endpointGroup.whenReady()).isDone());
             await().untilAsserted(() -> {
-                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster");
+                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster").entry();
                 assertThat(clusterEntry).isNotNull();
                 assertThat(clusterEntry.latestValue()).isNotNull();
                 assertThat(clusterEntry.latestValue().localityRoutingState()).isNotNull();
@@ -441,7 +441,7 @@ class ZoneAwareTest {
              XdsEndpointGroup endpointGroup = XdsEndpointGroup.of("listener", xdsBootstrap)) {
             await().untilAsserted(() -> assertThat(endpointGroup.whenReady()).isDone());
             await().untilAsserted(() -> {
-                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster");
+                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster").entry();
                 assertThat(clusterEntry).isNotNull();
                 assertThat(clusterEntry.latestValue()).isNotNull();
                 assertThat(clusterEntry.latestValue().localityRoutingState()).isNotNull();
@@ -506,7 +506,7 @@ class ZoneAwareTest {
              XdsEndpointGroup endpointGroup = XdsEndpointGroup.of("listener", xdsBootstrap)) {
             await().untilAsserted(() -> assertThat(endpointGroup.whenReady()).isDone());
             await().untilAsserted(() -> {
-                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster");
+                final ClusterEntry clusterEntry = endpointGroup.clusterEntriesMap().get("cluster").entry();
                 assertThat(clusterEntry).isNotNull();
                 assertThat(clusterEntry.latestValue()).isNotNull();
                 assertThat(clusterEntry.latestValue().localityRoutingState()).isNotNull();

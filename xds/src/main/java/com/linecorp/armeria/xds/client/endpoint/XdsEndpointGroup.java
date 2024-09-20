@@ -41,7 +41,7 @@ import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.XdsBootstrap;
-import com.linecorp.armeria.xds.client.endpoint.ClusterManager.State;
+import com.linecorp.armeria.xds.client.endpoint.ClusterEntries.State;
 
 import io.envoyproxy.envoy.config.core.v3.GrpcService;
 import io.envoyproxy.envoy.config.core.v3.SocketAddress;
@@ -95,7 +95,7 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>> i
 
     private final XdsEndpointSelectionStrategy selectionStrategy;
     private final boolean allowEmptyEndpoints;
-    private volatile State state = State.INITIAL_STATE;
+    private volatile State state = ClusterEntries.State.INITIAL_STATE;
     private final Lock stateLock = new ReentrantShortLock();
     private final CompletableFuture<List<Endpoint>> initialEndpointsFuture = new CompletableFuture<>();
 
@@ -146,7 +146,7 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>> i
     }
 
     @VisibleForTesting
-    Map<String, ClusterEntry> clusterEntriesMap() {
+    Map<String, ClusterEntrySnapshot> clusterEntriesMap() {
         return clusterManager.clusterEntriesMap();
     }
 
