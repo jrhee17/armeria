@@ -50,7 +50,8 @@ import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.healthcheck.HealthCheckService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import com.linecorp.armeria.xds.XdsBootstrap;
-import com.linecorp.armeria.xds.client.endpoint.XdsRandom.RandomHint;
+import com.linecorp.armeria.xds.internal.common.XdsAttributeKeys;
+import com.linecorp.armeria.xds.internal.common.XdsRandom.RandomHint;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;

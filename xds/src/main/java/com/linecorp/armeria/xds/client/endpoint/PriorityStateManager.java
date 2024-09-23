@@ -23,6 +23,7 @@ import java.util.Map.Entry;
 import java.util.SortedMap;
 
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.xds.internal.common.Snapshots;
 
 import it.unimi.dsi.fastutil.ints.Int2ReferenceAVLTreeMap;
 

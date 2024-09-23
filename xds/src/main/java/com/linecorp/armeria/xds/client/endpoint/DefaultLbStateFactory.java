@@ -34,7 +34,8 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.client.endpoint.DefaultLoadBalancer.DistributeLoadState;
 import com.linecorp.armeria.xds.client.endpoint.DefaultLoadBalancer.HostAvailability;
 import com.linecorp.armeria.xds.client.endpoint.DefaultLoadBalancer.PriorityAndAvailability;
-import com.linecorp.armeria.xds.client.endpoint.XdsRandom.RandomHint;
+import com.linecorp.armeria.xds.internal.common.XdsRandom;
+import com.linecorp.armeria.xds.internal.common.XdsRandom.RandomHint;
 
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMaps;

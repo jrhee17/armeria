@@ -33,6 +33,7 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Attributes;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.xds.client.endpoint.ClusterEntry.EndpointsState;
+import com.linecorp.armeria.xds.internal.common.Snapshots;
 
 import io.netty.util.concurrent.EventExecutor;
 

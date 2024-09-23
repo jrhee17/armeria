@@ -56,6 +56,7 @@ import com.linecorp.armeria.xds.RouteSnapshot;
 import com.linecorp.armeria.xds.SnapshotWatcher;
 import com.linecorp.armeria.xds.XdsBootstrap;
 import com.linecorp.armeria.xds.client.endpoint.ClusterEntries.State;
+import com.linecorp.armeria.xds.internal.common.Snapshots;
 
 import io.envoyproxy.envoy.config.core.v3.Node;
 import io.netty.util.concurrent.EventExecutor;

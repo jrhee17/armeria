@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.linecorp.armeria.internal.common.util.CollectionUtil.truncate;
 
@@ -23,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -31,6 +33,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.InvalidProtocolBufferException;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
@@ -39,9 +42,15 @@ import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.client.endpoint.ClusterEntries.RegexVHostMatcher.RegexVHostMatcherBuilder;
 import com.linecorp.armeria.xds.client.endpoint.VirtualHostMatcher.VirtualHostMatcherBuilder;
+import com.linecorp.armeria.xds.internal.common.ClientFilter;
+import com.linecorp.armeria.xds.internal.common.FilterFactory;
+import com.linecorp.armeria.xds.internal.common.FilterFactoryRegistry;
 
 import io.envoyproxy.envoy.config.route.v3.Route;
 import io.envoyproxy.envoy.config.route.v3.VirtualHost;
+import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager;
+import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter;
+import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter.ConfigTypeCase;
 
 final class ClusterEntries {
 
@@ -120,6 +129,41 @@ final class ClusterEntries {
     @Nullable
     ListenerSnapshot listenerSnapshot() {
         return listenerSnapshot;
+    }
+
+    private Function<? super ClientFilter, ? extends ClientFilter> downstreamFilter() {
+        Function<? super ClientFilter, ? extends ClientFilter> decorator = Function.identity();
+        if (listenerSnapshot == null) {
+            return decorator;
+        }
+        final HttpConnectionManager connectionManager = listenerSnapshot.xdsResource().connectionManager();
+        if (connectionManager == null) {
+            return decorator;
+        }
+        // the last filter should be a router
+        for (int i = connectionManager.getHttpFiltersCount() - 2; i >= 0; i--) {
+            final HttpFilter httpFilter = connectionManager.getHttpFilters(i);
+            if (httpFilter.getDisabled()) {
+                continue;
+            }
+            final FilterFactory filterFactory =
+                    FilterFactoryRegistry.INSTANCE.filterFactory(httpFilter.getName());
+            if (filterFactory == null) {
+                if (httpFilter.getIsOptional()) {
+                    continue;
+                }
+                throw new IllegalArgumentException("Couldn't find filter factory: " + httpFilter.getName());
+            }
+            checkArgument(httpFilter.getConfigTypeCase() == ConfigTypeCase.TYPED_CONFIG,
+                          "Only 'typed_config' is supported, but '%s' was supplied",
+                          httpFilter.getConfigTypeCase());
+            try {
+                decorator = decorator.andThen(filterFactory.decorator(httpFilter.getTypedConfig()));
+            } catch (InvalidProtocolBufferException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return decorator;
     }
 
     @Nullable

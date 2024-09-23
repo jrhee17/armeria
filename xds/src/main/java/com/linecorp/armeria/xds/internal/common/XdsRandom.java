@@ -16,15 +16,25 @@
 
 package com.linecorp.armeria.xds.internal.common;
 
-import java.util.function.Function;
+import java.util.concurrent.ThreadLocalRandom;
 
-import com.google.protobuf.Any;
-import com.google.protobuf.InvalidProtocolBufferException;
+public interface XdsRandom {
 
-public interface FilterFactory {
+    XdsRandom DEFAULT = new XdsRandom() {};
 
-    Function<? super ClientFilter, ? extends ClientFilter> decorator(Snapshots snapshots);
+    enum RandomHint {
+        SELECT_PRIORITY,
+        ROUTING_ENABLED,
+        LOCAL_PERCENTAGE,
+        LOCAL_THRESHOLD,
+        ALL_RESIDUAL_ZERO,
+    }
 
-    Function<? super ClientFilter, ? extends ClientFilter> decorator(Any config)
-            throws InvalidProtocolBufferException;
+    default int nextInt(int bound, RandomHint randomHint) {
+        return ThreadLocalRandom.current().nextInt(bound);
+    }
+
+    default long nextLong(long bound, RandomHint randomHint) {
+        return ThreadLocalRandom.current().nextLong(bound);
+    }
 }

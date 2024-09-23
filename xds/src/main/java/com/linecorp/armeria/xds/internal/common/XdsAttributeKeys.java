@@ -14,20 +14,23 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.xds.internal.common;
 
+import io.envoyproxy.envoy.config.core.v3.Metadata;
 import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
 import io.netty.util.AttributeKey;
 
-final class XdsAttributeKeys {
+public final class XdsAttributeKeys {
 
-    static final AttributeKey<LbEndpoint> LB_ENDPOINT_KEY =
+    public static final AttributeKey<LbEndpoint> LB_ENDPOINT_KEY =
             AttributeKey.valueOf(XdsAttributeKeys.class, "LB_ENDPOINT_KEY");
-    static final AttributeKey<LocalityLbEndpoints> LOCALITY_LB_ENDPOINTS_KEY =
+    public static final AttributeKey<LocalityLbEndpoints> LOCALITY_LB_ENDPOINTS_KEY =
             AttributeKey.valueOf(XdsAttributeKeys.class, "LOCALITY_LB_ENDPOINTS_KEY");
-    static final AttributeKey<XdsRandom> XDS_RANDOM =
+    public static final AttributeKey<XdsRandom> XDS_RANDOM =
             AttributeKey.valueOf(XdsAttributeKeys.class, "XDS_RANDOM");
+    public static final AttributeKey<Metadata> METADATA =
+            AttributeKey.valueOf(XdsAttributeKeys.class, "METADATA");
 
     private XdsAttributeKeys() {}
 }

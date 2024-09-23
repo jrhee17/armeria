@@ -39,6 +39,7 @@ import com.linecorp.armeria.client.endpoint.dns.DnsAddressEndpointGroupBuilder;
 import com.linecorp.armeria.client.retry.Backoff;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.EndpointSnapshot;
+import com.linecorp.armeria.xds.internal.common.XdsAttributeKeys;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.RefreshRate;

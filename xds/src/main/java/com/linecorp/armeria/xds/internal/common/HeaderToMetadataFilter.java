@@ -31,10 +31,13 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 
+import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.common.Cookie;
 import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestHeaders;
+import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.ParsedFilterConfig;
@@ -48,28 +51,44 @@ import io.envoyproxy.envoy.extensions.filters.http.header_to_metadata.v3.Config.
 import io.envoyproxy.envoy.extensions.filters.http.header_to_metadata.v3.Config.ValueType;
 import io.envoyproxy.envoy.type.matcher.v3.RegexMatchAndSubstitute;
 
-final class HeaderToMetadataFilter implements HttpClientFilter {
+final class HeaderToMetadataFilter implements ClientFilter {
 
     private static final int MAX_HEADER_VALUE_LEN = 8 * 1024;
     private final List<RuleSelector> requestRuleSelectors;
+    private final Client<Request, Response>  delegate;
 
-    HeaderToMetadataFilter(RouteSnapshot routeSnapshot, ClusterSnapshot clusterSnapshot) {
-        final Config config = config(routeSnapshot, clusterSnapshot);
+    HeaderToMetadataFilter(Snapshots snapshots, Client<Request, Response> delegate) {
+        final RouteSnapshot routeSnapshot = snapshots.routeSnapshot();
+        assert routeSnapshot != null;
+        final Config config = config(routeSnapshot, snapshots.clusterSnapshot());
         requestRuleSelectors = config.getRequestRulesList().stream()
                                      .map(RuleSelector::new).collect(toImmutableList());
+        this.delegate = delegate;
+    }
+
+    HeaderToMetadataFilter(Config config, Client<Request, Response> delegate) {
+        requestRuleSelectors = config.getRequestRulesList().stream()
+                                     .map(RuleSelector::new).collect(toImmutableList());
+        this.delegate = delegate;
     }
 
     @Override
     public String typeUrl() {
-        return "envoy.filters.http.header_to_metadata";
+        return HeaderToMetadataFilterFactory.TYPE_URL;
     }
 
     @Override
-    public Metadata preprocess(ClientRequestContext ctx, Metadata metadata) {
+    public Response execute(ClientRequestContext ctx, Request req) throws Exception {
+        if (!(req instanceof HttpRequest)) {
+            return delegate.execute(ctx, req);
+        }
+        Metadata metadata = ctx.attr(XdsAttributeKeys.METADATA);
+        if (metadata == null) {
+            metadata = Metadata.newBuilder().build();
+        }
+        HttpRequest httpRequest = (HttpRequest) req;
         final Map<String, Map<String, Value>> valuesMap = new HashMap<>();
-        HttpRequest req = ctx.request();
-        assert req != null;
-        RequestHeaders requestHeaders = req.headers();
+        RequestHeaders requestHeaders = httpRequest.headers();
         for (RuleSelector ruleSelector: requestRuleSelectors) {
             final String value = ruleSelector.extract(requestHeaders);
             if (value != null && ruleSelector.rule.getRemove()) {
@@ -82,16 +101,17 @@ final class HeaderToMetadataFilter implements HttpClientFilter {
                 applyKeyValue(ruleSelector, ruleSelector.rule.getOnHeaderMissing(), value, valuesMap);
             }
         }
-        if (requestHeaders != req.headers()) {
-            req = req.withHeaders(requestHeaders);
-            ctx.updateRequest(req);
+        if (requestHeaders != httpRequest.headers()) {
+            httpRequest = httpRequest.withHeaders(requestHeaders);
+            ctx.updateRequest(httpRequest);
         }
         for (Map.Entry<String, Map<String, Value>> entry : valuesMap.entrySet()) {
             metadata.getFilterMetadataMap().put(entry.getKey(), Struct.newBuilder()
                                                                       .putAllFields(entry.getValue())
                                                                       .build());
         }
-        return metadata;
+        ctx.setAttr(XdsAttributeKeys.METADATA, metadata);
+        return delegate.execute(ctx, req);
     }
 
     private void applyKeyValue(RuleSelector ruleSelector, KeyValuePair keyValuePair,

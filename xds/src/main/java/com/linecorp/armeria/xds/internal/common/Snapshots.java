@@ -16,15 +16,26 @@
 
 package com.linecorp.armeria.xds.internal.common;
 
-import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.xds.ClusterSnapshot;
+import com.linecorp.armeria.xds.RouteSnapshot;
 
-import io.envoyproxy.envoy.config.core.v3.Metadata;
+public final class Snapshots {
+    @Nullable
+    private final RouteSnapshot routeSnapshot;
+    private final ClusterSnapshot clusterSnapshot;
 
-public interface HttpClientFilter {
+    public Snapshots(@Nullable RouteSnapshot routeSnapshot, ClusterSnapshot clusterSnapshot) {
+        this.routeSnapshot = routeSnapshot;
+        this.clusterSnapshot = clusterSnapshot;
+    }
 
-    String typeUrl();
+    @Nullable
+    public RouteSnapshot routeSnapshot() {
+        return routeSnapshot;
+    }
 
-    default Metadata preprocess(ClientRequestContext ctx, Metadata metadata) {
-        return metadata;
+    public ClusterSnapshot clusterSnapshot() {
+        return clusterSnapshot;
     }
 }

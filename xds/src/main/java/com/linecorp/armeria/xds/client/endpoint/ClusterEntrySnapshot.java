@@ -19,6 +19,7 @@ package com.linecorp.armeria.xds.client.endpoint;
 import java.util.concurrent.CompletableFuture;
 
 import com.linecorp.armeria.common.util.AsyncCloseable;
+import com.linecorp.armeria.xds.internal.common.Snapshots;
 
 final class ClusterEntrySnapshot implements AsyncCloseable {
 

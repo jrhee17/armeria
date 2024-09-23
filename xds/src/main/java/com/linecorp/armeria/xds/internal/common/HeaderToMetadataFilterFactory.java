@@ -16,10 +16,12 @@
 
 package com.linecorp.armeria.xds.internal.common;
 
-import com.linecorp.armeria.xds.ClusterSnapshot;
-import com.linecorp.armeria.xds.EndpointSnapshot;
-import com.linecorp.armeria.xds.ListenerSnapshot;
-import com.linecorp.armeria.xds.RouteSnapshot;
+import java.util.function.Function;
+
+import com.google.protobuf.Any;
+import com.google.protobuf.InvalidProtocolBufferException;
+
+import io.envoyproxy.envoy.extensions.filters.http.header_to_metadata.v3.Config;
 
 final class HeaderToMetadataFilterFactory implements FilterFactory {
 
@@ -29,9 +31,14 @@ final class HeaderToMetadataFilterFactory implements FilterFactory {
     private HeaderToMetadataFilterFactory() {}
 
     @Override
-    public HttpClientFilter httpClientFilter(ListenerSnapshot listenerSnapshot, RouteSnapshot routeSnapshot,
-                                             ClusterSnapshot clusterSnapshot,
-                                             EndpointSnapshot endpointSnapshot) {
-        return new HeaderToMetadataFilter(routeSnapshot, clusterSnapshot);
+    public Function<? super ClientFilter, ? extends ClientFilter> decorator(Snapshots snapshots) {
+        return delegate -> new HeaderToMetadataFilter(snapshots, delegate);
+    }
+
+    @Override
+    public Function<? super ClientFilter, ? extends ClientFilter> decorator(Any anyConfig)
+            throws InvalidProtocolBufferException {
+        final Config config = anyConfig.unpack(Config.class);
+        return delegate -> new HeaderToMetadataFilter(config, delegate);
     }
 }

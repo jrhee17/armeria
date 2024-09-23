@@ -49,7 +49,8 @@ import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.xds.XdsBootstrap;
 import com.linecorp.armeria.xds.XdsTestResources;
-import com.linecorp.armeria.xds.client.endpoint.XdsRandom.RandomHint;
+import com.linecorp.armeria.xds.internal.common.XdsAttributeKeys;
+import com.linecorp.armeria.xds.internal.common.XdsRandom.RandomHint;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.bootstrap.v3.ClusterManager;

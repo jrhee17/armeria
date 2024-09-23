@@ -14,27 +14,13 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.xds.internal.common;
 
-import java.util.concurrent.ThreadLocalRandom;
+import com.linecorp.armeria.client.Client;
+import com.linecorp.armeria.common.Request;
+import com.linecorp.armeria.common.Response;
 
-interface XdsRandom {
+public interface ClientFilter extends Client<Request, Response> {
 
-    XdsRandom DEFAULT = new XdsRandom() {};
-
-    enum RandomHint {
-        SELECT_PRIORITY,
-        ROUTING_ENABLED,
-        LOCAL_PERCENTAGE,
-        LOCAL_THRESHOLD,
-        ALL_RESIDUAL_ZERO,
-    }
-
-    default int nextInt(int bound, RandomHint randomHint) {
-        return ThreadLocalRandom.current().nextInt(bound);
-    }
-
-    default long nextLong(long bound, RandomHint randomHint) {
-        return ThreadLocalRandom.current().nextLong(bound);
-    }
+    String typeUrl();
 }

@@ -35,6 +35,7 @@ import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.xds.client.endpoint.ClusterManager.LocalCluster;
 import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.LocalityRoutingState;
+import com.linecorp.armeria.xds.internal.common.Snapshots;
 
 import io.netty.util.concurrent.EventExecutor;
 

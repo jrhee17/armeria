@@ -29,6 +29,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.EndpointSnapshot;
 import com.linecorp.armeria.xds.RouteSnapshot;
+import com.linecorp.armeria.xds.internal.common.Snapshots;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.CommonLbConfig;

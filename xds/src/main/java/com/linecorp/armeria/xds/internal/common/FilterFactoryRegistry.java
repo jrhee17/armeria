@@ -36,7 +36,7 @@ public final class FilterFactoryRegistry {
     }
 
     @Nullable
-    FilterFactory filterFactory(String name) {
+    public FilterFactory filterFactory(String name) {
         return filterFactories.get(name);
     }
 }
