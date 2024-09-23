@@ -70,8 +70,11 @@ public final class ListenerXdsResource implements XdsResource {
         return listener;
     }
 
+    /**
+     * TBU.
+     */
     @Nullable
-    HttpConnectionManager connectionManager() {
+    public HttpConnectionManager connectionManager() {
         return connectionManager;
     }
 

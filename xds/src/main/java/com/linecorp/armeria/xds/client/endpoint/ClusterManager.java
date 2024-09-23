@@ -196,6 +196,10 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
         return clusterEntries.clusterEntriesMap();
     }
 
+    ClusterEntries clusterEntries() {
+        return clusterEntries;
+    }
+
     void notifyListeners() {
         if (clusterEntries == ClusterEntries.INITIAL_STATE) {
             return;

@@ -16,19 +16,32 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.linecorp.armeria.internal.common.util.CollectionUtil.truncate;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
+import com.linecorp.armeria.xds.client.endpoint.ClusterEntries.RegexVHostMatcher.RegexVHostMatcherBuilder;
+import com.linecorp.armeria.xds.client.endpoint.VirtualHostMatcher.VirtualHostMatcherBuilder;
+
+import io.envoyproxy.envoy.config.route.v3.Route;
+import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 
 final class ClusterEntries {
 
@@ -37,10 +50,102 @@ final class ClusterEntries {
     private final ListenerSnapshot listenerSnapshot;
     private final Map<String, ClusterEntrySnapshot> clusterEntriesMap;
 
+    @Nullable
+    private final VirtualHostMatcher defaultVirtualHostMatcher;
+    final Map<String, VirtualHostMatcher> virtualHostMatchers;
+    final List<RegexVHostMatcher> regexVHostMatchers;
+    private final boolean ignorePortInHostMatching;
+
     ClusterEntries(@Nullable ListenerSnapshot listenerSnapshot,
                    Map<String, ClusterEntrySnapshot> clusterEntriesMap) {
         this.listenerSnapshot = listenerSnapshot;
+
         this.clusterEntriesMap = clusterEntriesMap;
+        if (listenerSnapshot != null && listenerSnapshot.routeSnapshot() != null) {
+            ignorePortInHostMatching =
+                    listenerSnapshot.routeSnapshot().xdsResource().resource().getIgnorePortInHostMatching();
+        } else {
+            ignorePortInHostMatching = false;
+        }
+
+        final Map<String, VirtualHostMatcherBuilder> vHostBuilderMap = new HashMap<>();
+        final Map<String, RegexVHostMatcherBuilder> regexVHostBuilders = new HashMap<>();
+        for (ClusterEntrySnapshot clusterEntrySnapshot : clusterEntriesMap.values()) {
+            final ClusterSnapshot clusterSnapshot = clusterEntrySnapshot.snapshots().clusterSnapshot();
+            final VirtualHost virtualHost = clusterSnapshot.virtualHost();
+            final Route route = clusterSnapshot.route();
+            if (virtualHost == null || route == null) {
+                continue;
+            }
+            final VirtualHostMatcherBuilder matcherBuilder = new VirtualHostMatcherBuilder(virtualHost);
+            for (String domain: virtualHost.getDomainsList()) {
+                if (domain.length() > 1 && (domain.charAt(0) == '*' ||
+                                            domain.charAt(domain.length() - 1) == '*')) {
+                    final RegexVHostMatcherBuilder builder = regexVHostBuilders.computeIfAbsent(
+                            domain, ignored -> new RegexVHostMatcherBuilder(virtualHost, domain));
+                    if (builder.virtualHostMatcherBuilder.virtualHost() != virtualHost) {
+                        throw new IllegalArgumentException("Duplicate domain name [" + domain +
+                                                           "] found for virtual hosts");
+                    }
+                    builder.virtualHostMatcherBuilder.addClusterEntrySnapshot(route, clusterEntrySnapshot);
+                } else {
+                    final VirtualHostMatcherBuilder builder = vHostBuilderMap.computeIfAbsent(
+                            domain, ignored -> matcherBuilder);
+                    if (builder.virtualHost() != virtualHost) {
+                        throw new IllegalArgumentException("Duplicate domain name [" + domain +
+                                                           "] found for virtual hosts");
+                    }
+                    builder.addClusterEntrySnapshot(route, clusterEntrySnapshot);
+                }
+            }
+        }
+        final VirtualHostMatcherBuilder defaultMatcherBuilder = vHostBuilderMap.get("*");
+        if (defaultMatcherBuilder != null) {
+            defaultVirtualHostMatcher = defaultMatcherBuilder.build();
+        } else {
+            defaultVirtualHostMatcher = null;
+        }
+        virtualHostMatchers = vHostBuilderMap.entrySet().stream()
+                                             .filter(e -> !"*".equals(e.getKey()))
+                                             .collect(toImmutableMap(Entry::getKey,
+                                                               e -> e.getValue().build()));
+        regexVHostMatchers = regexVHostBuilders
+                .values().stream()
+                .sorted((o1, o2) -> o2.domainRegexPattern.pattern().length() -
+                                    o1.domainRegexPattern.pattern().length())
+                .map(RegexVHostMatcherBuilder::build)
+                .collect(Collectors.toList());
+    }
+
+    @Nullable
+    ListenerSnapshot listenerSnapshot() {
+        return listenerSnapshot;
+    }
+
+    @Nullable
+    Endpoint selectNow(ClientRequestContext ctx) {
+        if (defaultVirtualHostMatcher != null && virtualHostMatchers.isEmpty() &&
+            regexVHostMatchers.isEmpty()) {
+            return defaultVirtualHostMatcher.selectNow(ctx);
+        }
+        final String authority = ignorePortInHostMatching ? ctx.host() : ctx.authority();
+        if (defaultVirtualHostMatcher != null && Strings.isNullOrEmpty(authority)) {
+            return defaultVirtualHostMatcher.selectNow(ctx);
+        }
+
+        final VirtualHostMatcher matcher = virtualHostMatchers.get(authority);
+        if (matcher != null) {
+            return matcher.selectNow(ctx);
+        }
+        for (RegexVHostMatcher regexVHostMatcher: regexVHostMatchers) {
+            if (regexVHostMatcher.matches(authority)) {
+                return regexVHostMatcher.virtualHostMatcher.selectNow(ctx);
+            }
+        }
+        if (defaultVirtualHostMatcher != null) {
+            return defaultVirtualHostMatcher.selectNow(ctx);
+        }
+        return null;
     }
 
     State state() {
@@ -64,6 +169,37 @@ final class ClusterEntries {
                           .add("listenerSnapshot", listenerSnapshot)
                           .add("clusterEntriesMap", clusterEntriesMap)
                           .toString();
+    }
+
+    static final class RegexVHostMatcher {
+        final Pattern domainRegexPattern;
+        private final VirtualHostMatcher virtualHostMatcher;
+
+        RegexVHostMatcher(Pattern domainRegexPattern, VirtualHostMatcher virtualHostMatcher) {
+            this.domainRegexPattern = domainRegexPattern;
+            this.virtualHostMatcher = virtualHostMatcher;
+        }
+
+        boolean matches(@Nullable String domain) {
+            if (domain == null) {
+                return false;
+            }
+            return domainRegexPattern.matcher(domain).matches();
+        }
+
+        static final class RegexVHostMatcherBuilder {
+            private final VirtualHostMatcherBuilder virtualHostMatcherBuilder;
+            private final Pattern domainRegexPattern;
+
+            RegexVHostMatcherBuilder(VirtualHost virtualHost, String domainRegex) {
+                virtualHostMatcherBuilder = new VirtualHostMatcherBuilder(virtualHost);
+                domainRegexPattern = Pattern.compile(domainRegex);
+            }
+
+            RegexVHostMatcher build() {
+                return new RegexVHostMatcher(domainRegexPattern, virtualHostMatcherBuilder.build());
+            }
+        }
     }
 
     static final class State {

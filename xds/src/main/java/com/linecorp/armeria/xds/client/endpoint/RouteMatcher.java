@@ -16,23 +16,27 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.common.Request;
-import com.linecorp.armeria.common.Response;
+import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.common.annotation.Nullable;
 
-final class XdsClient<I extends Request, O extends Response, U extends Client<I, O>> implements Client<I, O> {
+import io.envoyproxy.envoy.config.route.v3.Route;
 
-    private final U delegate;
-    private final ClusterManager clusterManager;
+final class RouteMatcher {
+    private final Route route;
+    private final ClusterEntrySnapshot clusterEntrySnapshot;
 
-    XdsClient(U delegate, ClusterManager clusterManager) {
-        this.delegate = delegate;
-        this.clusterManager = clusterManager;
+    RouteMatcher(Route route, ClusterEntrySnapshot clusterEntrySnapshot) {
+        this.route = route;
+        this.clusterEntrySnapshot = clusterEntrySnapshot;
     }
 
-    @Override
-    public O execute(ClientRequestContext ctx, I req) throws Exception {
-        return delegate.execute(ctx, req);
+    boolean matches(ClientRequestContext ctx) {
+        return true;
+    }
+
+    @Nullable
+    Endpoint selectNow(ClientRequestContext ctx) {
+        return clusterEntrySnapshot.entry().selectNow(ctx);
     }
 }
