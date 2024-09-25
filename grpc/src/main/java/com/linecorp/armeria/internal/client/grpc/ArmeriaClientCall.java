@@ -28,6 +28,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import java.util.function.BiFunction;
 
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -36,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.MoreExecutors;
 
+import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaders;
@@ -59,6 +61,7 @@ import com.linecorp.armeria.common.stream.SubscriptionOption;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
+import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 import com.linecorp.armeria.internal.client.grpc.protocol.InternalGrpcWebUtil;
 import com.linecorp.armeria.internal.common.grpc.ForwardingCompressor;
 import com.linecorp.armeria.internal.common.grpc.GrpcLogUtil;
@@ -244,9 +247,21 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
         // Must come after handling deadline.
         prepareHeaders(compressor, metadata, remainingNanos);
 
+        final BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory =
+                (unused, cause) -> {
+                    final StatusAndMetadata statusAndMetadata = exceptionHandler.handle(ctx, cause);
+                    Status status = statusAndMetadata.status();
+                    if (status.getDescription() == null) {
+                        status = status.withDescription(cause.getMessage());
+                    }
+                    return HttpResponse.ofFailure(status.asRuntimeException());
+                };
+
         final HttpResponse res;
         try {
-            res = httpClient.execute(ctx, req);
+            res = EndpointInitializingClient.wrap(httpClient, endpointGroup, HttpResponse::of,
+                                            errorResponseFactory)
+                                      .execute(ctx, req);
         } catch (Exception cause) {
             final Status status = Status.INTERNAL.withCause(cause);
             close(status, new Metadata());

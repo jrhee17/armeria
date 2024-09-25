@@ -84,8 +84,8 @@ final class DefaultTHttpClient extends UserClient<RpcRequest, RpcResponse> imple
                               .scheme(scheme().sessionProtocol())
                               .contentType(scheme().serializationFormat().mediaType())
                               .build());
-        return execute(scheme().sessionProtocol(), HttpMethod.POST,
-                       reqTarget, httpReq, call, UNARY_REQUEST_OPTIONS, true);
+        return execute(scheme().sessionProtocol(), endpointGroup(), HttpMethod.POST,
+                       reqTarget, call, httpReq, UNARY_REQUEST_OPTIONS);
     }
 
     @Override

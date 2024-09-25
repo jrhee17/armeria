@@ -38,9 +38,11 @@ import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractUnwrappable;
 import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
+import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -170,11 +172,8 @@ public abstract class UserClient<I extends Request, O extends Response>
      */
     protected final O execute(SessionProtocol protocol, EndpointGroup endpointGroup, HttpMethod method,
                               RequestTarget reqTarget, I req, RequestOptions requestOptions) {
-
         final HttpRequest httpReq;
         final RpcRequest rpcReq;
-        final RequestId id = nextRequestId();
-
         if (req instanceof HttpRequest) {
             httpReq = (HttpRequest) req;
             rpcReq = null;
@@ -182,32 +181,26 @@ public abstract class UserClient<I extends Request, O extends Response>
             httpReq = null;
             rpcReq = (RpcRequest) req;
         }
-
-        final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                meterRegistry, protocol, id, method, reqTarget, options(), httpReq, rpcReq,
-                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros());
-
-        try {
-            return unwrap().execute(ctx, req);
-        } catch (Throwable cause) {
-            fail(ctx, cause);
-            return errorResponseFactory.apply(ctx, cause);
-        }
+        return execute(protocol, endpointGroup, method, reqTarget, rpcReq, httpReq, requestOptions);
     }
 
     /**
      * TBU.
      */
-    protected final O execute(SessionProtocol protocol, HttpMethod method,
-                              RequestTarget reqTarget, HttpRequest httpRequest, RpcRequest rpcRequest,
-                              RequestOptions requestOptions, boolean isRpcRequest) {
+    protected final O execute(SessionProtocol protocol, EndpointGroup endpointGroup, HttpMethod method,
+                              RequestTarget reqTarget, @Nullable RpcRequest rpcReq,
+                              @Nullable HttpRequest httpReq,
+                              RequestOptions requestOptions) {
         final RequestId id = nextRequestId();
+
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                meterRegistry, protocol, id, method, reqTarget, options(), httpRequest, rpcRequest,
-                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros(), isRpcRequest);
-        final I req = isRpcRequest ? (I) rpcRequest : (I) httpRequest;
+                meterRegistry, protocol, id, method, reqTarget, options(), httpReq, rpcReq,
+                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros(), rpcReq != null);
+
         try {
-            return unwrap().execute(ctx, req);
+            return EndpointInitializingClient.wrap(unwrap(), endpointGroup, futureConverter,
+                                                   errorResponseFactory)
+                                             .execute(ctx, (I) ctx.originalRequest());
         } catch (Throwable cause) {
             fail(ctx, cause);
             return errorResponseFactory.apply(ctx, cause);

@@ -16,8 +16,6 @@
 
 package com.linecorp.armeria.internal.client.thrift;
 
-import static com.linecorp.armeria.internal.client.thrift.THttpClientDelegate.decodeException;
-
 import java.lang.reflect.Proxy;
 import java.util.Set;
 
@@ -29,12 +27,10 @@ import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.DecoratingClientFactory;
 import com.linecorp.armeria.client.RpcClient;
 import com.linecorp.armeria.client.thrift.THttpClient;
-import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.thrift.ThriftSerializationFormats;
-import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 
 /**
  * A {@link DecoratingClientFactory} that creates a Thrift-over-HTTP client.
@@ -73,14 +69,9 @@ final class THttpClientFactory extends DecoratingClientFactory {
 
         final Class<?> clientType = params.clientType();
         final ClientOptions options = params.options();
-        RpcClient delegate = options.decoration().rpcDecorate(
+        final RpcClient delegate = options.decoration().rpcDecorate(
                 new THttpClientDelegate(newHttpClient(params, false),
                                         options, params.scheme().serializationFormat()));
-        if (options.autoInitializeEndpoint()) {
-            delegate = EndpointInitializingClient.wrapRpc(
-                    delegate, params.endpointGroup(), RpcResponse::from,
-                    (ctx, cause) -> RpcResponse.ofFailure(decodeException(cause, null)));
-        }
 
         if (clientType == THttpClient.class) {
             // Create a THttpClient with path.

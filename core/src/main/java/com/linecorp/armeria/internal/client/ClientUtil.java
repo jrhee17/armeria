@@ -53,8 +53,8 @@ public final class ClientUtil {
     public static <I extends Request, O extends Response, U extends Client<I, O>>
     O initContextAndExecuteWithFallback(
             U delegate,
-            EndpointGroup endpointGroup,
             ClientRequestContextExtension ctx,
+            EndpointGroup endpointGroup,
             Function<CompletableFuture<O>, O> futureConverter,
             BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
 

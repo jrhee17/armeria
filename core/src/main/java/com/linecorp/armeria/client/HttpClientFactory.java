@@ -42,7 +42,6 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.proxy.ProxyConfigSelector;
 import com.linecorp.armeria.client.redirect.RedirectConfig;
 import com.linecorp.armeria.common.Http1HeaderNaming;
-import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RequestContext;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
@@ -56,7 +55,6 @@ import com.linecorp.armeria.common.util.ReleasableHolder;
 import com.linecorp.armeria.common.util.ShutdownHooks;
 import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.common.util.TransportType;
-import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 import com.linecorp.armeria.internal.common.RequestTargetCache;
 import com.linecorp.armeria.internal.common.SslContextFactory;
 import com.linecorp.armeria.internal.common.util.ChannelUtil;
@@ -389,14 +387,9 @@ final class HttpClientFactory implements ClientFactory {
         validateClientType(clientType);
 
         final ClientOptions options = params.options();
-        HttpClient delegate = options.decoration().decorate(clientDelegate);
+        final HttpClient delegate = options.decoration().decorate(clientDelegate);
 
         if (clientType == HttpClient.class) {
-            if (options.autoInitializeEndpoint()) {
-                delegate = EndpointInitializingClient.wrapHttp(delegate, params.endpointGroup(),
-                                                               HttpResponse::of,
-                                                               (ctx, cause) -> HttpResponse.ofFailure(cause));
-            }
             return delegate;
         }
 
@@ -404,16 +397,11 @@ final class HttpClientFactory implements ClientFactory {
         if (clientType == WebClient.class || clientType == BlockingWebClient.class ||
             clientType == RestClient.class) {
             final RedirectConfig redirectConfig = options.redirectConfig();
-            HttpClient delegate0;
+            final HttpClient delegate0;
             if (redirectConfig == RedirectConfig.disabled()) {
                 delegate0 = delegate;
             } else {
                 delegate0 = RedirectingClient.newDecorator(params, redirectConfig).apply(delegate);
-            }
-            if (options.autoInitializeEndpoint()) {
-                delegate0 = EndpointInitializingClient.wrapHttp(delegate0, params.endpointGroup(),
-                                                                HttpResponse::of,
-                                                                (ctx, cause) -> HttpResponse.ofFailure(cause));
             }
             final DefaultWebClient webClient = new DefaultWebClient(params, delegate0, meterRegistry);
             if (clientType == WebClient.class) {
