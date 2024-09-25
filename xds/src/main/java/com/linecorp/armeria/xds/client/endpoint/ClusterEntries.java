@@ -64,6 +64,7 @@ final class ClusterEntries {
     final Map<String, VirtualHostMatcher> virtualHostMatchers;
     final List<RegexVHostMatcher> regexVHostMatchers;
     private final boolean ignorePortInHostMatching;
+    private final Function<? super ClientFilter, ? extends ClientFilter> downstreamFilter;
 
     ClusterEntries(@Nullable ListenerSnapshot listenerSnapshot,
                    Map<String, ClusterEntrySnapshot> clusterEntriesMap) {
@@ -124,6 +125,8 @@ final class ClusterEntries {
                                     o1.domainRegexPattern.pattern().length())
                 .map(RegexVHostMatcherBuilder::build)
                 .collect(Collectors.toList());
+
+         downstreamFilter = buildDownstreamFilter(listenerSnapshot);
     }
 
     @Nullable
@@ -131,7 +134,12 @@ final class ClusterEntries {
         return listenerSnapshot;
     }
 
-    private Function<? super ClientFilter, ? extends ClientFilter> downstreamFilter() {
+    Function<? super ClientFilter, ? extends ClientFilter> downstreamFilter() {
+        return downstreamFilter;
+    }
+
+    private static Function<? super ClientFilter, ? extends ClientFilter> buildDownstreamFilter(
+            @Nullable ListenerSnapshot listenerSnapshot) {
         Function<? super ClientFilter, ? extends ClientFilter> decorator = Function.identity();
         if (listenerSnapshot == null) {
             return decorator;
@@ -167,7 +175,7 @@ final class ClusterEntries {
     }
 
     @Nullable
-    Endpoint selectNow(ClientRequestContext ctx) {
+    public ClusterEntry selectNow(ClientRequestContext ctx) {
         if (defaultVirtualHostMatcher != null && virtualHostMatchers.isEmpty() &&
             regexVHostMatchers.isEmpty()) {
             return defaultVirtualHostMatcher.selectNow(ctx);

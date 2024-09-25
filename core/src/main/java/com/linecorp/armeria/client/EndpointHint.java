@@ -14,26 +14,24 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.client;
 
-import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.common.Request;
+import com.linecorp.armeria.common.Response;
 
-import io.envoyproxy.envoy.config.route.v3.Route;
+/**
+ * TBU.
+ */
+public interface EndpointHint {
 
-final class RouteMatcher {
-    private final Route route;
-    private final ClusterEntrySnapshot clusterEntrySnapshot;
+    /**
+     * TBU.
+     */
+    EndpointGroup group(ClientRequestContext ctx);
 
-    RouteMatcher(Route route, ClusterEntrySnapshot clusterEntrySnapshot) {
-        this.route = route;
-        this.clusterEntrySnapshot = clusterEntrySnapshot;
-    }
-
-    boolean matches(ClientRequestContext ctx) {
-        return true;
-    }
-
-    ClusterEntry selectNow(ClientRequestContext ctx) {
-        return clusterEntrySnapshot.entry();
-    }
+    /**
+     * TBU.
+     */
+    Client<Request, Response> endpointInitializer();
 }

@@ -53,6 +53,7 @@ public final class ClientUtil {
     public static <I extends Request, O extends Response, U extends Client<I, O>>
     O initContextAndExecuteWithFallback(
             U delegate,
+            EndpointGroup endpointGroup,
             ClientRequestContextExtension ctx,
             Function<CompletableFuture<O>, O> futureConverter,
             BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
@@ -65,7 +66,7 @@ public final class ClientUtil {
         boolean initialized = false;
         boolean success = false;
         try {
-            final CompletableFuture<Boolean> initFuture = ctx.init();
+            final CompletableFuture<Boolean> initFuture = ctx.init(endpointGroup);
             initialized = initFuture.isDone();
             if (initialized) {
                 // Initialization has been done immediately.

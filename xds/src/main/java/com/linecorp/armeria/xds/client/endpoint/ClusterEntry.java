@@ -20,6 +20,7 @@ import static com.linecorp.armeria.internal.common.util.CollectionUtil.truncate;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
@@ -45,8 +46,6 @@ final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> implements 
     private final Consumer<XdsLoadBalancer> localClusterEntryListener = this::updateLocalLoadBalancer;
 
     @Nullable
-    private volatile XdsLoadBalancer loadBalancer;
-    @Nullable
     private XdsLoadBalancer localLoadBalancer;
     @Nullable
     private EndpointsState endpointsState;
@@ -55,6 +54,7 @@ final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> implements 
     private final LocalCluster localCluster;
     private final EventExecutor eventExecutor;
     private boolean closing;
+    private final LoadBalancerEndpointSelector endpointSelector = new LoadBalancerEndpointSelector();
 
     ClusterEntry(EventExecutor eventExecutor, @Nullable LocalCluster localCluster) {
         this.eventExecutor = eventExecutor;
@@ -67,11 +67,13 @@ final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> implements 
 
     @Nullable
     Endpoint selectNow(ClientRequestContext ctx) {
-        final LoadBalancer loadBalancer = latestValue();
-        if (loadBalancer == null) {
-            return null;
-        }
-        return loadBalancer.selectNow(ctx);
+        return endpointSelector.selectNow(ctx);
+    }
+
+    CompletableFuture<Endpoint> select(ClientRequestContext ctx,
+                                       ScheduledExecutorService scheduledExecutorService,
+                                       long selectionTimeoutMillis) {
+        return endpointSelector.select(ctx, scheduledExecutorService, selectionTimeoutMillis);
     }
 
     void updateClusterSnapshot(Snapshots snapshots) {
@@ -118,14 +120,14 @@ final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> implements 
         if (snapshots.clusterSnapshot().xdsResource().resource().hasLbSubsetConfig()) {
             loadBalancer = new SubsetLoadBalancer(prioritySet, loadBalancer);
         }
-        this.loadBalancer = loadBalancer;
+        endpointSelector.updateLoadBalancer(loadBalancer);
         notifyListeners(loadBalancer);
     }
 
     @Override
     @Nullable
     protected XdsLoadBalancer latestValue() {
-        return loadBalancer;
+        return endpointSelector.loadBalancer();
     }
 
     List<Endpoint> allEndpoints() {
@@ -154,7 +156,7 @@ final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> implements 
     public String toString() {
         return MoreObjects.toStringHelper(this)
                           .add("endpointsPool", endpointsPool)
-                          .add("loadBalancer", loadBalancer)
+                          .add("endpointSelector", endpointSelector)
                           .add("endpointsState", endpointsState)
                           .toString();
     }

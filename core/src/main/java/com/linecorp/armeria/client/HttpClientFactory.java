@@ -393,7 +393,8 @@ final class HttpClientFactory implements ClientFactory {
 
         if (clientType == HttpClient.class) {
             if (options.autoInitializeEndpoint()) {
-                delegate = EndpointInitializingClient.wrapHttp(delegate, HttpResponse::of,
+                delegate = EndpointInitializingClient.wrapHttp(delegate, params.endpointGroup(),
+                                                               HttpResponse::of,
                                                                (ctx, cause) -> HttpResponse.ofFailure(cause));
             }
             return delegate;
@@ -410,7 +411,8 @@ final class HttpClientFactory implements ClientFactory {
                 delegate0 = RedirectingClient.newDecorator(params, redirectConfig).apply(delegate);
             }
             if (options.autoInitializeEndpoint()) {
-                delegate0 = EndpointInitializingClient.wrapHttp(delegate0, HttpResponse::of,
+                delegate0 = EndpointInitializingClient.wrapHttp(delegate0, params.endpointGroup(),
+                                                                HttpResponse::of,
                                                                 (ctx, cause) -> HttpResponse.ofFailure(cause));
             }
             final DefaultWebClient webClient = new DefaultWebClient(params, delegate0, meterRegistry);

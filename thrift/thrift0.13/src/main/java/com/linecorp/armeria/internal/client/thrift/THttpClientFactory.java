@@ -78,7 +78,7 @@ final class THttpClientFactory extends DecoratingClientFactory {
                                         options, params.scheme().serializationFormat()));
         if (options.autoInitializeEndpoint()) {
             delegate = EndpointInitializingClient.wrapRpc(
-                    delegate, RpcResponse::from,
+                    delegate, params.endpointGroup(), RpcResponse::from,
                     (ctx, cause) -> RpcResponse.ofFailure(decodeException(cause, null)));
         }
 

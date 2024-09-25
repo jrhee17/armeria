@@ -146,7 +146,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
 
         final HttpRequestWriter req = HttpRequest.streaming(headersBuilder.build());
         final DefaultClientRequestContext ctx =
-                newContext(HttpMethod.POST, req, method, params.endpointGroup());
+                newContext(HttpMethod.POST, req, method);
 
         GrpcCallOptions.set(ctx, callOptions);
 
@@ -182,7 +182,8 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
                     }
                     return HttpResponse.ofFailure(status.asRuntimeException());
                 };
-        client = EndpointInitializingClient.wrapHttp(client, HttpResponse::of, errorResponseFactory);
+        client = EndpointInitializingClient.wrapHttp(client, params.endpointGroup(),
+                                                     HttpResponse::of, errorResponseFactory);
 
         return new ArmeriaClientCall<>(
                 ctx,
@@ -251,8 +252,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
     }
 
     private <I, O> DefaultClientRequestContext newContext(HttpMethod method, HttpRequest req,
-                                                          MethodDescriptor<I, O> methodDescriptor,
-                                                          EndpointGroup endpointGroup) {
+                                                          MethodDescriptor<I, O> methodDescriptor) {
         final String path = req.path();
         final RequestTarget reqTarget = RequestTarget.forClient(path);
         assert reqTarget != null : path;
@@ -272,8 +272,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
                 null,
                 requestOptions,
                 System.nanoTime(),
-                SystemInfo.currentTimeMicros(),
-                endpointGroup);
+                SystemInfo.currentTimeMicros());
     }
 
     private static RequestOptions newRequestOptions(ExchangeType exchangeType) {

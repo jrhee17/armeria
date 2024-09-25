@@ -21,7 +21,6 @@ import java.util.List;
 import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.envoyproxy.envoy.config.route.v3.Route;
@@ -37,7 +36,7 @@ final class VirtualHostMatcher {
     }
 
     @Nullable
-    Endpoint selectNow(ClientRequestContext ctx) {
+    ClusterEntry selectNow(ClientRequestContext ctx) {
         for (RouteMatcher routeMatcher: routeMatchers) {
             if (routeMatcher.matches(ctx)) {
                 return routeMatcher.selectNow(ctx);

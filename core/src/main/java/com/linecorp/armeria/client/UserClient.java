@@ -185,7 +185,7 @@ public abstract class UserClient<I extends Request, O extends Response>
 
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 meterRegistry, protocol, id, method, reqTarget, options(), httpReq, rpcReq,
-                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros(), endpointGroup);
+                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros());
 
         try {
             return unwrap().execute(ctx, req);
@@ -204,8 +204,7 @@ public abstract class UserClient<I extends Request, O extends Response>
         final RequestId id = nextRequestId();
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 meterRegistry, protocol, id, method, reqTarget, options(), httpRequest, rpcRequest,
-                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros(), endpointGroup(),
-                isRpcRequest);
+                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros(), isRpcRequest);
         final I req = isRpcRequest ? (I) rpcRequest : (I) httpRequest;
         try {
             return unwrap().execute(ctx, req);

@@ -43,7 +43,6 @@ import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.HttpObject;
 import com.linecorp.armeria.common.HttpRequest;
@@ -576,7 +575,7 @@ final class HttpClientPipelineConfigurator extends ChannelDuplexHandler {
                     REQ_TARGET_ASTERISK, ClientOptions.of(),
                     HttpRequest.of(com.linecorp.armeria.common.HttpMethod.OPTIONS, "*"),
                     null, REQUEST_OPTIONS_FOR_UPGRADE_REQUEST, CancellationScheduler.noop(),
-                    System.nanoTime(), SystemInfo.currentTimeMicros(), EndpointGroup.of());
+                    System.nanoTime(), SystemInfo.currentTimeMicros());
 
             // NB: No need to set the response timeout because we have session creation timeout.
             responseDecoder.addResponse(null, 0, res, reqCtx, ctx.channel().eventLoop());

@@ -55,13 +55,13 @@ import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.RouteSnapshot;
 import com.linecorp.armeria.xds.SnapshotWatcher;
 import com.linecorp.armeria.xds.XdsBootstrap;
-import com.linecorp.armeria.xds.client.endpoint.ClusterEntries.State;
 import com.linecorp.armeria.xds.internal.common.Snapshots;
 
 import io.envoyproxy.envoy.config.core.v3.Node;
 import io.netty.util.concurrent.EventExecutor;
 
-final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCloseable, Listenable<State> {
+final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCloseable,
+                                      Listenable<ClusterEntries> {
 
     private static final Logger logger = LoggerFactory.getLogger(ClusterManager.class);
 
@@ -77,7 +77,7 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
     private boolean closed;
 
     @GuardedBy("listenersLock")
-    private final List<Consumer<? super State>> listeners = new ArrayList<>();
+    private final List<Consumer<? super ClusterEntries>> listeners = new ArrayList<>();
     private final ReentrantShortLock listenersLock = new ReentrantShortLock();
 
     ClusterManager(String listenerName, XdsBootstrap xdsBootstrap) {
@@ -170,7 +170,7 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
     }
 
     @Override
-    public void addListener(Consumer<? super State> listener) {
+    public void addListener(Consumer<? super ClusterEntries> listener) {
         listenersLock.lock();
         try {
             listeners.add(listener);
@@ -178,7 +178,7 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
             listenersLock.unlock();
         }
         if (clusterEntries != ClusterEntries.INITIAL_STATE) {
-            listener.accept(clusterEntries.state());
+            listener.accept(clusterEntries);
         }
     }
 
@@ -205,12 +205,12 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
         if (clusterEntries == ClusterEntries.INITIAL_STATE) {
             return;
         }
-        final State state = clusterEntries.state();
+        final ClusterEntries clusterEntries = this.clusterEntries;
         listenersLock.lock();
         try {
-            for (Consumer<? super State> listener : listeners) {
+            for (Consumer<? super ClusterEntries> listener : listeners) {
                 try {
-                    listener.accept(state);
+                    listener.accept(clusterEntries);
                 } catch (Exception e) {
                     logger.warn("Unexpected exception while notifying listeners");
                 }

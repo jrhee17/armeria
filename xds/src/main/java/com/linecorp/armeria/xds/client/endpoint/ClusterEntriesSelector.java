@@ -16,24 +16,30 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import java.util.function.Consumer;
+
 import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.xds.internal.common.AbstractSelector;
 
-import io.envoyproxy.envoy.config.route.v3.Route;
+final class ClusterEntriesSelector extends AbstractSelector<ClusterEntries>
+        implements Consumer<ClusterEntries> {
 
-final class RouteMatcher {
-    private final Route route;
-    private final ClusterEntrySnapshot clusterEntrySnapshot;
+    @Nullable
+    private volatile ClusterEntries clusterEntries;
 
-    RouteMatcher(Route route, ClusterEntrySnapshot clusterEntrySnapshot) {
-        this.route = route;
-        this.clusterEntrySnapshot = clusterEntrySnapshot;
+    ClusterEntriesSelector(ClusterManager clusterManager) {
+        clusterManager.addListener(this);
     }
 
-    boolean matches(ClientRequestContext ctx) {
-        return true;
+    @Override
+    @Nullable
+    protected ClusterEntries selectNow(ClientRequestContext ctx) {
+        return clusterEntries;
     }
 
-    ClusterEntry selectNow(ClientRequestContext ctx) {
-        return clusterEntrySnapshot.entry();
+    @Override
+    public void accept(ClusterEntries clusterEntries) {
+        this.clusterEntries = clusterEntries;
     }
 }

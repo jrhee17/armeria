@@ -27,6 +27,7 @@ import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.RpcClient;
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
@@ -39,22 +40,26 @@ public final class EndpointInitializingClient<I extends Request, O extends Respo
         U extends Client<I, O>> implements Client<I, O> {
 
     private final U delegate;
+    private final EndpointGroup endpointGroup;
     private final Function<CompletableFuture<O>, O> futureConverter;
     private final BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory;
 
     public static <I extends Request, O extends Response> EndpointInitializingClient<I, O, Client<I, O>> wrap(
             Client<I, O> delegate,
+            EndpointGroup endpointGroup,
             Function<CompletableFuture<O>, O> futureConverter,
             BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
-        return new EndpointInitializingClient<>(delegate, futureConverter, errorResponseFactory);
+        return new EndpointInitializingClient<>(delegate, endpointGroup, futureConverter, errorResponseFactory);
     }
 
-    public static HttpClient wrapHttp(HttpClient delegate,
+    public static HttpClient wrapHttp(
+            HttpClient delegate,
+            EndpointGroup endpointGroup,
             Function<CompletableFuture<HttpResponse>, HttpResponse> futureConverter,
             BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory) {
         final EndpointInitializingClient<HttpRequest, HttpResponse, HttpClient>
                 client = new EndpointInitializingClient<>(
-                delegate, futureConverter, errorResponseFactory);
+                delegate, endpointGroup, futureConverter, errorResponseFactory);
         return new HttpClient() {
             @Override
             public HttpResponse execute(ClientRequestContext ctx, HttpRequest req) throws Exception {
@@ -70,11 +75,12 @@ public final class EndpointInitializingClient<I extends Request, O extends Respo
 
     public static RpcClient wrapRpc(
             RpcClient delegate,
+            EndpointGroup endpointGroup,
             Function<CompletableFuture<RpcResponse>, RpcResponse> futureConverter,
             BiFunction<ClientRequestContext, Throwable, RpcResponse> errorResponseFactory) {
         final EndpointInitializingClient<RpcRequest, RpcResponse, RpcClient>
                 client = new EndpointInitializingClient<>(
-                delegate, futureConverter, errorResponseFactory);
+                delegate, endpointGroup, futureConverter, errorResponseFactory);
         return new RpcClient() {
             @Override
             public RpcResponse execute(ClientRequestContext ctx, RpcRequest req) throws Exception {
@@ -88,9 +94,11 @@ public final class EndpointInitializingClient<I extends Request, O extends Respo
         };
     }
 
-    EndpointInitializingClient(U delegate, Function<CompletableFuture<O>, O> futureConverter,
+    EndpointInitializingClient(U delegate, EndpointGroup endpointGroup,
+                               Function<CompletableFuture<O>, O> futureConverter,
                                BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
         this.delegate = requireNonNull(delegate, "delegate");
+        this.endpointGroup = endpointGroup;
         this.futureConverter = requireNonNull(futureConverter, "futureConverter");
         this.errorResponseFactory = requireNonNull(errorResponseFactory, "errorResponseFactory");
     }
@@ -99,7 +107,8 @@ public final class EndpointInitializingClient<I extends Request, O extends Respo
     public O execute(ClientRequestContext ctx, I req) {
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
-        return initContextAndExecuteWithFallback(delegate, ctxExt, futureConverter, errorResponseFactory);
+        return initContextAndExecuteWithFallback(delegate, endpointGroup, ctxExt,
+                                                 futureConverter, errorResponseFactory);
     }
 
     @Override

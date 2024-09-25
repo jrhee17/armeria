@@ -55,9 +55,8 @@ class DerivedClientRequestContextClientTest {
         final HttpRequest request = HttpRequest.of(HttpMethod.GET, "/");
         final DefaultClientRequestContext parent = new DefaultClientRequestContext(
                 new SimpleMeterRegistry(), SessionProtocol.H2C, RequestId.random(), HttpMethod.GET,
-                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of(), 0, 0,
-                group);
-        parent.init();
+                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of(), 0, 0);
+        parent.init(group);
         assertThat(parent.endpoint()).isEqualTo(endpointA);
         final ClientRequestContext child =
                 ClientUtil.newDerivedContext(parent, request, null, false);
@@ -71,9 +70,8 @@ class DerivedClientRequestContextClientTest {
         final HttpRequest request = HttpRequest.of(HttpMethod.GET, "/");
         final DefaultClientRequestContext parent = new DefaultClientRequestContext(
                 new SimpleMeterRegistry(), SessionProtocol.H2C, RequestId.random(), HttpMethod.GET,
-                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of(), 0, 0,
-                group);
-        parent.init();
+                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of(), 0, 0);
+        parent.init(group);
         assertThat(parent.endpoint()).isEqualTo(endpointA);
         final ClientRequestContext childA0 =
                 ClientUtil.newDerivedContext(parent, HttpRequest.of(HttpMethod.GET, "/"), null, true);
@@ -106,9 +104,8 @@ class DerivedClientRequestContextClientTest {
         final HttpRequest request = HttpRequest.of(HttpMethod.GET, "/");
         final DefaultClientRequestContext parent = new DefaultClientRequestContext(
                 new SimpleMeterRegistry(), SessionProtocol.H2C, RequestId.random(), HttpMethod.GET,
-                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of(), 0, 0,
-                group);
-        parent.init();
+                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of(), 0, 0);
+        parent.init(group);
         assertThat(parent.endpoint()).isEqualTo(endpointA);
         final ClientRequestContext child =
                 ClientUtil.newDerivedContext(parent, HttpRequest.of(HttpMethod.GET, "/"), null, true);
