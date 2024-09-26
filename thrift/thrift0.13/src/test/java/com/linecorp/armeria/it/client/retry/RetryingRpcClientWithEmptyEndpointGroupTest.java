@@ -90,7 +90,9 @@ class RetryingRpcClientWithEmptyEndpointGroupTest {
     @Test
     void testSelectionTimeoutEventuallySucceeds() throws Exception {
         final int maxTotalAttempts = 10;
-        final int selectAttempts = 3;
+        final int selectAttempts = 4;
+        // the first request tries to select from the endpointGroup twice
+        final int numChildren = selectAttempts - 1;
 
         final DynamicEndpointGroup endpointGroup = new DynamicEndpointGroup(
                 new CountDownEmptyEndpointStrategy(selectAttempts,
@@ -112,10 +114,10 @@ class RetryingRpcClientWithEmptyEndpointGroupTest {
             assertThat(world).isEqualTo("world");
 
             assertThat(ctxCaptor.size()).isEqualTo(1);
-            assertThat(ctxCaptor.get().log().children()).hasSize(selectAttempts);
+            assertThat(ctxCaptor.get().log().children()).hasSize(numChildren);
 
             // ensure that selection timeout occurred (selectAttempts - 1) times
-            for (int i = 0; i < selectAttempts - 1; i++) {
+            for (int i = 0; i < numChildren - 1; i++) {
                 final RequestLogAccess log = ctxCaptor.get().log().children().get(i);
                 final Throwable responseCause = log.whenComplete().join().responseCause();
                 assertThat(responseCause)
@@ -124,7 +126,7 @@ class RetryingRpcClientWithEmptyEndpointGroupTest {
             }
 
             // ensure that the last selection succeeded
-            final RequestLogAccess log = ctxCaptor.get().log().children().get(selectAttempts - 1);
+            final RequestLogAccess log = ctxCaptor.get().log().children().get(numChildren - 1);
             assertThat(log.whenComplete().join().responseStatus().code())
                     .isEqualTo(200);
 

@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.internal.client;
 
+import static com.linecorp.armeria.internal.client.ClientUtil.executeWithFallback;
 import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 import static java.util.Objects.requireNonNull;
 
@@ -57,6 +58,9 @@ public final class EndpointInitializingClient<I extends Request, O extends Respo
 
     @Override
     public O execute(ClientRequestContext ctx, I req) {
+        if (ctx.endpoint() != null) {
+            return executeWithFallback(delegate, ctx, errorResponseFactory, req);
+        }
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
         return initContextAndExecuteWithFallback(delegate, ctxExt, endpointGroup,

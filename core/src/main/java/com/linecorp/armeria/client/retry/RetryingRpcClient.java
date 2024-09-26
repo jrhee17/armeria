@@ -15,7 +15,7 @@
  */
 package com.linecorp.armeria.client.retry;
 
-import static com.linecorp.armeria.internal.client.ClientUtil.executeWithFallback;
+import static com.google.common.base.MoreObjects.firstNonNull;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -180,19 +180,16 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
             endpointGroup != null && derivedCtx.endpoint() == null) {
             // clear the pending throwable to retry endpoint selection
             ClientPendingThrowableUtil.removePendingThrowable(derivedCtx);
-            // if the endpoint hasn't been selected, try to initialize the ctx with a new endpoint/event loop
-            try {
-                res = endpointHint().applyInitializeDecorate(unwrap(), endpointGroup, RpcResponse::from,
-                                                             (context, cause) -> RpcResponse.ofFailure(cause))
-                                    .execute(derivedCtx, newReq);
-            } catch (Exception e) {
-                handleException(ctx, future, e, initialAttempt);
-                return;
-            }
-        } else {
-            res = executeWithFallback(unwrap(), derivedCtx,
-                                      (context, cause) -> RpcResponse.ofFailure(cause),
-                                      newReq);
+        }
+
+        final EndpointGroup newEndpointGroup = firstNonNull(derivedCtx.endpointGroup(), derivedCtx.endpoint());
+        try {
+            res = endpointHint().applyInitializeDecorate(unwrap(), newEndpointGroup, RpcResponse::from,
+                                                         (context, cause) -> RpcResponse.ofFailure(cause))
+                                .execute(derivedCtx, newReq);
+        } catch (Exception e) {
+            handleException(ctx, future, e, initialAttempt);
+            return;
         }
 
         final RetryConfig<RpcResponse> retryConfig = mappedRetryConfig(ctx);

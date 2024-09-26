@@ -16,8 +16,8 @@
 
 package com.linecorp.armeria.client.retry;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.linecorp.armeria.internal.client.ClientUtil.executeWithFallback;
 
 import java.time.Duration;
 import java.util.Date;
@@ -324,20 +324,18 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
             endpointGroup != null && derivedCtx.endpoint() == null) {
             // clear the pending throwable to retry endpoint selection
             ClientPendingThrowableUtil.removePendingThrowable(derivedCtx);
-            // if the endpoint hasn't been selected, try to initialize the ctx with a new endpoint/event loop
-            try {
-                response = endpointHint.applyInitializeDecorate(
-                        unwrap(), endpointGroup, HttpResponse::of,
-                        (context, cause) -> HttpResponse.ofFailure(cause)).execute(derivedCtx, newReq);
-            } catch (Exception e) {
-                handleException(ctx, rootReqDuplicator, future, e, initialAttempt);
-                return;
-            }
-        } else {
-            response = executeWithFallback(unwrap(), derivedCtx,
-                                           (context, cause) -> HttpResponse.ofFailure(cause),
-                                           newReq);
         }
+
+        final EndpointGroup newEndpointGroup = firstNonNull(derivedCtx.endpointGroup(), derivedCtx.endpoint());
+        try {
+            response = endpointHint.applyInitializeDecorate(unwrap(), newEndpointGroup, HttpResponse::of,
+                                                            (context, cause) -> HttpResponse.ofFailure(cause))
+                                   .execute(derivedCtx, newReq);
+        } catch (Exception e) {
+            handleException(ctx, rootReqDuplicator, future, e, initialAttempt);
+            return;
+        }
+
         final RetryConfig<HttpResponse> config = mappedRetryConfig(ctx);
         if (!ctx.exchangeType().isResponseStreaming() || config.requiresResponseTrailers()) {
             // XXX(ikhoon): Should we use `response.aggregateWithPooledObjects()`?
