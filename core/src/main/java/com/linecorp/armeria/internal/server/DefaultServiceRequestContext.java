@@ -173,7 +173,7 @@ public final class DefaultServiceRequestContext
         super(meterRegistry, sessionProtocol, id,
               requireNonNull(routingContext, "routingContext").method(),
               routingContext.requestTarget(), exchangeType, cfg.requestAutoAbortDelayMillis(),
-              requireNonNull(req, "req"), null, null, contextHook, false);
+              requireNonNull(req, "req"), null, null, contextHook);
 
         this.ch = requireNonNull(ch, "ch");
         this.eventLoop = requireNonNull(eventLoop, "eventLoop");

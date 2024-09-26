@@ -31,6 +31,7 @@ import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ClientRequestContextCaptor;
 import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.client.EndpointHint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.thrift.THttpClient;
 import com.linecorp.armeria.common.RpcResponse;
@@ -81,6 +82,11 @@ final class THttpClientInvocationHandler
     @Override
     public ClientOptions options() {
         return params.options();
+    }
+
+    @Override
+    public EndpointHint endpointHint() {
+        return params.endpointHint();
     }
 
     @Nullable

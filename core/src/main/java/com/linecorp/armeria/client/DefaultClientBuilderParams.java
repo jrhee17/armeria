@@ -27,6 +27,7 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
 
 /**
@@ -36,6 +37,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
 
     private final Scheme scheme;
     private final EndpointGroup endpointGroup;
+    private final EndpointHint endpointHint;
     private final String absolutePathRef;
     private final URI uri;
     private final Class<?> type;
@@ -52,6 +54,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
 
         scheme = factory.validateScheme(Scheme.parse(uri.getScheme()));
         endpointGroup = Endpoint.parse(uri.getRawAuthority());
+        endpointHint = EndpointInitializingClient::wrap;
 
         try (TemporaryThreadLocals tempThreadLocals = TemporaryThreadLocals.acquire()) {
             final StringBuilder buf = tempThreadLocals.stringBuilder();
@@ -74,6 +77,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         this.endpointGroup = requireNonNull(endpointGroup, "endpointGroup");
         this.type = requireNonNull(type, "type");
         this.options = options;
+        endpointHint = EndpointInitializingClient::wrap;
 
         final String schemeStr;
         if (scheme.serializationFormat() == SerializationFormat.NONE) {
@@ -136,6 +140,11 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     @Override
     public ClientOptions options() {
         return options;
+    }
+
+    @Override
+    public EndpointHint endpointHint() {
+        return endpointHint;
     }
 
     @Override

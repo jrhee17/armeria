@@ -42,7 +42,6 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractUnwrappable;
 import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
-import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -120,6 +119,11 @@ public abstract class UserClient<I extends Request, O extends Response>
         return params.options();
     }
 
+    @Override
+    public EndpointHint endpointHint() {
+        return params.endpointHint();
+    }
+
     /**
      * Executes the specified {@link Request} via the delegate.
      *
@@ -195,12 +199,12 @@ public abstract class UserClient<I extends Request, O extends Response>
 
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 meterRegistry, protocol, id, method, reqTarget, options(), httpReq, rpcReq,
-                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros(), rpcReq != null);
+                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros());
 
         try {
-            return EndpointInitializingClient.wrap(unwrap(), endpointGroup, futureConverter,
-                                                   errorResponseFactory)
-                                             .execute(ctx, (I) ctx.originalRequest());
+            return params.endpointHint().applyInitializeDecorate(unwrap(), endpointGroup, futureConverter,
+                                                                 errorResponseFactory)
+                         .execute(ctx, (I) ctx.originalRequest());
         } catch (Throwable cause) {
             fail(ctx, cause);
             return errorResponseFactory.apply(ctx, cause);

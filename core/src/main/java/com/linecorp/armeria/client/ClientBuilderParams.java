@@ -80,4 +80,9 @@ public interface ClientBuilderParams {
      * Returns the options of the client.
      */
     ClientOptions options();
+
+    /**
+     * TBU.
+     */
+    EndpointHint endpointHint();
 }

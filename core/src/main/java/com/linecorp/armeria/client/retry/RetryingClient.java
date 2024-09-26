@@ -311,6 +311,8 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
             handleException(ctx, rootReqDuplicator, future, t, initialAttempt);
             return;
         }
+        final HttpRequest newReq = derivedCtx.request();
+        assert newReq != null;
 
         final HttpResponse response;
         final EndpointGroup endpointGroup = derivedCtx.endpointGroup();
@@ -322,10 +324,11 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
             // if the endpoint hasn't been selected, try to initialize the ctx with a new endpoint/event loop
             response = EndpointInitializingClient.wrap(unwrap(), endpointGroup, HttpResponse::of,
                                                        (ctx0, cause) -> HttpResponse.ofFailure(cause))
-                                                 .execute(ctxExtension, duplicateReq);
+                                                 .execute(ctxExtension, newReq);
         } else {
             response = executeWithFallback(unwrap(), derivedCtx,
-                                           (context, cause) -> HttpResponse.ofFailure(cause));
+                                           (context, cause) -> HttpResponse.ofFailure(cause),
+                                           newReq);
         }
         final RetryConfig<HttpResponse> config = mappedRetryConfig(ctx);
         if (!ctx.exchangeType().isResponseStreaming() || config.requiresResponseTrailers()) {

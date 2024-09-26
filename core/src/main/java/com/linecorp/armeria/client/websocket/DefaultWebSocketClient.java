@@ -33,6 +33,7 @@ import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ClientRequestContextCaptor;
 import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.client.EndpointHint;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -266,6 +267,11 @@ final class DefaultWebSocketClient implements WebSocketClient {
     @Override
     public ClientOptions options() {
         return webClient.options();
+    }
+
+    @Override
+    public EndpointHint endpointHint() {
+        return webClient.endpointHint();
     }
 
     @Override

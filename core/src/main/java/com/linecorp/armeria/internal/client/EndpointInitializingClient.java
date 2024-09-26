@@ -60,7 +60,7 @@ public final class EndpointInitializingClient<I extends Request, O extends Respo
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
         return initContextAndExecuteWithFallback(delegate, ctxExt, endpointGroup,
-                                                 futureConverter, errorResponseFactory);
+                                                 futureConverter, errorResponseFactory, req);
     }
 
     @Override

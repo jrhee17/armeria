@@ -172,7 +172,7 @@ public final class DefaultClientRequestContext
     private final ResponseTimeoutMode responseTimeoutMode;
 
     /**
-     * Creates a new instance. Note that {@link #init()} method must be invoked to finish
+     * Creates a new instance. Note that {@link #init(EndpointGroup)} method must be invoked to finish
      * the construction of this context.
      *
      * @param eventLoop the {@link EventLoop} associated with this context
@@ -194,7 +194,7 @@ public final class DefaultClientRequestContext
         this(eventLoop, meterRegistry, sessionProtocol,
              id, method, reqTarget, options, req, rpcReq, requestOptions, serviceRequestContext(),
              requireNonNull(responseCancellationScheduler, "responseCancellationScheduler"),
-             requestStartTimeNanos, requestStartTimeMicros, rpcReq != null);
+             requestStartTimeNanos, requestStartTimeMicros);
     }
 
     /**
@@ -216,35 +216,21 @@ public final class DefaultClientRequestContext
             ClientOptions options, @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
             RequestOptions requestOptions,
             long requestStartTimeNanos, long requestStartTimeMicros) {
-        this(null, meterRegistry, sessionProtocol,
-             id, method, reqTarget, options, req, rpcReq, requestOptions,
-             serviceRequestContext(), /* responseCancellationScheduler */ null,
-             requestStartTimeNanos, requestStartTimeMicros, rpcReq != null);
-    }
-
-    public DefaultClientRequestContext(
-            MeterRegistry meterRegistry, SessionProtocol sessionProtocol,
-            RequestId id, HttpMethod method, RequestTarget reqTarget,
-            ClientOptions options, @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
-            RequestOptions requestOptions,
-            long requestStartTimeNanos, long requestStartTimeMicros,
-            boolean isRpcRequest) {
         this(null, meterRegistry, sessionProtocol, id, method, reqTarget, options, req, rpcReq, requestOptions,
-             serviceRequestContext(), null, requestStartTimeNanos, requestStartTimeMicros,
-             isRpcRequest);
+             serviceRequestContext(), null, requestStartTimeNanos, requestStartTimeMicros);
     }
 
-    public DefaultClientRequestContext(
+    private DefaultClientRequestContext(
             @Nullable EventLoop eventLoop, MeterRegistry meterRegistry,
             SessionProtocol sessionProtocol, RequestId id, HttpMethod method,
             RequestTarget reqTarget, ClientOptions options,
             @Nullable HttpRequest req, @Nullable RpcRequest rpcReq, RequestOptions requestOptions,
             @Nullable ServiceRequestContext root, @Nullable CancellationScheduler responseCancellationScheduler,
-            long requestStartTimeNanos, long requestStartTimeMicros, boolean isRpcRequest) {
+            long requestStartTimeNanos, long requestStartTimeMicros) {
         super(meterRegistry, desiredSessionProtocol(sessionProtocol, options), id, method, reqTarget,
               guessExchangeType(requestOptions, req),
               requestAutoAbortDelayMillis(options, requestOptions), req, rpcReq,
-              getAttributes(root), options.contextHook(), isRpcRequest);
+              getAttributes(root), options.contextHook());
 
         this.eventLoop = eventLoop;
         this.options = requireNonNull(options, "options");
@@ -534,8 +520,7 @@ public final class DefaultClientRequestContext
                                         SessionProtocol sessionProtocol, HttpMethod method,
                                         RequestTarget reqTarget) {
         super(ctx.meterRegistry(), sessionProtocol, id, method, reqTarget, ctx.exchangeType(),
-              ctx.requestAutoAbortDelayMillis(), req, rpcReq, getAttributes(ctx.root()), ctx.hook(),
-              ctx.isRpcRequest());
+              ctx.requestAutoAbortDelayMillis(), req, rpcReq, getAttributes(ctx.root()), ctx.hook());
 
         // The new requests cannot be null if it was previously non-null.
         if (ctx.request() != null) {

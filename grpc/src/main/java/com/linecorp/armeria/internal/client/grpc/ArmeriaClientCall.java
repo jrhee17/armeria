@@ -28,7 +28,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import java.util.function.BiFunction;
 
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -37,8 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.MoreExecutors;
 
-import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.HttpClient;
+import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.HttpRequest;
@@ -61,7 +59,6 @@ import com.linecorp.armeria.common.stream.SubscriptionOption;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
-import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 import com.linecorp.armeria.internal.client.grpc.protocol.InternalGrpcWebUtil;
 import com.linecorp.armeria.internal.common.grpc.ForwardingCompressor;
 import com.linecorp.armeria.internal.common.grpc.GrpcLogUtil;
@@ -110,7 +107,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
 
     private final DefaultClientRequestContext ctx;
     private final EndpointGroup endpointGroup;
-    private final HttpClient httpClient;
+    private final Client<HttpRequest, HttpResponse> httpClient;
     private final HttpRequestWriter req;
     private final MethodDescriptor<I, O> method;
     private final Map<MethodDescriptor<?, ?>, String> simpleMethodNames;
@@ -147,7 +144,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
     ArmeriaClientCall(
             DefaultClientRequestContext ctx,
             EndpointGroup endpointGroup,
-            HttpClient httpClient,
+            Client<HttpRequest, HttpResponse> httpClient,
             HttpRequestWriter req,
             MethodDescriptor<I, O> method,
             Map<MethodDescriptor<?, ?>, String> simpleMethodNames,
@@ -245,23 +242,11 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
         }
 
         // Must come after handling deadline.
-        prepareHeaders(compressor, metadata, remainingNanos);
-
-        final BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory =
-                (unused, cause) -> {
-                    final StatusAndMetadata statusAndMetadata = exceptionHandler.handle(ctx, cause);
-                    Status status = statusAndMetadata.status();
-                    if (status.getDescription() == null) {
-                        status = status.withDescription(cause.getMessage());
-                    }
-                    return HttpResponse.ofFailure(status.asRuntimeException());
-                };
+        final HttpRequest newReq = prepareHeaders(compressor, metadata, remainingNanos);
 
         final HttpResponse res;
         try {
-            res = EndpointInitializingClient.wrap(httpClient, endpointGroup, HttpResponse::of,
-                                            errorResponseFactory)
-                                      .execute(ctx, req);
+            res = httpClient.execute(ctx, newReq);
         } catch (Exception cause) {
             final Status status = Status.INTERNAL.withCause(cause);
             close(status, new Metadata());
@@ -502,7 +487,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
         });
     }
 
-    private void prepareHeaders(Compressor compressor, Metadata metadata, long remainingNanos) {
+    private HttpRequest prepareHeaders(Compressor compressor, Metadata metadata, long remainingNanos) {
         final RequestHeadersBuilder newHeaders = req.headers().toBuilder();
         if (compressor != Identity.NONE) {
             newHeaders.set(GrpcHeaderNames.GRPC_ENCODING, compressor.getMessageEncoding());
@@ -521,6 +506,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
 
         final HttpRequest newReq = req.withHeaders(newHeaders);
         ctx.updateRequest(newReq);
+        return newReq;
     }
 
     private void closeWhenListenerThrows(Throwable t) {

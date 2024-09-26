@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.internal.common;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.linecorp.armeria.internal.common.RequestContextUtil.NOOP_CONTEXT_HOOK;
 import static com.linecorp.armeria.internal.common.RequestContextUtil.mergeHooks;
 import static java.util.Objects.requireNonNull;
@@ -76,7 +77,6 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
     private volatile RpcRequest rpcReq;
     // Updated via `contextHookUpdater`
     private volatile Supplier<AutoCloseable> contextHook;
-    private final boolean isRpcRequest;
 
     /**
      * Creates a new instance.
@@ -86,8 +86,7 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
             RequestId id, HttpMethod method, RequestTarget reqTarget, ExchangeType exchangeType,
             long requestAutoAbortDelayMillis,
             @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
-            @Nullable AttributesGetters rootAttributeMap, Supplier<? extends AutoCloseable> contextHook,
-            boolean isRpcRequest) {
+            @Nullable AttributesGetters rootAttributeMap, Supplier<? extends AutoCloseable> contextHook) {
         assert req != null || rpcReq != null;
 
         this.meterRegistry = requireNonNull(meterRegistry, "meterRegistry");
@@ -103,12 +102,11 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
         this.reqTarget = requireNonNull(reqTarget, "reqTarget");
         this.exchangeType = requireNonNull(exchangeType, "exchangeType");
         this.requestAutoAbortDelayMillis = requestAutoAbortDelayMillis;
-        originalRequest = requireNonNull(isRpcRequest ? rpcReq : req);
+        originalRequest = firstNonNull(rpcReq, req);
         this.req = req;
         this.rpcReq = rpcReq;
         //noinspection unchecked
         this.contextHook = (Supplier<AutoCloseable>) contextHook;
-        this.isRpcRequest = isRpcRequest;
     }
 
     @Nullable
@@ -295,10 +293,5 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
     @Override
     public Supplier<AutoCloseable> hook() {
         return contextHook;
-    }
-
-    @Override
-    public boolean isRpcRequest() {
-        return isRpcRequest;
     }
 }

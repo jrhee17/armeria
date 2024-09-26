@@ -73,6 +73,11 @@ final class DefaultRestClient implements RestClient {
     }
 
     @Override
+    public EndpointHint endpointHint() {
+        return delegate.endpointHint();
+    }
+
+    @Override
     public HttpClient unwrap() {
         return delegate.unwrap();
     }

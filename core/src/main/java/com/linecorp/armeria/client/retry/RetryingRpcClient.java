@@ -174,6 +174,8 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
 
         final ClientRequestContextExtension ctxExtension = derivedCtx.as(ClientRequestContextExtension.class);
         final EndpointGroup endpointGroup = derivedCtx.endpointGroup();
+        final RpcRequest newReq = derivedCtx.rpcRequest();
+        assert newReq != null;
         if (!initialAttempt && ctxExtension != null &&
             endpointGroup != null && derivedCtx.endpoint() == null) {
             // clear the pending throwable to retry endpoint selection
@@ -181,10 +183,11 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
             // if the endpoint hasn't been selected, try to initialize the ctx with a new endpoint/event loop
             res = EndpointInitializingClient.wrap(unwrap(), endpointGroup, RpcResponse::from,
                                                   (ctx0, cause) -> RpcResponse.ofFailure(cause))
-                                            .execute(ctxExtension, req);
+                                            .execute(ctxExtension, newReq);
         } else {
             res = executeWithFallback(unwrap(), derivedCtx,
-                                      (context, cause) -> RpcResponse.ofFailure(cause));
+                                      (context, cause) -> RpcResponse.ofFailure(cause),
+                                      newReq);
         }
 
         final RetryConfig<RpcResponse> retryConfig = mappedRetryConfig(ctx);

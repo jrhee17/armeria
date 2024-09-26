@@ -38,6 +38,4 @@ public interface RequestContextExtension extends RequestContext {
      * Returns the original {@link Request} that is specified when this {@link RequestContext} is created.
      */
     Request originalRequest();
-
-    boolean isRpcRequest();
 }
