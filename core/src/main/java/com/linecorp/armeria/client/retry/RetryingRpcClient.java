@@ -137,7 +137,7 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
      * Creates a new instance that decorates the specified {@link RpcClient}.
      */
     RetryingRpcClient(RpcClient delegate, RetryConfigMapping<RpcResponse> mapping) {
-        super(delegate, mapping, null);
+        super(delegate, mapping, null, EndpointInitializingClient::wrap);
     }
 
     @Override
@@ -181,9 +181,14 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
             // clear the pending throwable to retry endpoint selection
             ClientPendingThrowableUtil.removePendingThrowable(derivedCtx);
             // if the endpoint hasn't been selected, try to initialize the ctx with a new endpoint/event loop
-            res = EndpointInitializingClient.wrap(unwrap(), endpointGroup, RpcResponse::from,
-                                                  (ctx0, cause) -> RpcResponse.ofFailure(cause))
-                                            .execute(ctxExtension, newReq);
+            try {
+                res = endpointHint().applyInitializeDecorate(unwrap(), endpointGroup, RpcResponse::from,
+                                                             (context, cause) -> RpcResponse.ofFailure(cause))
+                                    .execute(derivedCtx, newReq);
+            } catch (Exception e) {
+                handleException(ctx, future, e, initialAttempt);
+                return;
+            }
         } else {
             res = executeWithFallback(unwrap(), derivedCtx,
                                       (context, cause) -> RpcResponse.ofFailure(cause),

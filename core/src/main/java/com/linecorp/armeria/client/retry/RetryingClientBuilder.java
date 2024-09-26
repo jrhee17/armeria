@@ -21,6 +21,7 @@ import java.util.function.Function;
 
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 
 /**
  * Builds a new {@link RetryingClient} or its decorator function.
@@ -62,7 +63,8 @@ public final class RetryingClientBuilder extends AbstractRetryingClientBuilder<H
      * Returns a newly-created {@link RetryingClient} based on the properties of this builder.
      */
     public RetryingClient build(HttpClient delegate) {
-        return new RetryingClient(delegate, mapping(), retryConfig(), useRetryAfter);
+        return new RetryingClient(delegate, mapping(), retryConfig(), useRetryAfter,
+                                  EndpointInitializingClient::wrap);
     }
 
     /**

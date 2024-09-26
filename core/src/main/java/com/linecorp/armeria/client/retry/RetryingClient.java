@@ -29,6 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.EndpointHint;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.ResponseTimeoutException;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -50,7 +51,6 @@ import com.linecorp.armeria.common.stream.AbortedStreamException;
 import com.linecorp.armeria.internal.client.AggregatedHttpRequestDuplicator;
 import com.linecorp.armeria.internal.client.ClientPendingThrowableUtil;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
-import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 import com.linecorp.armeria.internal.client.TruncatingHttpResponse;
 
 import io.netty.handler.codec.DateFormatter;
@@ -226,6 +226,7 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
 
     private final HttpClient delegate;
     private final boolean useRetryAfter;
+    private final EndpointHint endpointHint;
 
     /**
      * Creates a new instance that decorates the specified {@link HttpClient}.
@@ -234,10 +235,12 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
             HttpClient delegate,
             RetryConfigMapping<HttpResponse> mapping,
             @Nullable RetryConfig<HttpResponse> retryConfig,
-            boolean useRetryAfter) {
-        super(delegate, mapping, retryConfig);
+            boolean useRetryAfter,
+            EndpointHint endpointHint) {
+        super(delegate, mapping, retryConfig, endpointHint);
         this.delegate = delegate;
         this.useRetryAfter = useRetryAfter;
+        this.endpointHint = endpointHint;
     }
 
     @Override
@@ -322,9 +325,14 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
             // clear the pending throwable to retry endpoint selection
             ClientPendingThrowableUtil.removePendingThrowable(derivedCtx);
             // if the endpoint hasn't been selected, try to initialize the ctx with a new endpoint/event loop
-            response = EndpointInitializingClient.wrap(unwrap(), endpointGroup, HttpResponse::of,
-                                                       (ctx0, cause) -> HttpResponse.ofFailure(cause))
-                                                 .execute(ctxExtension, newReq);
+            try {
+                response = endpointHint.applyInitializeDecorate(
+                        unwrap(), endpointGroup, HttpResponse::of,
+                        (context, cause) -> HttpResponse.ofFailure(cause)).execute(derivedCtx, newReq);
+            } catch (Exception e) {
+                handleException(ctx, rootReqDuplicator, future, e, initialAttempt);
+                return;
+            }
         } else {
             response = executeWithFallback(unwrap(), derivedCtx,
                                            (context, cause) -> HttpResponse.ofFailure(cause),
