@@ -21,10 +21,28 @@ import java.util.function.Function;
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 
+import com.linecorp.armeria.client.Client;
+import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.RpcRequest;
+import com.linecorp.armeria.common.RpcResponse;
+
+/**
+ * TBU.
+ */
 public interface FilterFactory {
 
-    Function<? super ClientFilter, ? extends ClientFilter> decorator(Snapshots snapshots);
+    /**
+     * TBU.
+     */
+    Function<? super Client<RpcRequest, RpcResponse>,
+            ? extends Client<RpcRequest, RpcResponse>> rpcDecorator(Any config)
+            throws InvalidProtocolBufferException;
 
-    Function<? super ClientFilter, ? extends ClientFilter> decorator(Any config)
+    /**
+     * TBU.
+     */
+    Function<? super Client<HttpRequest, HttpResponse>,
+            ? extends Client<HttpRequest, HttpResponse>> httpDecorator(Any config)
             throws InvalidProtocolBufferException;
 }

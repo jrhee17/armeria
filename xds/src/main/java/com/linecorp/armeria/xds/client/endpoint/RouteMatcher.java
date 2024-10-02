@@ -33,7 +33,7 @@ final class RouteMatcher {
         return true;
     }
 
-    ClusterEntry selectNow(ClientRequestContext ctx) {
-        return clusterEntrySnapshot.entry();
+    ClusterEntrySnapshot selectNow(ClientRequestContext ctx) {
+        return clusterEntrySnapshot;
     }
 }

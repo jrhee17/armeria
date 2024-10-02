@@ -101,7 +101,7 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
         localCluster = null;
         final ClusterEntry clusterEntry = new ClusterEntry(eventLoop, null);
         clusterEntry.addListener(ignored -> notifyListeners(), true);
-        final Snapshots snapshots = new Snapshots(null, clusterSnapshot);
+        final Snapshots snapshots = new Snapshots(null, null, clusterSnapshot);
         clusterEntry.updateClusterSnapshot(snapshots);
         final ClusterEntrySnapshot snapshot = new ClusterEntrySnapshot(clusterEntry, snapshots);
         clusterEntries =
@@ -136,7 +136,7 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
             if (clusterSnapshot.endpointSnapshot() == null) {
                 continue;
             }
-            final Snapshots snapshots = new Snapshots(routeSnapshot, clusterSnapshot);
+            final Snapshots snapshots = new Snapshots(listenerSnapshot, routeSnapshot, clusterSnapshot);
             final String clusterName = clusterSnapshot.xdsResource().name();
             ClusterEntrySnapshot clusterEntrySnapshot = oldClusterEntries.get(clusterName);
             if (clusterEntrySnapshot == null) {
@@ -270,7 +270,7 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
             clusterEntry = new ClusterEntry(xdsBootstrap.eventLoop(), null);
             localClusterRoot = xdsBootstrap.clusterRoot(localClusterName);
             localClusterRoot.addSnapshotWatcher(clusterSnapshot -> clusterEntry
-                    .updateClusterSnapshot(new Snapshots(null, clusterSnapshot)));
+                    .updateClusterSnapshot(new Snapshots(null, null, clusterSnapshot)));
         }
 
         ClusterEntry clusterEntry() {

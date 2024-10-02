@@ -20,7 +20,7 @@ import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 
-public interface ClientFilter extends Client<Request, Response> {
+public interface ClientFilter<I extends Request, O extends Response> extends Client<I, O> {
 
     String typeUrl();
 }

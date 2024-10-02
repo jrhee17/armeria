@@ -16,9 +16,9 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.linecorp.armeria.internal.common.util.CollectionUtil.truncate;
+import static com.linecorp.armeria.xds.client.endpoint.FilterUtils.buildDownstreamFilter;
 
 import java.util.HashMap;
 import java.util.List;
@@ -35,22 +35,23 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.InvalidProtocolBufferException;
 
+import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.Request;
+import com.linecorp.armeria.common.Response;
+import com.linecorp.armeria.common.RpcRequest;
+import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.client.endpoint.ClusterEntries.RegexVHostMatcher.RegexVHostMatcherBuilder;
 import com.linecorp.armeria.xds.client.endpoint.VirtualHostMatcher.VirtualHostMatcherBuilder;
-import com.linecorp.armeria.xds.internal.common.ClientFilter;
-import com.linecorp.armeria.xds.internal.common.FilterFactory;
-import com.linecorp.armeria.xds.internal.common.FilterFactoryRegistry;
 
 import io.envoyproxy.envoy.config.route.v3.Route;
 import io.envoyproxy.envoy.config.route.v3.VirtualHost;
-import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager;
-import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter;
-import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter.ConfigTypeCase;
 
 final class ClusterEntries {
 
@@ -64,7 +65,10 @@ final class ClusterEntries {
     final Map<String, VirtualHostMatcher> virtualHostMatchers;
     final List<RegexVHostMatcher> regexVHostMatchers;
     private final boolean ignorePortInHostMatching;
-    private final Function<? super ClientFilter, ? extends ClientFilter> downstreamFilter;
+    private final Function<? super Client<HttpRequest, HttpResponse>,
+            ? extends Client<HttpRequest, HttpResponse>> downstreamHttpFilter;
+    private final Function<? super Client<RpcRequest, RpcResponse>,
+            ? extends Client<RpcRequest, RpcResponse>> downstreamRpcFilter;
 
     ClusterEntries(@Nullable ListenerSnapshot listenerSnapshot,
                    Map<String, ClusterEntrySnapshot> clusterEntriesMap) {
@@ -118,7 +122,7 @@ final class ClusterEntries {
         virtualHostMatchers = vHostBuilderMap.entrySet().stream()
                                              .filter(e -> !"*".equals(e.getKey()))
                                              .collect(toImmutableMap(Entry::getKey,
-                                                               e -> e.getValue().build()));
+                                                                     e -> e.getValue().build()));
         regexVHostMatchers = regexVHostBuilders
                 .values().stream()
                 .sorted((o1, o2) -> o2.domainRegexPattern.pattern().length() -
@@ -126,7 +130,20 @@ final class ClusterEntries {
                 .map(RegexVHostMatcherBuilder::build)
                 .collect(Collectors.toList());
 
-         downstreamFilter = buildDownstreamFilter(listenerSnapshot);
+        downstreamHttpFilter = buildDownstreamFilter(listenerSnapshot, (config, factory) -> {
+            try {
+                return factory.httpDecorator(config);
+            } catch (InvalidProtocolBufferException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        downstreamRpcFilter = buildDownstreamFilter(listenerSnapshot, (config, factory) -> {
+            try {
+                return factory.rpcDecorator(config);
+            } catch (InvalidProtocolBufferException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     @Nullable
@@ -134,48 +151,19 @@ final class ClusterEntries {
         return listenerSnapshot;
     }
 
-    Function<? super ClientFilter, ? extends ClientFilter> downstreamFilter() {
-        return downstreamFilter;
-    }
-
-    private static Function<? super ClientFilter, ? extends ClientFilter> buildDownstreamFilter(
-            @Nullable ListenerSnapshot listenerSnapshot) {
-        Function<? super ClientFilter, ? extends ClientFilter> decorator = Function.identity();
-        if (listenerSnapshot == null) {
-            return decorator;
+    public <I extends Request, O extends Response> Client<I, O> downstreamDecorate(
+            Client<I, O> delegate, I req) {
+        if (req instanceof HttpRequest) {
+            final Client<HttpRequest, HttpResponse> castDelegate = (Client<HttpRequest, HttpResponse>) delegate;
+            return (Client<I, O>) downstreamHttpFilter.apply(castDelegate);
         }
-        final HttpConnectionManager connectionManager = listenerSnapshot.xdsResource().connectionManager();
-        if (connectionManager == null) {
-            return decorator;
-        }
-        // the last filter should be a router
-        for (int i = connectionManager.getHttpFiltersCount() - 2; i >= 0; i--) {
-            final HttpFilter httpFilter = connectionManager.getHttpFilters(i);
-            if (httpFilter.getDisabled()) {
-                continue;
-            }
-            final FilterFactory filterFactory =
-                    FilterFactoryRegistry.INSTANCE.filterFactory(httpFilter.getName());
-            if (filterFactory == null) {
-                if (httpFilter.getIsOptional()) {
-                    continue;
-                }
-                throw new IllegalArgumentException("Couldn't find filter factory: " + httpFilter.getName());
-            }
-            checkArgument(httpFilter.getConfigTypeCase() == ConfigTypeCase.TYPED_CONFIG,
-                          "Only 'typed_config' is supported, but '%s' was supplied",
-                          httpFilter.getConfigTypeCase());
-            try {
-                decorator = decorator.andThen(filterFactory.decorator(httpFilter.getTypedConfig()));
-            } catch (InvalidProtocolBufferException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return decorator;
+        assert req instanceof RpcRequest;
+        final Client<RpcRequest, RpcResponse> castDelegate = (Client<RpcRequest, RpcResponse>) delegate;
+        return (Client<I, O>) downstreamRpcFilter.apply(castDelegate);
     }
 
     @Nullable
-    public ClusterEntry selectNow(ClientRequestContext ctx) {
+    public ClusterEntrySnapshot selectNow(ClientRequestContext ctx) {
         if (defaultVirtualHostMatcher != null && virtualHostMatchers.isEmpty() &&
             regexVHostMatchers.isEmpty()) {
             return defaultVirtualHostMatcher.selectNow(ctx);

@@ -36,7 +36,7 @@ final class VirtualHostMatcher {
     }
 
     @Nullable
-    ClusterEntry selectNow(ClientRequestContext ctx) {
+    ClusterEntrySnapshot selectNow(ClientRequestContext ctx) {
         for (RouteMatcher routeMatcher: routeMatchers) {
             if (routeMatcher.matches(ctx)) {
                 return routeMatcher.selectNow(ctx);

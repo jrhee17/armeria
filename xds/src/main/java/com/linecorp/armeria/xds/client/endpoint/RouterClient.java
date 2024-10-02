@@ -1,0 +1,96 @@
+/*
+ * Copyright 2024 LINE Corporation
+ *
+ * LINE Corporation licenses this file to you under the Apache License,
+ * version 2.0 (the "License"); you may not use this file except in compliance
+ * with the License. You may obtain a copy of the License at:
+ *
+ *   https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ */
+
+package com.linecorp.armeria.xds.client.endpoint;
+
+import static com.linecorp.armeria.internal.client.ClientUtil.fail;
+import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
+import com.linecorp.armeria.client.Client;
+import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.common.Flags;
+import com.linecorp.armeria.common.Request;
+import com.linecorp.armeria.common.Response;
+import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
+
+import io.netty.util.concurrent.EventExecutor;
+
+final class RouterClient<I extends Request, O extends Response>
+        implements Client<I, O> {
+
+    private final Client<I, O> delegate;
+    private final ClusterEntries clusterEntries;
+    private final Function<CompletableFuture<O>, O> futureConverter;
+    private final BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory;
+    private final EventExecutor temporaryEventLoop;
+    private static final long defaultSelectionTimeoutMillis = Flags.defaultConnectTimeoutMillis();
+
+    RouterClient(Client<I, O> delegate,
+                 ClusterEntries clusterEntries,
+                 Function<CompletableFuture<O>, O> futureConverter,
+                 BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory,
+                 EventExecutor temporaryEventLoop) {
+        this.delegate = delegate;
+        this.clusterEntries = clusterEntries;
+        this.futureConverter = futureConverter;
+        this.errorResponseFactory = errorResponseFactory;
+        this.temporaryEventLoop = temporaryEventLoop;
+    }
+
+    @Override
+    public O execute(ClientRequestContext ctx, I req) throws Exception {
+        final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
+        assert ctxExt != null;
+        final ClusterEntrySnapshot clusterEntrySnapshot = clusterEntries.selectNow(ctx);
+        if (clusterEntrySnapshot == null) {
+            // A null ClusterEntry is most likely caused by a misconfigured RouteConfiguration.
+            // Waiting most likely doesn't help, so we just throw early.
+            throw new RuntimeException();
+        }
+        // set up upstream filters using snapshots
+        final Client<I, O> maybeDecorated = clusterEntrySnapshot.upstreamDecorate(delegate, req);
+
+        // now select the endpoint
+        final ClusterEntry clusterEntry = clusterEntrySnapshot.entry();
+        final Endpoint endpoint = clusterEntry.selectNow(ctx);
+        if (endpoint != null) {
+            return initContextAndExecuteWithFallback(maybeDecorated, ctxExt, endpoint,
+                                                     futureConverter, errorResponseFactory, req);
+        }
+
+        return futureConverter.apply(
+                clusterEntry.select(ctxExt, temporaryEventLoop, defaultSelectionTimeoutMillis)
+                            .handle((endpoint0, cause) -> {
+                                if (cause != null) {
+                                    fail(ctx, cause);
+                                    return errorResponseFactory.apply(ctx, cause);
+                                }
+                                try {
+                                    return initContextAndExecuteWithFallback(
+                                            maybeDecorated, ctxExt, endpoint0,
+                                            futureConverter, errorResponseFactory, req);
+                                } catch (Exception e) {
+                                    fail(ctx, e);
+                                    return errorResponseFactory.apply(ctx, e);
+                                }
+                            }));
+    }
+}

@@ -51,13 +51,13 @@ import io.envoyproxy.envoy.extensions.filters.http.header_to_metadata.v3.Config.
 import io.envoyproxy.envoy.extensions.filters.http.header_to_metadata.v3.Config.ValueType;
 import io.envoyproxy.envoy.type.matcher.v3.RegexMatchAndSubstitute;
 
-final class HeaderToMetadataFilter implements ClientFilter {
+final class HeaderToMetadataFilter<I extends Request, O extends Response> implements Client<I, O> {
 
     private static final int MAX_HEADER_VALUE_LEN = 8 * 1024;
     private final List<RuleSelector> requestRuleSelectors;
-    private final Client<Request, Response>  delegate;
+    private final Client<I, O> delegate;
 
-    HeaderToMetadataFilter(Snapshots snapshots, Client<Request, Response> delegate) {
+    HeaderToMetadataFilter(Snapshots snapshots, Client<I, O> delegate) {
         final RouteSnapshot routeSnapshot = snapshots.routeSnapshot();
         assert routeSnapshot != null;
         final Config config = config(routeSnapshot, snapshots.clusterSnapshot());
@@ -66,19 +66,14 @@ final class HeaderToMetadataFilter implements ClientFilter {
         this.delegate = delegate;
     }
 
-    HeaderToMetadataFilter(Config config, Client<Request, Response> delegate) {
+    HeaderToMetadataFilter(Config config, Client<I, O> delegate) {
         requestRuleSelectors = config.getRequestRulesList().stream()
                                      .map(RuleSelector::new).collect(toImmutableList());
         this.delegate = delegate;
     }
 
     @Override
-    public String typeUrl() {
-        return HeaderToMetadataFilterFactory.TYPE_URL;
-    }
-
-    @Override
-    public Response execute(ClientRequestContext ctx, Request req) throws Exception {
+    public O execute(ClientRequestContext ctx, I req) throws Exception {
         if (!(req instanceof HttpRequest)) {
             return delegate.execute(ctx, req);
         }
@@ -166,19 +161,19 @@ final class HeaderToMetadataFilter implements ClientFilter {
         if (!Strings.isNullOrEmpty(namespace)) {
             return namespace;
         }
-        return typeUrl();
+        return HeaderToMetadataFilterFactory.TYPE_URL;
     }
 
     Config config(RouteSnapshot routeSnapshot, ClusterSnapshot clusterSnapshot) {
-        ParsedFilterConfig config = clusterSnapshot.routeFilterConfig(typeUrl());
+        ParsedFilterConfig config = clusterSnapshot.routeFilterConfig(HeaderToMetadataFilterFactory.TYPE_URL);
         if (config != null) {
             return config.parsed(Config.class);
         }
-        config = clusterSnapshot.virtualHostFilterConfig(typeUrl());
+        config = clusterSnapshot.virtualHostFilterConfig(HeaderToMetadataFilterFactory.TYPE_URL);
         if (config != null) {
             return config.parsed(Config.class);
         }
-        config = routeSnapshot.typedPerFilterConfig(typeUrl());
+        config = routeSnapshot.typedPerFilterConfig(HeaderToMetadataFilterFactory.TYPE_URL);
         if (config != null) {
             return config.parsed(Config.class);
         }

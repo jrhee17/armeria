@@ -21,6 +21,12 @@ import java.util.function.Function;
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 
+import com.linecorp.armeria.client.Client;
+import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.RpcRequest;
+import com.linecorp.armeria.common.RpcResponse;
+
 import io.envoyproxy.envoy.extensions.filters.http.header_to_metadata.v3.Config;
 
 final class HeaderToMetadataFilterFactory implements FilterFactory {
@@ -31,14 +37,16 @@ final class HeaderToMetadataFilterFactory implements FilterFactory {
     private HeaderToMetadataFilterFactory() {}
 
     @Override
-    public Function<? super ClientFilter, ? extends ClientFilter> decorator(Snapshots snapshots) {
-        return delegate -> new HeaderToMetadataFilter(snapshots, delegate);
+    public Function<? super Client<RpcRequest, RpcResponse>, ? extends Client<RpcRequest, RpcResponse>>
+    rpcDecorator(Any anyConfig) throws InvalidProtocolBufferException {
+        final Config config = anyConfig.unpack(Config.class);
+        return delegate -> new HeaderToMetadataFilter<>(config, delegate);
     }
 
     @Override
-    public Function<? super ClientFilter, ? extends ClientFilter> decorator(Any anyConfig)
-            throws InvalidProtocolBufferException {
+    public Function<? super Client<HttpRequest, HttpResponse>, ? extends Client<HttpRequest, HttpResponse>>
+    httpDecorator(Any anyConfig) throws InvalidProtocolBufferException {
         final Config config = anyConfig.unpack(Config.class);
-        return delegate -> new HeaderToMetadataFilter(config, delegate);
+        return delegate -> new HeaderToMetadataFilter<>(config, delegate);
     }
 }

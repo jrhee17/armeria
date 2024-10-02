@@ -16,8 +16,20 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import java.util.concurrent.CompletableFuture;
+import static com.linecorp.armeria.xds.client.endpoint.FilterUtils.buildUpstreamFilter;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+
+import com.google.protobuf.InvalidProtocolBufferException;
+
+import com.linecorp.armeria.client.Client;
+import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.Request;
+import com.linecorp.armeria.common.Response;
+import com.linecorp.armeria.common.RpcRequest;
+import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.xds.internal.common.Snapshots;
 
@@ -25,10 +37,40 @@ final class ClusterEntrySnapshot implements AsyncCloseable {
 
     private final ClusterEntry clusterEntry;
     private final Snapshots snapshots;
+    private final Function<? super Client<HttpRequest, HttpResponse>,
+            ? extends Client<HttpRequest, HttpResponse>> upstreamHttpFilter;
+    private final Function<? super Client<RpcRequest, RpcResponse>,
+            ? extends Client<RpcRequest, RpcResponse>> upstreamRpcFilter;
 
     ClusterEntrySnapshot(ClusterEntry clusterEntry, Snapshots snapshots) {
         this.clusterEntry = clusterEntry;
         this.snapshots = snapshots;
+
+        upstreamHttpFilter = buildUpstreamFilter(snapshots.listenerSnapshot(), (config, factory) -> {
+            try {
+                return factory.httpDecorator(config);
+            } catch (InvalidProtocolBufferException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        upstreamRpcFilter = buildUpstreamFilter(snapshots.listenerSnapshot(), (config, factory) -> {
+            try {
+                return factory.rpcDecorator(config);
+            } catch (InvalidProtocolBufferException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    public <I extends Request, O extends Response> Client<I, O> upstreamDecorate(
+            Client<I, O> delegate, I req) {
+        if (req instanceof HttpRequest) {
+            final Client<HttpRequest, HttpResponse> castDelegate = (Client<HttpRequest, HttpResponse>) delegate;
+            return (Client<I, O>) upstreamHttpFilter.apply(castDelegate);
+        }
+        assert req instanceof RpcRequest;
+        final Client<RpcRequest, RpcResponse> castDelegate = (Client<RpcRequest, RpcResponse>) delegate;
+        return (Client<I, O>) upstreamRpcFilter.apply(castDelegate);
     }
 
     ClusterEntry entry() {

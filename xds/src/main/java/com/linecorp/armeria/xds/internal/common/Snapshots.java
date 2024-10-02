@@ -18,16 +18,26 @@ package com.linecorp.armeria.xds.internal.common;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
+import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.RouteSnapshot;
 
 public final class Snapshots {
     @Nullable
+    private final ListenerSnapshot listenerSnapshot;
+    @Nullable
     private final RouteSnapshot routeSnapshot;
     private final ClusterSnapshot clusterSnapshot;
 
-    public Snapshots(@Nullable RouteSnapshot routeSnapshot, ClusterSnapshot clusterSnapshot) {
+    public Snapshots(@Nullable ListenerSnapshot listenerSnapshot,
+                     @Nullable RouteSnapshot routeSnapshot, ClusterSnapshot clusterSnapshot) {
+        this.listenerSnapshot = listenerSnapshot;
         this.routeSnapshot = routeSnapshot;
         this.clusterSnapshot = clusterSnapshot;
+    }
+
+    @Nullable
+    public ListenerSnapshot listenerSnapshot() {
+        return listenerSnapshot;
     }
 
     @Nullable
