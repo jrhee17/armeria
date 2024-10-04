@@ -39,9 +39,6 @@ import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.ClusterSnapshot;
-import com.linecorp.armeria.xds.ParsedFilterConfig;
-import com.linecorp.armeria.xds.RouteSnapshot;
 
 import io.envoyproxy.envoy.config.core.v3.Metadata;
 import io.envoyproxy.envoy.extensions.filters.http.header_to_metadata.v3.Config;
@@ -56,15 +53,6 @@ final class HeaderToMetadataFilter<I extends Request, O extends Response> implem
     private static final int MAX_HEADER_VALUE_LEN = 8 * 1024;
     private final List<RuleSelector> requestRuleSelectors;
     private final Client<I, O> delegate;
-
-    HeaderToMetadataFilter(Snapshots snapshots, Client<I, O> delegate) {
-        final RouteSnapshot routeSnapshot = snapshots.routeSnapshot();
-        assert routeSnapshot != null;
-        final Config config = config(routeSnapshot, snapshots.clusterSnapshot());
-        requestRuleSelectors = config.getRequestRulesList().stream()
-                                     .map(RuleSelector::new).collect(toImmutableList());
-        this.delegate = delegate;
-    }
 
     HeaderToMetadataFilter(Config config, Client<I, O> delegate) {
         requestRuleSelectors = config.getRequestRulesList().stream()
@@ -162,22 +150,6 @@ final class HeaderToMetadataFilter<I extends Request, O extends Response> implem
             return namespace;
         }
         return HeaderToMetadataFilterFactory.TYPE_URL;
-    }
-
-    Config config(RouteSnapshot routeSnapshot, ClusterSnapshot clusterSnapshot) {
-        ParsedFilterConfig config = clusterSnapshot.routeFilterConfig(HeaderToMetadataFilterFactory.TYPE_URL);
-        if (config != null) {
-            return config.parsed(Config.class);
-        }
-        config = clusterSnapshot.virtualHostFilterConfig(HeaderToMetadataFilterFactory.TYPE_URL);
-        if (config != null) {
-            return config.parsed(Config.class);
-        }
-        config = routeSnapshot.typedPerFilterConfig(HeaderToMetadataFilterFactory.TYPE_URL);
-        if (config != null) {
-            return config.parsed(Config.class);
-        }
-        return Config.getDefaultInstance();
     }
 
     static class RuleSelector {

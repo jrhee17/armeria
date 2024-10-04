@@ -21,8 +21,6 @@ import static com.linecorp.armeria.xds.client.endpoint.FilterUtils.buildUpstream
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
-import com.google.protobuf.InvalidProtocolBufferException;
-
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
@@ -31,6 +29,7 @@ import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.util.AsyncCloseable;
+import com.linecorp.armeria.xds.client.endpoint.FilterUtils.XdsHttpFilter;
 import com.linecorp.armeria.xds.internal.common.Snapshots;
 
 final class ClusterEntrySnapshot implements AsyncCloseable {
@@ -46,20 +45,9 @@ final class ClusterEntrySnapshot implements AsyncCloseable {
         this.clusterEntry = clusterEntry;
         this.snapshots = snapshots;
 
-        upstreamHttpFilter = buildUpstreamFilter(snapshots.listenerSnapshot(), (config, factory) -> {
-            try {
-                return factory.httpDecorator(config);
-            } catch (InvalidProtocolBufferException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        upstreamRpcFilter = buildUpstreamFilter(snapshots.listenerSnapshot(), (config, factory) -> {
-            try {
-                return factory.rpcDecorator(config);
-            } catch (InvalidProtocolBufferException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        final XdsHttpFilter xdsHttpFilter = buildUpstreamFilter(snapshots.listenerSnapshot(), snapshots);
+        upstreamHttpFilter = xdsHttpFilter.httpDecorator();
+        upstreamRpcFilter = xdsHttpFilter.rpcDecorator();
     }
 
     public <I extends Request, O extends Response> Client<I, O> upstreamDecorate(

@@ -33,7 +33,6 @@ import com.google.common.base.Objects;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.protobuf.InvalidProtocolBufferException;
 
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
@@ -48,6 +47,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.client.endpoint.ClusterEntries.RegexVHostMatcher.RegexVHostMatcherBuilder;
+import com.linecorp.armeria.xds.client.endpoint.FilterUtils.XdsHttpFilter;
 import com.linecorp.armeria.xds.client.endpoint.VirtualHostMatcher.VirtualHostMatcherBuilder;
 
 import io.envoyproxy.envoy.config.route.v3.Route;
@@ -130,20 +130,9 @@ final class ClusterEntries {
                 .map(RegexVHostMatcherBuilder::build)
                 .collect(Collectors.toList());
 
-        downstreamHttpFilter = buildDownstreamFilter(listenerSnapshot, (config, factory) -> {
-            try {
-                return factory.httpDecorator(config);
-            } catch (InvalidProtocolBufferException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        downstreamRpcFilter = buildDownstreamFilter(listenerSnapshot, (config, factory) -> {
-            try {
-                return factory.rpcDecorator(config);
-            } catch (InvalidProtocolBufferException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        final XdsHttpFilter xdsHttpFilter = buildDownstreamFilter(listenerSnapshot);
+        downstreamHttpFilter = xdsHttpFilter.httpDecorator();
+        downstreamRpcFilter = xdsHttpFilter.rpcDecorator();
     }
 
     @Nullable

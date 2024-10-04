@@ -18,8 +18,7 @@ package com.linecorp.armeria.xds.internal.common;
 
 import java.util.function.Function;
 
-import com.google.protobuf.Any;
-import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
 
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.common.HttpRequest;
@@ -30,19 +29,21 @@ import com.linecorp.armeria.common.RpcResponse;
 /**
  * TBU.
  */
-public interface FilterFactory {
+public interface FilterFactory<T extends Message> {
 
     /**
      * TBU.
      */
     Function<? super Client<RpcRequest, RpcResponse>,
-            ? extends Client<RpcRequest, RpcResponse>> rpcDecorator(Any config)
-            throws InvalidProtocolBufferException;
+            ? extends Client<RpcRequest, RpcResponse>> rpcDecorator(T config);
 
     /**
      * TBU.
      */
     Function<? super Client<HttpRequest, HttpResponse>,
-            ? extends Client<HttpRequest, HttpResponse>> httpDecorator(Any config)
-            throws InvalidProtocolBufferException;
+            ? extends Client<HttpRequest, HttpResponse>> httpDecorator(T config);
+
+    Class<T> configClass();
+
+    String typeUrl();
 }

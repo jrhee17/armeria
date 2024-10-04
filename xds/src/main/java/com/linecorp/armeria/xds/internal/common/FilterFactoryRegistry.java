@@ -26,17 +26,17 @@ public final class FilterFactoryRegistry {
 
     public static final FilterFactoryRegistry INSTANCE = new FilterFactoryRegistry();
 
-    private final Map<String, FilterFactory> filterFactories;
+    private final Map<String, FilterFactory<?>> filterFactories;
 
     private FilterFactoryRegistry() {
         filterFactories = ImmutableMap
-                .<String, FilterFactory>builder()
+                .<String, FilterFactory<?>>builder()
                 .put(HeaderToMetadataFilterFactory.TYPE_URL, HeaderToMetadataFilterFactory.INSTANCE)
                 .build();
     }
 
     @Nullable
-    public FilterFactory filterFactory(String name) {
+    public FilterFactory<?> filterFactory(String name) {
         return filterFactories.get(name);
     }
 }

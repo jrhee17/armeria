@@ -16,9 +16,12 @@
 
 package com.linecorp.armeria.xds.internal.common;
 
+import com.google.protobuf.Message;
+
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
+import com.linecorp.armeria.xds.ParsedFilterConfig;
 import com.linecorp.armeria.xds.RouteSnapshot;
 
 public final class Snapshots {
@@ -33,6 +36,26 @@ public final class Snapshots {
         this.listenerSnapshot = listenerSnapshot;
         this.routeSnapshot = routeSnapshot;
         this.clusterSnapshot = clusterSnapshot;
+    }
+
+    @Nullable
+    public <T extends Message> T config(String typeUrl, Class<T> configClazz) {
+        ParsedFilterConfig config = clusterSnapshot.routeFilterConfig(typeUrl);
+        if (config != null) {
+            return config.parsed(configClazz);
+        }
+        config = clusterSnapshot.virtualHostFilterConfig(typeUrl);
+        if (config != null) {
+            return config.parsed(configClazz);
+        }
+        if (routeSnapshot == null) {
+            return null;
+        }
+        config = routeSnapshot.typedPerFilterConfig(typeUrl);
+        if (config != null) {
+            return config.parsed(configClazz);
+        }
+        return null;
     }
 
     @Nullable
