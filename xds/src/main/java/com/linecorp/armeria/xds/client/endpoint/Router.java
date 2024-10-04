@@ -46,19 +46,19 @@ import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
-import com.linecorp.armeria.xds.client.endpoint.ClusterEntries.RegexVHostMatcher.RegexVHostMatcherBuilder;
 import com.linecorp.armeria.xds.client.endpoint.FilterUtils.XdsHttpFilter;
+import com.linecorp.armeria.xds.client.endpoint.Router.RegexVHostMatcher.RegexVHostMatcherBuilder;
 import com.linecorp.armeria.xds.client.endpoint.VirtualHostMatcher.VirtualHostMatcherBuilder;
 
 import io.envoyproxy.envoy.config.route.v3.Route;
 import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 
-public final class ClusterEntries {
+final class Router {
 
-    static final ClusterEntries INITIAL_STATE = new ClusterEntries(null, ImmutableMap.of());
+    static final Router INITIAL_STATE = new Router(null, ImmutableMap.of());
     @Nullable
     private final ListenerSnapshot listenerSnapshot;
-    private final Map<String, ClusterEntrySnapshot> clusterEntriesMap;
+    private final Map<String, RouteEntry> clusterEntriesMap;
 
     @Nullable
     private final VirtualHostMatcher defaultVirtualHostMatcher;
@@ -70,8 +70,8 @@ public final class ClusterEntries {
     private final Function<? super Client<RpcRequest, RpcResponse>,
             ? extends Client<RpcRequest, RpcResponse>> downstreamRpcFilter;
 
-    ClusterEntries(@Nullable ListenerSnapshot listenerSnapshot,
-                   Map<String, ClusterEntrySnapshot> clusterEntriesMap) {
+    Router(@Nullable ListenerSnapshot listenerSnapshot,
+           Map<String, RouteEntry> clusterEntriesMap) {
         this.listenerSnapshot = listenerSnapshot;
 
         this.clusterEntriesMap = clusterEntriesMap;
@@ -84,8 +84,8 @@ public final class ClusterEntries {
 
         final Map<String, VirtualHostMatcherBuilder> vHostBuilderMap = new HashMap<>();
         final Map<String, RegexVHostMatcherBuilder> regexVHostBuilders = new HashMap<>();
-        for (ClusterEntrySnapshot clusterEntrySnapshot : clusterEntriesMap.values()) {
-            final ClusterSnapshot clusterSnapshot = clusterEntrySnapshot.snapshots().clusterSnapshot();
+        for (RouteEntry routeEntry : clusterEntriesMap.values()) {
+            final ClusterSnapshot clusterSnapshot = routeEntry.snapshots().clusterSnapshot();
             final VirtualHost virtualHost = clusterSnapshot.virtualHost();
             final Route route = clusterSnapshot.route();
             if (virtualHost == null || route == null) {
@@ -101,7 +101,7 @@ public final class ClusterEntries {
                         throw new IllegalArgumentException("Duplicate domain name [" + domain +
                                                            "] found for virtual hosts");
                     }
-                    builder.virtualHostMatcherBuilder.addClusterEntrySnapshot(route, clusterEntrySnapshot);
+                    builder.virtualHostMatcherBuilder.addClusterEntrySnapshot(route, routeEntry);
                 } else {
                     final VirtualHostMatcherBuilder builder = vHostBuilderMap.computeIfAbsent(
                             domain, ignored -> matcherBuilder);
@@ -109,7 +109,7 @@ public final class ClusterEntries {
                         throw new IllegalArgumentException("Duplicate domain name [" + domain +
                                                            "] found for virtual hosts");
                     }
-                    builder.addClusterEntrySnapshot(route, clusterEntrySnapshot);
+                    builder.addClusterEntrySnapshot(route, routeEntry);
                 }
             }
         }
@@ -135,11 +135,6 @@ public final class ClusterEntries {
         downstreamRpcFilter = xdsHttpFilter.rpcDecorator();
     }
 
-    @Nullable
-    ListenerSnapshot listenerSnapshot() {
-        return listenerSnapshot;
-    }
-
     public <I extends Request, O extends Response> Client<I, O> downstreamDecorate(
             Client<I, O> delegate, I req) {
         if (req instanceof HttpRequest) {
@@ -152,7 +147,7 @@ public final class ClusterEntries {
     }
 
     @Nullable
-    public ClusterEntrySnapshot selectNow(ClientRequestContext ctx) {
+    public RouteEntry selectNow(ClientRequestContext ctx) {
         if (defaultVirtualHostMatcher != null && virtualHostMatchers.isEmpty() &&
             regexVHostMatchers.isEmpty()) {
             return defaultVirtualHostMatcher.selectNow(ctx);
@@ -182,13 +177,13 @@ public final class ClusterEntries {
             return new State(listenerSnapshot, ImmutableList.of());
         }
         final ImmutableList.Builder<Endpoint> endpointsBuilder = ImmutableList.builder();
-        for (ClusterEntrySnapshot clusterEntry : clusterEntriesMap.values()) {
+        for (RouteEntry clusterEntry : clusterEntriesMap.values()) {
             endpointsBuilder.addAll(clusterEntry.entry().allEndpoints());
         }
         return new State(listenerSnapshot, endpointsBuilder.build());
     }
 
-    Map<String, ClusterEntrySnapshot> clusterEntriesMap() {
+    Map<String, RouteEntry> clusterEntriesMap() {
         return clusterEntriesMap;
     }
 

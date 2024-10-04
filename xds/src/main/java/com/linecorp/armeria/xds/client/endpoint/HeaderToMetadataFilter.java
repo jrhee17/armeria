@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.internal.common;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -39,6 +39,7 @@ import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.xds.internal.common.XdsAttributeKeys;
 
 import io.envoyproxy.envoy.config.core.v3.Metadata;
 import io.envoyproxy.envoy.extensions.filters.http.header_to_metadata.v3.Config;

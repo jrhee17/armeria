@@ -22,18 +22,18 @@ import io.envoyproxy.envoy.config.route.v3.Route;
 
 final class RouteMatcher {
     private final Route route;
-    private final ClusterEntrySnapshot clusterEntrySnapshot;
+    private final RouteEntry routeEntry;
 
-    RouteMatcher(Route route, ClusterEntrySnapshot clusterEntrySnapshot) {
+    RouteMatcher(Route route, RouteEntry routeEntry) {
         this.route = route;
-        this.clusterEntrySnapshot = clusterEntrySnapshot;
+        this.routeEntry = routeEntry;
     }
 
     boolean matches(ClientRequestContext ctx) {
         return true;
     }
 
-    ClusterEntrySnapshot selectNow(ClientRequestContext ctx) {
-        return clusterEntrySnapshot;
+    RouteEntry selectNow(ClientRequestContext ctx) {
+        return routeEntry;
     }
 }

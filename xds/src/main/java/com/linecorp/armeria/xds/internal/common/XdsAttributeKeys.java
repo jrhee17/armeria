@@ -16,14 +16,10 @@
 
 package com.linecorp.armeria.xds.internal.common;
 
-import com.linecorp.armeria.internal.client.ResponseFactory;
-import com.linecorp.armeria.xds.client.endpoint.ClusterEntries;
-
 import io.envoyproxy.envoy.config.core.v3.Metadata;
 import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
 import io.netty.util.AttributeKey;
-import io.netty.util.concurrent.EventExecutor;
 
 public final class XdsAttributeKeys {
 
@@ -35,13 +31,6 @@ public final class XdsAttributeKeys {
             AttributeKey.valueOf(XdsAttributeKeys.class, "XDS_RANDOM");
     public static final AttributeKey<Metadata> METADATA =
             AttributeKey.valueOf(XdsAttributeKeys.class, "METADATA");
-
-    public static final AttributeKey<ResponseFactory<?>> RESPONSE_FACTORY =
-            AttributeKey.valueOf(XdsAttributeKeys.class, "RESPONSE_FACTORY");
-    public static final AttributeKey<EventExecutor> TEMPORARY_EVENT_LOOP =
-            AttributeKey.valueOf(XdsAttributeKeys.class, "TEMPORARY_EVENT_LOOP");
-    public static final AttributeKey<ClusterEntries> CLUSTER_ENTRIES =
-            AttributeKey.valueOf(XdsAttributeKeys.class, "TEMPORARY_EVENT_LOOP");
 
     private XdsAttributeKeys() {}
 }

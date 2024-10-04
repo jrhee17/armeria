@@ -36,7 +36,7 @@ final class VirtualHostMatcher {
     }
 
     @Nullable
-    ClusterEntrySnapshot selectNow(ClientRequestContext ctx) {
+    RouteEntry selectNow(ClientRequestContext ctx) {
         for (RouteMatcher routeMatcher: routeMatchers) {
             if (routeMatcher.matches(ctx)) {
                 return routeMatcher.selectNow(ctx);
@@ -54,8 +54,8 @@ final class VirtualHostMatcher {
             this.virtualHost = virtualHost;
         }
 
-        void addClusterEntrySnapshot(Route route, ClusterEntrySnapshot clusterEntrySnapshot) {
-            routeMatcherBuilders.add(new RouteMatcher(route, clusterEntrySnapshot));
+        void addClusterEntrySnapshot(Route route, RouteEntry routeEntry) {
+            routeMatcherBuilders.add(new RouteMatcher(route, routeEntry));
         }
 
         VirtualHost virtualHost() {

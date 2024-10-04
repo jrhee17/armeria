@@ -32,7 +32,7 @@ import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.xds.client.endpoint.FilterUtils.XdsHttpFilter;
 import com.linecorp.armeria.xds.internal.common.Snapshots;
 
-final class ClusterEntrySnapshot implements AsyncCloseable {
+final class RouteEntry implements AsyncCloseable {
 
     private final ClusterEntry clusterEntry;
     private final Snapshots snapshots;
@@ -41,7 +41,7 @@ final class ClusterEntrySnapshot implements AsyncCloseable {
     private final Function<? super Client<RpcRequest, RpcResponse>,
             ? extends Client<RpcRequest, RpcResponse>> upstreamRpcFilter;
 
-    ClusterEntrySnapshot(ClusterEntry clusterEntry, Snapshots snapshots) {
+    RouteEntry(ClusterEntry clusterEntry, Snapshots snapshots) {
         this.clusterEntry = clusterEntry;
         this.snapshots = snapshots;
 

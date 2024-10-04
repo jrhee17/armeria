@@ -22,11 +22,11 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.internal.common.AbstractSelector;
 
-final class ClusterEntriesSelector extends AbstractSelector<ClusterEntries>
-        implements Consumer<ClusterEntries> {
+final class ClusterEntriesSelector extends AbstractSelector<Router>
+        implements Consumer<Router> {
 
     @Nullable
-    private volatile ClusterEntries clusterEntries;
+    private volatile Router router;
 
     ClusterEntriesSelector(ClusterManager clusterManager) {
         clusterManager.addListener(this);
@@ -34,12 +34,12 @@ final class ClusterEntriesSelector extends AbstractSelector<ClusterEntries>
 
     @Override
     @Nullable
-    protected ClusterEntries selectNow(ClientRequestContext ctx) {
-        return clusterEntries;
+    protected Router selectNow(ClientRequestContext ctx) {
+        return router;
     }
 
     @Override
-    public void accept(ClusterEntries clusterEntries) {
-        this.clusterEntries = clusterEntries;
+    public void accept(Router router) {
+        this.router = router;
     }
 }

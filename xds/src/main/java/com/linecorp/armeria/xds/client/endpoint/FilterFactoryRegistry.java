@@ -14,16 +14,15 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.internal.common;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.Map;
 
 import com.google.common.collect.ImmutableMap;
 
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.RouterFilterFactory;
 
-public final class FilterFactoryRegistry {
+final class FilterFactoryRegistry {
 
     public static final FilterFactoryRegistry INSTANCE = new FilterFactoryRegistry();
 

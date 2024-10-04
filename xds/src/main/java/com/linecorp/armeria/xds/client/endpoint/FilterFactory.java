@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.internal.common;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.function.Function;
 
@@ -29,7 +29,7 @@ import com.linecorp.armeria.common.RpcResponse;
 /**
  * TBU.
  */
-public interface FilterFactory<T extends Message> {
+interface FilterFactory<T extends Message> {
 
     /**
      * TBU.

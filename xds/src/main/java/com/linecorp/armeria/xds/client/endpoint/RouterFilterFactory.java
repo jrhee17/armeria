@@ -23,25 +23,32 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
-import com.linecorp.armeria.xds.internal.common.FilterFactory;
 
 import io.envoyproxy.envoy.extensions.filters.http.router.v3.Router;
 
+/**
+ * TBU.
+ */
 public final class RouterFilterFactory implements FilterFactory<Router> {
 
     public static final String NAME = "envoy.filters.http.router";
     public static final FilterFactory<Router> INSTANCE = new RouterFilterFactory();
 
+    /**
+     * TBU.
+     */
+    public RouterFilterFactory() {}
+
     @Override
-    public Function<? super Client<RpcRequest, RpcResponse>, ? extends Client<RpcRequest, RpcResponse>> rpcDecorator(
-            Router config) {
-        return RouterClient::new;
+    public Function<? super Client<RpcRequest, RpcResponse>,
+            ? extends Client<RpcRequest, RpcResponse>> rpcDecorator(Router config) {
+        return RouterFilter::new;
     }
 
     @Override
-    public Function<? super Client<HttpRequest, HttpResponse>, ? extends Client<HttpRequest, HttpResponse>> httpDecorator(
-            Router config) {
-        return RouterClient::new;
+    public Function<? super Client<HttpRequest, HttpResponse>,
+            ? extends Client<HttpRequest, HttpResponse>> httpDecorator(Router config) {
+        return RouterFilter::new;
     }
 
     @Override

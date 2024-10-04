@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.internal.common;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.function.Function;
 
@@ -30,8 +30,6 @@ final class HeaderToMetadataFilterFactory implements FilterFactory<Config> {
 
     static final HeaderToMetadataFilterFactory INSTANCE = new HeaderToMetadataFilterFactory();
     static final String TYPE_URL = "envoy.filters.http.header_to_metadata";
-
-    private HeaderToMetadataFilterFactory() {}
 
     @Override
     public Function<? super Client<RpcRequest, RpcResponse>, ? extends Client<RpcRequest, RpcResponse>>

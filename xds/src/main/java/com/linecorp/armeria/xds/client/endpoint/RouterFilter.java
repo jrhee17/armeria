@@ -27,16 +27,15 @@ import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.client.ResponseFactory;
-import com.linecorp.armeria.xds.internal.common.XdsAttributeKeys;
 
 import io.netty.util.concurrent.EventExecutor;
 
-final class RouterClient<I extends Request, O extends Response> implements Client<I, O> {
+final class RouterFilter<I extends Request, O extends Response> implements Client<I, O> {
 
     private final Client<I, O> delegate;
     private static final long defaultSelectionTimeoutMillis = Flags.defaultConnectTimeoutMillis();
 
-    RouterClient(Client<I, O> delegate) {
+    RouterFilter(Client<I, O> delegate) {
         this.delegate = delegate;
     }
 
@@ -44,29 +43,30 @@ final class RouterClient<I extends Request, O extends Response> implements Clien
     public O execute(ClientRequestContext ctx, I req) throws Exception {
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
-        final ClusterEntries clusterEntries = ctxExt.attr(XdsAttributeKeys.CLUSTER_ENTRIES);
-        assert clusterEntries != null;
-        final ClusterEntrySnapshot clusterEntrySnapshot = clusterEntries.selectNow(ctx);
-        if (clusterEntrySnapshot == null) {
+        final Router router = ctxExt.attr(XdsClientAttributeKeys.ROUTER);
+        assert router != null;
+        final RouteEntry routeEntry = router.selectNow(ctx);
+        if (routeEntry == null) {
             // A null ClusterEntry is most likely caused by a misconfigured RouteConfiguration.
             // Waiting most likely doesn't help, so we just throw early.
             throw new RuntimeException();
         }
         // set up upstream filters using snapshots
-        final Client<I, O> maybeDecorated = clusterEntrySnapshot.upstreamDecorate(delegate, req);
+        final Client<I, O> maybeDecorated = routeEntry.upstreamDecorate(delegate, req);
 
         // now select the endpoint
-        final ClusterEntry clusterEntry = clusterEntrySnapshot.entry();
+        final ClusterEntry clusterEntry = routeEntry.entry();
         final Endpoint endpoint = clusterEntry.selectNow(ctx);
+        @SuppressWarnings("unchecked")
         final ResponseFactory<O> responseFactory =
-                (ResponseFactory<O>) ctx.attr(XdsAttributeKeys.RESPONSE_FACTORY);
+                (ResponseFactory<O>) ctx.attr(XdsClientAttributeKeys.RESPONSE_FACTORY);
         assert responseFactory != null;
         if (endpoint != null) {
             return initContextAndExecuteWithFallback(maybeDecorated, ctxExt, endpoint,
                                                      responseFactory, req);
         }
 
-        final EventExecutor temporaryEventLoop = ctxExt.attr(XdsAttributeKeys.TEMPORARY_EVENT_LOOP);
+        final EventExecutor temporaryEventLoop = ctxExt.attr(XdsClientAttributeKeys.TEMPORARY_EVENT_LOOP);
         assert temporaryEventLoop != null;
         return responseFactory.futureConverter().apply(
                 clusterEntry.select(ctxExt, temporaryEventLoop, defaultSelectionTimeoutMillis)

@@ -29,7 +29,6 @@ import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.client.DefaultResponseFactory;
-import com.linecorp.armeria.xds.internal.common.XdsAttributeKeys;
 
 import io.netty.channel.EventLoop;
 
@@ -54,13 +53,13 @@ final class XdsClient<I extends Request, O extends Response> implements Client<I
     public O execute(ClientRequestContext ctx, I req) throws Exception {
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
-        ctxExt.setAttr(XdsAttributeKeys.RESPONSE_FACTORY,
+        ctxExt.setAttr(XdsClientAttributeKeys.RESPONSE_FACTORY,
                        new DefaultResponseFactory<>(futureConverter, errorResponseFactory));
         final EventLoop temporaryEventLoop = ctxExt.options().factory().eventLoopSupplier().get();
-        ctxExt.setAttr(XdsAttributeKeys.TEMPORARY_EVENT_LOOP, temporaryEventLoop);
-        final ClusterEntries clusterEntries = clusterEntriesSelector.selectNow(ctx);
-        if (clusterEntries != null) {
-            return execute0(ctxExt, req, clusterEntries);
+        ctxExt.setAttr(XdsClientAttributeKeys.TEMPORARY_EVENT_LOOP, temporaryEventLoop);
+        final Router router = clusterEntriesSelector.selectNow(ctx);
+        if (router != null) {
+            return execute0(ctxExt, req, router);
         }
 
         return futureConverter.apply(
@@ -79,8 +78,9 @@ final class XdsClient<I extends Request, O extends Response> implements Client<I
                                       }));
     }
 
-    private O execute0(ClientRequestContextExtension ctxExt, I req, ClusterEntries clusterEntries) throws Exception {
-        return clusterEntries.downstreamDecorate(delegate, req)
-                             .execute(ctxExt, req);
+    private O execute0(ClientRequestContextExtension ctxExt, I req, Router router) throws Exception {
+        ctxExt.setAttr(XdsClientAttributeKeys.ROUTER, router);
+        return router.downstreamDecorate(delegate, req)
+                     .execute(ctxExt, req);
     }
 }

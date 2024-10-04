@@ -32,8 +32,6 @@ import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ListenerSnapshot;
-import com.linecorp.armeria.xds.internal.common.FilterFactory;
-import com.linecorp.armeria.xds.internal.common.FilterFactoryRegistry;
 import com.linecorp.armeria.xds.internal.common.Snapshots;
 
 import io.envoyproxy.envoy.extensions.filters.http.router.v3.Router;
