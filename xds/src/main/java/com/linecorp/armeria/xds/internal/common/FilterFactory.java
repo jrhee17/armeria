@@ -45,5 +45,5 @@ public interface FilterFactory<T extends Message> {
 
     Class<T> configClass();
 
-    String typeUrl();
+    String filterName();
 }

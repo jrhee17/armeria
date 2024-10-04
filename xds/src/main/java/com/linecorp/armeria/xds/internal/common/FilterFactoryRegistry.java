@@ -21,6 +21,7 @@ import java.util.Map;
 import com.google.common.collect.ImmutableMap;
 
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.xds.client.endpoint.RouterFilterFactory;
 
 public final class FilterFactoryRegistry {
 
@@ -32,6 +33,7 @@ public final class FilterFactoryRegistry {
         filterFactories = ImmutableMap
                 .<String, FilterFactory<?>>builder()
                 .put(HeaderToMetadataFilterFactory.TYPE_URL, HeaderToMetadataFilterFactory.INSTANCE)
+                .put(RouterFilterFactory.NAME, RouterFilterFactory.INSTANCE)
                 .build();
     }
 

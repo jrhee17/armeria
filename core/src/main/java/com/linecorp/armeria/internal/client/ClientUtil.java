@@ -54,6 +54,17 @@ public final class ClientUtil {
             U delegate,
             ClientRequestContextExtension ctx,
             EndpointGroup endpointGroup,
+            ResponseFactory<O> factory,
+            I req) {
+        return initContextAndExecuteWithFallback(delegate, ctx, endpointGroup, factory.futureConverter(),
+                                                 factory.errorResponseFactory(), req);
+    }
+
+    public static <I extends Request, O extends Response, U extends Client<I, O>>
+    O initContextAndExecuteWithFallback(
+            U delegate,
+            ClientRequestContextExtension ctx,
+            EndpointGroup endpointGroup,
             Function<CompletableFuture<O>, O> futureConverter,
             BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory,
             I req) {

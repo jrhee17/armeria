@@ -71,8 +71,7 @@ final class FilterUtils {
 
     static XdsHttpFilter buildXdsHttpFilters(XdsHttpFilter decorator, List<HttpFilter> httpFilters,
                                              @Nullable Snapshots snapshots) {
-        // TODO: ignore Router until we have a better idea
-        for (int i = httpFilters.size() - 2; i >= 0; i--) {
+        for (int i = httpFilters.size() - 1; i >= 0; i--) {
             final HttpFilter httpFilter = httpFilters.get(i);
             if (httpFilter.getDisabled()) {
                 continue;
@@ -141,7 +140,7 @@ final class FilterUtils {
         private T computeFinalConfig(FilterFactory<T> filterFactory, Any anyConfig,
                                      @Nullable Snapshots snapshots) {
             if (snapshots != null) {
-                final T config = snapshots.config(filterFactory.typeUrl(), filterFactory.configClass());
+                final T config = snapshots.config(filterFactory.filterName(), filterFactory.configClass());
                 if (config != null) {
                     return config;
                 }

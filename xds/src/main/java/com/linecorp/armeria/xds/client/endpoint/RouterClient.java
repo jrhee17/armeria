@@ -19,10 +19,6 @@ package com.linecorp.armeria.xds.client.endpoint;
 import static com.linecorp.armeria.internal.client.ClientUtil.fail;
 import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
@@ -30,35 +26,26 @@ import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
+import com.linecorp.armeria.internal.client.ResponseFactory;
+import com.linecorp.armeria.xds.internal.common.XdsAttributeKeys;
 
 import io.netty.util.concurrent.EventExecutor;
 
-final class RouterClient<I extends Request, O extends Response>
-        implements Client<I, O> {
+final class RouterClient<I extends Request, O extends Response> implements Client<I, O> {
 
     private final Client<I, O> delegate;
-    private final ClusterEntries clusterEntries;
-    private final Function<CompletableFuture<O>, O> futureConverter;
-    private final BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory;
-    private final EventExecutor temporaryEventLoop;
     private static final long defaultSelectionTimeoutMillis = Flags.defaultConnectTimeoutMillis();
 
-    RouterClient(Client<I, O> delegate,
-                 ClusterEntries clusterEntries,
-                 Function<CompletableFuture<O>, O> futureConverter,
-                 BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory,
-                 EventExecutor temporaryEventLoop) {
+    RouterClient(Client<I, O> delegate) {
         this.delegate = delegate;
-        this.clusterEntries = clusterEntries;
-        this.futureConverter = futureConverter;
-        this.errorResponseFactory = errorResponseFactory;
-        this.temporaryEventLoop = temporaryEventLoop;
     }
 
     @Override
     public O execute(ClientRequestContext ctx, I req) throws Exception {
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
+        final ClusterEntries clusterEntries = ctxExt.attr(XdsAttributeKeys.CLUSTER_ENTRIES);
+        assert clusterEntries != null;
         final ClusterEntrySnapshot clusterEntrySnapshot = clusterEntries.selectNow(ctx);
         if (clusterEntrySnapshot == null) {
             // A null ClusterEntry is most likely caused by a misconfigured RouteConfiguration.
@@ -71,25 +58,30 @@ final class RouterClient<I extends Request, O extends Response>
         // now select the endpoint
         final ClusterEntry clusterEntry = clusterEntrySnapshot.entry();
         final Endpoint endpoint = clusterEntry.selectNow(ctx);
+        final ResponseFactory<O> responseFactory =
+                (ResponseFactory<O>) ctx.attr(XdsAttributeKeys.RESPONSE_FACTORY);
+        assert responseFactory != null;
         if (endpoint != null) {
             return initContextAndExecuteWithFallback(maybeDecorated, ctxExt, endpoint,
-                                                     futureConverter, errorResponseFactory, req);
+                                                     responseFactory, req);
         }
 
-        return futureConverter.apply(
+        final EventExecutor temporaryEventLoop = ctxExt.attr(XdsAttributeKeys.TEMPORARY_EVENT_LOOP);
+        assert temporaryEventLoop != null;
+        return responseFactory.futureConverter().apply(
                 clusterEntry.select(ctxExt, temporaryEventLoop, defaultSelectionTimeoutMillis)
                             .handle((endpoint0, cause) -> {
                                 if (cause != null) {
                                     fail(ctx, cause);
-                                    return errorResponseFactory.apply(ctx, cause);
+                                    return responseFactory.errorResponseFactory().apply(ctx, cause);
                                 }
                                 try {
                                     return initContextAndExecuteWithFallback(
                                             maybeDecorated, ctxExt, endpoint0,
-                                            futureConverter, errorResponseFactory, req);
+                                            responseFactory, req);
                                 } catch (Exception e) {
                                     fail(ctx, e);
-                                    return errorResponseFactory.apply(ctx, e);
+                                    return responseFactory.errorResponseFactory().apply(ctx, e);
                                 }
                             }));
     }

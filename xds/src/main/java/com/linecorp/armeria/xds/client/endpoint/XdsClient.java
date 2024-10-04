@@ -28,6 +28,8 @@ import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
+import com.linecorp.armeria.internal.client.DefaultResponseFactory;
+import com.linecorp.armeria.xds.internal.common.XdsAttributeKeys;
 
 import io.netty.channel.EventLoop;
 
@@ -52,10 +54,13 @@ final class XdsClient<I extends Request, O extends Response> implements Client<I
     public O execute(ClientRequestContext ctx, I req) throws Exception {
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
+        ctxExt.setAttr(XdsAttributeKeys.RESPONSE_FACTORY,
+                       new DefaultResponseFactory<>(futureConverter, errorResponseFactory));
         final EventLoop temporaryEventLoop = ctxExt.options().factory().eventLoopSupplier().get();
+        ctxExt.setAttr(XdsAttributeKeys.TEMPORARY_EVENT_LOOP, temporaryEventLoop);
         final ClusterEntries clusterEntries = clusterEntriesSelector.selectNow(ctx);
         if (clusterEntries != null) {
-            return execute0(ctxExt, req, clusterEntries, temporaryEventLoop);
+            return execute0(ctxExt, req, clusterEntries);
         }
 
         return futureConverter.apply(
@@ -66,7 +71,7 @@ final class XdsClient<I extends Request, O extends Response> implements Client<I
                                               return errorResponseFactory.apply(ctxExt, cause);
                                           }
                                           try {
-                                              return execute0(ctxExt, req, clusterEntries0, temporaryEventLoop);
+                                              return execute0(ctxExt, req, clusterEntries0);
                                           } catch (Exception e) {
                                               fail(ctx, e);
                                               return errorResponseFactory.apply(ctxExt, e);
@@ -74,12 +79,8 @@ final class XdsClient<I extends Request, O extends Response> implements Client<I
                                       }));
     }
 
-    private O execute0(ClientRequestContextExtension ctxExt, I req,
-                       ClusterEntries clusterEntries, EventLoop temporaryEventLoop) throws Exception {
-        final RouterClient<I, O> clusterEntryClient =
-                new RouterClient<>(delegate, clusterEntries, futureConverter, errorResponseFactory,
-                                   temporaryEventLoop);
-        return clusterEntries.downstreamDecorate(clusterEntryClient, req)
+    private O execute0(ClientRequestContextExtension ctxExt, I req, ClusterEntries clusterEntries) throws Exception {
+        return clusterEntries.downstreamDecorate(delegate, req)
                              .execute(ctxExt, req);
     }
 }

@@ -53,7 +53,7 @@ import com.linecorp.armeria.xds.client.endpoint.VirtualHostMatcher.VirtualHostMa
 import io.envoyproxy.envoy.config.route.v3.Route;
 import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 
-final class ClusterEntries {
+public final class ClusterEntries {
 
     static final ClusterEntries INITIAL_STATE = new ClusterEntries(null, ImmutableMap.of());
     @Nullable

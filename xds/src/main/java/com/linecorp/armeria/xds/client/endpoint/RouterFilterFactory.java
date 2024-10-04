@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.internal.common;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.function.Function;
 
@@ -23,35 +23,34 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
+import com.linecorp.armeria.xds.internal.common.FilterFactory;
 
-import io.envoyproxy.envoy.extensions.filters.http.header_to_metadata.v3.Config;
+import io.envoyproxy.envoy.extensions.filters.http.router.v3.Router;
 
-final class HeaderToMetadataFilterFactory implements FilterFactory<Config> {
+public final class RouterFilterFactory implements FilterFactory<Router> {
 
-    static final HeaderToMetadataFilterFactory INSTANCE = new HeaderToMetadataFilterFactory();
-    static final String TYPE_URL = "envoy.filters.http.header_to_metadata";
-
-    private HeaderToMetadataFilterFactory() {}
+    public static final String NAME = "envoy.filters.http.router";
+    public static final FilterFactory<Router> INSTANCE = new RouterFilterFactory();
 
     @Override
-    public Function<? super Client<RpcRequest, RpcResponse>, ? extends Client<RpcRequest, RpcResponse>>
-    rpcDecorator(Config config) {
-        return delegate -> new HeaderToMetadataFilter<>(config, delegate);
+    public Function<? super Client<RpcRequest, RpcResponse>, ? extends Client<RpcRequest, RpcResponse>> rpcDecorator(
+            Router config) {
+        return RouterClient::new;
     }
 
     @Override
-    public Function<? super Client<HttpRequest, HttpResponse>, ? extends Client<HttpRequest, HttpResponse>>
-    httpDecorator(Config config) {
-        return delegate -> new HeaderToMetadataFilter<>(config, delegate);
+    public Function<? super Client<HttpRequest, HttpResponse>, ? extends Client<HttpRequest, HttpResponse>> httpDecorator(
+            Router config) {
+        return RouterClient::new;
     }
 
     @Override
-    public Class<Config> configClass() {
-        return Config.class;
+    public Class<Router> configClass() {
+        return Router.class;
     }
 
     @Override
     public String filterName() {
-        return TYPE_URL;
+        return NAME;
     }
 }

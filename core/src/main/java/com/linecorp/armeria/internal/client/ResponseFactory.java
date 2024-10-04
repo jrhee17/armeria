@@ -14,13 +14,18 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.internal.common;
+package com.linecorp.armeria.internal.client;
 
-import com.linecorp.armeria.client.Client;
-import com.linecorp.armeria.common.Request;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
+import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.common.Response;
 
-public interface ClientFilter<I extends Request, O extends Response> extends Client<I, O> {
+public interface ResponseFactory<O extends Response> {
 
-    String typeUrl();
+    Function<CompletableFuture<O>, O> futureConverter();
+
+    BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory();
 }
