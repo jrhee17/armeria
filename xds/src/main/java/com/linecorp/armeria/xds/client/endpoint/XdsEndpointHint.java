@@ -26,13 +26,25 @@ import com.linecorp.armeria.client.EndpointHint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
+import com.linecorp.armeria.common.util.AsyncCloseable;
+import com.linecorp.armeria.xds.XdsBootstrap;
 
-final class XdsEndpointHint implements EndpointHint {
+/**
+ * TBU.
+ */
+public final class XdsEndpointHint implements EndpointHint, AsyncCloseable {
 
     private final ClusterManager clusterManager;
 
-    XdsEndpointHint(ClusterManager clusterManager) {
-        this.clusterManager = clusterManager;
+    public static XdsEndpointHint of(String listenerName, XdsBootstrap xdsBootstrap) {
+        return new XdsEndpointHint(listenerName, xdsBootstrap);
+    }
+
+    /**
+     * TBU.
+     */
+    private XdsEndpointHint(String listenerName, XdsBootstrap xdsBootstrap) {
+        clusterManager = new ClusterManager(listenerName, xdsBootstrap);
     }
 
     @Override
@@ -42,5 +54,15 @@ final class XdsEndpointHint implements EndpointHint {
             Function<CompletableFuture<O>, O> futureConverter,
             BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
         return new XdsClient<>(delegate, clusterManager, futureConverter, errorResponseFactory);
+    }
+
+    @Override
+    public CompletableFuture<?> closeAsync() {
+        return clusterManager.closeAsync();
+    }
+
+    @Override
+    public void close() {
+        clusterManager.close();
     }
 }

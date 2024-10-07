@@ -26,6 +26,7 @@ import com.google.common.base.Strings;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
@@ -93,13 +94,47 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
                              normalizedAbsolutePathRef);
         } else {
             // Create a valid URI which will never succeed.
-            uri = URI.create(schemeStr + "://armeria-group-" +
-                             Integer.toHexString(System.identityHashCode(endpointGroup)) +
-                             ":1" + normalizedAbsolutePathRef);
+            uri = dummyUri(endpointGroup, schemeStr, normalizedAbsolutePathRef);
         }
 
         this.uri = factory.validateUri(uri);
         this.absolutePathRef = normalizedAbsolutePathRef;
+    }
+
+    /**
+     * Creates a new instance.
+     */
+    DefaultClientBuilderParams(Scheme scheme, EndpointHint endpointHint,
+                               @Nullable String absolutePathRef,
+                               Class<?> type, ClientOptions options) {
+        final ClientFactory factory = requireNonNull(options, "options").factory();
+
+        // set temporary values
+        final SessionProtocol temporarySessionProtocol = SessionProtocol.HTTP;
+        this.scheme = factory.validateScheme(scheme);
+        endpointGroup = EndpointGroup.of();
+
+        this.type = requireNonNull(type, "type");
+        this.options = options;
+        this.endpointHint = endpointHint;
+
+        final String schemeStr;
+        if (scheme.serializationFormat() == SerializationFormat.NONE) {
+            schemeStr = scheme.sessionProtocol().uriText();
+        } else {
+            schemeStr = scheme.uriText();
+        }
+
+        final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
+        final URI uri = dummyUri(endpointGroup, schemeStr, normalizedAbsolutePathRef);
+        this.uri = factory.validateUri(uri);
+        this.absolutePathRef = normalizedAbsolutePathRef;
+    }
+
+    private static URI dummyUri(EndpointGroup endpointGroup, String schemeStr, String normalizedAbsolutePathRef) {
+        return URI.create(schemeStr + "://armeria-group-" +
+                          Integer.toHexString(System.identityHashCode(endpointGroup)) +
+                          ":1" + normalizedAbsolutePathRef);
     }
 
     private static String nullOrEmptyToSlash(@Nullable String absolutePathRef) {

@@ -32,6 +32,7 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.QueryParams;
 import com.linecorp.armeria.common.RequestHeaders;
+import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
@@ -146,6 +147,33 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
     }
 
     /**
+     * Returns a new {@link WebClient} that connects to the specified {@link EndpointGroup} with
+     * the specified {@code protocol} using the default {@link ClientFactory} and the default
+     * {@link ClientOptions}.
+     */
+    static WebClient of(EndpointHint endpointHint) {
+        return builder(endpointHint).build();
+    }
+
+    /**
+     * Returns a new {@link WebClient} that connects to the specified {@link EndpointGroup} with
+     * the specified {@code protocol} using the default {@link ClientFactory} and the default
+     * {@link ClientOptions}.
+     */
+    static WebClient of(SerializationFormat serializationFormat, EndpointHint endpointHint) {
+        return builder(serializationFormat, endpointHint).build();
+    }
+
+    /**
+     * Returns a new {@link WebClient} that connects to the specified {@link EndpointGroup} with
+     * the specified {@code protocol} using the default {@link ClientFactory} and the default
+     * {@link ClientOptions}.
+     */
+    static WebClient of(SerializationFormat serializationFormat, EndpointHint endpointHint, String path) {
+        return builder(serializationFormat, endpointHint, path).build();
+    }
+
+    /**
      * Returns a new {@link WebClientBuilder} created without a base {@link URI}.
      */
     static WebClientBuilder builder() {
@@ -228,6 +256,37 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
         requireNonNull(endpointGroup, "endpointGroup");
         requireNonNull(path, "path");
         return new WebClientBuilder(protocol, endpointGroup, path);
+    }
+
+    /**
+     * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
+     * and base {@link EndpointHint}.
+     */
+    static WebClientBuilder builder(EndpointHint endpointHint) {
+        requireNonNull(endpointHint, "endpointHint");
+        return new WebClientBuilder(SerializationFormat.NONE, endpointHint, null);
+    }
+
+    /**
+     * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
+     * and base {@link EndpointHint}.
+     */
+    static WebClientBuilder builder(SerializationFormat serializationFormat, EndpointHint endpointHint) {
+        requireNonNull(serializationFormat, "serializationFormat");
+        requireNonNull(endpointHint, "endpointHint");
+        return new WebClientBuilder(serializationFormat, endpointHint, null);
+    }
+
+    /**
+     * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
+     * and base {@link EndpointHint}.
+     */
+    static WebClientBuilder builder(SerializationFormat serializationFormat, EndpointHint endpointHint,
+                                    String path) {
+        requireNonNull(serializationFormat, "serializationFormat");
+        requireNonNull(endpointHint, "endpointHint");
+        requireNonNull(path, "path");
+        return new WebClientBuilder(serializationFormat, endpointHint, path);
     }
 
     /**

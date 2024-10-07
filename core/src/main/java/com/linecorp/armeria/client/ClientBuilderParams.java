@@ -52,6 +52,18 @@ public interface ClientBuilderParams {
     }
 
     /**
+     * Returns a newly created {@link ClientBuilderParams} from the specified properties.
+     */
+    static ClientBuilderParams of(Scheme scheme, EndpointHint endpointHint,
+                                  @Nullable String absolutePathRef, Class<?> type, ClientOptions options) {
+        requireNonNull(scheme, "scheme");
+        requireNonNull(endpointHint, "endpointGroup");
+        requireNonNull(type, "type");
+        requireNonNull(options, "options");
+        return new DefaultClientBuilderParams(scheme, endpointHint, absolutePathRef, type, options);
+    }
+
+    /**
      * Returns the {@link Scheme} of the client.
      */
     Scheme scheme();

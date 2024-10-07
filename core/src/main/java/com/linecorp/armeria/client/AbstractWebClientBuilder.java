@@ -39,6 +39,8 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     @Nullable
     private final EndpointGroup endpointGroup;
     @Nullable
+    private final EndpointHint endpointHint;
+    @Nullable
     private final Scheme scheme;
     @Nullable
     private final String path;
@@ -47,7 +49,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      * Creates a new instance.
      */
     protected AbstractWebClientBuilder() {
-        this(UNDEFINED_URI, null, null, null);
+        this(UNDEFINED_URI, null, null, null, null);
     }
 
     /**
@@ -57,7 +59,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      *                                  in {@link SessionProtocol}
      */
     protected AbstractWebClientBuilder(URI uri) {
-        this(validateUri(uri), null, null, null);
+        this(validateUri(uri), null, null, null, null);
     }
 
     /**
@@ -69,19 +71,33 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     protected AbstractWebClientBuilder(SessionProtocol sessionProtocol, EndpointGroup endpointGroup,
                                        @Nullable String path) {
         this(null, validateSessionProtocol(sessionProtocol),
-             requireNonNull(endpointGroup, "endpointGroup"), path);
+             requireNonNull(endpointGroup, "endpointGroup"), null, path);
+    }
+
+    /**
+     * Creates a new instance.
+     *
+     * @throws IllegalArgumentException if the {@code sessionProtocol} is not one of the fields
+     *                                  in {@link SessionProtocol}
+     */
+    protected AbstractWebClientBuilder(SerializationFormat serializationFormat,
+                                       EndpointHint endpointHint, @Nullable String path) {
+        this(null, Scheme.of(serializationFormat, SessionProtocol.UNKNOWN),
+             null, requireNonNull(endpointHint, "endpointHint"), path);
     }
 
     /**
      * Creates a new instance.
      */
     protected AbstractWebClientBuilder(@Nullable URI uri, @Nullable Scheme scheme,
-                                       @Nullable EndpointGroup endpointGroup, @Nullable String path) {
-        assert uri != null || (scheme != null && endpointGroup != null);
+                                       @Nullable EndpointGroup endpointGroup,
+                                       @Nullable EndpointHint endpointHint, @Nullable String path) {
+        assert uri != null || (scheme != null && endpointGroup != null) || endpointHint != null;
         assert path == null || uri == null;
         this.uri = uri;
         this.scheme = scheme;
         this.endpointGroup = endpointGroup;
+        this.endpointHint = endpointHint;
         this.path = validatePath(path);
     }
 
