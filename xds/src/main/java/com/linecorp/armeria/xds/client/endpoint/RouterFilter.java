@@ -25,6 +25,7 @@ import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.client.ResponseFactory;
 
@@ -56,6 +57,11 @@ final class RouterFilter<I extends Request, O extends Response> implements Clien
 
         // now select the endpoint
         final ClusterEntry clusterEntry = routeEntry.entry();
+        if (routeEntry.snapshots().clusterSnapshot().xdsResource().resource().hasTransportSocket()) {
+            ctxExt.sessionProtocol(SessionProtocol.HTTPS);
+        } else {
+            ctxExt.sessionProtocol(SessionProtocol.HTTP);
+        }
         final Endpoint endpoint = clusterEntry.selectNow(ctx);
         @SuppressWarnings("unchecked")
         final ResponseFactory<O> responseFactory =

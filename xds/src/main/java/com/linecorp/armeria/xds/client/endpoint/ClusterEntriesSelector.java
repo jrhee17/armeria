@@ -41,5 +41,6 @@ final class ClusterEntriesSelector extends AbstractSelector<Router>
     @Override
     public void accept(Router router) {
         this.router = router;
+        tryRefresh();
     }
 }

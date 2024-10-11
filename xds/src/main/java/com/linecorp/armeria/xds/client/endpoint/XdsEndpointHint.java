@@ -36,6 +36,9 @@ public final class XdsEndpointHint implements EndpointHint, AsyncCloseable {
 
     private final ClusterManager clusterManager;
 
+    /**
+     * TBU.
+     */
     public static XdsEndpointHint of(String listenerName, XdsBootstrap xdsBootstrap) {
         return new XdsEndpointHint(listenerName, xdsBootstrap);
     }

@@ -127,8 +127,8 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
         final RouteSnapshot routeSnapshot = listenerSnapshot.routeSnapshot();
         final List<ClusterSnapshot> clusterSnapshots =
                 routeSnapshot != null ? routeSnapshot.clusterSnapshots() : ImmutableList.of();
-        final Router router = this.router;
-        final Map<String, RouteEntry> oldClusterEntries = router.clusterEntriesMap();
+        final Router oldRouter = router;
+        final Map<String, RouteEntry> oldClusterEntries = oldRouter.clusterEntriesMap();
         // ImmutableMap is used because it is important that the entries are added in order of
         // ClusterSnapshot#index so that the first matching route is selected in #selectNow
         final ImmutableMap.Builder<String, RouteEntry> mappingBuilder = ImmutableMap.builder();
@@ -148,7 +148,7 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
             mappingBuilder.put(clusterName, routeEntry);
         }
         final ImmutableMap<String, RouteEntry> newClusterEntriesMap = mappingBuilder.build();
-        this.router = new Router(listenerSnapshot, newClusterEntriesMap);
+        router = new Router(listenerSnapshot, newClusterEntriesMap);
         notifyListeners();
         cleanupEndpointGroups(newClusterEntriesMap, oldClusterEntries);
     }

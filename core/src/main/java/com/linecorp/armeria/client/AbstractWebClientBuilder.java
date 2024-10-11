@@ -92,7 +92,8 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     protected AbstractWebClientBuilder(@Nullable URI uri, @Nullable Scheme scheme,
                                        @Nullable EndpointGroup endpointGroup,
                                        @Nullable EndpointHint endpointHint, @Nullable String path) {
-        assert uri != null || (scheme != null && endpointGroup != null) || endpointHint != null;
+        assert uri != null || (scheme != null && endpointGroup != null) ||
+               (endpointHint != null && scheme != null);
         assert path == null || uri == null;
         this.uri = uri;
         this.scheme = scheme;
@@ -171,8 +172,12 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
         if (uri != null) {
             return ClientBuilderParams.of(uri, WebClient.class, options);
         }
-
         assert scheme != null;
+
+        if (endpointHint != null) {
+            return ClientBuilderParams.of(scheme, endpointHint, path, WebClient.class, options);
+        }
+
         assert endpointGroup != null;
         return ClientBuilderParams.of(scheme, endpointGroup, path, WebClient.class, options);
     }

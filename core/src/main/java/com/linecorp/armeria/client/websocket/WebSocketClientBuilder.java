@@ -44,6 +44,7 @@ import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.EndpointHint;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.RpcClient;
@@ -55,6 +56,7 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.SuccessFunction;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
@@ -85,12 +87,18 @@ public final class WebSocketClientBuilder extends AbstractWebClientBuilder {
     private boolean aggregateContinuation;
 
     WebSocketClientBuilder(URI uri) {
-        super(validateUri(requireNonNull(uri, "uri")), null, null, null);
+        super(validateUri(requireNonNull(uri, "uri")), null, null, null, null);
         setWebSocketDefaultOption();
     }
 
     WebSocketClientBuilder(Scheme scheme, EndpointGroup endpointGroup, @Nullable String path) {
-        super(null, validateScheme(requireNonNull(scheme, "scheme")), endpointGroup, path);
+        super(null, validateScheme(requireNonNull(scheme, "scheme")), endpointGroup, null, path);
+        setWebSocketDefaultOption();
+    }
+
+    WebSocketClientBuilder(EndpointHint endpointHint) {
+        super(null, Scheme.of(SerializationFormat.WS, SessionProtocol.UNKNOWN),
+              null, requireNonNull(endpointHint, "endpointHint"), null);
         setWebSocketDefaultOption();
     }
 

@@ -26,7 +26,6 @@ import com.google.common.base.Strings;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
-import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
@@ -110,7 +109,6 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         final ClientFactory factory = requireNonNull(options, "options").factory();
 
         // set temporary values
-        final SessionProtocol temporarySessionProtocol = SessionProtocol.HTTP;
         this.scheme = factory.validateScheme(scheme);
         endpointGroup = EndpointGroup.of();
 
@@ -131,7 +129,8 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         this.absolutePathRef = normalizedAbsolutePathRef;
     }
 
-    private static URI dummyUri(EndpointGroup endpointGroup, String schemeStr, String normalizedAbsolutePathRef) {
+    private static URI dummyUri(EndpointGroup endpointGroup, String schemeStr,
+                                String normalizedAbsolutePathRef) {
         return URI.create(schemeStr + "://armeria-group-" +
                           Integer.toHexString(System.identityHashCode(endpointGroup)) +
                           ":1" + normalizedAbsolutePathRef);

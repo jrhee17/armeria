@@ -29,7 +29,6 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.UnmodifiableFuture;
-import com.linecorp.armeria.internal.client.ClientPendingThrowableUtil;
 import com.linecorp.armeria.internal.common.util.IdentityHashStrategy;
 import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
 
@@ -62,10 +61,7 @@ public abstract class AbstractSelector<T> {
             final ScheduledFuture<?> timeoutFuture = executor.schedule(() -> {
                 final RuntimeException ex =
                         new RuntimeException("Selection timed out after " + selectionTimeoutMillis + "ms");
-                ClientPendingThrowableUtil.setPendingThrowable(ctx, ex);
-                // Don't complete exceptionally so that the throwable
-                // can be handled after executing the attached decorators
-                listeningFuture.complete(null);
+                listeningFuture.completeExceptionally(ex);
             }, selectionTimeoutMillis, TimeUnit.MILLISECONDS);
             listeningFuture.timeoutFuture = timeoutFuture;
 

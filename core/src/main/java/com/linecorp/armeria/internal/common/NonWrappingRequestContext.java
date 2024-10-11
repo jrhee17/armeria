@@ -17,6 +17,7 @@
 package com.linecorp.armeria.internal.common;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.linecorp.armeria.internal.common.RequestContextUtil.NOOP_CONTEXT_HOOK;
 import static com.linecorp.armeria.internal.common.RequestContextUtil.mergeHooks;
 import static java.util.Objects.requireNonNull;
@@ -156,6 +157,13 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
     @Override
     public final SessionProtocol sessionProtocol() {
         return sessionProtocol;
+    }
+
+    @Override
+    public void sessionProtocol(SessionProtocol sessionProtocol) {
+        checkState(this.sessionProtocol == SessionProtocol.UNKNOWN,
+                   "sessionProtocol must be UNKNOWN to modify");
+        this.sessionProtocol = requireNonNull(sessionProtocol, "sessionProtocol");
     }
 
     /**

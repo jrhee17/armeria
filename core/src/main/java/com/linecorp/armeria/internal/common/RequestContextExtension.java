@@ -19,6 +19,7 @@ package com.linecorp.armeria.internal.common;
 import com.linecorp.armeria.common.AttributesGetters;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestContext;
+import com.linecorp.armeria.common.SessionProtocol;
 
 import io.netty.util.AttributeKey;
 
@@ -38,4 +39,6 @@ public interface RequestContextExtension extends RequestContext {
      * Returns the original {@link Request} that is specified when this {@link RequestContext} is created.
      */
     Request originalRequest();
+
+    void sessionProtocol(SessionProtocol protocol);
 }
