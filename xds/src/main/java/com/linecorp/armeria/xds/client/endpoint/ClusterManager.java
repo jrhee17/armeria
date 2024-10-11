@@ -104,8 +104,7 @@ final class ClusterManager implements SnapshotWatcher<ListenerSnapshot>, AsyncCl
         final Snapshots snapshots = new Snapshots(null, null, clusterSnapshot);
         clusterEntry.updateClusterSnapshot(snapshots);
         final RouteEntry snapshot = new RouteEntry(clusterEntry, snapshots);
-        router =
-                new Router(null, ImmutableMap.of(clusterSnapshot.xdsResource().name(), snapshot));
+        router = new Router(null, ImmutableMap.of(clusterSnapshot.xdsResource().name(), snapshot));
     }
 
     @Nullable

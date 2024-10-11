@@ -32,15 +32,12 @@ import com.google.protobuf.Any;
 import com.linecorp.armeria.client.BlockingWebClient;
 import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.WebClient;
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.grpc.GrpcClientBuilder;
 import com.linecorp.armeria.common.HttpResponse;
-import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.common.EventLoopExtension;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
-import com.linecorp.armeria.xds.client.endpoint.XdsEndpointGroup;
 import com.linecorp.armeria.xds.client.endpoint.XdsEndpointHint;
 
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
@@ -191,8 +188,8 @@ class XdsClientTest {
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(
                 XdsTestResources.bootstrap(configSource, cluster),
                 eventLoop.get(), cb -> cb.factory(ClientFactory.insecure()));
-             EndpointGroup xdsEndpointGroup = XdsEndpointGroup.of(listenerName, xdsBootstrap)) {
-            final BlockingWebClient blockingClient = WebClient.builder(SessionProtocol.HTTP, xdsEndpointGroup)
+             XdsEndpointHint xdsEndpointHint = XdsEndpointHint.of(listenerName, xdsBootstrap)) {
+            final BlockingWebClient blockingClient = WebClient.builder(xdsEndpointHint)
                                                               .factory(ClientFactory.insecure())
                                                               .build().blocking();
             assertThat(blockingClient.get("/hello").contentUtf8()).isEqualTo("world");
