@@ -29,9 +29,14 @@ import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.client.ResponseFactory;
 
+import io.envoyproxy.envoy.config.cluster.v3.Cluster;
+import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
 import io.netty.util.concurrent.EventExecutor;
 
 final class RouterFilter<I extends Request, O extends Response> implements Client<I, O> {
+
+    private static final String UPSTREAM_TLS =
+            "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext";
 
     private final Client<I, O> delegate;
     private static final long defaultSelectionTimeoutMillis = Flags.defaultConnectTimeoutMillis();
@@ -57,7 +62,9 @@ final class RouterFilter<I extends Request, O extends Response> implements Clien
 
         // now select the endpoint
         final ClusterEntry clusterEntry = routeEntry.entry();
-        if (routeEntry.snapshots().clusterSnapshot().xdsResource().resource().hasTransportSocket()) {
+        final UpstreamTlsContext tlsContext = routeEntry.snapshots().clusterSnapshot()
+                                                        .xdsResource().upstreamTlsContext();
+        if (tlsContext != null) {
             ctxExt.sessionProtocol(SessionProtocol.HTTPS);
         } else {
             ctxExt.sessionProtocol(SessionProtocol.HTTP);

@@ -61,7 +61,7 @@ public final class ClusterXdsResource extends XdsResourceWithPrimer<ClusterXdsRe
     }
 
     @Nullable
-    UpstreamTlsContext upstreamTlsContext() {
+    public UpstreamTlsContext upstreamTlsContext() {
         if (cluster.hasTransportSocket()) {
             final String transportSocketName = cluster.getTransportSocket().getName();
             checkArgument("envoy.transport_sockets.tls".equals(transportSocketName),

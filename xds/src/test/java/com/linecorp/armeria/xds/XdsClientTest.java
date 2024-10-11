@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Any;
 
 import com.linecorp.armeria.client.BlockingWebClient;
 import com.linecorp.armeria.client.ClientFactory;
@@ -48,9 +49,11 @@ import io.envoyproxy.controlplane.server.V3DiscoveryServer;
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
+import io.envoyproxy.envoy.config.core.v3.TransportSocket;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 import io.envoyproxy.envoy.config.listener.v3.Listener;
 import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
+import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
 
 class XdsClientTest {
 
@@ -95,11 +98,17 @@ class XdsClientTest {
 
     @RegisterExtension
     static EventLoopExtension eventLoop = new EventLoopExtension();
+    private static final TransportSocket TLS_SOCKET =
+            TransportSocket.newBuilder()
+                           .setName("envoy.transport_sockets.tls")
+                           .setTypedConfig(Any.pack(UpstreamTlsContext.getDefaultInstance()))
+                           .build();
 
     @BeforeEach
     void beforeEach() {
         final Cluster httpCluster = XdsTestResources.createCluster(clusterName, 0);
-        final Cluster httpsCluster = XdsTestResources.createCluster(httpsClusterName, 0);
+        final Cluster httpsCluster = XdsTestResources.createCluster(httpsClusterName, 0)
+                .toBuilder().setTransportSocket(TLS_SOCKET).build();
         final ClusterLoadAssignment httpAssignment =
                 XdsTestResources.loadAssignment(clusterName,
                                                 helloServer.httpSocketAddress().getHostString(),
@@ -152,12 +161,15 @@ class XdsClientTest {
                 XdsTestResources.loadAssignment(httpsBootstrapClusterName,
                                                 httpsUri.getHost(), httpsUri.getPort());
         final Cluster bootstrapCluster =
-                XdsTestResources.createTlsStaticCluster(httpsBootstrapClusterName, loadAssignment);
+                XdsTestResources.createTlsStaticCluster(httpsBootstrapClusterName, loadAssignment)
+                                .toBuilder()
+                                .setTransportSocket(TLS_SOCKET)
+                                .build();
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         final Consumer<GrpcClientBuilder> customizer = cb -> cb.factory(ClientFactory.insecure());
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap, eventLoop.get(), customizer);
-             EndpointGroup xdsEndpointGroup = XdsEndpointGroup.of(httpsListenerName, xdsBootstrap)) {
-            final BlockingWebClient blockingClient = WebClient.builder(SessionProtocol.HTTPS, xdsEndpointGroup)
+             XdsEndpointHint xdsEndpointHint = XdsEndpointHint.of(listenerName, xdsBootstrap)) {
+            final BlockingWebClient blockingClient = WebClient.builder(xdsEndpointHint)
                                                               .factory(ClientFactory.insecure())
                                                               .build().blocking();
             assertThat(blockingClient.get("/hello").contentUtf8()).isEqualTo("world");
@@ -172,7 +184,10 @@ class XdsClientTest {
                 XdsTestResources.loadAssignment(httpsBootstrapClusterName,
                                                 httpsUri.getHost(), httpsUri.getPort());
         final Cluster cluster = XdsTestResources.createTlsStaticCluster(httpsBootstrapClusterName,
-                                                                        loadAssignment);
+                                                                        loadAssignment)
+                                                .toBuilder()
+                                                .setTransportSocket(TLS_SOCKET)
+                                                .build();
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(
                 XdsTestResources.bootstrap(configSource, cluster),
                 eventLoop.get(), cb -> cb.factory(ClientFactory.insecure()));
