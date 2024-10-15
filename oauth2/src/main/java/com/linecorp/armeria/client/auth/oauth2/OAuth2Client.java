@@ -72,9 +72,7 @@ public final class OAuth2Client extends SimpleDecoratingHttpClient {
                             HttpHeaderNames.AUTHORIZATION, token.authorization()).build());
                     ctx.updateRequest(newReq);
                     try {
-                        return executeWithFallback(unwrap(), ctx,
-                                                   (context, cause0) -> HttpResponse.ofFailure(cause0),
-                                                   newReq);
+                        return executeWithFallback(unwrap(), ctx, newReq);
                     } catch (Exception e) {
                         return HttpResponse.ofFailure(e);
                     }

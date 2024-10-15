@@ -18,44 +18,34 @@ package com.linecorp.armeria.xds.client.endpoint;
 
 import static com.linecorp.armeria.internal.client.ClientUtil.fail;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
-import java.util.function.Function;
+import java.util.concurrent.CompletionException;
 
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.EndpointInitializer;
 import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
-import com.linecorp.armeria.internal.client.DefaultResponseFactory;
+import com.linecorp.armeria.internal.client.ClientUtil;
 
 import io.netty.channel.EventLoop;
 
-final class XdsClient<I extends Request, O extends Response> implements EndpointInitializer<I, O> {
+final class XdsClient<I extends Request, O extends Response> implements Client<I, O> {
 
     private final Client<I, O> delegate;
     private final ClusterEntriesSelector clusterEntriesSelector;
-    private final Function<CompletableFuture<O>, O> futureConverter;
-    private final BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory;
     private static final long defaultSelectionTimeoutMillis = Flags.defaultConnectTimeoutMillis();
 
-    XdsClient(Client<I, O> delegate, ClusterManager clusterManager,
-              Function<CompletableFuture<O>, O> futureConverter,
-              BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
+    XdsClient(Client<I, O> delegate, ClusterManager clusterManager) {
         this.delegate = delegate;
         clusterEntriesSelector = new ClusterEntriesSelector(clusterManager);
-        this.futureConverter = futureConverter;
-        this.errorResponseFactory = errorResponseFactory;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public O execute(ClientRequestContext ctx, I req) throws Exception {
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
-        ctxExt.setAttr(XdsClientAttributeKeys.RESPONSE_FACTORY,
-                       new DefaultResponseFactory<>(futureConverter, errorResponseFactory));
         final EventLoop temporaryEventLoop = ctxExt.options().factory().eventLoopSupplier().get();
         ctxExt.setAttr(XdsClientAttributeKeys.TEMPORARY_EVENT_LOOP, temporaryEventLoop);
         final Router router = clusterEntriesSelector.selectNow(ctx);
@@ -63,20 +53,21 @@ final class XdsClient<I extends Request, O extends Response> implements Endpoint
             return execute0(ctxExt, req, router);
         }
 
-        return futureConverter.apply(
-                clusterEntriesSelector.select(ctxExt, temporaryEventLoop, defaultSelectionTimeoutMillis)
-                                      .handle((clusterEntries0, cause) -> {
-                                          if (cause != null) {
-                                              fail(ctx, cause);
-                                              return errorResponseFactory.apply(ctxExt, cause);
-                                          }
-                                          try {
-                                              return execute0(ctxExt, req, clusterEntries0);
-                                          } catch (Exception e) {
-                                              fail(ctx, e);
-                                              return errorResponseFactory.apply(ctxExt, e);
-                                          }
-                                      }));
+        return (O) ClientUtil
+                .futureConverter(req)
+                .apply(clusterEntriesSelector.select(ctxExt, temporaryEventLoop, defaultSelectionTimeoutMillis)
+                                             .handle((clusterEntries0, cause) -> {
+                                                 if (cause != null) {
+                                                     fail(ctx, cause);
+                                                     throw new CompletionException(cause);
+                                                 }
+                                                 try {
+                                                     return execute0(ctxExt, req, clusterEntries0);
+                                                 } catch (Exception e) {
+                                                     fail(ctx, e);
+                                                     throw new CompletionException(e);
+                                                 }
+                                             }));
     }
 
     private O execute0(ClientRequestContextExtension ctxExt, I req, Router router) throws Exception {

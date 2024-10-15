@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.MoreExecutors;
 
-import com.linecorp.armeria.client.EndpointInitializer;
+import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.HttpRequest;
@@ -107,7 +107,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
 
     private final DefaultClientRequestContext ctx;
     private final EndpointGroup endpointGroup;
-    private final EndpointInitializer<HttpRequest, HttpResponse> httpClient;
+    private final Client<HttpRequest, HttpResponse> httpClient;
     private final HttpRequestWriter req;
     private final MethodDescriptor<I, O> method;
     private final Map<MethodDescriptor<?, ?>, String> simpleMethodNames;
@@ -144,7 +144,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
     ArmeriaClientCall(
             DefaultClientRequestContext ctx,
             EndpointGroup endpointGroup,
-            EndpointInitializer<HttpRequest, HttpResponse> httpClient,
+            Client<HttpRequest, HttpResponse> httpClient,
             HttpRequestWriter req,
             MethodDescriptor<I, O> method,
             Map<MethodDescriptor<?, ?>, String> simpleMethodNames,
@@ -244,14 +244,15 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
         // Must come after handling deadline.
         final HttpRequest newReq = prepareHeaders(compressor, metadata, remainingNanos);
 
-        final HttpResponse res;
+        HttpResponse res;
         try {
             res = httpClient.execute(ctx, newReq);
         } catch (Throwable t) {
-            final Status status = Status.INTERNAL.withCause(t);
+            final Status status = convertException(t);
             close(status, new Metadata());
             return;
         }
+        res = res.mapError(cause -> convertException(cause).asRuntimeException());
 
         final HttpStreamDeframer deframer = new HttpStreamDeframer(
                 decompressorRegistry, ctx, this, exceptionHandler,
@@ -275,6 +276,15 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
                 closeWhenListenerThrows(t);
             }
         });
+    }
+
+    private Status convertException(Throwable cause) {
+        final StatusAndMetadata statusAndMetadata = exceptionHandler.handle(ctx, cause);
+        Status status = statusAndMetadata.status();
+        if (status.getDescription() == null) {
+            status = status.withDescription(cause.getMessage());
+        }
+        return status;
     }
 
     @Override

@@ -19,6 +19,8 @@ package com.linecorp.armeria.xds.client.endpoint;
 import static com.linecorp.armeria.internal.client.ClientUtil.fail;
 import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 
+import java.util.concurrent.CompletionException;
+
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
@@ -27,7 +29,7 @@ import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
-import com.linecorp.armeria.internal.client.ResponseFactory;
+import com.linecorp.armeria.internal.client.ClientUtil;
 
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
 import io.netty.util.concurrent.EventExecutor;
@@ -44,6 +46,7 @@ final class RouterFilter<I extends Request, O extends Response> implements Clien
         this.delegate = delegate;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public O execute(ClientRequestContext ctx, I req) {
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
@@ -69,35 +72,31 @@ final class RouterFilter<I extends Request, O extends Response> implements Clien
             ctxExt.sessionProtocol(SessionProtocol.HTTP);
         }
         final Endpoint endpoint = clusterEntry.selectNow(ctx);
-        @SuppressWarnings("unchecked")
-        final ResponseFactory<O> responseFactory =
-                (ResponseFactory<O>) ctx.attr(XdsClientAttributeKeys.RESPONSE_FACTORY);
-        assert responseFactory != null;
         if (endpoint != null) {
             try {
-                return initContextAndExecuteWithFallback(maybeDecorated, ctxExt, endpoint,
-                                                         responseFactory, req);
+                return initContextAndExecuteWithFallback(maybeDecorated, ctxExt, endpoint, req);
             } catch (Throwable e) {
+                // TODO: find a way to throw a Throwable
                 throw new RuntimeException(e);
             }
         }
 
         final EventExecutor temporaryEventLoop = ctxExt.attr(XdsClientAttributeKeys.TEMPORARY_EVENT_LOOP);
         assert temporaryEventLoop != null;
-        return responseFactory.futureConverter().apply(
+        return (O) ClientUtil
+                .futureConverter(req).apply(
                 clusterEntry.select(ctxExt, temporaryEventLoop, defaultSelectionTimeoutMillis)
                             .handle((endpoint0, cause) -> {
                                 if (cause != null) {
                                     fail(ctx, cause);
-                                    return responseFactory.errorResponseFactory().apply(ctx, cause);
+                                    throw new CompletionException(cause);
                                 }
                                 try {
                                     return initContextAndExecuteWithFallback(
-                                            maybeDecorated, ctxExt, endpoint0,
-                                            responseFactory, req);
+                                            maybeDecorated, ctxExt, endpoint0, req);
                                 } catch (Throwable e) {
                                     fail(ctx, e);
-                                    return responseFactory.errorResponseFactory().apply(ctx, e);
+                                    throw new CompletionException(cause);
                                 }
                             }));
     }

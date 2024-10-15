@@ -202,8 +202,7 @@ public abstract class UserClient<I extends Request, O extends Response>
                 requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros());
 
         try {
-            return params.endpointHint().applyInitializeDecorate(unwrap(), endpointGroup, futureConverter,
-                                                                 errorResponseFactory)
+            return params.endpointHint().applyInitializeDecorate(unwrap(), endpointGroup)
                          .execute(ctx, (I) ctx.originalRequest());
         } catch (Throwable cause) {
             fail(ctx, cause);

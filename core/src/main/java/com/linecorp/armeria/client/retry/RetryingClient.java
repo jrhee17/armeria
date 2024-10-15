@@ -327,15 +327,15 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
         }
 
         final EndpointGroup newEndpointGroup = firstNonNull(derivedCtx.endpointGroup(), derivedCtx.endpoint());
+        HttpResponse response0;
         try {
-            response = endpointHint.applyInitializeDecorate(unwrap(), newEndpointGroup, HttpResponse::of,
-                                                            (context, cause) -> HttpResponse.ofFailure(cause))
-                                   .execute(derivedCtx, newReq);
+            response0 = endpointHint.applyInitializeDecorate(unwrap(), newEndpointGroup)
+                                    .execute(derivedCtx, newReq);
         } catch (Throwable t) {
-            handleException(ctx, rootReqDuplicator, future, t, initialAttempt);
-            return;
+            response0 = HttpResponse.ofFailure(t);
         }
 
+        response = response0;
         final RetryConfig<HttpResponse> config = mappedRetryConfig(ctx);
         if (!ctx.exchangeType().isResponseStreaming() || config.requiresResponseTrailers()) {
             // XXX(ikhoon): Should we use `response.aggregateWithPooledObjects()`?

@@ -17,13 +17,9 @@
 package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 
 import com.linecorp.armeria.client.Client;
-import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.EndpointHint;
-import com.linecorp.armeria.client.EndpointInitializer;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
@@ -52,12 +48,10 @@ public final class XdsEndpointHint implements EndpointHint, AsyncCloseable {
     }
 
     @Override
-    public <I extends Request, O extends Response> EndpointInitializer<I, O> applyInitializeDecorate(
+    public <I extends Request, O extends Response> Client<I, O> applyInitializeDecorate(
             Client<I, O> delegate,
-            EndpointGroup endpointGroup,
-            Function<CompletableFuture<O>, O> futureConverter,
-            BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
-        return new XdsClient<>(delegate, clusterManager, futureConverter, errorResponseFactory);
+            EndpointGroup endpointGroup) {
+        return new XdsClient<>(delegate, clusterManager);
     }
 
     @Override

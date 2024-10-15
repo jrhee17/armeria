@@ -183,15 +183,15 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
         }
 
         final EndpointGroup newEndpointGroup = firstNonNull(derivedCtx.endpointGroup(), derivedCtx.endpoint());
+        RpcResponse res0;
         try {
-            res = endpointHint().applyInitializeDecorate(unwrap(), newEndpointGroup, RpcResponse::from,
-                                                         (context, cause) -> RpcResponse.ofFailure(cause))
-                                .execute(derivedCtx, newReq);
+            res0 = endpointHint().applyInitializeDecorate(unwrap(), newEndpointGroup)
+                                 .execute(derivedCtx, newReq);
         } catch (Throwable t) {
-            handleException(ctx, future, t, initialAttempt);
-            return;
+            res0 = RpcResponse.ofFailure(t);
         }
 
+        res = res0;
         final RetryConfig<RpcResponse> retryConfig = mappedRetryConfig(ctx);
         final RetryRuleWithContent<RpcResponse> retryRule =
                 retryConfig.needsContentInRule() ?

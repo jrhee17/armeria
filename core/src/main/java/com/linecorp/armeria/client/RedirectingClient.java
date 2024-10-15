@@ -196,9 +196,7 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
 
         HttpResponse response;
         try {
-            response = executeWithFallback(unwrap(), derivedCtx,
-                                           (context, cause) -> HttpResponse.ofFailure(cause),
-                                           newReq);
+            response = executeWithFallback(unwrap(), derivedCtx, newReq);
         } catch (Exception e) {
             response = HttpResponse.ofFailure(e);
         }
