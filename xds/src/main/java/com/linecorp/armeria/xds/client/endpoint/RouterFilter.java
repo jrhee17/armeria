@@ -48,7 +48,7 @@ final class RouterFilter<I extends Request, O extends Response> implements Clien
 
     @SuppressWarnings("unchecked")
     @Override
-    public O execute(ClientRequestContext ctx, I req) {
+    public O execute(ClientRequestContext ctx, I req) throws Exception {
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
         final Router router = ctxExt.attr(XdsClientAttributeKeys.ROUTER);
@@ -73,31 +73,26 @@ final class RouterFilter<I extends Request, O extends Response> implements Clien
         }
         final Endpoint endpoint = clusterEntry.selectNow(ctx);
         if (endpoint != null) {
-            try {
-                return initContextAndExecuteWithFallback(maybeDecorated, ctxExt, endpoint, req);
-            } catch (Throwable e) {
-                // TODO: find a way to throw a Throwable
-                throw new RuntimeException(e);
-            }
+            return initContextAndExecuteWithFallback(maybeDecorated, ctxExt, endpoint, req);
         }
 
         final EventExecutor temporaryEventLoop = ctxExt.attr(XdsClientAttributeKeys.TEMPORARY_EVENT_LOOP);
         assert temporaryEventLoop != null;
         return (O) ClientUtil
                 .futureConverter(req).apply(
-                clusterEntry.select(ctxExt, temporaryEventLoop, defaultSelectionTimeoutMillis)
-                            .handle((endpoint0, cause) -> {
-                                if (cause != null) {
-                                    fail(ctx, cause);
-                                    throw new CompletionException(cause);
-                                }
-                                try {
-                                    return initContextAndExecuteWithFallback(
-                                            maybeDecorated, ctxExt, endpoint0, req);
-                                } catch (Throwable e) {
-                                    fail(ctx, e);
-                                    throw new CompletionException(cause);
-                                }
-                            }));
+                        clusterEntry.select(ctxExt, temporaryEventLoop, defaultSelectionTimeoutMillis)
+                                    .handle((endpoint0, cause) -> {
+                                        if (cause != null) {
+                                            fail(ctx, cause);
+                                            throw new CompletionException(cause);
+                                        }
+                                        try {
+                                            return initContextAndExecuteWithFallback(
+                                                    maybeDecorated, ctxExt, endpoint0, req);
+                                        } catch (Exception e) {
+                                            fail(ctx, e);
+                                            throw new CompletionException(cause);
+                                        }
+                                    }));
     }
 }
