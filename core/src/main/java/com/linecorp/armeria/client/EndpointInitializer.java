@@ -16,11 +16,6 @@
 
 package com.linecorp.armeria.client;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 
@@ -28,14 +23,10 @@ import com.linecorp.armeria.common.Response;
  * TBU.
  */
 @FunctionalInterface
-public interface EndpointHint {
+public interface EndpointInitializer<I extends Request, O extends Response> {
 
     /**
      * TBU.
      */
-    <I extends Request, O extends Response> EndpointInitializer<I, O> applyInitializeDecorate(
-            Client<I, O> delegate,
-            EndpointGroup endpointGroup,
-            Function<CompletableFuture<O>, O> futureConverter,
-            BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory);
+    O execute(ClientRequestContext ctx, I req) throws Throwable;
 }

@@ -29,7 +29,6 @@ import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.client.ResponseFactory;
 
-import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
 import io.netty.util.concurrent.EventExecutor;
 
@@ -46,7 +45,7 @@ final class RouterFilter<I extends Request, O extends Response> implements Clien
     }
 
     @Override
-    public O execute(ClientRequestContext ctx, I req) throws Exception {
+    public O execute(ClientRequestContext ctx, I req) {
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
         final Router router = ctxExt.attr(XdsClientAttributeKeys.ROUTER);
@@ -75,8 +74,12 @@ final class RouterFilter<I extends Request, O extends Response> implements Clien
                 (ResponseFactory<O>) ctx.attr(XdsClientAttributeKeys.RESPONSE_FACTORY);
         assert responseFactory != null;
         if (endpoint != null) {
-            return initContextAndExecuteWithFallback(maybeDecorated, ctxExt, endpoint,
-                                                     responseFactory, req);
+            try {
+                return initContextAndExecuteWithFallback(maybeDecorated, ctxExt, endpoint,
+                                                         responseFactory, req);
+            } catch (Throwable e) {
+                throw new RuntimeException(e);
+            }
         }
 
         final EventExecutor temporaryEventLoop = ctxExt.attr(XdsClientAttributeKeys.TEMPORARY_EVENT_LOOP);
@@ -92,7 +95,7 @@ final class RouterFilter<I extends Request, O extends Response> implements Clien
                                     return initContextAndExecuteWithFallback(
                                             maybeDecorated, ctxExt, endpoint0,
                                             responseFactory, req);
-                                } catch (Exception e) {
+                                } catch (Throwable e) {
                                     fail(ctx, e);
                                     return responseFactory.errorResponseFactory().apply(ctx, e);
                                 }

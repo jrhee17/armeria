@@ -331,8 +331,8 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
             response = endpointHint.applyInitializeDecorate(unwrap(), newEndpointGroup, HttpResponse::of,
                                                             (context, cause) -> HttpResponse.ofFailure(cause))
                                    .execute(derivedCtx, newReq);
-        } catch (Exception e) {
-            handleException(ctx, rootReqDuplicator, future, e, initialAttempt);
+        } catch (Throwable t) {
+            handleException(ctx, rootReqDuplicator, future, t, initialAttempt);
             return;
         }
 

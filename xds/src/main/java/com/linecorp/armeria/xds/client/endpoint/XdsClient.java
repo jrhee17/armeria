@@ -24,6 +24,7 @@ import java.util.function.Function;
 
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.EndpointInitializer;
 import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
@@ -32,7 +33,7 @@ import com.linecorp.armeria.internal.client.DefaultResponseFactory;
 
 import io.netty.channel.EventLoop;
 
-final class XdsClient<I extends Request, O extends Response> implements Client<I, O> {
+final class XdsClient<I extends Request, O extends Response> implements EndpointInitializer<I, O> {
 
     private final Client<I, O> delegate;
     private final ClusterEntriesSelector clusterEntriesSelector;

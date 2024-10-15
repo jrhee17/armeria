@@ -26,20 +26,20 @@ import java.util.function.Function;
 
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.EndpointInitializer;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
-import com.linecorp.armeria.common.annotation.Nullable;
 
-public final class EndpointInitializingClient<I extends Request, O extends Response,
-        U extends Client<I, O>> implements Client<I, O> {
+public final class EndpointInitializingClient<I extends Request, O extends Response>
+        implements EndpointInitializer<I, O> {
 
-    private final U delegate;
+    private final Client<I, O> delegate;
     private final EndpointGroup endpointGroup;
     private final Function<CompletableFuture<O>, O> futureConverter;
     private final BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory;
 
-    public static <I extends Request, O extends Response> EndpointInitializingClient<I, O, Client<I, O>> wrap(
+    public static <I extends Request, O extends Response> EndpointInitializingClient<I, O> wrap(
             Client<I, O> delegate,
             EndpointGroup endpointGroup,
             Function<CompletableFuture<O>, O> futureConverter,
@@ -47,7 +47,7 @@ public final class EndpointInitializingClient<I extends Request, O extends Respo
         return new EndpointInitializingClient<>(delegate, endpointGroup, futureConverter, errorResponseFactory);
     }
 
-    EndpointInitializingClient(U delegate, EndpointGroup endpointGroup,
+    EndpointInitializingClient(Client<I, O> delegate, EndpointGroup endpointGroup,
                                Function<CompletableFuture<O>, O> futureConverter,
                                BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
         this.delegate = requireNonNull(delegate, "delegate");
@@ -57,18 +57,21 @@ public final class EndpointInitializingClient<I extends Request, O extends Respo
     }
 
     @Override
-    public O execute(ClientRequestContext ctx, I req) {
+    public O execute(ClientRequestContext ctx, I req) throws Throwable {
         if (ctx.endpoint() != null) {
-            return executeWithFallback(delegate, ctx, errorResponseFactory, req);
+            try {
+                return executeWithFallback(delegate, ctx, errorResponseFactory, req);
+            } catch (Throwable t) {
+                return errorResponseFactory.apply(ctx, t);
+            }
         }
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
-        return initContextAndExecuteWithFallback(delegate, ctxExt, endpointGroup,
-                                                 futureConverter, errorResponseFactory, req);
-    }
-
-    @Override
-    public <T> @Nullable T as(Class<T> type) {
-        return delegate.as(type);
+        try {
+            return initContextAndExecuteWithFallback(delegate, ctxExt, endpointGroup,
+                                                     futureConverter, errorResponseFactory, req);
+        } catch (Throwable e) {
+            return errorResponseFactory.apply(ctx, e);
+        }
     }
 }

@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.MoreExecutors;
 
-import com.linecorp.armeria.client.Client;
+import com.linecorp.armeria.client.EndpointInitializer;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.HttpRequest;
@@ -107,7 +107,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
 
     private final DefaultClientRequestContext ctx;
     private final EndpointGroup endpointGroup;
-    private final Client<HttpRequest, HttpResponse> httpClient;
+    private final EndpointInitializer<HttpRequest, HttpResponse> httpClient;
     private final HttpRequestWriter req;
     private final MethodDescriptor<I, O> method;
     private final Map<MethodDescriptor<?, ?>, String> simpleMethodNames;
@@ -144,7 +144,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
     ArmeriaClientCall(
             DefaultClientRequestContext ctx,
             EndpointGroup endpointGroup,
-            Client<HttpRequest, HttpResponse> httpClient,
+            EndpointInitializer<HttpRequest, HttpResponse> httpClient,
             HttpRequestWriter req,
             MethodDescriptor<I, O> method,
             Map<MethodDescriptor<?, ?>, String> simpleMethodNames,
@@ -247,8 +247,8 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
         final HttpResponse res;
         try {
             res = httpClient.execute(ctx, newReq);
-        } catch (Exception cause) {
-            final Status status = Status.INTERNAL.withCause(cause);
+        } catch (Throwable t) {
+            final Status status = Status.INTERNAL.withCause(t);
             close(status, new Metadata());
             return;
         }

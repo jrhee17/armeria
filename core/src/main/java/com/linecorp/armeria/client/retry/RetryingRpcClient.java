@@ -187,8 +187,8 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
             res = endpointHint().applyInitializeDecorate(unwrap(), newEndpointGroup, RpcResponse::from,
                                                          (context, cause) -> RpcResponse.ofFailure(cause))
                                 .execute(derivedCtx, newReq);
-        } catch (Exception e) {
-            handleException(ctx, future, e, initialAttempt);
+        } catch (Throwable t) {
+            handleException(ctx, future, t, initialAttempt);
             return;
         }
 

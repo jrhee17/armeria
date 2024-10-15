@@ -19,6 +19,7 @@ import static java.util.Objects.requireNonNull;
 
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -29,10 +30,12 @@ import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcRequest;
+import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.logging.RequestLog;
 import com.linecorp.armeria.common.logging.RequestLogAccess;
@@ -55,7 +58,7 @@ public final class ClientUtil {
             ClientRequestContextExtension ctx,
             EndpointGroup endpointGroup,
             ResponseFactory<O> factory,
-            I req) {
+            I req) throws Throwable {
         return initContextAndExecuteWithFallback(delegate, ctx, endpointGroup, factory.futureConverter(),
                                                  factory.errorResponseFactory(), req);
     }
@@ -67,12 +70,19 @@ public final class ClientUtil {
             EndpointGroup endpointGroup,
             Function<CompletableFuture<O>, O> futureConverter,
             BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory,
-            I req) {
+            I req) throws Throwable {
 
         requireNonNull(delegate, "delegate");
         requireNonNull(ctx, "ctx");
-        requireNonNull(futureConverter, "futureConverter");
         requireNonNull(errorResponseFactory, "errorResponseFactory");
+
+        final Function<CompletableFuture<O>, O> futureConverter0;
+        if (req instanceof RpcRequest) {
+            futureConverter0 = value -> (O) RpcResponse.from(value);
+        } else {
+            assert req instanceof HttpRequest;
+            futureConverter0 = value -> (O) HttpResponse.of((CompletableFuture<? extends HttpResponse>) value);
+        }
 
         boolean initialized = false;
         boolean success = false;
@@ -89,7 +99,7 @@ public final class ClientUtil {
 
                 return initContextAndExecuteWithFallback(delegate, ctx, errorResponseFactory, success, req);
             } else {
-                return futureConverter.apply(initFuture.handle((success0, cause) -> {
+                return futureConverter0.apply(initFuture.handle((success0, cause) -> {
                     try {
                         if (cause != null) {
                             throw UnprocessedRequestException.of(Exceptions.peel(cause));
@@ -99,15 +109,15 @@ public final class ClientUtil {
                                                                  success0, req);
                     } catch (Throwable t) {
                         fail(ctx, t);
-                        return errorResponseFactory.apply(ctx, t);
+                        throw new CompletionException(t);
                     } finally {
                         ctx.finishInitialization(success0);
                     }
                 }));
             }
-        } catch (Throwable cause) {
-            fail(ctx, cause);
-            return errorResponseFactory.apply(ctx, cause);
+        } catch (Throwable t) {
+            fail(ctx, t);
+            throw t;
         } finally {
             if (initialized) {
                 ctx.finishInitialization(success);
@@ -120,7 +130,7 @@ public final class ClientUtil {
             U delegate, ClientRequestContextExtension ctx,
             BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory, boolean succeeded,
             I req)
-            throws Exception {
+            throws Throwable {
 
         if (succeeded) {
             return pushAndExecute(delegate, ctx, req);
@@ -144,14 +154,14 @@ public final class ClientUtil {
             }
 
             // No need to call `fail()` because failed by `DefaultRequestContext.init()` already.
-            return errorResponseFactory.apply(ctx, cause);
+            throw cause;
         }
     }
 
     public static <I extends Request, O extends Response, U extends Client<I, O>>
     O executeWithFallback(U delegate, ClientRequestContext ctx,
                           BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory,
-                          I req) {
+                          I req) throws Exception {
 
         requireNonNull(delegate, "delegate");
         requireNonNull(ctx, "ctx");
@@ -159,9 +169,9 @@ public final class ClientUtil {
 
         try {
             return pushAndExecute(delegate, ctx, req);
-        } catch (Throwable cause) {
-            fail(ctx, cause);
-            return errorResponseFactory.apply(ctx, cause);
+        } catch (Throwable t) {
+            fail(ctx, t);
+            throw t;
         }
     }
 

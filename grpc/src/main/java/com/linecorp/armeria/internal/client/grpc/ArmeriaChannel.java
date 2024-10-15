@@ -31,6 +31,7 @@ import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.EndpointHint;
+import com.linecorp.armeria.client.EndpointInitializer;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -155,7 +156,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         ctx.logBuilder().defer(RequestLogProperty.REQUEST_CONTENT,
                                RequestLogProperty.RESPONSE_CONTENT);
 
-        Client<HttpRequest, HttpResponse> client;
+        final Client<HttpRequest, HttpResponse> client;
 
         CallCredentials credentials = callOptions.getCredentials();
         if (credentials == NullCallCredentials.INSTANCE) {
@@ -183,13 +184,14 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
                     }
                     return HttpResponse.ofFailure(status.asRuntimeException());
                 };
-        client = params.endpointHint().applyInitializeDecorate(client, params.endpointGroup(), HttpResponse::of,
-                                                               errorResponseFactory);
+        final EndpointInitializer<HttpRequest, HttpResponse> initializer =
+                params.endpointHint().applyInitializeDecorate(client, params.endpointGroup(), HttpResponse::of,
+                                                              errorResponseFactory);
 
         return new ArmeriaClientCall<>(
                 ctx,
                 params.endpointGroup(),
-                client,
+                initializer,
                 req,
                 method,
                 simpleMethodNames,

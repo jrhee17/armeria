@@ -194,14 +194,20 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
         final HttpRequest newReq = derivedCtx.request();
         assert newReq != null;
 
-        final HttpResponse response = executeWithFallback(unwrap(), derivedCtx,
-                                                          (context, cause) -> HttpResponse.ofFailure(cause),
-                                                          newReq);
+        HttpResponse response;
+        try {
+            response = executeWithFallback(unwrap(), derivedCtx,
+                                           (context, cause) -> HttpResponse.ofFailure(cause),
+                                           newReq);
+        } catch (Exception e) {
+            response = HttpResponse.ofFailure(e);
+        }
+        final HttpResponse response0 = response;
         derivedCtx.log().whenAvailable(RequestLogProperty.RESPONSE_HEADERS).thenAccept(log -> {
             if (log.isAvailable(RequestLogProperty.RESPONSE_CAUSE)) {
                 final Throwable cause = log.responseCause();
                 if (cause != null) {
-                    abortResponse(response, derivedCtx, cause);
+                    abortResponse(response0, derivedCtx, cause);
                     handleException(ctx, reqDuplicator, responseFuture, cause, false);
                     return;
                 }
@@ -209,12 +215,12 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
 
             final ResponseHeaders responseHeaders = log.responseHeaders();
             if (!redirectStatuses.contains(responseHeaders.status())) {
-                endRedirect(ctx, reqDuplicator, responseFuture, response);
+                endRedirect(ctx, reqDuplicator, responseFuture, response0);
                 return;
             }
             final String location = responseHeaders.get(HttpHeaderNames.LOCATION);
             if (isNullOrEmpty(location)) {
-                endRedirect(ctx, reqDuplicator, responseFuture, response);
+                endRedirect(ctx, reqDuplicator, responseFuture, response0);
                 return;
             }
 
@@ -223,7 +229,7 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
             // Resolve the actual redirect location.
             final RequestTarget nextReqTarget = resolveLocation(ctx, location);
             if (nextReqTarget == null) {
-                handleException(ctx, derivedCtx, reqDuplicator, responseFuture, response,
+                handleException(ctx, derivedCtx, reqDuplicator, responseFuture, response0,
                                 new IllegalArgumentException("Invalid redirect location: " + location));
                 return;
             }
@@ -242,7 +248,7 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
                 final SessionProtocol nextProtocol = SessionProtocol.of(nextScheme);
                 if (ctx.sessionProtocol() != nextProtocol &&
                     !allowedProtocols.contains(nextProtocol)) {
-                    handleException(ctx, derivedCtx, reqDuplicator, responseFuture, response,
+                    handleException(ctx, derivedCtx, reqDuplicator, responseFuture, response0,
                                     UnexpectedProtocolRedirectException.of(
                                             nextProtocol, allowedProtocols));
                     return;
@@ -253,12 +259,12 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
                 // 2) the host does not pass the domain filter.
                 if (!nextHost.equals(ctx.host()) &&
                     !domainFilter.test(ctx, nextHost)) {
-                    handleException(ctx, derivedCtx, reqDuplicator, responseFuture, response,
+                    handleException(ctx, derivedCtx, reqDuplicator, responseFuture, response0,
                                     UnexpectedDomainRedirectException.of(nextHost));
                     return;
                 }
             } catch (Throwable t) {
-                handleException(ctx, derivedCtx, reqDuplicator, responseFuture, response, t);
+                handleException(ctx, derivedCtx, reqDuplicator, responseFuture, response0, t);
                 return;
             }
 
@@ -271,14 +277,14 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
                                               newReqDuplicator.headers().method(),
                                               maxRedirects);
             } catch (Throwable t) {
-                handleException(ctx, derivedCtx, reqDuplicator, responseFuture, response, t);
+                handleException(ctx, derivedCtx, reqDuplicator, responseFuture, response0, t);
                 return;
             }
 
             // Drain the response to release the pooled objects.
-            response.subscribe(ctx.eventLoop()).handleAsync((unused, cause) -> {
+            response0.subscribe(ctx.eventLoop()).handleAsync((unused, cause) -> {
                 if (cause != null) {
-                    handleException(ctx, derivedCtx, reqDuplicator, responseFuture, response, cause);
+                    handleException(ctx, derivedCtx, reqDuplicator, responseFuture, response0, cause);
                     return null;
                 }
                 execute0(ctx, redirectCtx, newReqDuplicator, false);
