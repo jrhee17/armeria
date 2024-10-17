@@ -83,7 +83,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     protected AbstractWebClientBuilder(SerializationFormat serializationFormat,
                                        ClientInitializer clientInitializer, @Nullable String path) {
         this(null, Scheme.of(serializationFormat, SessionProtocol.UNKNOWN),
-             null, requireNonNull(clientInitializer, "endpointHint"), path);
+             null, requireNonNull(clientInitializer, "clientInitializer"), path);
     }
 
     /**

@@ -78,6 +78,9 @@ public abstract class UserClient<I extends Request, O extends Response>
         this.errorResponseFactory = errorResponseFactory;
     }
 
+    /**
+     * TBU.
+     */
     protected ClientBuilderParams params() {
         return params;
     }
@@ -113,8 +116,8 @@ public abstract class UserClient<I extends Request, O extends Response>
     }
 
     @Override
-    public ClientInitializer endpointHint() {
-        return params.endpointHint();
+    public ClientInitializer clientInitializer() {
+        return params.clientInitializer();
     }
 
     /**

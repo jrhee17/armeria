@@ -246,7 +246,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
 
         final HttpResponse res;
         try {
-            res = params.execute(httpClient, ctx, newReq)
+            res = params.clientInitializer().execute(httpClient, ctx, newReq)
                         .mapError(cause -> convertException(cause).asRuntimeException());
         } catch (Throwable t) {
             final Status status = convertException(t);

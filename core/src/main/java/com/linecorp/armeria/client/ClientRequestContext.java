@@ -621,6 +621,9 @@ public interface ClientRequestContext extends RequestContext {
     @UnstableApi
     ResponseTimeoutMode responseTimeoutMode();
 
+    /**
+     * TBU.
+     */
     ClientInitializer clientInitializer();
 
     @Override

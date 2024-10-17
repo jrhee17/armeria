@@ -87,9 +87,10 @@ final class DefaultTHttpClient extends UserClient<RpcRequest, RpcResponse> imple
                               .build());
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 options().factory().meterRegistry(), scheme().sessionProtocol(),
-                HttpMethod.POST, reqTarget, options(), httpReq, call, UNARY_REQUEST_OPTIONS);
+                HttpMethod.POST, reqTarget, options(), httpReq, call, UNARY_REQUEST_OPTIONS,
+                params().clientInitializer());
         try {
-            return params().execute(unwrap(), ctx, call);
+            return params().clientInitializer().execute(unwrap(), ctx, call);
         } catch (Exception e) {
             return RpcResponse.ofFailure(e);
         }

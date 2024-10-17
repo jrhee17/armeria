@@ -113,6 +113,7 @@ public final class DefaultClientRequestContext
     private static final AtomicReferenceFieldUpdater<DefaultClientRequestContext, CompletableFuture>
             whenInitializedUpdater = AtomicReferenceFieldUpdater.newUpdater(
             DefaultClientRequestContext.class, CompletableFuture.class, "whenInitialized");
+    private final ClientInitializer clientInitializer;
 
     private static SessionProtocol desiredSessionProtocol(SessionProtocol protocol, ClientOptions options) {
         if (!options.factory().options().preferHttp1()) {
@@ -199,11 +200,11 @@ public final class DefaultClientRequestContext
             RequestId id, HttpMethod method, RequestTarget reqTarget,
             ClientOptions options, @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
             RequestOptions requestOptions, CancellationScheduler responseCancellationScheduler,
-            long requestStartTimeNanos, long requestStartTimeMicros) {
+            long requestStartTimeNanos, long requestStartTimeMicros, ClientInitializer clientInitializer) {
         this(eventLoop, meterRegistry, sessionProtocol,
              id, method, reqTarget, options, req, rpcReq, requestOptions, serviceRequestContext(),
              requireNonNull(responseCancellationScheduler, "responseCancellationScheduler"),
-             requestStartTimeNanos, requestStartTimeMicros);
+             requestStartTimeNanos, requestStartTimeMicros, clientInitializer);
     }
 
     /**
@@ -218,10 +219,10 @@ public final class DefaultClientRequestContext
             MeterRegistry meterRegistry, SessionProtocol sessionProtocol, HttpMethod method,
             RequestTarget reqTarget,
             ClientOptions options, @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
-            RequestOptions requestOptions) {
+            RequestOptions requestOptions, ClientInitializer clientInitializer) {
         this(null, meterRegistry, sessionProtocol, nextRequestId(options), method, reqTarget,
              options, req, rpcReq, requestOptions, serviceRequestContext(), null,
-             System.nanoTime(), SystemInfo.currentTimeMicros());
+             System.nanoTime(), SystemInfo.currentTimeMicros(), clientInitializer);
     }
 
     private DefaultClientRequestContext(
@@ -230,12 +231,13 @@ public final class DefaultClientRequestContext
             RequestTarget reqTarget, ClientOptions options,
             @Nullable HttpRequest req, @Nullable RpcRequest rpcReq, RequestOptions requestOptions,
             @Nullable ServiceRequestContext root, @Nullable CancellationScheduler responseCancellationScheduler,
-            long requestStartTimeNanos, long requestStartTimeMicros) {
+            long requestStartTimeNanos, long requestStartTimeMicros, ClientInitializer clientInitializer) {
         super(meterRegistry, desiredSessionProtocol(sessionProtocol, options), id, method, reqTarget,
               guessExchangeType(requestOptions, req),
               requestAutoAbortDelayMillis(options, requestOptions), req, rpcReq,
               getAttributes(root), options.contextHook());
 
+        this.clientInitializer = clientInitializer;
         this.eventLoop = eventLoop;
         this.options = requireNonNull(options, "options");
         this.root = root;
@@ -550,6 +552,7 @@ public final class DefaultClientRequestContext
         defaultRequestHeaders = ctx.defaultRequestHeaders();
         additionalRequestHeaders = ctx.additionalRequestHeaders();
         responseTimeoutMode = ctx.responseTimeoutMode();
+        clientInitializer = ctx.clientInitializer();
 
         for (final Iterator<Entry<AttributeKey<?>, Object>> i = ctx.ownAttrs(); i.hasNext();) {
             addAttr(i.next());
@@ -1091,7 +1094,7 @@ public final class DefaultClientRequestContext
 
     @Override
     public ClientInitializer clientInitializer() {
-        return endpointGroup();
+        return clientInitializer;
     }
 
     private static RequestId nextRequestId(ClientOptions options) {

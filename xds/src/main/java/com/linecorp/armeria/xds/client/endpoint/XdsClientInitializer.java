@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
 
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientInitializer;
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.util.AsyncCloseable;
@@ -48,13 +48,6 @@ public final class XdsClientInitializer implements ClientInitializer, AsyncClose
     }
 
     @Override
-    public <I extends Request, O extends Response> Client<I, O> applyInitializeDecorate(
-            Client<I, O> delegate,
-            EndpointGroup endpointGroup) {
-        return new XdsClient<>(delegate, clusterManager);
-    }
-
-    @Override
     public CompletableFuture<?> closeAsync() {
         return clusterManager.closeAsync();
     }
@@ -62,5 +55,12 @@ public final class XdsClientInitializer implements ClientInitializer, AsyncClose
     @Override
     public void close() {
         clusterManager.close();
+    }
+
+    @Override
+    public <I extends Request, O extends Response> O execute(Client<I, O> delegate, ClientRequestContext ctx,
+                                                             I req) throws Exception {
+        return new XdsClient<>(delegate, clusterManager)
+                .execute(ctx, req);
     }
 }

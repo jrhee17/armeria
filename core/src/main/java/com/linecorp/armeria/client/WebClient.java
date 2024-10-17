@@ -169,7 +169,8 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      * the specified {@code protocol} using the default {@link ClientFactory} and the default
      * {@link ClientOptions}.
      */
-    static WebClient of(SerializationFormat serializationFormat, ClientInitializer clientInitializer, String path) {
+    static WebClient of(SerializationFormat serializationFormat, ClientInitializer clientInitializer,
+                        String path) {
         return builder(serializationFormat, clientInitializer, path).build();
     }
 
@@ -263,7 +264,7 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      * and base {@link ClientInitializer}.
      */
     static WebClientBuilder builder(ClientInitializer clientInitializer) {
-        requireNonNull(clientInitializer, "endpointHint");
+        requireNonNull(clientInitializer, "clientInitializer");
         return new WebClientBuilder(SerializationFormat.NONE, clientInitializer, null);
     }
 
@@ -271,9 +272,10 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
      * and base {@link ClientInitializer}.
      */
-    static WebClientBuilder builder(SerializationFormat serializationFormat, ClientInitializer clientInitializer) {
+    static WebClientBuilder builder(SerializationFormat serializationFormat,
+                                    ClientInitializer clientInitializer) {
         requireNonNull(serializationFormat, "serializationFormat");
-        requireNonNull(clientInitializer, "endpointHint");
+        requireNonNull(clientInitializer, "clientInitializer");
         return new WebClientBuilder(serializationFormat, clientInitializer, null);
     }
 
@@ -281,10 +283,10 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
      * and base {@link ClientInitializer}.
      */
-    static WebClientBuilder builder(SerializationFormat serializationFormat, ClientInitializer clientInitializer,
-                                    String path) {
+    static WebClientBuilder builder(SerializationFormat serializationFormat,
+                                    ClientInitializer clientInitializer, String path) {
         requireNonNull(serializationFormat, "serializationFormat");
-        requireNonNull(clientInitializer, "endpointHint");
+        requireNonNull(clientInitializer, "clientInitializer");
         requireNonNull(path, "path");
         return new WebClientBuilder(serializationFormat, clientInitializer, path);
     }

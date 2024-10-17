@@ -117,9 +117,9 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
 
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 options().factory().meterRegistry(), protocol, newReq.method(), reqTarget, options(),
-                newReq, null, requestOptions);
+                newReq, null, requestOptions, params.clientInitializer());
         try {
-            return params.execute(unwrap(), ctx, newReq);
+            return ctx.clientInitializer().execute(unwrap(), ctx, newReq);
         } catch (Exception e) {
             return HttpResponse.ofFailure(e);
         }

@@ -26,6 +26,7 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.endpoint.DynamicEndpointGroup;
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
@@ -54,7 +55,8 @@ class DerivedClientRequestContextClientTest {
         final HttpRequest request = HttpRequest.of(HttpMethod.GET, "/");
         final DefaultClientRequestContext parent = new DefaultClientRequestContext(
                 new SimpleMeterRegistry(), SessionProtocol.H2C, HttpMethod.GET,
-                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of());
+                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of(),
+                EndpointGroup.of());
         parent.init(group);
         assertThat(parent.endpoint()).isEqualTo(endpointA);
         final ClientRequestContext child =
@@ -69,7 +71,8 @@ class DerivedClientRequestContextClientTest {
         final HttpRequest request = HttpRequest.of(HttpMethod.GET, "/");
         final DefaultClientRequestContext parent = new DefaultClientRequestContext(
                 new SimpleMeterRegistry(), SessionProtocol.H2C, HttpMethod.GET,
-                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of());
+                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of(),
+                EndpointGroup.of());
         parent.init(group);
         assertThat(parent.endpoint()).isEqualTo(endpointA);
         final ClientRequestContext childA0 =
@@ -103,7 +106,8 @@ class DerivedClientRequestContextClientTest {
         final HttpRequest request = HttpRequest.of(HttpMethod.GET, "/");
         final DefaultClientRequestContext parent = new DefaultClientRequestContext(
                 new SimpleMeterRegistry(), SessionProtocol.H2C, HttpMethod.GET,
-                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of());
+                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of(),
+                EndpointGroup.of());
         parent.init(group);
         assertThat(parent.endpoint()).isEqualTo(endpointA);
         final ClientRequestContext child =

@@ -37,6 +37,7 @@ import com.linecorp.armeria.client.ClientRequestContextCaptor;
 import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.RequestOptions;
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.HttpMethod;
@@ -301,7 +302,7 @@ class DefaultClientRequestContextTest {
                 mock(EventLoop.class), NoopMeterRegistry.get(), SessionProtocol.H2C,
                 RequestId.random(), HttpMethod.POST, reqTarget, clientOptions, httpRequest,
                 null, RequestOptions.of(), CancellationScheduler.ofClient(0), System.nanoTime(),
-                SystemInfo.currentTimeMicros());
+                SystemInfo.currentTimeMicros(), EndpointGroup.of());
     }
 
     @Test

@@ -28,7 +28,6 @@ import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.SimpleDecoratingClient;
 import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpRequest;
@@ -67,18 +66,15 @@ public abstract class AbstractRetryingClient<I extends Request, O extends Respon
 
     @Nullable
     private final RetryConfig<O> retryConfig;
-    private final ClientInitializer clientInitializer;
 
     /**
      * Creates a new instance that decorates the specified {@link Client}.
      */
     AbstractRetryingClient(
-            Client<I, O> delegate, RetryConfigMapping<O> mapping, @Nullable RetryConfig<O> retryConfig,
-            ClientInitializer clientInitializer) {
+            Client<I, O> delegate, RetryConfigMapping<O> mapping, @Nullable RetryConfig<O> retryConfig) {
         super(delegate);
         this.mapping = requireNonNull(mapping, "mapping");
         this.retryConfig = retryConfig;
-        this.clientInitializer = clientInitializer;
     }
 
     @Override
@@ -96,13 +92,6 @@ public abstract class AbstractRetryingClient<I extends Request, O extends Respon
      */
     protected final RetryConfigMapping<O> mapping() {
         return mapping;
-    }
-
-    /**
-     * TBU.
-     */
-    protected ClientInitializer endpointHint() {
-        return clientInitializer;
     }
 
     /**

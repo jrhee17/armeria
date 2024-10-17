@@ -28,9 +28,9 @@ import com.google.common.collect.Maps;
 
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientBuilderParams;
+import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -239,8 +239,8 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
     }
 
     @Override
-    public ClientInitializer endpointHint() {
-        return params.endpointHint();
+    public ClientInitializer clientInitializer() {
+        return params.clientInitializer();
     }
 
     @Nullable
@@ -272,7 +272,8 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
                 options(),
                 req,
                 null,
-                requestOptions);
+                requestOptions,
+                params.clientInitializer());
     }
 
     private static RequestOptions newRequestOptions(ExchangeType exchangeType) {

@@ -80,8 +80,8 @@ final class DefaultBlockingWebClient implements BlockingWebClient {
     }
 
     @Override
-    public ClientInitializer endpointHint() {
-        return delegate.endpointHint();
+    public ClientInitializer clientInitializer() {
+        return delegate.clientInitializer();
     }
 
     @Override

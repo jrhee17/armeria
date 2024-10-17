@@ -16,7 +16,6 @@
 
 package com.linecorp.armeria.client.retry;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.time.Duration;
@@ -29,7 +28,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.ResponseTimeoutException;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -51,7 +49,6 @@ import com.linecorp.armeria.common.stream.AbortedStreamException;
 import com.linecorp.armeria.internal.client.AggregatedHttpRequestDuplicator;
 import com.linecorp.armeria.internal.client.ClientPendingThrowableUtil;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
-import com.linecorp.armeria.internal.client.ClientUtil;
 import com.linecorp.armeria.internal.client.TruncatingHttpResponse;
 
 import io.netty.handler.codec.DateFormatter;
@@ -227,7 +224,6 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
 
     private final HttpClient delegate;
     private final boolean useRetryAfter;
-    private final ClientInitializer clientInitializer;
 
     /**
      * Creates a new instance that decorates the specified {@link HttpClient}.
@@ -236,12 +232,10 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
             HttpClient delegate,
             RetryConfigMapping<HttpResponse> mapping,
             @Nullable RetryConfig<HttpResponse> retryConfig,
-            boolean useRetryAfter,
-            ClientInitializer clientInitializer) {
-        super(delegate, mapping, retryConfig, clientInitializer);
+            boolean useRetryAfter) {
+        super(delegate, mapping, retryConfig);
         this.delegate = delegate;
         this.useRetryAfter = useRetryAfter;
-        this.clientInitializer = clientInitializer;
     }
 
     @Override
@@ -327,11 +321,10 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
             ClientPendingThrowableUtil.removePendingThrowable(derivedCtx);
         }
 
-        final EndpointGroup newEndpointGroup = firstNonNull(derivedCtx.endpointGroup(), derivedCtx.endpoint());
         HttpResponse response0;
         try {
             assert ctxExtension != null;
-            response0 = ClientUtil.initContextAndExecuteWithFallback(unwrap(), ctxExtension, newEndpointGroup, newReq);
+            response0 = ctx.clientInitializer().execute(unwrap(), ctxExtension, newReq);
         } catch (Throwable t) {
             response0 = HttpResponse.ofFailure(t);
         }

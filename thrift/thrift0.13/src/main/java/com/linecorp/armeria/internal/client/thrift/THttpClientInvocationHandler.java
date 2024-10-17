@@ -27,11 +27,11 @@ import java.util.concurrent.ExecutionException;
 import org.apache.thrift.async.AsyncMethodCallback;
 
 import com.linecorp.armeria.client.ClientBuilderParams;
+import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ClientRequestContextCaptor;
 import com.linecorp.armeria.client.Clients;
-import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.thrift.THttpClient;
 import com.linecorp.armeria.common.RpcResponse;
@@ -85,8 +85,8 @@ final class THttpClientInvocationHandler
     }
 
     @Override
-    public ClientInitializer endpointHint() {
-        return params.endpointHint();
+    public ClientInitializer clientInitializer() {
+        return params.clientInitializer();
     }
 
     @Nullable

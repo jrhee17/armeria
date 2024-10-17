@@ -129,7 +129,7 @@ abstract class DnsEndpointGroupBuilder<SELF extends DnsEndpointGroupBuilder<SELF
     @Override
     public SELF selectionTimeout(Duration selectionTimeout) {
         dnsDynamicEndpointGroupBuilder.selectionTimeout(selectionTimeout);
-        return self();
+        return (SELF) this;
     }
 
     /**

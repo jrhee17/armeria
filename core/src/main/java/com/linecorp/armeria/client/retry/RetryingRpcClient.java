@@ -15,8 +15,6 @@
  */
 package com.linecorp.armeria.client.retry;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -31,8 +29,6 @@ import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.internal.client.ClientPendingThrowableUtil;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
-import com.linecorp.armeria.internal.client.ClientUtil;
-import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 import com.linecorp.armeria.internal.common.util.StringUtil;
 
 /**
@@ -138,7 +134,7 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
      * Creates a new instance that decorates the specified {@link RpcClient}.
      */
     RetryingRpcClient(RpcClient delegate, RetryConfigMapping<RpcResponse> mapping) {
-        super(delegate, mapping, null, EndpointInitializingClient::wrap);
+        super(delegate, mapping, null);
     }
 
     @Override
@@ -183,11 +179,10 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
             ClientPendingThrowableUtil.removePendingThrowable(derivedCtx);
         }
 
-        final EndpointGroup newEndpointGroup = firstNonNull(derivedCtx.endpointGroup(), derivedCtx.endpoint());
         RpcResponse res0;
         try {
             assert ctxExtension != null;
-            res0 = ClientUtil.initContextAndExecuteWithFallback(unwrap(), ctxExtension, newEndpointGroup, newReq);
+            res0 = derivedCtx.clientInitializer().execute(unwrap(), ctxExtension, newReq);
         } catch (Throwable t) {
             res0 = RpcResponse.ofFailure(t);
         }
