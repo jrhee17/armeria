@@ -31,6 +31,7 @@ import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.internal.client.ClientPendingThrowableUtil;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
+import com.linecorp.armeria.internal.client.ClientUtil;
 import com.linecorp.armeria.internal.client.EndpointInitializingClient;
 import com.linecorp.armeria.internal.common.util.StringUtil;
 
@@ -185,8 +186,8 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
         final EndpointGroup newEndpointGroup = firstNonNull(derivedCtx.endpointGroup(), derivedCtx.endpoint());
         RpcResponse res0;
         try {
-            res0 = endpointHint().applyInitializeDecorate(unwrap(), newEndpointGroup)
-                                 .execute(derivedCtx, newReq);
+            assert ctxExtension != null;
+            res0 = ClientUtil.initContextAndExecuteWithFallback(unwrap(), ctxExtension, newEndpointGroup, newReq);
         } catch (Throwable t) {
             res0 = RpcResponse.ofFailure(t);
         }

@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.client.endpoint;
 
+import static com.linecorp.armeria.internal.client.ClientUtil.executeWithFallback;
+import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
@@ -26,19 +28,25 @@ import java.util.function.Consumer;
 
 import com.google.common.collect.ImmutableList;
 
+import com.linecorp.armeria.client.Client;
+import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.retry.RetryingClient;
+import com.linecorp.armeria.common.Request;
+import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.common.util.Listenable;
+import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.client.endpoint.StaticEndpointGroup;
 
 /**
  * A list of {@link Endpoint}s.
  */
-public interface EndpointGroup extends Listenable<List<Endpoint>>, EndpointSelector, AsyncCloseable {
+public interface EndpointGroup extends Listenable<List<Endpoint>>, EndpointSelector, AsyncCloseable,
+                                       ClientInitializer {
 
     /**
      * Returns a singleton {@link EndpointGroup} which does not contain any {@link Endpoint}s.
@@ -188,5 +196,16 @@ public interface EndpointGroup extends Listenable<List<Endpoint>>, EndpointSelec
      */
     default EndpointGroup orElse(EndpointGroup nextEndpointGroup) {
         return new OrElseEndpointGroup(this, nextEndpointGroup);
+    }
+
+    @Override
+    default <I extends Request, O extends Response> O execute(
+            Client<I, O> delegate, ClientRequestContext ctx, I req) throws Exception {
+        if (ctx.endpoint() != null) {
+            return executeWithFallback(delegate, ctx, req);
+        }
+        final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
+        assert ctxExt != null;
+        return initContextAndExecuteWithFallback(delegate, ctxExt, this, req);
     }
 }

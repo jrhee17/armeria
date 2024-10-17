@@ -15,23 +15,17 @@
  */
 package com.linecorp.armeria.client;
 
-import static com.linecorp.armeria.internal.client.ClientUtil.fail;
-
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
-import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcRequest;
@@ -40,8 +34,6 @@ import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractUnwrappable;
-import com.linecorp.armeria.common.util.SystemInfo;
-import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -58,9 +50,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 public abstract class UserClient<I extends Request, O extends Response>
         extends AbstractUnwrappable<Client<I, O>>
         implements ClientBuilderParams {
-
-    private static final Logger logger = LoggerFactory.getLogger(UserClient.class);
-    private static boolean warnedNullRequestId;
 
     private final ClientBuilderParams params;
     private final MeterRegistry meterRegistry;
@@ -87,6 +76,10 @@ public abstract class UserClient<I extends Request, O extends Response>
         this.meterRegistry = meterRegistry;
         this.futureConverter = futureConverter;
         this.errorResponseFactory = errorResponseFactory;
+    }
+
+    protected ClientBuilderParams params() {
+        return params;
     }
 
     @Override
@@ -193,33 +186,7 @@ public abstract class UserClient<I extends Request, O extends Response>
      */
     protected final O execute(SessionProtocol protocol, EndpointGroup endpointGroup, HttpMethod method,
                               RequestTarget reqTarget, @Nullable RpcRequest rpcReq,
-                              @Nullable HttpRequest httpReq,
-                              RequestOptions requestOptions) {
-        final RequestId id = nextRequestId();
-
-        final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                meterRegistry, protocol, id, method, reqTarget, options(), httpReq, rpcReq,
-                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros());
-
-        try {
-            return params.endpointHint().applyInitializeDecorate(unwrap(), endpointGroup)
-                         .execute(ctx, (I) ctx.originalRequest());
-        } catch (Throwable cause) {
-            fail(ctx, cause);
-            return errorResponseFactory.apply(ctx, cause);
-        }
-    }
-
-    private RequestId nextRequestId() {
-        final RequestId id = options().requestIdGenerator().get();
-        if (id == null) {
-            if (!warnedNullRequestId) {
-                warnedNullRequestId = true;
-                logger.warn("requestIdGenerator.get() returned null; using RequestId.random()");
-            }
-            return RequestId.random();
-        } else {
-            return id;
-        }
+                              @Nullable HttpRequest httpReq, RequestOptions requestOptions) {
+        throw new RuntimeException();
     }
 }

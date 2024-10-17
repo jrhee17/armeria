@@ -51,6 +51,7 @@ import com.linecorp.armeria.common.stream.AbortedStreamException;
 import com.linecorp.armeria.internal.client.AggregatedHttpRequestDuplicator;
 import com.linecorp.armeria.internal.client.ClientPendingThrowableUtil;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
+import com.linecorp.armeria.internal.client.ClientUtil;
 import com.linecorp.armeria.internal.client.TruncatingHttpResponse;
 
 import io.netty.handler.codec.DateFormatter;
@@ -329,8 +330,8 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
         final EndpointGroup newEndpointGroup = firstNonNull(derivedCtx.endpointGroup(), derivedCtx.endpoint());
         HttpResponse response0;
         try {
-            response0 = endpointHint.applyInitializeDecorate(unwrap(), newEndpointGroup)
-                                    .execute(derivedCtx, newReq);
+            assert ctxExtension != null;
+            response0 = ClientUtil.initContextAndExecuteWithFallback(unwrap(), ctxExtension, newEndpointGroup, newReq);
         } catch (Throwable t) {
             response0 = HttpResponse.ofFailure(t);
         }

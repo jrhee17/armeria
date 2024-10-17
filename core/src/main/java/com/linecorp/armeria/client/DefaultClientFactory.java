@@ -35,7 +35,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.client.endpoint.EndpointSelector;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -139,9 +139,9 @@ final class DefaultClientFactory implements ClientFactory {
 
     @Override
     public ReleasableHolder<EventLoop> acquireEventLoop(SessionProtocol sessionProtocol,
-                                                        EndpointGroup endpointGroup,
+                                                        EndpointSelector endpointSelector,
                                                         @Nullable Endpoint endpoint) {
-        return httpClientFactory.acquireEventLoop(sessionProtocol, endpointGroup, endpoint);
+        return httpClientFactory.acquireEventLoop(sessionProtocol, endpointSelector, endpoint);
     }
 
     @Override

@@ -29,7 +29,6 @@ import com.linecorp.armeria.client.endpoint.DynamicEndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
-import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.SessionProtocol;
 
@@ -54,8 +53,8 @@ class DerivedClientRequestContextClientTest {
     void shouldAcquireNewEventLoopForNewEndpoint() {
         final HttpRequest request = HttpRequest.of(HttpMethod.GET, "/");
         final DefaultClientRequestContext parent = new DefaultClientRequestContext(
-                new SimpleMeterRegistry(), SessionProtocol.H2C, RequestId.random(), HttpMethod.GET,
-                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of(), 0, 0);
+                new SimpleMeterRegistry(), SessionProtocol.H2C, HttpMethod.GET,
+                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of());
         parent.init(group);
         assertThat(parent.endpoint()).isEqualTo(endpointA);
         final ClientRequestContext child =
@@ -69,8 +68,8 @@ class DerivedClientRequestContextClientTest {
     void shouldAcquireSameEventLoopForSameEndpoint() {
         final HttpRequest request = HttpRequest.of(HttpMethod.GET, "/");
         final DefaultClientRequestContext parent = new DefaultClientRequestContext(
-                new SimpleMeterRegistry(), SessionProtocol.H2C, RequestId.random(), HttpMethod.GET,
-                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of(), 0, 0);
+                new SimpleMeterRegistry(), SessionProtocol.H2C, HttpMethod.GET,
+                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of());
         parent.init(group);
         assertThat(parent.endpoint()).isEqualTo(endpointA);
         final ClientRequestContext childA0 =
@@ -103,8 +102,8 @@ class DerivedClientRequestContextClientTest {
     void shouldNotAcquireNewEventLoopForInitialAttempt() {
         final HttpRequest request = HttpRequest.of(HttpMethod.GET, "/");
         final DefaultClientRequestContext parent = new DefaultClientRequestContext(
-                new SimpleMeterRegistry(), SessionProtocol.H2C, RequestId.random(), HttpMethod.GET,
-                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of(), 0, 0);
+                new SimpleMeterRegistry(), SessionProtocol.H2C, HttpMethod.GET,
+                RequestTarget.forClient("/"), ClientOptions.of(), request, null, RequestOptions.of());
         parent.init(group);
         assertThat(parent.endpoint()).isEqualTo(endpointA);
         final ClientRequestContext child =

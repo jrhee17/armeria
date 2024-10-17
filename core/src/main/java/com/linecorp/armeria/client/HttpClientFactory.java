@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.MapMaker;
 
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.client.endpoint.EndpointSelector;
 import com.linecorp.armeria.client.proxy.ProxyConfigSelector;
 import com.linecorp.armeria.client.redirect.RedirectConfig;
 import com.linecorp.armeria.common.Http1HeaderNaming;
@@ -358,9 +358,9 @@ final class HttpClientFactory implements ClientFactory {
 
     @Override
     public ReleasableHolder<EventLoop> acquireEventLoop(SessionProtocol sessionProtocol,
-                                                        EndpointGroup endpointGroup,
+                                                        EndpointSelector endpointSelector,
                                                         @Nullable Endpoint endpoint) {
-        return eventLoopScheduler.acquire(sessionProtocol, endpointGroup, endpoint);
+        return eventLoopScheduler.acquire(sessionProtocol, endpointSelector, endpoint);
     }
 
     @Override

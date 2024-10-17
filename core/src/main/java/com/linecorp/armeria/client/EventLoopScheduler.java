@@ -16,7 +16,7 @@
 
 package com.linecorp.armeria.client;
 
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.client.endpoint.EndpointSelector;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.ReleasableHolder;
@@ -36,11 +36,11 @@ public interface EventLoopScheduler {
      * so that {@link ClientFactory} utilizes {@link EventLoop}s efficiently.
      *
      * @param sessionProtocol the {@link SessionProtocol} of the connection
-     * @param endpointGroup the {@link EndpointGroup} where {@code endpoint} belongs to.
+     * @param endpointSelector the {@link EndpointSelector} where {@code endpoint} belongs to.
      * @param endpoint the {@link Endpoint} where a request is being sent.
      *                 {@code null} if the {@link Endpoint} is not known yet.
      */
     ReleasableHolder<EventLoop> acquire(SessionProtocol sessionProtocol,
-                                        EndpointGroup endpointGroup,
+                                        EndpointSelector endpointSelector,
                                         @Nullable Endpoint endpoint);
 }

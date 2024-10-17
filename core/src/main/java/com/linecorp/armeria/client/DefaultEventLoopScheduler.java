@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.client.endpoint.EndpointSelector;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.ReleasableHolder;
@@ -119,11 +120,11 @@ final class DefaultEventLoopScheduler implements EventLoopScheduler {
 
     @Override
     public ReleasableHolder<EventLoop> acquire(SessionProtocol sessionProtocol,
-                                               EndpointGroup endpointGroup,
+                                               EndpointSelector endpointSelector,
                                                @Nullable Endpoint endpoint) {
         requireNonNull(sessionProtocol, "sessionProtocol");
-        requireNonNull(endpointGroup, "endpointGroup");
-        final AbstractEventLoopState state = state(sessionProtocol, endpointGroup, endpoint);
+        requireNonNull(endpointSelector, "endpointGroup");
+        final AbstractEventLoopState state = state(sessionProtocol, endpointSelector, endpoint);
         final AbstractEventLoopEntry acquired = state.acquire();
         cleanup();
         return acquired;
@@ -146,12 +147,12 @@ final class DefaultEventLoopScheduler implements EventLoopScheduler {
      * the {@link SessionProtocol} when the {@code maxNumEventLoopsFunction} does not produce a value.
      */
     private AbstractEventLoopState state(SessionProtocol sessionProtocol,
-                                         EndpointGroup endpointGroup,
+                                         EndpointSelector endpointSelector,
                                          @Nullable Endpoint endpoint) {
         if (endpoint == null) {
             // Use a fake endpoint if no endpoint was selected from the endpointGroup.
             endpoint = Endpoint.unsafeCreate(
-                    "armeria-group-" + Integer.toHexString(System.identityHashCode(endpointGroup)), 0);
+                    "armeria-group-" + Integer.toHexString(System.identityHashCode(endpointSelector)), 0);
         }
 
         final String firstTryHost;

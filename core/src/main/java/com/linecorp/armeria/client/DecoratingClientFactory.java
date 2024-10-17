@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.client.endpoint.EndpointSelector;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
@@ -86,9 +87,9 @@ public class DecoratingClientFactory extends AbstractUnwrappable<ClientFactory> 
 
     @Override
     public ReleasableHolder<EventLoop> acquireEventLoop(SessionProtocol sessionProtocol,
-                                                        EndpointGroup endpointGroup,
+                                                        EndpointSelector endpointSelector,
                                                         @Nullable Endpoint endpoint) {
-        return unwrap().acquireEventLoop(sessionProtocol, endpointGroup, endpoint);
+        return unwrap().acquireEventLoop(sessionProtocol, endpointSelector, endpoint);
     }
 
     @Override

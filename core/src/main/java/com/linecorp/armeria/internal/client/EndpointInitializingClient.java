@@ -37,7 +37,7 @@ public final class EndpointInitializingClient<I extends Request, O extends Respo
         return new EndpointInitializingClient<>(delegate, endpointGroup);
     }
 
-    EndpointInitializingClient(Client<I, O> delegate, EndpointGroup endpointGroup) {
+    private EndpointInitializingClient(Client<I, O> delegate, EndpointGroup endpointGroup) {
         this.delegate = requireNonNull(delegate, "delegate");
         this.endpointGroup = endpointGroup;
     }

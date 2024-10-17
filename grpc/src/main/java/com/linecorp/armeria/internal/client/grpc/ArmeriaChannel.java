@@ -155,7 +155,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         ctx.logBuilder().defer(RequestLogProperty.REQUEST_CONTENT,
                                RequestLogProperty.RESPONSE_CONTENT);
 
-        Client<HttpRequest, HttpResponse> client;
+        final Client<HttpRequest, HttpResponse> client;
 
         CallCredentials credentials = callOptions.getCredentials();
         if (credentials == NullCallCredentials.INSTANCE) {
@@ -183,11 +183,10 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
                     }
                     return HttpResponse.ofFailure(status.asRuntimeException());
                 };
-        client = params.endpointHint().applyInitializeDecorate(client, params.endpointGroup());
 
         return new ArmeriaClientCall<>(
                 ctx,
-                params.endpointGroup(),
+                params,
                 client,
                 req,
                 method,
@@ -269,15 +268,12 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         return new DefaultClientRequestContext(
                 meterRegistry,
                 sessionProtocol,
-                options().requestIdGenerator().get(),
                 method,
                 reqTarget,
                 options(),
                 req,
                 null,
-                requestOptions,
-                System.nanoTime(),
-                SystemInfo.currentTimeMicros());
+                requestOptions);
     }
 
     private static RequestOptions newRequestOptions(ExchangeType exchangeType) {

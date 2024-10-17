@@ -36,6 +36,9 @@ import java.util.function.Function;
 
 import javax.net.ssl.SSLSession;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
@@ -43,6 +46,7 @@ import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.client.endpoint.EndpointSelector;
 import com.linecorp.armeria.common.AttributesGetters;
 import com.linecorp.armeria.common.ContextAwareEventLoop;
 import com.linecorp.armeria.common.ExchangeType;
@@ -68,6 +72,7 @@ import com.linecorp.armeria.common.logging.RequestLogBuilder;
 import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.util.ReleasableHolder;
 import com.linecorp.armeria.common.util.SafeCloseable;
+import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.common.util.TextFormatter;
 import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.common.util.UnmodifiableFuture;
@@ -125,11 +130,14 @@ public final class DefaultClientRequestContext
     private static final short STR_CHANNEL_AVAILABILITY = 1;
     private static final short STR_PARENT_LOG_AVAILABILITY = 1 << 1;
 
+    private static final Logger logger = LoggerFactory.getLogger(DefaultClientRequestContext.class);
+    private static boolean warnedNullRequestId;
+
     private boolean initialized;
     @Nullable
     private EventLoop eventLoop;
     @Nullable
-    private EndpointGroup endpointGroup;
+    private EndpointSelector endpointSelector;
     @Nullable
     private Endpoint endpoint;
     @Nullable
@@ -202,22 +210,17 @@ public final class DefaultClientRequestContext
      * the construction of this context.
      *
      * @param sessionProtocol the {@link SessionProtocol} of the invocation
-     * @param id the {@link RequestId} that contains the identifier of the current {@link Request}
-     *           and {@link Response} pair.
      * @param req the {@link HttpRequest} associated with this context
      * @param rpcReq the {@link RpcRequest} associated with this context
-     * @param requestStartTimeNanos {@link System#nanoTime()} value when the request started.
-     * @param requestStartTimeMicros the number of microseconds since the epoch,
-     *                               e.g. {@code System.currentTimeMillis() * 1000}.
      */
     public DefaultClientRequestContext(
-            MeterRegistry meterRegistry, SessionProtocol sessionProtocol,
-            RequestId id, HttpMethod method, RequestTarget reqTarget,
+            MeterRegistry meterRegistry, SessionProtocol sessionProtocol, HttpMethod method,
+            RequestTarget reqTarget,
             ClientOptions options, @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
-            RequestOptions requestOptions,
-            long requestStartTimeNanos, long requestStartTimeMicros) {
-        this(null, meterRegistry, sessionProtocol, id, method, reqTarget, options, req, rpcReq, requestOptions,
-             serviceRequestContext(), null, requestStartTimeNanos, requestStartTimeMicros);
+            RequestOptions requestOptions) {
+        this(null, meterRegistry, sessionProtocol, nextRequestId(options), method, reqTarget,
+             options, req, rpcReq, requestOptions, serviceRequestContext(), null,
+             System.nanoTime(), SystemInfo.currentTimeMicros());
     }
 
     private DefaultClientRequestContext(
@@ -362,26 +365,26 @@ public final class DefaultClientRequestContext
     }
 
     private CompletableFuture<Boolean> initEndpoint(Endpoint endpoint) {
-        endpointGroup = null;
+        endpointSelector = null;
         updateEndpoint(endpoint);
         acquireEventLoop(endpoint);
         return initFuture(true, null);
     }
 
-    private CompletableFuture<Boolean> initEndpointGroup(EndpointGroup endpointGroup) {
-        this.endpointGroup = endpointGroup;
-        final Endpoint endpoint = endpointGroup.selectNow(this);
+    private CompletableFuture<Boolean> initEndpointGroup(EndpointSelector endpointSelector) {
+        this.endpointSelector = endpointSelector;
+        final Endpoint endpoint = endpointSelector.selectNow(this);
         if (endpoint != null) {
             updateEndpoint(endpoint);
-            acquireEventLoop(endpointGroup);
+            acquireEventLoop(endpointSelector);
             return initFuture(true, null);
         }
 
         // Use an arbitrary event loop for asynchronous Endpoint selection.
         final EventLoop temporaryEventLoop = options().factory().eventLoopSupplier().get();
-        return endpointGroup.select(this, temporaryEventLoop).handle((e, cause) -> {
+        return endpointSelector.select(this, temporaryEventLoop).handle((e, cause) -> {
             updateEndpoint(e);
-            acquireEventLoop(endpointGroup);
+            acquireEventLoop(endpointSelector);
 
             final boolean success;
             if (cause != null) {
@@ -448,10 +451,10 @@ public final class DefaultClientRequestContext
         autoFillSchemeAuthorityAndOrigin();
     }
 
-    private void acquireEventLoop(EndpointGroup endpointGroup) {
+    private void acquireEventLoop(EndpointSelector endpointSelector) {
         if (eventLoop == null) {
             final ReleasableHolder<EventLoop> releasableEventLoop =
-                    options().factory().acquireEventLoop(sessionProtocol(), endpointGroup, endpoint);
+                    options().factory().acquireEventLoop(sessionProtocol(), endpointSelector, endpoint);
             eventLoop = releasableEventLoop.get();
             log.whenComplete().thenAccept(unused -> releasableEventLoop.release());
             initializeResponseCancellationScheduler();
@@ -516,7 +519,8 @@ public final class DefaultClientRequestContext
                                         RequestId id,
                                         @Nullable HttpRequest req,
                                         @Nullable RpcRequest rpcReq,
-                                        @Nullable Endpoint endpoint, @Nullable EndpointGroup endpointGroup,
+                                        @Nullable Endpoint endpoint,
+                                        @Nullable EndpointSelector endpointSelector,
                                         SessionProtocol sessionProtocol, HttpMethod method,
                                         RequestTarget reqTarget) {
         super(ctx.meterRegistry(), sessionProtocol, id, method, reqTarget, ctx.exchangeType(),
@@ -550,7 +554,7 @@ public final class DefaultClientRequestContext
             addAttr(i.next());
         }
 
-        this.endpointGroup = endpointGroup;
+        this.endpointSelector = endpointSelector;
         updateEndpoint(endpoint);
         // We don't need to acquire an EventLoop for the initial attempt because it's already acquired by
         // the root context.
@@ -732,7 +736,10 @@ public final class DefaultClientRequestContext
     @Nullable
     @Override
     public EndpointGroup endpointGroup() {
-        return endpointGroup;
+        if (endpointSelector instanceof EndpointGroup) {
+            return (EndpointGroup) endpointSelector;
+        }
+        return null;
     }
 
     @Nullable
@@ -1079,5 +1086,18 @@ public final class DefaultClientRequestContext
             return requestOptionTimeoutMode;
         }
         return options.responseTimeoutMode();
+    }
+
+    private static RequestId nextRequestId(ClientOptions options) {
+        final RequestId id = options.requestIdGenerator().get();
+        if (id == null) {
+            if (!warnedNullRequestId) {
+                warnedNullRequestId = true;
+                logger.warn("requestIdGenerator.get() returned null; using RequestId.random()");
+            }
+            return RequestId.random();
+        } else {
+            return id;
+        }
     }
 }

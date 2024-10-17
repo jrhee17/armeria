@@ -29,6 +29,7 @@ import com.linecorp.armeria.common.RequestTargetForm;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -56,6 +57,7 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
         requireNonNull(req, "req");
         requireNonNull(requestOptions, "requestOptions");
 
+        ClientBuilderParams params = params();
         final String originalPath = req.path();
         final String prefix = Strings.emptyToNull(uri().getRawPath());
         final RequestTarget reqTarget = RequestTarget.forClient(originalPath, prefix);
@@ -94,6 +96,7 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
                 return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
                         "Failed to parse a scheme: " + reqTarget.scheme(), e));
             }
+            params = new DelegatingClientBuilderParams(params, endpointGroup);
         } else {
             if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
                 return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
@@ -101,7 +104,6 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
                         "because the client was created with a base URI. path: " + originalPath));
             }
 
-            endpointGroup = endpointGroup();
             protocol = scheme().sessionProtocol();
         }
 
@@ -113,12 +115,14 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
             newReq = req.withHeaders(req.headers().toBuilder().path(newPath));
         }
 
-        return execute(protocol,
-                       endpointGroup,
-                       newReq.method(),
-                       reqTarget,
-                       newReq,
-                       requestOptions);
+        final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
+                options().factory().meterRegistry(), protocol, newReq.method(), reqTarget, options(),
+                newReq, null, requestOptions);
+        try {
+            return params.execute(unwrap(), ctx, newReq);
+        } catch (Exception e) {
+            return HttpResponse.ofFailure(e);
+        }
     }
 
     private static HttpResponse abortRequestAndReturnFailureResponse(

@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import com.linecorp.armeria.client.Client;
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpRequestWriter;
@@ -106,7 +106,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
             ArmeriaClientCall.class, Runnable.class, "pendingTask");
 
     private final DefaultClientRequestContext ctx;
-    private final EndpointGroup endpointGroup;
+    private final ClientBuilderParams params;
     private final Client<HttpRequest, HttpResponse> httpClient;
     private final HttpRequestWriter req;
     private final MethodDescriptor<I, O> method;
@@ -143,7 +143,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
 
     ArmeriaClientCall(
             DefaultClientRequestContext ctx,
-            EndpointGroup endpointGroup,
+            ClientBuilderParams params,
             Client<HttpRequest, HttpResponse> httpClient,
             HttpRequestWriter req,
             MethodDescriptor<I, O> method,
@@ -160,7 +160,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
             InternalGrpcExceptionHandler exceptionHandler,
             boolean useMethodMarshaller) {
         this.ctx = ctx;
-        this.endpointGroup = endpointGroup;
+        this.params = params;
         this.httpClient = httpClient;
         this.req = req;
         this.method = method;
@@ -244,15 +244,15 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
         // Must come after handling deadline.
         final HttpRequest newReq = prepareHeaders(compressor, metadata, remainingNanos);
 
-        HttpResponse res;
+        final HttpResponse res;
         try {
-            res = httpClient.execute(ctx, newReq);
+            res = params.execute(httpClient, ctx, newReq)
+                        .mapError(cause -> convertException(cause).asRuntimeException());
         } catch (Throwable t) {
             final Status status = convertException(t);
             close(status, new Metadata());
             return;
         }
-        res = res.mapError(cause -> convertException(cause).asRuntimeException());
 
         final HttpStreamDeframer deframer = new HttpStreamDeframer(
                 decompressorRegistry, ctx, this, exceptionHandler,

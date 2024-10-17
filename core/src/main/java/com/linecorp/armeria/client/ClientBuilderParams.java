@@ -16,13 +16,20 @@
 
 package com.linecorp.armeria.client;
 
+import static com.linecorp.armeria.internal.client.ClientUtil.executeWithFallback;
+import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 import static java.util.Objects.requireNonNull;
 
 import java.net.URI;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.Request;
+import com.linecorp.armeria.common.RequestTarget;
+import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 
 /**
  * Provides the construction parameters of a client.
@@ -97,4 +104,15 @@ public interface ClientBuilderParams {
      * TBU.
      */
     EndpointHint endpointHint();
+
+    default <I extends Request, O extends Response> O execute(
+            Client<I, O> delegate,
+            ClientRequestContext ctx, I req) throws Exception {
+        if (ctx.endpoint() != null) {
+            return executeWithFallback(delegate, ctx, req);
+        }
+        final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
+        assert ctxExt != null;
+        return initContextAndExecuteWithFallback(delegate, ctxExt, endpointGroup(), req);
+    }
 }
