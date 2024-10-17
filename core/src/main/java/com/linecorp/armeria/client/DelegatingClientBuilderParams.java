@@ -62,7 +62,7 @@ final class DelegatingClientBuilderParams implements ClientBuilderParams {
     }
 
     @Override
-    public EndpointHint endpointHint() {
+    public ClientInitializer endpointHint() {
         return delegate.endpointHint();
     }
 }

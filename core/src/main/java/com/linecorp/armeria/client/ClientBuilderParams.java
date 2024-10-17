@@ -23,9 +23,7 @@ import static java.util.Objects.requireNonNull;
 import java.net.URI;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
-import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.Request;
-import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -61,13 +59,13 @@ public interface ClientBuilderParams {
     /**
      * Returns a newly created {@link ClientBuilderParams} from the specified properties.
      */
-    static ClientBuilderParams of(Scheme scheme, EndpointHint endpointHint,
+    static ClientBuilderParams of(Scheme scheme, ClientInitializer clientInitializer,
                                   @Nullable String absolutePathRef, Class<?> type, ClientOptions options) {
         requireNonNull(scheme, "scheme");
-        requireNonNull(endpointHint, "endpointGroup");
+        requireNonNull(clientInitializer, "endpointGroup");
         requireNonNull(type, "type");
         requireNonNull(options, "options");
-        return new DefaultClientBuilderParams(scheme, endpointHint, absolutePathRef, type, options);
+        return new DefaultClientBuilderParams(scheme, clientInitializer, absolutePathRef, type, options);
     }
 
     /**
@@ -103,7 +101,7 @@ public interface ClientBuilderParams {
     /**
      * TBU.
      */
-    EndpointHint endpointHint();
+    ClientInitializer endpointHint();
 
     default <I extends Request, O extends Response> O execute(
             Client<I, O> delegate,

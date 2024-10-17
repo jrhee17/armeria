@@ -38,7 +38,7 @@ import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.common.EventLoopExtension;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
-import com.linecorp.armeria.xds.client.endpoint.XdsEndpointHint;
+import com.linecorp.armeria.xds.client.endpoint.XdsClientInitializer;
 
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
 import io.envoyproxy.controlplane.cache.v3.Snapshot;
@@ -143,7 +143,7 @@ class XdsClientTest {
                 XdsTestResources.createStaticCluster(BOOTSTRAP_CLUSTER_NAME, loadAssignment);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
-             XdsEndpointHint xdsEndpointHint = XdsEndpointHint.of(listenerName, xdsBootstrap)) {
+             XdsClientInitializer xdsEndpointHint = XdsClientInitializer.of(listenerName, xdsBootstrap)) {
             final BlockingWebClient blockingClient = WebClient.of(xdsEndpointHint)
                                                               .blocking();
             assertThat(blockingClient.get("/hello").contentUtf8()).isEqualTo("world");
@@ -165,7 +165,7 @@ class XdsClientTest {
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         final Consumer<GrpcClientBuilder> customizer = cb -> cb.factory(ClientFactory.insecure());
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap, eventLoop.get(), customizer);
-             XdsEndpointHint xdsEndpointHint = XdsEndpointHint.of(listenerName, xdsBootstrap)) {
+             XdsClientInitializer xdsEndpointHint = XdsClientInitializer.of(listenerName, xdsBootstrap)) {
             final BlockingWebClient blockingClient = WebClient.builder(xdsEndpointHint)
                                                               .factory(ClientFactory.insecure())
                                                               .build().blocking();
@@ -188,7 +188,7 @@ class XdsClientTest {
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(
                 XdsTestResources.bootstrap(configSource, cluster),
                 eventLoop.get(), cb -> cb.factory(ClientFactory.insecure()));
-             XdsEndpointHint xdsEndpointHint = XdsEndpointHint.of(listenerName, xdsBootstrap)) {
+             XdsClientInitializer xdsEndpointHint = XdsClientInitializer.of(listenerName, xdsBootstrap)) {
             final BlockingWebClient blockingClient = WebClient.builder(xdsEndpointHint)
                                                               .factory(ClientFactory.insecure())
                                                               .build().blocking();

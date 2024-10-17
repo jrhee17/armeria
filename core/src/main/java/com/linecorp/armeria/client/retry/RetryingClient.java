@@ -29,7 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.EndpointHint;
+import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.ResponseTimeoutException;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -227,7 +227,7 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
 
     private final HttpClient delegate;
     private final boolean useRetryAfter;
-    private final EndpointHint endpointHint;
+    private final ClientInitializer clientInitializer;
 
     /**
      * Creates a new instance that decorates the specified {@link HttpClient}.
@@ -237,11 +237,11 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
             RetryConfigMapping<HttpResponse> mapping,
             @Nullable RetryConfig<HttpResponse> retryConfig,
             boolean useRetryAfter,
-            EndpointHint endpointHint) {
-        super(delegate, mapping, retryConfig, endpointHint);
+            ClientInitializer clientInitializer) {
+        super(delegate, mapping, retryConfig, clientInitializer);
         this.delegate = delegate;
         this.useRetryAfter = useRetryAfter;
-        this.endpointHint = endpointHint;
+        this.clientInitializer = clientInitializer;
     }
 
     @Override

@@ -39,6 +39,7 @@ import javax.net.ssl.SSLSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
@@ -1086,6 +1087,11 @@ public final class DefaultClientRequestContext
             return requestOptionTimeoutMode;
         }
         return options.responseTimeoutMode();
+    }
+
+    @Override
+    public ClientInitializer clientInitializer() {
+        return endpointGroup();
     }
 
     private static RequestId nextRequestId(ClientOptions options) {

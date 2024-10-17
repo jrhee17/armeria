@@ -19,8 +19,15 @@ package com.linecorp.armeria.client;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 
+/**
+ * TBU.
+ */
+@FunctionalInterface
 public interface ClientInitializer {
 
+    /**
+     * TBU.
+     */
     <I extends Request, O extends Response> O execute(
             Client<I, O> delegate, ClientRequestContext ctx, I req) throws Exception;
 }

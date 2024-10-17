@@ -113,7 +113,7 @@ public abstract class UserClient<I extends Request, O extends Response>
     }
 
     @Override
-    public EndpointHint endpointHint() {
+    public ClientInitializer endpointHint() {
         return params.endpointHint();
     }
 

@@ -173,6 +173,11 @@ public class ClientRequestContextWrapper
     }
 
     @Override
+    public ClientInitializer clientInitializer() {
+        return unwrap().clientInitializer();
+    }
+
+    @Override
     public void hook(Supplier<? extends AutoCloseable> contextHook) {
         unwrap().hook(contextHook);
     }

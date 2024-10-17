@@ -39,7 +39,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     @Nullable
     private final EndpointGroup endpointGroup;
     @Nullable
-    private final EndpointHint endpointHint;
+    private final ClientInitializer clientInitializer;
     @Nullable
     private final Scheme scheme;
     @Nullable
@@ -81,9 +81,9 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      *                                  in {@link SessionProtocol}
      */
     protected AbstractWebClientBuilder(SerializationFormat serializationFormat,
-                                       EndpointHint endpointHint, @Nullable String path) {
+                                       ClientInitializer clientInitializer, @Nullable String path) {
         this(null, Scheme.of(serializationFormat, SessionProtocol.UNKNOWN),
-             null, requireNonNull(endpointHint, "endpointHint"), path);
+             null, requireNonNull(clientInitializer, "endpointHint"), path);
     }
 
     /**
@@ -91,14 +91,14 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      */
     protected AbstractWebClientBuilder(@Nullable URI uri, @Nullable Scheme scheme,
                                        @Nullable EndpointGroup endpointGroup,
-                                       @Nullable EndpointHint endpointHint, @Nullable String path) {
+                                       @Nullable ClientInitializer clientInitializer, @Nullable String path) {
         assert uri != null || (scheme != null && endpointGroup != null) ||
-               (endpointHint != null && scheme != null);
+               (clientInitializer != null && scheme != null);
         assert path == null || uri == null;
         this.uri = uri;
         this.scheme = scheme;
         this.endpointGroup = endpointGroup;
-        this.endpointHint = endpointHint;
+        this.clientInitializer = clientInitializer;
         this.path = validatePath(path);
     }
 
@@ -174,8 +174,8 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
         }
         assert scheme != null;
 
-        if (endpointHint != null) {
-            return ClientBuilderParams.of(scheme, endpointHint, path, WebClient.class, options);
+        if (clientInitializer != null) {
+            return ClientBuilderParams.of(scheme, clientInitializer, path, WebClient.class, options);
         }
 
         assert endpointGroup != null;

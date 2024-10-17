@@ -19,7 +19,7 @@ package com.linecorp.armeria.xds.client.endpoint;
 import java.util.concurrent.CompletableFuture;
 
 import com.linecorp.armeria.client.Client;
-import com.linecorp.armeria.client.EndpointHint;
+import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
@@ -29,21 +29,21 @@ import com.linecorp.armeria.xds.XdsBootstrap;
 /**
  * TBU.
  */
-public final class XdsEndpointHint implements EndpointHint, AsyncCloseable {
+public final class XdsClientInitializer implements ClientInitializer, AsyncCloseable {
 
     private final ClusterManager clusterManager;
 
     /**
      * TBU.
      */
-    public static XdsEndpointHint of(String listenerName, XdsBootstrap xdsBootstrap) {
-        return new XdsEndpointHint(listenerName, xdsBootstrap);
+    public static XdsClientInitializer of(String listenerName, XdsBootstrap xdsBootstrap) {
+        return new XdsClientInitializer(listenerName, xdsBootstrap);
     }
 
     /**
      * TBU.
      */
-    private XdsEndpointHint(String listenerName, XdsBootstrap xdsBootstrap) {
+    private XdsClientInitializer(String listenerName, XdsBootstrap xdsBootstrap) {
         clusterManager = new ClusterManager(listenerName, xdsBootstrap);
     }
 

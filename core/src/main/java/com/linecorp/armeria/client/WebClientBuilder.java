@@ -70,9 +70,9 @@ public final class WebClientBuilder extends AbstractWebClientBuilder {
     /**
      * Creates a new instance.
      */
-    WebClientBuilder(SerializationFormat serializationFormat, EndpointHint endpointHint,
+    WebClientBuilder(SerializationFormat serializationFormat, ClientInitializer clientInitializer,
                      @Nullable String path) {
-        super(serializationFormat, endpointHint, path);
+        super(serializationFormat, clientInitializer, path);
     }
 
     /**

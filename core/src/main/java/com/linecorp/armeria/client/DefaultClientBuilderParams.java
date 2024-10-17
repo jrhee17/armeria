@@ -37,7 +37,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
 
     private final Scheme scheme;
     private final EndpointGroup endpointGroup;
-    private final EndpointHint endpointHint;
+    private final ClientInitializer clientInitializer;
     private final String absolutePathRef;
     private final URI uri;
     private final Class<?> type;
@@ -54,7 +54,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
 
         scheme = factory.validateScheme(Scheme.parse(uri.getScheme()));
         endpointGroup = Endpoint.parse(uri.getRawAuthority());
-        endpointHint = EndpointInitializingClient::wrap;
+        clientInitializer = EndpointInitializingClient::wrap;
 
         try (TemporaryThreadLocals tempThreadLocals = TemporaryThreadLocals.acquire()) {
             final StringBuilder buf = tempThreadLocals.stringBuilder();
@@ -77,7 +77,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         this.endpointGroup = requireNonNull(endpointGroup, "endpointGroup");
         this.type = requireNonNull(type, "type");
         this.options = options;
-        endpointHint = EndpointInitializingClient::wrap;
+        clientInitializer = EndpointInitializingClient::wrap;
 
         final String schemeStr;
         if (scheme.serializationFormat() == SerializationFormat.NONE) {
@@ -103,7 +103,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     /**
      * Creates a new instance.
      */
-    DefaultClientBuilderParams(Scheme scheme, EndpointHint endpointHint,
+    DefaultClientBuilderParams(Scheme scheme, ClientInitializer clientInitializer,
                                @Nullable String absolutePathRef,
                                Class<?> type, ClientOptions options) {
         final ClientFactory factory = requireNonNull(options, "options").factory();
@@ -114,7 +114,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
 
         this.type = requireNonNull(type, "type");
         this.options = options;
-        this.endpointHint = endpointHint;
+        this.clientInitializer = clientInitializer;
 
         final String schemeStr;
         if (scheme.serializationFormat() == SerializationFormat.NONE) {
@@ -177,8 +177,8 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     }
 
     @Override
-    public EndpointHint endpointHint() {
-        return endpointHint;
+    public ClientInitializer endpointHint() {
+        return clientInitializer;
     }
 
     @Override

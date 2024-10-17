@@ -621,6 +621,8 @@ public interface ClientRequestContext extends RequestContext {
     @UnstableApi
     ResponseTimeoutMode responseTimeoutMode();
 
+    ClientInitializer clientInitializer();
+
     @Override
     default ClientRequestContext unwrap() {
         return (ClientRequestContext) RequestContext.super.unwrap();

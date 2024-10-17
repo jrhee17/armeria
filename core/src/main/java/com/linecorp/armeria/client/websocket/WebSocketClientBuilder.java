@@ -44,7 +44,7 @@ import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.client.EndpointHint;
+import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.RpcClient;
@@ -96,9 +96,9 @@ public final class WebSocketClientBuilder extends AbstractWebClientBuilder {
         setWebSocketDefaultOption();
     }
 
-    WebSocketClientBuilder(EndpointHint endpointHint) {
+    WebSocketClientBuilder(ClientInitializer clientInitializer) {
         super(null, Scheme.of(SerializationFormat.WS, SessionProtocol.UNKNOWN),
-              null, requireNonNull(endpointHint, "endpointHint"), null);
+              null, requireNonNull(clientInitializer, "endpointHint"), null);
         setWebSocketDefaultOption();
     }
 

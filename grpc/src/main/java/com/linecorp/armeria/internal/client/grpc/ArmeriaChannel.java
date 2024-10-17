@@ -30,7 +30,7 @@ import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.EndpointHint;
+import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -51,7 +51,6 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.grpc.GrpcCallOptions;
 import com.linecorp.armeria.common.grpc.GrpcJsonMarshaller;
 import com.linecorp.armeria.common.logging.RequestLogProperty;
-import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.common.util.Unwrappable;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 import com.linecorp.armeria.internal.common.RequestTargetCache;
@@ -240,7 +239,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
     }
 
     @Override
-    public EndpointHint endpointHint() {
+    public ClientInitializer endpointHint() {
         return params.endpointHint();
     }
 
