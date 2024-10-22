@@ -17,6 +17,8 @@
 package com.linecorp.armeria.client.retry;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.linecorp.armeria.internal.client.ClientUtil.executeWithFallback;
+import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 
 import java.time.Duration;
 import java.util.Date;
@@ -309,27 +311,28 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
             handleException(ctx, rootReqDuplicator, future, t, initialAttempt);
             return;
         }
-        final HttpRequest newReq = derivedCtx.request();
-        assert newReq != null;
 
-        final HttpResponse response;
+        HttpResponse response;
         final EndpointGroup endpointGroup = derivedCtx.endpointGroup();
         final ClientRequestContextExtension ctxExtension = derivedCtx.as(ClientRequestContextExtension.class);
         if (!initialAttempt && ctxExtension != null &&
             endpointGroup != null && derivedCtx.endpoint() == null) {
             // clear the pending throwable to retry endpoint selection
             ClientPendingThrowableUtil.removePendingThrowable(derivedCtx);
+            // if the endpoint hasn't been selected, try to initialize the ctx with a new endpoint/event loop
+            try {
+                response = initContextAndExecuteWithFallback(
+                        unwrap(), ctxExtension, endpointGroup, duplicateReq);
+            } catch (Throwable t) {
+                response = HttpResponse.ofFailure(t);
+            }
+        } else {
+            try {
+                response = executeWithFallback(unwrap(), derivedCtx, duplicateReq);
+            } catch (Throwable t) {
+                response = HttpResponse.ofFailure(t);
+            }
         }
-
-        HttpResponse response0;
-        try {
-            assert ctxExtension != null;
-            response0 = ctx.clientInitializer().execute(unwrap(), ctxExtension, newReq);
-        } catch (Throwable t) {
-            response0 = HttpResponse.ofFailure(t);
-        }
-
-        response = response0;
         final RetryConfig<HttpResponse> config = mappedRetryConfig(ctx);
         if (!ctx.exchangeType().isResponseStreaming() || config.requiresResponseTrailers()) {
             // XXX(ikhoon): Should we use `response.aggregateWithPooledObjects()`?

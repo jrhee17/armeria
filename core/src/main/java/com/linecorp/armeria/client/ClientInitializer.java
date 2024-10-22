@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.client;
 
+import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 
@@ -29,5 +30,6 @@ public interface ClientInitializer {
      * TBU.
      */
     <I extends Request, O extends Response> O execute(
-            Client<I, O> delegate, ClientRequestContext ctx, I req) throws Exception;
+            Client<I, O> delegate, RequestParams requestParams, ClientOptions clientOptions,
+            ClientBuilderParams clientBuilderParams) throws Exception;
 }

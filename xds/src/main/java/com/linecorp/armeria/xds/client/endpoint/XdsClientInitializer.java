@@ -19,11 +19,14 @@ package com.linecorp.armeria.xds.client.endpoint;
 import java.util.concurrent.CompletableFuture;
 
 import com.linecorp.armeria.client.Client;
+import com.linecorp.armeria.client.ClientBuilderParams;
+import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.client.ClientInitializer;
-import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.util.AsyncCloseable;
+import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 import com.linecorp.armeria.xds.XdsBootstrap;
 
 /**
@@ -58,9 +61,16 @@ public final class XdsClientInitializer implements ClientInitializer, AsyncClose
     }
 
     @Override
-    public <I extends Request, O extends Response> O execute(Client<I, O> delegate, ClientRequestContext ctx,
-                                                             I req) throws Exception {
+    public <I extends Request, O extends Response> O execute(Client<I, O> delegate, RequestParams requestParams,
+                                                             ClientOptions clientOptions,
+                                                             ClientBuilderParams clientBuilderParams)
+            throws Exception {
+        final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
+                clientOptions.factory().meterRegistry(), clientBuilderParams.scheme().sessionProtocol(),
+                requestParams.httpRequest().method(), requestParams.requestTarget(), clientOptions,
+                requestParams.httpRequest(), requestParams.rpcRequest(), requestParams.requestOptions(),
+                this);
         return new XdsClient<>(delegate, clusterManager)
-                .execute(ctx, req);
+                .execute(ctx, requestParams.originalRequest());
     }
 }

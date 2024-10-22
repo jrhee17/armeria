@@ -15,6 +15,9 @@
  */
 package com.linecorp.armeria.client.retry;
 
+import static com.linecorp.armeria.internal.client.ClientUtil.executeWithFallback;
+import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
+
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -167,27 +170,29 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
                     mutator -> mutator.add(ARMERIA_RETRY_COUNT, StringUtil.toString(totalAttempts - 1)));
         }
 
-        final RpcResponse res;
+        RpcResponse res0;
 
         final ClientRequestContextExtension ctxExtension = derivedCtx.as(ClientRequestContextExtension.class);
         final EndpointGroup endpointGroup = derivedCtx.endpointGroup();
-        final RpcRequest newReq = derivedCtx.rpcRequest();
-        assert newReq != null;
         if (!initialAttempt && ctxExtension != null &&
             endpointGroup != null && derivedCtx.endpoint() == null) {
             // clear the pending throwable to retry endpoint selection
             ClientPendingThrowableUtil.removePendingThrowable(derivedCtx);
+            // if the endpoint hasn't been selected, try to initialize the ctx with a new endpoint/event loop
+            try {
+                res0 = initContextAndExecuteWithFallback(unwrap(), ctxExtension, endpointGroup, req);
+            } catch (Exception e) {
+                res0 = RpcResponse.ofFailure(e);
+            }
+        } else {
+            try {
+                res0 = executeWithFallback(unwrap(), derivedCtx, req);
+            } catch (Exception e) {
+                res0 = RpcResponse.ofFailure(e);
+            }
         }
+        final RpcResponse res = res0;
 
-        RpcResponse res0;
-        try {
-            assert ctxExtension != null;
-            res0 = derivedCtx.clientInitializer().execute(unwrap(), ctxExtension, newReq);
-        } catch (Throwable t) {
-            res0 = RpcResponse.ofFailure(t);
-        }
-
-        res = res0;
         final RetryConfig<RpcResponse> retryConfig = mappedRetryConfig(ctx);
         final RetryRuleWithContent<RpcResponse> retryRule =
                 retryConfig.needsContentInRule() ?

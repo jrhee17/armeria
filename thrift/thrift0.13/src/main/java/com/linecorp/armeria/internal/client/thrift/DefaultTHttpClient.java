@@ -34,7 +34,6 @@ import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 import com.linecorp.armeria.internal.common.RequestTargetCache;
 
 import io.micrometer.core.instrument.MeterRegistry;
@@ -85,12 +84,9 @@ final class DefaultTHttpClient extends UserClient<RpcRequest, RpcResponse> imple
                               .scheme(scheme().sessionProtocol())
                               .contentType(scheme().serializationFormat().mediaType())
                               .build());
-        final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                options().factory().meterRegistry(), scheme().sessionProtocol(),
-                HttpMethod.POST, reqTarget, options(), httpReq, call, UNARY_REQUEST_OPTIONS,
-                params().clientInitializer());
+        final RequestParams params = RequestParams.of(httpReq, call, UNARY_REQUEST_OPTIONS, reqTarget);
         try {
-            return params().clientInitializer().execute(unwrap(), ctx, call);
+            return params().clientInitializer().execute(unwrap(), params, options(), params());
         } catch (Exception e) {
             return RpcResponse.ofFailure(e);
         }

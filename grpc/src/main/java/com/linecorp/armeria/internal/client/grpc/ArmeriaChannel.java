@@ -76,7 +76,7 @@ import io.netty.handler.codec.http.HttpHeaderValues;
  */
 final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwrappable {
 
-    private static final Map<MethodType, RequestOptions> REQUEST_OPTIONS_MAP;
+    static final Map<MethodType, RequestOptions> REQUEST_OPTIONS_MAP;
 
     static {
         final EnumMap<MethodType, RequestOptions> requestOptionsMap = new EnumMap<>(MethodType.class);

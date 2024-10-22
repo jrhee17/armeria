@@ -29,7 +29,10 @@ import java.util.function.Consumer;
 import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.Client;
+import com.linecorp.armeria.client.ClientBuilderParams;
+import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.client.ClientInitializer;
+import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.retry.RetryingClient;
@@ -40,6 +43,7 @@ import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.common.util.Listenable;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
+import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 import com.linecorp.armeria.internal.client.endpoint.StaticEndpointGroup;
 
 /**
@@ -200,12 +204,18 @@ public interface EndpointGroup extends Listenable<List<Endpoint>>, EndpointSelec
 
     @Override
     default <I extends Request, O extends Response> O execute(
-            Client<I, O> delegate, ClientRequestContext ctx, I req) throws Exception {
+            Client<I, O> delegate, RequestParams requestParams, ClientOptions clientOptions,
+            ClientBuilderParams clientBuilderParams) throws Exception {
+        final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
+                clientOptions.factory().meterRegistry(), clientBuilderParams.scheme().sessionProtocol(),
+                requestParams.httpRequest().method(), requestParams.requestTarget(), clientOptions,
+                requestParams.httpRequest(), requestParams.rpcRequest(), requestParams.requestOptions(),
+                this);
         if (ctx.endpoint() != null) {
-            return executeWithFallback(delegate, ctx, req);
+            return executeWithFallback(delegate, ctx, requestParams.originalRequest());
         }
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
-        return initContextAndExecuteWithFallback(delegate, ctxExt, this, req);
+        return initContextAndExecuteWithFallback(delegate, ctxExt, this, requestParams.originalRequest());
     }
 }

@@ -25,15 +25,18 @@ final class DelegatingClientBuilderParams implements ClientBuilderParams {
 
     private final ClientBuilderParams delegate;
     private final EndpointGroup endpointGroup;
+    private final Scheme scheme;
 
-    DelegatingClientBuilderParams(ClientBuilderParams delegate, EndpointGroup endpointGroup) {
+    DelegatingClientBuilderParams(ClientBuilderParams delegate, EndpointGroup endpointGroup,
+                                  Scheme scheme) {
         this.delegate = delegate;
         this.endpointGroup = endpointGroup;
+        this.scheme = scheme;
     }
 
     @Override
     public Scheme scheme() {
-        return delegate.scheme();
+        return scheme;
     }
 
     @Override

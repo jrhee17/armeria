@@ -27,9 +27,7 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RequestTargetForm;
 import com.linecorp.armeria.common.Scheme;
-import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -67,7 +65,6 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
         }
 
         final EndpointGroup endpointGroup;
-        final SessionProtocol protocol;
 
         if (Clients.isUndefinedUri(uri())) {
             final String scheme;
@@ -90,21 +87,20 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
             }
 
             endpointGroup = Endpoint.parse(authority);
+            final Scheme parsedScheme;
             try {
-                protocol = Scheme.parse(scheme).sessionProtocol();
+                parsedScheme = Scheme.parse(scheme);
             } catch (Exception e) {
                 return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
                         "Failed to parse a scheme: " + reqTarget.scheme(), e));
             }
-            params = new DelegatingClientBuilderParams(params, endpointGroup);
+            params = new DelegatingClientBuilderParams(params, endpointGroup, parsedScheme);
         } else {
             if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
                 return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
                         "Cannot send a request with a \":path\" header that contains an authority, " +
                         "because the client was created with a base URI. path: " + originalPath));
             }
-
-            protocol = scheme().sessionProtocol();
         }
 
         final String newPath = reqTarget.pathAndQuery();
@@ -115,11 +111,9 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
             newReq = req.withHeaders(req.headers().toBuilder().path(newPath));
         }
 
-        final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                options().factory().meterRegistry(), protocol, newReq.method(), reqTarget, options(),
-                newReq, null, requestOptions, params.clientInitializer());
+        final RequestParams requestParams = RequestParams.of(newReq, null, requestOptions, reqTarget);
         try {
-            return ctx.clientInitializer().execute(unwrap(), ctx, newReq);
+            return params.clientInitializer().execute(unwrap(), requestParams, options(), params);
         } catch (Exception e) {
             return HttpResponse.ofFailure(e);
         }

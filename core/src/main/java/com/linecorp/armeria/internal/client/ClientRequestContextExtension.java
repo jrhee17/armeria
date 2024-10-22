@@ -19,6 +19,7 @@ package com.linecorp.armeria.internal.client;
 import java.util.concurrent.CompletableFuture;
 
 import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpHeaders;
@@ -73,6 +74,8 @@ public interface ClientRequestContextExtension extends ClientRequestContext, Req
      * with default values on every request.
      */
     HttpHeaders internalRequestHeaders();
+
+    RequestOptions requestOptions();
 
     long remainingTimeoutNanos();
 }

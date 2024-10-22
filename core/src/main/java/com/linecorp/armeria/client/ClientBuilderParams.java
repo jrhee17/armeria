@@ -21,6 +21,10 @@ import static java.util.Objects.requireNonNull;
 import java.net.URI;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.Request;
+import com.linecorp.armeria.common.RequestTarget;
+import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.annotation.Nullable;
 
@@ -97,4 +101,84 @@ public interface ClientBuilderParams {
      * TBU.
      */
     ClientInitializer clientInitializer();
+
+    /**
+     * TBU.
+     */
+    final class RequestParams {
+
+        /**
+         * TBU.
+         */
+        public static RequestParams of(HttpRequest request, @Nullable RpcRequest rpcRequest,
+                                       RequestOptions requestOptions) {
+            final RequestTarget reqTarget = RequestTarget.forClient(request.path());
+            if (reqTarget == null) {
+                throw new IllegalArgumentException();
+            }
+            return new RequestParams(request, rpcRequest, requestOptions,
+                                     reqTarget);
+        }
+
+        private final HttpRequest httpRequest;
+        @Nullable
+        private final RpcRequest rpcRequest;
+        private final RequestOptions requestOptions;
+        private final RequestTarget requestTarget;
+
+        /**
+         * TBU.
+         */
+        public static RequestParams of(HttpRequest httpRequest, @Nullable RpcRequest rpcRequest,
+                                       RequestOptions requestOptions, RequestTarget requestTarget) {
+            return new RequestParams(httpRequest, rpcRequest, requestOptions, requestTarget);
+        }
+
+        /**
+         * TBU.
+         */
+        public HttpRequest httpRequest() {
+            return httpRequest;
+        }
+
+        /**
+         * TBU.
+         */
+        public @Nullable RpcRequest rpcRequest() {
+            return rpcRequest;
+        }
+
+        /**
+         * TBU.
+         */
+        @SuppressWarnings("unchecked")
+        public <I extends Request> I originalRequest() {
+            if (rpcRequest != null) {
+                return (I) rpcRequest;
+            }
+            return (I) httpRequest;
+        }
+
+        /**
+         * TBU.
+         */
+        public RequestOptions requestOptions() {
+            return requestOptions;
+        }
+
+        /**
+         * TBU.
+         */
+        public RequestTarget requestTarget() {
+            return requestTarget;
+        }
+
+        private RequestParams(HttpRequest httpRequest, @Nullable RpcRequest rpcRequest,
+                              RequestOptions requestOptions, RequestTarget requestTarget) {
+            this.httpRequest = httpRequest;
+            this.rpcRequest = rpcRequest;
+            this.requestOptions = requestOptions;
+            this.requestTarget = requestTarget;
+        }
+    }
 }

@@ -113,6 +113,7 @@ public final class DefaultClientRequestContext
     private static final AtomicReferenceFieldUpdater<DefaultClientRequestContext, CompletableFuture>
             whenInitializedUpdater = AtomicReferenceFieldUpdater.newUpdater(
             DefaultClientRequestContext.class, CompletableFuture.class, "whenInitialized");
+    private final RequestOptions requestOptions;
     private final ClientInitializer clientInitializer;
 
     private static SessionProtocol desiredSessionProtocol(SessionProtocol protocol, ClientOptions options) {
@@ -236,6 +237,7 @@ public final class DefaultClientRequestContext
               guessExchangeType(requestOptions, req),
               requestAutoAbortDelayMillis(options, requestOptions), req, rpcReq,
               getAttributes(root), options.contextHook());
+        this.requestOptions = requestOptions;
 
         this.clientInitializer = clientInitializer;
         this.eventLoop = eventLoop;
@@ -539,6 +541,7 @@ public final class DefaultClientRequestContext
         // See https://github.com/line/armeria/pull/3251 and https://github.com/line/armeria/issues/3248.
 
         options = ctx.options();
+        requestOptions = ctx.requestOptions();
         root = ctx.root();
 
         log = RequestLog.builder(this);
@@ -1108,5 +1111,13 @@ public final class DefaultClientRequestContext
         } else {
             return id;
         }
+    }
+
+    /**
+     * TBU.
+     */
+    @Override
+    public RequestOptions requestOptions() {
+        return requestOptions;
     }
 }
