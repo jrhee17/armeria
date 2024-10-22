@@ -161,7 +161,7 @@ class RetryingClientWithEmptyEndpointGroupTest {
             assertThat(ctxCaptor.get().log().children()).hasSize(selectAttempts);
 
             // ensure that selection timeout occurred (selectAttempts - 1) times
-            for (int i = 0 ; i < selectAttempts - 1; i++) {
+            for (int i = 0; i < selectAttempts - 1; i++) {
                 final RequestLogAccess log = ctxCaptor.get().log().children().get(i);
                 final Throwable responseCause = log.whenComplete().join().responseCause();
                 assertThat(responseCause)
