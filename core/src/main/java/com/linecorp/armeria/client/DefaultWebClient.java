@@ -113,7 +113,9 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
 
         final RequestParams requestParams = RequestParams.of(newReq, null, requestOptions, reqTarget);
         try {
-            return params.clientInitializer().execute(unwrap(), requestParams, options(), params);
+            return params.clientInitializer()
+                         .<HttpRequest, HttpResponse>initialize(requestParams, options(), params)
+                         .execute(unwrap(), newReq);
         } catch (Exception e) {
             return HttpResponse.ofFailure(e);
         }

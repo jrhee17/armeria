@@ -29,6 +29,7 @@ import com.google.common.collect.Maps;
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientInitializer;
+import com.linecorp.armeria.client.ClientInitializer.ClientExecution;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
@@ -145,8 +146,16 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         }
 
         final HttpRequestWriter req = HttpRequest.streaming(headersBuilder.build());
-        final DefaultClientRequestContext ctx =
-                newContext(HttpMethod.POST, req, method);
+        final RequestOptions requestOptions = REQUEST_OPTIONS_MAP.get(method.getType());
+        assert requestOptions != null;
+        final String path = req.path();
+        final RequestTarget reqTarget = RequestTarget.forClient(path);
+        assert reqTarget != null : path;
+        RequestTargetCache.putForClient(path, reqTarget);
+        final RequestParams requestParams = RequestParams.of(req, null, requestOptions, reqTarget);
+        final ClientExecution<HttpRequest, HttpResponse> clientExecution =
+                params.clientInitializer().initialize(requestParams, options(), params);
+        final ClientRequestContext ctx = clientExecution.ctx();
 
         GrpcCallOptions.set(ctx, callOptions);
 
@@ -184,7 +193,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
                 };
 
         return new ArmeriaClientCall<>(
-                ctx,
+                clientExecution,
                 params,
                 client,
                 req,
@@ -254,7 +263,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         return httpClient.as(type);
     }
 
-    private <I, O> DefaultClientRequestContext newContext(HttpMethod method, HttpRequest req,
+    private <I, O> ClientRequestContext newContext(HttpMethod method, HttpRequest req,
                                                           MethodDescriptor<I, O> methodDescriptor) {
         final String path = req.path();
         final RequestTarget reqTarget = RequestTarget.forClient(path);

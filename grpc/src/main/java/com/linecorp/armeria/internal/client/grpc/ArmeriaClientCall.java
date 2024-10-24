@@ -15,7 +15,6 @@
  */
 package com.linecorp.armeria.internal.client.grpc;
 
-import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 import static com.linecorp.armeria.internal.client.grpc.protocol.InternalGrpcWebUtil.messageBuf;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -39,6 +38,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientBuilderParams;
+import com.linecorp.armeria.client.ClientInitializer.ClientExecution;
+import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpRequestWriter;
@@ -59,7 +60,7 @@ import com.linecorp.armeria.common.stream.StreamMessage;
 import com.linecorp.armeria.common.stream.SubscriptionOption;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.common.util.TimeoutMode;
-import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
+import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.client.grpc.protocol.InternalGrpcWebUtil;
 import com.linecorp.armeria.internal.common.grpc.ForwardingCompressor;
 import com.linecorp.armeria.internal.common.grpc.GrpcLogUtil;
@@ -106,7 +107,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
             pendingTaskUpdater = AtomicReferenceFieldUpdater.newUpdater(
             ArmeriaClientCall.class, Runnable.class, "pendingTask");
 
-    private final DefaultClientRequestContext ctx;
+    private final ClientRequestContext ctx;
     private final ClientBuilderParams params;
     private final Client<HttpRequest, HttpResponse> httpClient;
     private final HttpRequestWriter req;
@@ -124,6 +125,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
     private final boolean grpcWebText;
     private final Compressor compressor;
     private final InternalGrpcExceptionHandler exceptionHandler;
+    private final ClientExecution<HttpRequest, HttpResponse> clientExecution;
 
     private boolean endpointInitialized;
     @Nullable
@@ -143,7 +145,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
     private volatile int pendingMessages;
 
     ArmeriaClientCall(
-            DefaultClientRequestContext ctx,
+            ClientExecution<HttpRequest, HttpResponse> clientExecution,
             ClientBuilderParams params,
             Client<HttpRequest, HttpResponse> httpClient,
             HttpRequestWriter req,
@@ -160,7 +162,8 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
             boolean unsafeWrapResponseBuffers,
             InternalGrpcExceptionHandler exceptionHandler,
             boolean useMethodMarshaller) {
-        this.ctx = ctx;
+        this.clientExecution = clientExecution;
+        ctx = clientExecution.ctx();
         this.params = params;
         this.httpClient = httpClient;
         this.req = req;
@@ -176,7 +179,8 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
         this.maxInboundMessageSizeBytes = maxInboundMessageSizeBytes;
         this.exceptionHandler = exceptionHandler;
 
-        ctx.whenInitialized().handle((unused1, unused2) -> {
+        assert ctx instanceof ClientRequestContextExtension;
+        ((ClientRequestContextExtension) ctx).whenInitialized().handle((unused1, unused2) -> {
             runPendingTask();
             return null;
         });
@@ -247,7 +251,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
 
         final HttpResponse res;
         try {
-            res = initContextAndExecuteWithFallback(httpClient, ctx, params.endpointGroup(), newReq);
+            res = clientExecution.execute(httpClient, newReq);
         } catch (Throwable t) {
             final Status status = convertException(t);
             close(status, new Metadata());

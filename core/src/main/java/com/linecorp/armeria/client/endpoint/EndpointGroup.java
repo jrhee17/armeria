@@ -16,8 +16,6 @@
 
 package com.linecorp.armeria.client.endpoint;
 
-import static com.linecorp.armeria.internal.client.ClientUtil.executeWithFallback;
-import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
@@ -28,7 +26,6 @@ import java.util.function.Consumer;
 
 import com.google.common.collect.ImmutableList;
 
-import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.client.ClientInitializer;
@@ -42,7 +39,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.common.util.Listenable;
-import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
+import com.linecorp.armeria.internal.client.DefaultClientExecution;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 import com.linecorp.armeria.internal.client.endpoint.StaticEndpointGroup;
 
@@ -203,19 +200,15 @@ public interface EndpointGroup extends Listenable<List<Endpoint>>, EndpointSelec
     }
 
     @Override
-    default <I extends Request, O extends Response> O execute(
-            Client<I, O> delegate, RequestParams requestParams, ClientOptions clientOptions,
-            ClientBuilderParams clientBuilderParams) throws Exception {
+    default <I extends Request, O extends Response>
+    ClientExecution<I, O> initialize(RequestParams requestParams,
+                                     ClientOptions clientOptions,
+                                     ClientBuilderParams clientBuilderParams) {
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 clientOptions.factory().meterRegistry(), clientBuilderParams.scheme().sessionProtocol(),
                 requestParams.httpRequest().method(), requestParams.requestTarget(), clientOptions,
                 requestParams.httpRequest(), requestParams.rpcRequest(), requestParams.requestOptions(),
                 this);
-        if (ctx.endpoint() != null) {
-            return executeWithFallback(delegate, ctx, requestParams.originalRequest());
-        }
-        final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
-        assert ctxExt != null;
-        return initContextAndExecuteWithFallback(delegate, ctxExt, this, requestParams.originalRequest());
+        return new DefaultClientExecution<>(ctx, clientBuilderParams.endpointGroup());
     }
 }

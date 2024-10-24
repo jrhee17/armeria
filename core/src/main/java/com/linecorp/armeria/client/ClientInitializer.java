@@ -17,19 +17,39 @@
 package com.linecorp.armeria.client;
 
 import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
+import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
+import com.linecorp.armeria.internal.client.ClientUtil;
 
 /**
  * TBU.
  */
-@FunctionalInterface
 public interface ClientInitializer {
 
     /**
      * TBU.
      */
-    <I extends Request, O extends Response> O execute(
-            Client<I, O> delegate, RequestParams requestParams, ClientOptions clientOptions,
-            ClientBuilderParams clientBuilderParams) throws Exception;
+    interface ClientExecution<I extends Request, O extends Response> {
+
+        /**
+         * TBU.
+         */
+        ClientRequestContext ctx();
+
+        /**
+         * TBU.
+         */
+        O execute(Client<I, O> delegate, I req) throws Exception;
+    }
+
+    /**
+     * Execution is done in two phases to ensure that a context is created synchronously in the
+     * same thread as the caller. This is important to ensure backwards compatibility for APIs
+     * such as {@link Clients#newContextCaptor()}.
+     */
+    <I extends Request, O extends Response>
+    ClientExecution<I, O> initialize(RequestParams requestParams, ClientOptions clientOptions,
+                                     ClientBuilderParams clientBuilderParams);
 }

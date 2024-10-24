@@ -23,6 +23,7 @@ import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.ClientOptions;
+import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.util.AsyncCloseable;
@@ -61,16 +62,26 @@ public final class XdsClientInitializer implements ClientInitializer, AsyncClose
     }
 
     @Override
-    public <I extends Request, O extends Response> O execute(Client<I, O> delegate, RequestParams requestParams,
-                                                             ClientOptions clientOptions,
-                                                             ClientBuilderParams clientBuilderParams)
-            throws Exception {
+    public <I extends Request, O extends Response>
+    ClientExecution<I, O> initialize(RequestParams requestParams,
+                                     ClientOptions clientOptions,
+                                     ClientBuilderParams clientBuilderParams) {
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 clientOptions.factory().meterRegistry(), clientBuilderParams.scheme().sessionProtocol(),
                 requestParams.httpRequest().method(), requestParams.requestTarget(), clientOptions,
                 requestParams.httpRequest(), requestParams.rpcRequest(), requestParams.requestOptions(),
                 this);
-        return new XdsClient<>(delegate, clusterManager)
-                .execute(ctx, requestParams.originalRequest());
+        return new ClientExecution<I, O>() {
+            @Override
+            public ClientRequestContext ctx() {
+                return ctx;
+            }
+
+            @Override
+            public O execute(Client<I, O> delegate, I req) throws Exception {
+                return new XdsClient<>(delegate, clusterManager)
+                        .execute(ctx, req);
+            }
+        };
     }
 }
