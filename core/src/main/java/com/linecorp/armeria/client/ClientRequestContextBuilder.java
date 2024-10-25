@@ -133,8 +133,7 @@ public final class ClientRequestContextBuilder extends AbstractRequestContextBui
                 eventLoop(), meterRegistry(), sessionProtocol(), id(), method(), requestTarget(), options,
                 request(), rpcRequest(), requestOptions, responseCancellationScheduler,
                 isRequestStartTimeSet() ? requestStartTimeNanos() : System.nanoTime(),
-                isRequestStartTimeSet() ? requestStartTimeMicros() : SystemInfo.currentTimeMicros(),
-                endpointGroup);
+                isRequestStartTimeSet() ? requestStartTimeMicros() : SystemInfo.currentTimeMicros());
 
         ctx.init(endpointGroup).handle((unused, cause) -> {
             ctx.finishInitialization(cause == null);

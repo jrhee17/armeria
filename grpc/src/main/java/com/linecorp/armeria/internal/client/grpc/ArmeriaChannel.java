@@ -53,7 +53,6 @@ import com.linecorp.armeria.common.grpc.GrpcCallOptions;
 import com.linecorp.armeria.common.grpc.GrpcJsonMarshaller;
 import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.util.Unwrappable;
-import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 import com.linecorp.armeria.internal.common.RequestTargetCache;
 import com.linecorp.armeria.internal.common.grpc.InternalGrpcExceptionHandler;
 import com.linecorp.armeria.internal.common.grpc.StatusAndMetadata;
@@ -154,7 +153,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         RequestTargetCache.putForClient(path, reqTarget);
         final RequestParams requestParams = RequestParams.of(req, null, requestOptions, reqTarget);
         final ClientExecution<HttpRequest, HttpResponse> clientExecution =
-                params.clientInitializer().initialize(requestParams, options(), params);
+                params.clientInitializer().initialize(requestParams, params);
         final ClientRequestContext ctx = clientExecution.ctx();
 
         GrpcCallOptions.set(ctx, callOptions);
@@ -261,28 +260,6 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         }
 
         return httpClient.as(type);
-    }
-
-    private <I, O> ClientRequestContext newContext(HttpMethod method, HttpRequest req,
-                                                          MethodDescriptor<I, O> methodDescriptor) {
-        final String path = req.path();
-        final RequestTarget reqTarget = RequestTarget.forClient(path);
-        assert reqTarget != null : path;
-        RequestTargetCache.putForClient(path, reqTarget);
-
-        final RequestOptions requestOptions = REQUEST_OPTIONS_MAP.get(methodDescriptor.getType());
-        assert requestOptions != null;
-
-        return new DefaultClientRequestContext(
-                meterRegistry,
-                sessionProtocol,
-                method,
-                reqTarget,
-                options(),
-                req,
-                null,
-                requestOptions,
-                params.clientInitializer());
     }
 
     private static RequestOptions newRequestOptions(ExchangeType exchangeType) {

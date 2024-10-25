@@ -64,13 +64,12 @@ public final class XdsClientInitializer implements ClientInitializer, AsyncClose
     @Override
     public <I extends Request, O extends Response>
     ClientExecution<I, O> initialize(RequestParams requestParams,
-                                     ClientOptions clientOptions,
                                      ClientBuilderParams clientBuilderParams) {
+        final ClientOptions clientOptions = clientBuilderParams.options();
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 clientOptions.factory().meterRegistry(), clientBuilderParams.scheme().sessionProtocol(),
                 requestParams.httpRequest().method(), requestParams.requestTarget(), clientOptions,
-                requestParams.httpRequest(), requestParams.rpcRequest(), requestParams.requestOptions(),
-                this);
+                requestParams.httpRequest(), requestParams.rpcRequest(), requestParams.requestOptions());
         return new ClientExecution<I, O>() {
             @Override
             public ClientRequestContext ctx() {

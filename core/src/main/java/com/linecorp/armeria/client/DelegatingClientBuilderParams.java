@@ -66,6 +66,6 @@ final class DelegatingClientBuilderParams implements ClientBuilderParams {
 
     @Override
     public ClientInitializer clientInitializer() {
-        return endpointGroup;
+        return delegate.clientInitializer();
     }
 }

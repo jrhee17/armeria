@@ -17,11 +17,8 @@
 package com.linecorp.armeria.client;
 
 import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
-import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
-import com.linecorp.armeria.internal.client.ClientUtil;
 
 /**
  * TBU.
@@ -50,6 +47,6 @@ public interface ClientInitializer {
      * such as {@link Clients#newContextCaptor()}.
      */
     <I extends Request, O extends Response>
-    ClientExecution<I, O> initialize(RequestParams requestParams, ClientOptions clientOptions,
+    ClientExecution<I, O> initialize(RequestParams requestParams,
                                      ClientBuilderParams clientBuilderParams);
 }
