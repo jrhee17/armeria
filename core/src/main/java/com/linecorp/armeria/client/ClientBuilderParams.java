@@ -107,6 +107,16 @@ public interface ClientBuilderParams {
      */
     final class RequestParams {
 
+        private final HttpRequest httpRequest;
+        @Nullable
+        private final RpcRequest rpcRequest;
+        private final RequestOptions requestOptions;
+        private final RequestTarget requestTarget;
+        @Nullable
+        private final Scheme scheme;
+        @Nullable
+        private final Endpoint endpoint;
+
         /**
          * TBU.
          */
@@ -116,22 +126,24 @@ public interface ClientBuilderParams {
             if (reqTarget == null) {
                 throw new IllegalArgumentException();
             }
-            return new RequestParams(request, rpcRequest, requestOptions,
-                                     reqTarget);
+            return new RequestParams(request, rpcRequest, requestOptions, reqTarget, null, null);
         }
-
-        private final HttpRequest httpRequest;
-        @Nullable
-        private final RpcRequest rpcRequest;
-        private final RequestOptions requestOptions;
-        private final RequestTarget requestTarget;
 
         /**
          * TBU.
          */
         public static RequestParams of(HttpRequest httpRequest, @Nullable RpcRequest rpcRequest,
                                        RequestOptions requestOptions, RequestTarget requestTarget) {
-            return new RequestParams(httpRequest, rpcRequest, requestOptions, requestTarget);
+            return new RequestParams(httpRequest, rpcRequest, requestOptions, requestTarget, null, null);
+        }
+
+        /**
+         * TBU.
+         */
+        public static RequestParams of(HttpRequest httpRequest, @Nullable RpcRequest rpcRequest,
+                                       RequestOptions requestOptions, RequestTarget requestTarget,
+                                       Scheme scheme, Endpoint endpoint) {
+            return new RequestParams(httpRequest, rpcRequest, requestOptions, requestTarget, scheme, endpoint);
         }
 
         /**
@@ -173,12 +185,29 @@ public interface ClientBuilderParams {
             return requestTarget;
         }
 
+        /**
+         * TBU.
+         */
+        public @Nullable Scheme scheme() {
+            return scheme;
+        }
+
+        /**
+         * TBU.
+         */
+        public @Nullable Endpoint endpoint() {
+            return endpoint;
+        }
+
         private RequestParams(HttpRequest httpRequest, @Nullable RpcRequest rpcRequest,
-                              RequestOptions requestOptions, RequestTarget requestTarget) {
+                              RequestOptions requestOptions, RequestTarget requestTarget,
+                              @Nullable Scheme scheme, @Nullable Endpoint endpoint) {
             this.httpRequest = httpRequest;
             this.rpcRequest = rpcRequest;
             this.requestOptions = requestOptions;
             this.requestTarget = requestTarget;
+            this.scheme = scheme;
+            this.endpoint = endpoint;
         }
     }
 }

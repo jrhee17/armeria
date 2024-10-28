@@ -20,19 +20,35 @@ import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.ClientOptions;
+import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
+import com.linecorp.armeria.common.Scheme;
 
 public final class DefaultClientInitializer implements ClientInitializer {
 
     @Override
     public <I extends Request, O extends Response>
     ClientExecution<I, O> initialize(RequestParams requestParams, ClientBuilderParams clientBuilderParams) {
+        final EndpointGroup endpointGroup;
+        final Scheme scheme;
+        if (Clients.isUndefinedUri(clientBuilderParams.uri())) {
+            scheme = requestParams.scheme();
+            endpointGroup = requestParams.endpoint();
+            if (scheme == null || endpointGroup == null) {
+                throw new IllegalArgumentException();
+            }
+        } else {
+            scheme = clientBuilderParams.scheme();
+            endpointGroup = clientBuilderParams.endpointGroup();
+        }
+
         final ClientOptions clientOptions = clientBuilderParams.options();
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                clientOptions.factory().meterRegistry(), clientBuilderParams.scheme().sessionProtocol(),
+                clientOptions.factory().meterRegistry(), scheme.sessionProtocol(),
                 requestParams.httpRequest().method(), requestParams.requestTarget(), clientOptions,
                 requestParams.httpRequest(), requestParams.rpcRequest(), requestParams.requestOptions());
-        return new DefaultClientExecution<>(ctx, clientBuilderParams.endpointGroup());
+        return new DefaultClientExecution<>(ctx, endpointGroup);
     }
 }
