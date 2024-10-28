@@ -16,17 +16,27 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 
+import com.google.common.base.Strings;
+
 import com.linecorp.armeria.client.Client;
-import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.Request;
+import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.Response;
+import com.linecorp.armeria.common.Scheme;
+import com.linecorp.armeria.common.SerializationFormat;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.util.AsyncCloseable;
+import com.linecorp.armeria.internal.client.ClientUtil;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 import com.linecorp.armeria.xds.XdsBootstrap;
 
@@ -35,19 +45,35 @@ import com.linecorp.armeria.xds.XdsBootstrap;
  */
 public final class XdsClientInitializer implements ClientInitializer, AsyncCloseable {
 
-    private final ClusterManager clusterManager;
+    private static final EndpointGroup UNDEFINED_ENDPOINT_GROUP =
+            Endpoint.parse(ClientUtil.UNDEFINED_URI.getRawAuthority());
 
     /**
      * TBU.
      */
     public static XdsClientInitializer of(String listenerName, XdsBootstrap xdsBootstrap) {
-        return new XdsClientInitializer(listenerName, xdsBootstrap);
+        return new XdsClientInitializer(listenerName, xdsBootstrap, SerializationFormat.NONE, "/");
     }
 
     /**
      * TBU.
      */
-    private XdsClientInitializer(String listenerName, XdsBootstrap xdsBootstrap) {
+    public static XdsClientInitializer of(String listenerName, XdsBootstrap xdsBootstrap,
+                                          SerializationFormat serializationFormat) {
+        return new XdsClientInitializer(listenerName, xdsBootstrap, serializationFormat, "/");
+    }
+
+    private final ClusterManager clusterManager;
+    private final SerializationFormat serializationFormat;
+    private final String absolutePathRef;
+
+    /**
+     * TBU.
+     */
+    private XdsClientInitializer(String listenerName, XdsBootstrap xdsBootstrap,
+                                 SerializationFormat serializationFormat, String absolutePathRef) {
+        this.serializationFormat = serializationFormat;
+        this.absolutePathRef = absolutePathRef;
         clusterManager = new ClusterManager(listenerName, xdsBootstrap);
     }
 
@@ -63,13 +89,29 @@ public final class XdsClientInitializer implements ClientInitializer, AsyncClose
 
     @Override
     public <I extends Request, O extends Response>
-    ClientExecution<I, O> initialize(RequestParams requestParams,
-                                     ClientBuilderParams clientBuilderParams) {
-        final ClientOptions clientOptions = clientBuilderParams.options();
+    ClientExecution<I, O> initialize(RequestParams requestParams, ClientOptions options) {
+        HttpRequest req = requestParams.httpRequest();
+        final RequestTarget reqTarget;
+        if (requestParams.requestTarget() != null) {
+            reqTarget = requestParams.requestTarget();
+        } else {
+            final String originalPath = req.path();
+            final String prefix = Strings.emptyToNull(uri().getRawPath());
+            reqTarget = RequestTarget.forClient(originalPath, prefix);
+            if (reqTarget == null) {
+                throw abortRequestAndReturnFailureResponse(
+                        req, new IllegalArgumentException("Invalid request target: " + originalPath));
+            }
+            final String newPath = reqTarget.pathAndQuery();
+            if (!newPath.equals(originalPath)) {
+                req = req.withHeaders(req.headers().toBuilder().path(newPath));
+            }
+        }
+
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                clientOptions.factory().meterRegistry(), clientBuilderParams.scheme().sessionProtocol(),
-                requestParams.httpRequest().method(), requestParams.requestTarget(), clientOptions,
-                requestParams.httpRequest(), requestParams.rpcRequest(), requestParams.requestOptions());
+                options.factory().meterRegistry(), SessionProtocol.UNDETERMINED,
+                req.method(), reqTarget, options,
+                req, requestParams.rpcRequest(), requestParams.requestOptions());
         return new ClientExecution<I, O>() {
             @Override
             public ClientRequestContext ctx() {
@@ -78,9 +120,34 @@ public final class XdsClientInitializer implements ClientInitializer, AsyncClose
 
             @Override
             public O execute(Client<I, O> delegate, I req) throws Exception {
-                return new XdsClient<>(delegate, clusterManager)
-                        .execute(ctx, req);
+                return new XdsClient<>(delegate, clusterManager).execute(ctx, req);
             }
         };
+    }
+
+    @Override
+    public Scheme scheme() {
+        return Scheme.of(serializationFormat, SessionProtocol.UNDETERMINED);
+    }
+
+    @Override
+    public EndpointGroup endpointGroup() {
+        return UNDEFINED_ENDPOINT_GROUP;
+    }
+
+    @Override
+    public URI uri() {
+        return ClientUtil.UNDEFINED_URI;
+    }
+
+    @Override
+    public String absolutePathRef() {
+        return "/";
+    }
+
+    private static RuntimeException abortRequestAndReturnFailureResponse(HttpRequest req,
+                                                                         IllegalArgumentException e) {
+        req.abort(e);
+        return e;
     }
 }

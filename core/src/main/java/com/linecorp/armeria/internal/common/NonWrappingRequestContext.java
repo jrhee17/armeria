@@ -161,7 +161,7 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
 
     @Override
     public void sessionProtocol(SessionProtocol sessionProtocol) {
-        checkState(this.sessionProtocol == SessionProtocol.UNKNOWN,
+        checkState(this.sessionProtocol == SessionProtocol.UNDETERMINED,
                    "sessionProtocol must be UNKNOWN to modify");
         this.sessionProtocol = requireNonNull(sessionProtocol, "sessionProtocol");
     }

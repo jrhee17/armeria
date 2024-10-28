@@ -62,7 +62,7 @@ public enum SessionProtocol {
      */
     PROXY("proxy", false, false, 0),
 
-    UNKNOWN("unknown", false, false, 0);
+    UNDETERMINED("undetermined", false, false, 0);
 
     private static final Set<SessionProtocol> HTTP_VALUES = Sets.immutableEnumSet(HTTP, H1C, H2C);
 

@@ -54,7 +54,7 @@ class HttpServerNoKeepAliveTest {
         }
     };
 
-    @EnumSource(value = SessionProtocol.class, mode = Mode.EXCLUDE, names = {"PROXY", "UNKNOWN"})
+    @EnumSource(value = SessionProtocol.class, mode = Mode.EXCLUDE, names = { "PROXY", "UNDETERMINED" })
     @ParameterizedTest
     void shouldDisconnectWhenConnectionCloseIsIncluded(SessionProtocol protocol) {
         final CountingConnectionPoolListener poolListener = new CountingConnectionPoolListener();

@@ -97,7 +97,7 @@ public final class WebSocketClientBuilder extends AbstractWebClientBuilder {
     }
 
     WebSocketClientBuilder(ClientInitializer clientInitializer) {
-        super(null, Scheme.of(SerializationFormat.WS, SessionProtocol.UNKNOWN),
+        super(null, Scheme.of(SerializationFormat.WS, SessionProtocol.UNDETERMINED),
               null, requireNonNull(clientInitializer, "clientInitializer"), null);
         setWebSocketDefaultOption();
     }

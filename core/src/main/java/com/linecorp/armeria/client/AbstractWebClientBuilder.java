@@ -82,7 +82,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      */
     protected AbstractWebClientBuilder(SerializationFormat serializationFormat,
                                        ClientInitializer clientInitializer, @Nullable String path) {
-        this(null, Scheme.of(serializationFormat, SessionProtocol.UNKNOWN),
+        this(null, Scheme.of(serializationFormat, SessionProtocol.UNDETERMINED),
              null, requireNonNull(clientInitializer, "clientInitializer"), path);
     }
 
@@ -175,7 +175,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
         assert scheme != null;
 
         if (clientInitializer != null) {
-            return ClientBuilderParams.of(scheme, clientInitializer, path, WebClient.class, options);
+            return ClientBuilderParams.of(clientInitializer, WebClient.class, options);
         }
 
         assert endpointGroup != null;

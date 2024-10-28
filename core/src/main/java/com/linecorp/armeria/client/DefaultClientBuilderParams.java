@@ -35,11 +35,7 @@ import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
  */
 final class DefaultClientBuilderParams implements ClientBuilderParams {
 
-    private final Scheme scheme;
-    private final EndpointGroup endpointGroup;
     private final ClientInitializer clientInitializer;
-    private final String absolutePathRef;
-    private final URI uri;
     private final Class<?> type;
     private final ClientOptions options;
 
@@ -47,15 +43,10 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
      * Creates a new instance.
      */
     DefaultClientBuilderParams(URI uri, Class<?> type, ClientOptions options) {
-        final ClientFactory factory = requireNonNull(options, "options").factory();
-        this.uri = factory.validateUri(uri);
         this.type = requireNonNull(type, "type");
-        this.options = options;
+        this.options = requireNonNull(options, "options");
 
-        scheme = factory.validateScheme(Scheme.parse(uri.getScheme()));
-        endpointGroup = Endpoint.parse(uri.getRawAuthority());
-        clientInitializer = new DefaultClientInitializer();
-
+        final String absolutePathRef;
         try (TemporaryThreadLocals tempThreadLocals = TemporaryThreadLocals.acquire()) {
             final StringBuilder buf = tempThreadLocals.stringBuilder();
             buf.append(nullOrEmptyToSlash(uri.getRawPath()));
@@ -67,26 +58,27 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
             }
             absolutePathRef = buf.toString();
         }
+
+        final ClientFactory factory = requireNonNull(options, "options").factory();
+        clientInitializer = new DefaultClientInitializer(
+                factory.validateScheme(Scheme.parse(uri.getScheme())), Endpoint.parse(uri.getRawAuthority()),
+                absolutePathRef, factory.validateUri(uri));
     }
 
     DefaultClientBuilderParams(Scheme scheme, EndpointGroup endpointGroup,
                                @Nullable String absolutePathRef,
                                Class<?> type, ClientOptions options) {
-        final ClientFactory factory = requireNonNull(options, "options").factory();
-        this.scheme = factory.validateScheme(scheme);
-        this.endpointGroup = requireNonNull(endpointGroup, "endpointGroup");
         this.type = requireNonNull(type, "type");
-        this.options = options;
-        clientInitializer = new DefaultClientInitializer();
+        requireNonNull(endpointGroup, "endpointGroup");
+        this.options = requireNonNull(options, "options");
 
+        final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
         final String schemeStr;
         if (scheme.serializationFormat() == SerializationFormat.NONE) {
             schemeStr = scheme.sessionProtocol().uriText();
         } else {
             schemeStr = scheme.uriText();
         }
-
-        final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
         final URI uri;
         if (endpointGroup instanceof Endpoint) {
             uri = URI.create(schemeStr + "://" + ((Endpoint) endpointGroup).authority() +
@@ -96,37 +88,20 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
             uri = dummyUri(endpointGroup, schemeStr, normalizedAbsolutePathRef);
         }
 
-        this.uri = factory.validateUri(uri);
-        this.absolutePathRef = normalizedAbsolutePathRef;
+        final ClientFactory factory = options.factory();
+        clientInitializer = new DefaultClientInitializer(
+                factory.validateScheme(scheme), endpointGroup, normalizedAbsolutePathRef,
+                factory.validateUri(uri));
     }
 
     /**
      * Creates a new instance.
      */
-    DefaultClientBuilderParams(Scheme scheme, ClientInitializer clientInitializer,
-                               @Nullable String absolutePathRef,
-                               Class<?> type, ClientOptions options) {
-        final ClientFactory factory = requireNonNull(options, "options").factory();
-
-        // set temporary values
-        this.scheme = factory.validateScheme(scheme);
-        endpointGroup = EndpointGroup.of();
-
+    DefaultClientBuilderParams(ClientInitializer clientInitializer, Class<?> type,
+                               ClientOptions options) {
+        this.clientInitializer = requireNonNull(clientInitializer, "clientInitializer");
         this.type = requireNonNull(type, "type");
-        this.options = options;
-        this.clientInitializer = clientInitializer;
-
-        final String schemeStr;
-        if (scheme.serializationFormat() == SerializationFormat.NONE) {
-            schemeStr = scheme.sessionProtocol().uriText();
-        } else {
-            schemeStr = scheme.uriText();
-        }
-
-        final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
-        final URI uri = dummyUri(endpointGroup, schemeStr, normalizedAbsolutePathRef);
-        this.uri = factory.validateUri(uri);
-        this.absolutePathRef = normalizedAbsolutePathRef;
+        this.options = requireNonNull(options, "options");
     }
 
     private static URI dummyUri(EndpointGroup endpointGroup, String schemeStr,
@@ -147,26 +122,6 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     }
 
     @Override
-    public Scheme scheme() {
-        return scheme;
-    }
-
-    @Override
-    public EndpointGroup endpointGroup() {
-        return endpointGroup;
-    }
-
-    @Override
-    public String absolutePathRef() {
-        return absolutePathRef;
-    }
-
-    @Override
-    public URI uri() {
-        return uri;
-    }
-
-    @Override
     public Class<?> clientType() {
         return type;
     }
@@ -184,10 +139,8 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-                          .add("scheme", scheme)
-                          .add("endpointGroup", endpointGroup)
-                          .add("absolutePathRef", absolutePathRef)
+                          .add("clientInitializer", clientInitializer)
                           .add("type", type)
-                          .add("options", options).toString();
+                          .toString();
     }
 }

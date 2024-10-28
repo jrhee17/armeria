@@ -58,34 +58,66 @@ public interface ClientBuilderParams {
     /**
      * Returns a newly created {@link ClientBuilderParams} from the specified properties.
      */
-    static ClientBuilderParams of(Scheme scheme, ClientInitializer clientInitializer,
-                                  @Nullable String absolutePathRef, Class<?> type, ClientOptions options) {
-        requireNonNull(scheme, "scheme");
-        requireNonNull(clientInitializer, "endpointGroup");
+    static ClientBuilderParams of(ClientInitializer clientInitializer, Class<?> type,
+                                  ClientOptions options) {
+        requireNonNull(clientInitializer, "clientInitializer");
         requireNonNull(type, "type");
         requireNonNull(options, "options");
-        return new DefaultClientBuilderParams(scheme, clientInitializer, absolutePathRef, type, options);
+        return new DefaultClientBuilderParams(clientInitializer, type, options);
+    }
+
+    /**
+     * TBU.
+     */
+    interface ClientTargetParams {
+        /**
+         * Returns the {@link Scheme} of the client.
+         */
+        Scheme scheme();
+
+        /**
+         * Returns the {@link EndpointGroup} of the client.
+         */
+        EndpointGroup endpointGroup();
+
+        /**
+         * Returns the {@link String} that consists of path, query string and fragment.
+         */
+        String absolutePathRef(); // Name inspired by https://stackoverflow.com/a/47545070/55808
+
+        /**
+         * Returns the endpoint URI of the client.
+         */
+        URI uri();
     }
 
     /**
      * Returns the {@link Scheme} of the client.
      */
-    Scheme scheme();
+    default Scheme scheme() {
+        return clientInitializer().scheme();
+    }
 
     /**
      * Returns the {@link EndpointGroup} of the client.
      */
-    EndpointGroup endpointGroup();
+    default EndpointGroup endpointGroup() {
+        return clientInitializer().endpointGroup();
+    }
 
     /**
      * Returns the {@link String} that consists of path, query string and fragment.
      */
-    String absolutePathRef(); // Name inspired by https://stackoverflow.com/a/47545070/55808
+    default String absolutePathRef() { // Name inspired by https://stackoverflow.com/a/47545070/55808
+        return clientInitializer().absolutePathRef();
+    }
 
     /**
      * Returns the endpoint URI of the client.
      */
-    URI uri();
+    default URI uri() {
+        return clientInitializer().uri();
+    }
 
     /**
      * Returns the type of the client.
@@ -111,6 +143,7 @@ public interface ClientBuilderParams {
         @Nullable
         private final RpcRequest rpcRequest;
         private final RequestOptions requestOptions;
+        @Nullable
         private final RequestTarget requestTarget;
         @Nullable
         private final Scheme scheme;
@@ -122,11 +155,7 @@ public interface ClientBuilderParams {
          */
         public static RequestParams of(HttpRequest request, @Nullable RpcRequest rpcRequest,
                                        RequestOptions requestOptions) {
-            final RequestTarget reqTarget = RequestTarget.forClient(request.path());
-            if (reqTarget == null) {
-                throw new IllegalArgumentException();
-            }
-            return new RequestParams(request, rpcRequest, requestOptions, reqTarget, null, null);
+            return new RequestParams(request, rpcRequest, requestOptions, null, null, null);
         }
 
         /**
@@ -181,6 +210,7 @@ public interface ClientBuilderParams {
         /**
          * TBU.
          */
+        @Nullable
         public RequestTarget requestTarget() {
             return requestTarget;
         }
@@ -200,7 +230,7 @@ public interface ClientBuilderParams {
         }
 
         private RequestParams(HttpRequest httpRequest, @Nullable RpcRequest rpcRequest,
-                              RequestOptions requestOptions, RequestTarget requestTarget,
+                              RequestOptions requestOptions, @Nullable RequestTarget requestTarget,
                               @Nullable Scheme scheme, @Nullable Endpoint endpoint) {
             this.httpRequest = httpRequest;
             this.rpcRequest = rpcRequest;
