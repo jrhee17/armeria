@@ -29,11 +29,11 @@ import java.util.concurrent.ThreadLocalRandom;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 
-import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ClientRequestContextCaptor;
 import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.client.ExecutionPreparation;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -270,8 +270,8 @@ final class DefaultWebSocketClient implements WebSocketClient {
     }
 
     @Override
-    public ClientInitializer clientInitializer() {
-        return webClient.clientInitializer();
+    public ExecutionPreparation executionPreparation() {
+        return webClient.executionPreparation();
     }
 
     @Override

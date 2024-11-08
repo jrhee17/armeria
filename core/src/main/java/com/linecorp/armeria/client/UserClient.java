@@ -116,8 +116,8 @@ public abstract class UserClient<I extends Request, O extends Response>
     }
 
     @Override
-    public ClientInitializer clientInitializer() {
-        return params.clientInitializer();
+    public ExecutionPreparation executionPreparation() {
+        return params.executionPreparation();
     }
 
     /**

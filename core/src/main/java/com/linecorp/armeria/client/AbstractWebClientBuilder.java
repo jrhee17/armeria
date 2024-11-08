@@ -39,7 +39,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     @Nullable
     private final EndpointGroup endpointGroup;
     @Nullable
-    private final ClientInitializer clientInitializer;
+    private final ExecutionPreparation executionPreparation;
     @Nullable
     private final Scheme scheme;
     @Nullable
@@ -81,9 +81,9 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      *                                  in {@link SessionProtocol}
      */
     protected AbstractWebClientBuilder(SerializationFormat serializationFormat,
-                                       ClientInitializer clientInitializer, @Nullable String path) {
+                                       ExecutionPreparation executionPreparation, @Nullable String path) {
         this(null, Scheme.of(serializationFormat, SessionProtocol.UNDETERMINED),
-             null, requireNonNull(clientInitializer, "clientInitializer"), path);
+             null, requireNonNull(executionPreparation, "executionPreparation"), path);
     }
 
     /**
@@ -91,14 +91,15 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      */
     protected AbstractWebClientBuilder(@Nullable URI uri, @Nullable Scheme scheme,
                                        @Nullable EndpointGroup endpointGroup,
-                                       @Nullable ClientInitializer clientInitializer, @Nullable String path) {
+                                       @Nullable ExecutionPreparation executionPreparation,
+                                       @Nullable String path) {
         assert uri != null || (scheme != null && endpointGroup != null) ||
-               (clientInitializer != null && scheme != null);
+               (executionPreparation != null && scheme != null);
         assert path == null || uri == null;
         this.uri = uri;
         this.scheme = scheme;
         this.endpointGroup = endpointGroup;
-        this.clientInitializer = clientInitializer;
+        this.executionPreparation = executionPreparation;
         this.path = validatePath(path);
     }
 
@@ -174,8 +175,8 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
         }
         assert scheme != null;
 
-        if (clientInitializer != null) {
-            return ClientBuilderParams.of(clientInitializer, WebClient.class, options);
+        if (executionPreparation != null) {
+            return ClientBuilderParams.of(scheme, executionPreparation, path, WebClient.class, options);
         }
 
         assert endpointGroup != null;

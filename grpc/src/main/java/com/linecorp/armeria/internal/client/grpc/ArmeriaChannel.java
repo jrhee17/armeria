@@ -28,10 +28,10 @@ import com.google.common.collect.Maps;
 
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientBuilderParams;
-import com.linecorp.armeria.client.ClientInitializer;
-import com.linecorp.armeria.client.ClientInitializer.ClientExecution;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.ExecutionPreparation;
+import com.linecorp.armeria.client.ExecutionPreparation.ClientExecution;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -153,7 +153,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         RequestTargetCache.putForClient(path, reqTarget);
         final RequestParams requestParams = RequestParams.of(req, null, requestOptions, reqTarget);
         final ClientExecution<HttpRequest, HttpResponse> clientExecution =
-                params.clientInitializer().initialize(requestParams, options());
+                params.executionPreparation().prepare(params, requestParams);
         final ClientRequestContext ctx = clientExecution.ctx();
 
         GrpcCallOptions.set(ctx, callOptions);
@@ -247,8 +247,8 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
     }
 
     @Override
-    public ClientInitializer clientInitializer() {
-        return params.clientInitializer();
+    public ExecutionPreparation executionPreparation() {
+        return params.executionPreparation();
     }
 
     @Nullable

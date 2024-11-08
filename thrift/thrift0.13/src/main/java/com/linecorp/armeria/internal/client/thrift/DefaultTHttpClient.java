@@ -84,10 +84,10 @@ final class DefaultTHttpClient extends UserClient<RpcRequest, RpcResponse> imple
                               .scheme(scheme().sessionProtocol())
                               .contentType(scheme().serializationFormat().mediaType())
                               .build());
-        final RequestParams params = RequestParams.of(httpReq, call, UNARY_REQUEST_OPTIONS, reqTarget);
+        final RequestParams reqParams = RequestParams.of(httpReq, call, UNARY_REQUEST_OPTIONS, reqTarget);
         try {
-            return params().clientInitializer().<RpcRequest, RpcResponse>initialize(params, options())
-                    .execute(unwrap(), call);
+            return params().executionPreparation().<RpcRequest, RpcResponse>prepare(params(), reqParams)
+                           .execute(unwrap(), call);
         } catch (Exception e) {
             return RpcResponse.ofFailure(e);
         }

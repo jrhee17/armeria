@@ -24,6 +24,7 @@ import com.linecorp.armeria.common.ExchangeType;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RequestTarget;
+import com.linecorp.armeria.common.RequestTargetForm;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.annotation.Nullable;
 
@@ -53,7 +54,6 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
         requireNonNull(req, "req");
         requireNonNull(requestOptions, "requestOptions");
 
-        final ClientBuilderParams params = params();
         final String originalPath = req.path();
         final String prefix = Strings.emptyToNull(uri().getRawPath());
         final RequestTarget reqTarget = RequestTarget.forClient(originalPath, prefix);
@@ -62,7 +62,6 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
                     req, new IllegalArgumentException("Invalid request target: " + originalPath));
         }
 
-        final RequestParams requestParams;
         final String newPath = reqTarget.pathAndQuery();
         final HttpRequest newReq;
         if (newPath.equals(originalPath)) {
@@ -71,26 +70,49 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
             newReq = req.withHeaders(req.headers().toBuilder().path(newPath));
         }
 
-        final String reqAuthority = req.authority();
-        final String reqScheme = req.scheme();
-        if (reqAuthority != null && reqScheme != null) {
-            final Endpoint endpoint = Endpoint.parse(reqAuthority);
+        final RequestParams requestParams;
+
+        if (Clients.isUndefinedUri(uri())) {
+            final String scheme;
+            final String authority;
+            if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
+                scheme = reqTarget.scheme();
+                authority = reqTarget.authority();
+                assert scheme != null;
+                assert authority != null;
+            } else {
+                scheme = req.scheme();
+                authority = req.authority();
+
+                if (scheme == null || authority == null) {
+                    return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
+                            "Scheme and authority must be specified in \":path\" or " +
+                            "in \":scheme\" and \":authority\". :path=" +
+                            originalPath + ", :scheme=" + req.scheme() + ", :authority=" + req.authority()));
+                }
+            }
+            final Endpoint endpoint = Endpoint.parse(authority);
             final Scheme parsedScheme;
             try {
-                parsedScheme = Scheme.parse(reqScheme);
+                parsedScheme = Scheme.parse(scheme);
             } catch (Exception e) {
                 return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
                         "Failed to parse a scheme: " + reqTarget.scheme(), e));
             }
             requestParams = RequestParams.of(newReq, null, requestOptions, reqTarget, parsedScheme, endpoint);
         } else {
+            if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
+                return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
+                        "Cannot send a request with a \":path\" header that contains an authority, " +
+                        "because the client was created with a base URI. path: " + originalPath));
+            }
             requestParams = RequestParams.of(newReq, null, requestOptions, reqTarget);
         }
 
         try {
-            return params.clientInitializer()
-                         .<HttpRequest, HttpResponse>initialize(requestParams, options())
-                         .execute(unwrap(), newReq);
+            return params().executionPreparation()
+                           .<HttpRequest, HttpResponse>prepare(params(), requestParams)
+                           .execute(unwrap(), newReq);
         } catch (Exception e) {
             return HttpResponse.ofFailure(e);
         }

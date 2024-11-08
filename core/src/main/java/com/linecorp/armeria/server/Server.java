@@ -285,7 +285,7 @@ public final class Server implements ListenableAsyncCloseable {
 
     /**
      * Adds the specified {@link ServerListener} to this {@link Server}, so that it is notified when the state
-     * of this {@link Server} changes. This method is useful when you want to initialize/destroy the resources
+     * of this {@link Server} changes. This method is useful when you want to prepare/destroy the resources
      * associated with a {@link Service}:
      * <pre>{@code
      * > public class MyService extends SimpleService {
@@ -294,7 +294,7 @@ public final class Server implements ListenableAsyncCloseable {
      * >         server.addListener(new ServerListenerAdapter() {
      * >             @Override
      * >             public void serverStarting() {
-     * >                 ... initialize ...
+     * >                 ... prepare ...
      * >             }
      * >
      * >             @Override

@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableSet;
 
 import com.linecorp.armeria.client.AbstractWebClientBuilder;
 import com.linecorp.armeria.client.ClientFactory;
-import com.linecorp.armeria.client.ClientInitializer;
 import com.linecorp.armeria.client.ClientOption;
 import com.linecorp.armeria.client.ClientOptionValue;
 import com.linecorp.armeria.client.ClientOptions;
@@ -45,6 +44,7 @@ import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.ExecutionPreparation;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.RpcClient;
@@ -96,9 +96,9 @@ public final class WebSocketClientBuilder extends AbstractWebClientBuilder {
         setWebSocketDefaultOption();
     }
 
-    WebSocketClientBuilder(ClientInitializer clientInitializer) {
+    WebSocketClientBuilder(ExecutionPreparation executionPreparation) {
         super(null, Scheme.of(SerializationFormat.WS, SessionProtocol.UNDETERMINED),
-              null, requireNonNull(clientInitializer, "clientInitializer"), null);
+              null, requireNonNull(executionPreparation, "executionPreparation"), null);
         setWebSocketDefaultOption();
     }
 

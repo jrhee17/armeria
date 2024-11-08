@@ -46,7 +46,7 @@ final class HeapBasedEventLoopState extends AbstractEventLoopState {
         this.maxNumEventLoops = maxNumEventLoops;
         entries = new AbstractEventLoopEntry[maxNumEventLoops];
         if (eventLoops.size() == maxNumEventLoops) {
-            // We use all event loops so initialize early.
+            // We use all event loops so prepare early.
             init(0);
         }
     }

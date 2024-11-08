@@ -199,7 +199,7 @@ public final class RequestContextExportingAppender
             if (!FlagsLoaded.get()) {
                 // It is possible that requestContextStorageProvider hasn't been initialized yet
                 // due to static variable circular dependency.
-                // Most notably, this can happen when logs are appended while trying to initialize
+                // Most notably, this can happen when logs are appended while trying to prepare
                 // Flags#requestContextStorageProvider.
                 aai.appendLoopOnAppenders(eventObject);
                 return;

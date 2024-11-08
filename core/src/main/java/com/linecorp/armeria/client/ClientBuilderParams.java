@@ -58,12 +58,12 @@ public interface ClientBuilderParams {
     /**
      * Returns a newly created {@link ClientBuilderParams} from the specified properties.
      */
-    static ClientBuilderParams of(ClientInitializer clientInitializer, Class<?> type,
-                                  ClientOptions options) {
-        requireNonNull(clientInitializer, "clientInitializer");
+    static ClientBuilderParams of(Scheme scheme, ExecutionPreparation executionPreparation,
+                                  @Nullable String absolutePathRef, Class<?> type, ClientOptions options) {
+        requireNonNull(executionPreparation, "executionPreparation");
         requireNonNull(type, "type");
         requireNonNull(options, "options");
-        return new DefaultClientBuilderParams(clientInitializer, type, options);
+        return new DefaultClientBuilderParams(scheme, executionPreparation, absolutePathRef, type, options);
     }
 
     /**
@@ -94,30 +94,22 @@ public interface ClientBuilderParams {
     /**
      * Returns the {@link Scheme} of the client.
      */
-    default Scheme scheme() {
-        return clientInitializer().scheme();
-    }
+    Scheme scheme();
 
     /**
      * Returns the {@link EndpointGroup} of the client.
      */
-    default EndpointGroup endpointGroup() {
-        return clientInitializer().endpointGroup();
-    }
+    EndpointGroup endpointGroup();
 
     /**
      * Returns the {@link String} that consists of path, query string and fragment.
      */
-    default String absolutePathRef() { // Name inspired by https://stackoverflow.com/a/47545070/55808
-        return clientInitializer().absolutePathRef();
-    }
+    String absolutePathRef();
 
     /**
      * Returns the endpoint URI of the client.
      */
-    default URI uri() {
-        return clientInitializer().uri();
-    }
+    URI uri();
 
     /**
      * Returns the type of the client.
@@ -132,7 +124,7 @@ public interface ClientBuilderParams {
     /**
      * TBU.
      */
-    ClientInitializer clientInitializer();
+    ExecutionPreparation executionPreparation();
 
     /**
      * TBU.
@@ -143,20 +135,11 @@ public interface ClientBuilderParams {
         @Nullable
         private final RpcRequest rpcRequest;
         private final RequestOptions requestOptions;
-        @Nullable
         private final RequestTarget requestTarget;
         @Nullable
         private final Scheme scheme;
         @Nullable
         private final Endpoint endpoint;
-
-        /**
-         * TBU.
-         */
-        public static RequestParams of(HttpRequest request, @Nullable RpcRequest rpcRequest,
-                                       RequestOptions requestOptions) {
-            return new RequestParams(request, rpcRequest, requestOptions, null, null, null);
-        }
 
         /**
          * TBU.
@@ -210,7 +193,6 @@ public interface ClientBuilderParams {
         /**
          * TBU.
          */
-        @Nullable
         public RequestTarget requestTarget() {
             return requestTarget;
         }
@@ -230,7 +212,7 @@ public interface ClientBuilderParams {
         }
 
         private RequestParams(HttpRequest httpRequest, @Nullable RpcRequest rpcRequest,
-                              RequestOptions requestOptions, @Nullable RequestTarget requestTarget,
+                              RequestOptions requestOptions, RequestTarget requestTarget,
                               @Nullable Scheme scheme, @Nullable Endpoint endpoint) {
             this.httpRequest = httpRequest;
             this.rpcRequest = rpcRequest;

@@ -146,7 +146,7 @@ public abstract class TomcatService implements HttpService {
                              .findStatic(initClass, "init", MethodType.methodType(void.class))
                              .invoke();
             } catch (Throwable cause) {
-                logger.debug("Failed to initialize Tomcat ConfigFileLoader.source:", cause);
+                logger.debug("Failed to prepare Tomcat ConfigFileLoader.source:", cause);
             }
         }
 

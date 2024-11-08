@@ -55,7 +55,7 @@ class ThriftClassLoadingTest {
     }
 
     /**
-     * A simple class loader used to re-initialize a class.
+     * A simple class loader used to re-prepare a class.
      */
     private static class SimpleClassLoader extends ClassLoader {
 

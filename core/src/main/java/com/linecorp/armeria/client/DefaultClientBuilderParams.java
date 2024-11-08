@@ -27,7 +27,6 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.internal.client.DefaultClientInitializer;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
 
 /**
@@ -35,9 +34,13 @@ import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
  */
 final class DefaultClientBuilderParams implements ClientBuilderParams {
 
-    private final ClientInitializer clientInitializer;
+    private final ExecutionPreparation executionPreparation;
     private final Class<?> type;
     private final ClientOptions options;
+    private final Scheme scheme;
+    private final EndpointGroup endpointGroup;
+    private final URI uri;
+    private final String absolutePathRef;
 
     /**
      * Creates a new instance.
@@ -45,6 +48,10 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     DefaultClientBuilderParams(URI uri, Class<?> type, ClientOptions options) {
         this.type = requireNonNull(type, "type");
         this.options = requireNonNull(options, "options");
+        final ClientFactory factory = requireNonNull(options, "options").factory();
+        this.uri = factory.validateUri(uri);
+        endpointGroup = Endpoint.parse(uri.getRawAuthority());
+        scheme = factory.validateScheme(Scheme.parse(uri.getScheme()));
 
         final String absolutePathRef;
         try (TemporaryThreadLocals tempThreadLocals = TemporaryThreadLocals.acquire()) {
@@ -58,11 +65,9 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
             }
             absolutePathRef = buf.toString();
         }
+        this.absolutePathRef = absolutePathRef;
 
-        final ClientFactory factory = requireNonNull(options, "options").factory();
-        clientInitializer = new DefaultClientInitializer(
-                factory.validateScheme(Scheme.parse(uri.getScheme())), Endpoint.parse(uri.getRawAuthority()),
-                absolutePathRef, factory.validateUri(uri));
+        executionPreparation = endpointGroup;
     }
 
     DefaultClientBuilderParams(Scheme scheme, EndpointGroup endpointGroup,
@@ -87,27 +92,40 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
             // Create a valid URI which will never succeed.
             uri = dummyUri(endpointGroup, schemeStr, normalizedAbsolutePathRef);
         }
-
         final ClientFactory factory = options.factory();
-        clientInitializer = new DefaultClientInitializer(
-                factory.validateScheme(scheme), endpointGroup, normalizedAbsolutePathRef,
-                factory.validateUri(uri));
+        this.scheme = factory.validateScheme(scheme);
+        this.endpointGroup = endpointGroup;
+        this.absolutePathRef = normalizedAbsolutePathRef;
+        this.uri = factory.validateUri(uri);
+        executionPreparation = endpointGroup;
     }
 
     /**
      * Creates a new instance.
      */
-    DefaultClientBuilderParams(ClientInitializer clientInitializer, Class<?> type,
-                               ClientOptions options) {
-        this.clientInitializer = requireNonNull(clientInitializer, "clientInitializer");
+    DefaultClientBuilderParams(Scheme scheme, ExecutionPreparation executionPreparation,
+                               @Nullable String absolutePathRef, Class<?> type, ClientOptions options) {
+        this.scheme = scheme;
+        this.executionPreparation = requireNonNull(executionPreparation, "executionPreparation");
+        final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
+        this.absolutePathRef = normalizedAbsolutePathRef;
         this.type = requireNonNull(type, "type");
         this.options = requireNonNull(options, "options");
+
+        final String schemeStr;
+        if (scheme.serializationFormat() == SerializationFormat.NONE) {
+            schemeStr = scheme.sessionProtocol().uriText();
+        } else {
+            schemeStr = scheme.uriText();
+        }
+        uri = dummyUri(executionPreparation, schemeStr, normalizedAbsolutePathRef);
+        endpointGroup = Endpoint.parse(uri.getRawAuthority());
     }
 
-    private static URI dummyUri(EndpointGroup endpointGroup, String schemeStr,
+    private static URI dummyUri(Object key, String schemeStr,
                                 String normalizedAbsolutePathRef) {
         return URI.create(schemeStr + "://armeria-group-" +
-                          Integer.toHexString(System.identityHashCode(endpointGroup)) +
+                          Integer.toHexString(System.identityHashCode(key)) +
                           ":1" + normalizedAbsolutePathRef);
     }
 
@@ -122,6 +140,26 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     }
 
     @Override
+    public Scheme scheme() {
+        return scheme;
+    }
+
+    @Override
+    public EndpointGroup endpointGroup() {
+        return endpointGroup;
+    }
+
+    @Override
+    public String absolutePathRef() {
+        return absolutePathRef;
+    }
+
+    @Override
+    public URI uri() {
+        return uri;
+    }
+
+    @Override
     public Class<?> clientType() {
         return type;
     }
@@ -132,14 +170,14 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     }
 
     @Override
-    public ClientInitializer clientInitializer() {
-        return clientInitializer;
+    public ExecutionPreparation executionPreparation() {
+        return executionPreparation;
     }
 
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-                          .add("clientInitializer", clientInitializer)
+                          .add("executionPreparation", executionPreparation)
                           .add("type", type)
                           .toString();
     }

@@ -178,7 +178,7 @@ public final class HealthCheckedEndpointGroup extends DynamicEndpointGroup {
                                                                                      checkerFactory);
             // 'updateHealth()' that retrieves 'contextGroupChain' could be invoked while initializing
             // HealthCheckerContext. For this reason, 'contexts' should be added to 'contextGroupChain'
-            // before 'contextGroup.initialize()'.
+            // before 'contextGroup.prepare()'.
             contextGroupChain.add(contextGroup);
             contextGroup.initialize();
 

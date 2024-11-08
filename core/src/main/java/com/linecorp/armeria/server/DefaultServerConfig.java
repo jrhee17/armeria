@@ -307,7 +307,7 @@ final class DefaultServerConfig implements ServerConfig {
 
     private static Mapping<String, VirtualHost> buildDomainMapping(VirtualHost defaultVirtualHost,
                                                                    List<VirtualHost> virtualHosts) {
-        // Set virtual host definitions and initialize their domain name mapping.
+        // Set virtual host definitions and prepare their domain name mapping.
         final DomainMappingBuilder<VirtualHost> mappingBuilder = new DomainMappingBuilder<>(defaultVirtualHost);
         for (VirtualHost h : virtualHosts) {
             if (h.port() > 0) {

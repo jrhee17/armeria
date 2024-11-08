@@ -67,7 +67,7 @@ final class SamlInitializer {
      */
     static void ensureAvailability() {
         if (!isAvailable()) {
-            throw new Error("failed to initialize OpenSAML library", unavailabilityCause());
+            throw new Error("failed to prepare OpenSAML library", unavailabilityCause());
         }
     }
 

@@ -108,7 +108,7 @@ public final class ResteasyService<T> implements HttpService {
         final EmbeddedServerHelper serverHelper = new EmbeddedServerHelper();
         serverHelper.checkDeployment(deployment); // this initializes the deployment
 
-        // initialize context path
+        // prepare context path
         final String appContextPath = checkPath(
                 serverHelper.checkAppDeployment(deployment)); // fetches @ApplicationPath path
         contextPath = checkPath(contextPath);

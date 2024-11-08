@@ -151,8 +151,8 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      * the specified {@code protocol} using the default {@link ClientFactory} and the default
      * {@link ClientOptions}.
      */
-    static WebClient of(ClientInitializer clientInitializer) {
-        return builder(clientInitializer).build();
+    static WebClient of(ExecutionPreparation executionPreparation) {
+        return builder(executionPreparation).build();
     }
 
     /**
@@ -160,8 +160,8 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      * the specified {@code protocol} using the default {@link ClientFactory} and the default
      * {@link ClientOptions}.
      */
-    static WebClient of(SerializationFormat serializationFormat, ClientInitializer clientInitializer) {
-        return builder(serializationFormat, clientInitializer).build();
+    static WebClient of(SerializationFormat serializationFormat, ExecutionPreparation executionPreparation) {
+        return builder(serializationFormat, executionPreparation).build();
     }
 
     /**
@@ -169,9 +169,9 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      * the specified {@code protocol} using the default {@link ClientFactory} and the default
      * {@link ClientOptions}.
      */
-    static WebClient of(SerializationFormat serializationFormat, ClientInitializer clientInitializer,
+    static WebClient of(SerializationFormat serializationFormat, ExecutionPreparation executionPreparation,
                         String path) {
-        return builder(serializationFormat, clientInitializer, path).build();
+        return builder(serializationFormat, executionPreparation, path).build();
     }
 
     /**
@@ -261,34 +261,34 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
 
     /**
      * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
-     * and base {@link ClientInitializer}.
+     * and base {@link ExecutionPreparation}.
      */
-    static WebClientBuilder builder(ClientInitializer clientInitializer) {
-        requireNonNull(clientInitializer, "clientInitializer");
-        return new WebClientBuilder(SerializationFormat.NONE, clientInitializer, null);
+    static WebClientBuilder builder(ExecutionPreparation executionPreparation) {
+        requireNonNull(executionPreparation, "executionPreparation");
+        return new WebClientBuilder(SerializationFormat.NONE, executionPreparation, null);
     }
 
     /**
      * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
-     * and base {@link ClientInitializer}.
+     * and base {@link ExecutionPreparation}.
      */
     static WebClientBuilder builder(SerializationFormat serializationFormat,
-                                    ClientInitializer clientInitializer) {
+                                    ExecutionPreparation executionPreparation) {
         requireNonNull(serializationFormat, "serializationFormat");
-        requireNonNull(clientInitializer, "clientInitializer");
-        return new WebClientBuilder(serializationFormat, clientInitializer, null);
+        requireNonNull(executionPreparation, "executionPreparation");
+        return new WebClientBuilder(serializationFormat, executionPreparation, null);
     }
 
     /**
      * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
-     * and base {@link ClientInitializer}.
+     * and base {@link ExecutionPreparation}.
      */
     static WebClientBuilder builder(SerializationFormat serializationFormat,
-                                    ClientInitializer clientInitializer, String path) {
+                                    ExecutionPreparation executionPreparation, String path) {
         requireNonNull(serializationFormat, "serializationFormat");
-        requireNonNull(clientInitializer, "clientInitializer");
+        requireNonNull(executionPreparation, "executionPreparation");
         requireNonNull(path, "path");
-        return new WebClientBuilder(serializationFormat, clientInitializer, path);
+        return new WebClientBuilder(serializationFormat, executionPreparation, path);
     }
 
     /**

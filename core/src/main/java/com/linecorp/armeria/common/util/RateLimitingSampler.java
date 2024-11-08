@@ -41,7 +41,7 @@ import com.google.common.annotations.VisibleForTesting;
  * The rate-limited sampler allows you to choose an amount of traces to accept on a per-second
  * interval. The minimum number is 0 and the max is 2,147,483,647 (max int).
  *
- * <p>For example, to allow 10 traces per second, you'd initialize the following:
+ * <p>For example, to allow 10 traces per second, you'd prepare the following:
  * <pre>{@code
  * tracingBuilder.sampler(RateLimitingSampler.create(10));
  * }</pre>

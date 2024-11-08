@@ -64,7 +64,7 @@ public final class ThriftMetadataAccess {
     @SuppressWarnings("unchecked")
     public static synchronized <T extends TBase<T, F>, F extends TFieldIdEnum>
     Map<? extends TFieldIdEnum, FieldMetaData> getStructMetaDataMap(Class<?> clazz) {
-        // Pre-initialize classes if there is a jar in the classpath with armeria-thrift <= 0.14
+        // Pre-prepare classes if there is a jar in the classpath with armeria-thrift <= 0.14
         // See the following issue for the motivation of pre-initializing classes
         // https://issues.apache.org/jira/browse/THRIFT-5430
         if (preInitializeThriftClass) {

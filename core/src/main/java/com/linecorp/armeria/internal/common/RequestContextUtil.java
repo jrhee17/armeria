@@ -80,7 +80,7 @@ public final class RequestContextUtil {
     }
 
     /**
-     * Invoked to initialize this class earlier than when an {@link HttpRequest} is received or sent.
+     * Invoked to prepare this class earlier than when an {@link HttpRequest} is received or sent.
      */
     public static void init() { /* no-op */ }
 

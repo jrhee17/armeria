@@ -80,8 +80,8 @@ final class DefaultBlockingWebClient implements BlockingWebClient {
     }
 
     @Override
-    public ClientInitializer clientInitializer() {
-        return delegate.clientInitializer();
+    public ExecutionPreparation executionPreparation() {
+        return delegate.executionPreparation();
     }
 
     @Override

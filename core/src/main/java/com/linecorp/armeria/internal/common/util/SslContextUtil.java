@@ -158,7 +158,7 @@ public final class SslContextUtil {
                 return sslContext;
             } catch (SSLException e) {
                 throw new IllegalStateException(
-                        "Could not initialize SSL context. Ensure that netty-tcnative is " +
+                        "Could not prepare SSL context. Ensure that netty-tcnative is " +
                         "on the path, this is running on Java 11+, or user customization " +
                         "of the SSL context is supported by the environment.", e);
             } finally {

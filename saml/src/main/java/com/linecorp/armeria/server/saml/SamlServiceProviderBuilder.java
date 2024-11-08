@@ -483,7 +483,7 @@ public final class SamlServiceProviderBuilder {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("unsupported signature algorithm: " + signatureAlgorithm, e);
         } catch (InvalidKeyException e) {
-            throw new IllegalStateException("failed to initialize a signature with an algorithm: " +
+            throw new IllegalStateException("failed to prepare a signature with an algorithm: " +
                                             signatureAlgorithm, e);
         }
     }

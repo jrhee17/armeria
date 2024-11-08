@@ -65,7 +65,7 @@ final class DelegatingClientBuilderParams implements ClientBuilderParams {
     }
 
     @Override
-    public ClientInitializer clientInitializer() {
-        return delegate.clientInitializer();
+    public ExecutionPreparation executionPreparation() {
+        return delegate.executionPreparation();
     }
 }

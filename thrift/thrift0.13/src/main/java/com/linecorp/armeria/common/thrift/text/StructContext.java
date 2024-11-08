@@ -76,7 +76,7 @@ final class StructContext extends PairContext {
             try {
                 supplier = new StackWalkingThriftMessageClassFinder();
             } catch (Throwable t) {
-                log.warn("Failed to initialize StackWalkingThriftMessageClassFinder. " +
+                log.warn("Failed to prepare StackWalkingThriftMessageClassFinder. " +
                          "Falling back to DefaultThriftMessageClassFinder:", t);
             }
         }

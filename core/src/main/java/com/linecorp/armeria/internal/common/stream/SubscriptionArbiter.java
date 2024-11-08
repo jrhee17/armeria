@@ -173,7 +173,7 @@ public class SubscriptionArbiter implements Subscription {
         Subscription requestFrom = null;
 
         do {
-            // Get snapshots from values and initialize them
+            // Get snapshots from values and prepare them
             final long newReq = newRequested;
             newRequested = 0;
             final long newProd = newProduced;

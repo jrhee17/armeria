@@ -103,7 +103,7 @@ final class HealthCheckContextGroup {
     }
 
     CompletableFuture<?> whenInitialized() {
-        assert initFutures != null : "Should call initialize() before invoking this method.";
+        assert initFutures != null : "Should call prepare() before invoking this method.";
         return initFutures;
     }
 
