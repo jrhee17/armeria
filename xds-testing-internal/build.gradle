@@ -1,0 +1,6 @@
+dependencies {
+    api project(':grpc')
+    api libs.controlplane.api
+    api libs.controlplane.server
+    api libs.controlplane.cache
+}

@@ -54,6 +54,7 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.ExecutionPreparation;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.RpcClient;
@@ -97,6 +98,8 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
     private final ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
     @Nullable
     private final EndpointGroup endpointGroup;
+    @Nullable
+    private final ExecutionPreparation executionPreparation;
 
     @Nullable
     private URI uri;
@@ -110,6 +113,7 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
         requireNonNull(uri, "uri");
         checkArgument(uri.getScheme() != null, "uri must have scheme: %s", uri);
         endpointGroup = null;
+        executionPreparation = null;
         this.uri = uri;
         scheme = Scheme.parse(uri.getScheme());
         validateOrSetSerializationFormat();
@@ -122,6 +126,17 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
         this.scheme = scheme;
         validateOrSetSerializationFormat();
         this.endpointGroup = endpointGroup;
+        executionPreparation = endpointGroup;
+    }
+
+    public GrpcClientBuilder(Scheme scheme, ExecutionPreparation executionPreparation) {
+        requireNonNull(scheme, "scheme");
+        requireNonNull(executionPreparation, "executionPreparation");
+        uri = null;
+        this.scheme = scheme;
+        endpointGroup = null;
+        this.executionPreparation = executionPreparation;
+        validateOrSetSerializationFormat();
     }
 
     private void validateOrSetSerializationFormat() {
@@ -431,9 +446,12 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
                 uri = uri.resolve(prefix);
             }
             client = factory.newClient(ClientBuilderParams.of(uri, clientType, options));
-        } else {
-            assert endpointGroup != null;
+        } else if (endpointGroup != null) {
             client = factory.newClient(ClientBuilderParams.of(scheme, endpointGroup,
+                                                              prefix, clientType, options));
+        } else {
+            assert executionPreparation != null;
+            client = factory.newClient(ClientBuilderParams.of(scheme, executionPreparation,
                                                               prefix, clientType, options));
         }
 

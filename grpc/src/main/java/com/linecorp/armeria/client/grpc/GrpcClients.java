@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 import java.net.URI;
 
 import com.linecorp.armeria.client.ClientFactory;
+import com.linecorp.armeria.client.ExecutionPreparation;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
@@ -84,6 +85,29 @@ public final class GrpcClients {
      */
     public static <T> T newClient(String scheme, EndpointGroup endpointGroup, Class<T> clientType) {
         return builder(scheme, endpointGroup).build(clientType);
+    }
+
+    /**
+     * TBU.
+     */
+    public static <T> T newClient(SerializationFormat serializationFormat,
+                                  ExecutionPreparation executionPreparation,
+                                  Class<T> clientType) {
+        return builder(Scheme.of(serializationFormat, SessionProtocol.UNDETERMINED),
+                       executionPreparation).build(clientType);
+    }
+
+    /**
+     * TBU.
+     */
+    public static <T> T newClient(ExecutionPreparation executionPreparation,
+                                  Class<T> clientType) {
+        return builder(Scheme.of(GrpcSerializationFormats.PROTO, SessionProtocol.UNDETERMINED),
+                       executionPreparation).build(clientType);
+    }
+
+    private static GrpcClientBuilder builder(Scheme scheme, ExecutionPreparation executionPreparation) {
+        return new GrpcClientBuilder(scheme, executionPreparation);
     }
 
     /**
