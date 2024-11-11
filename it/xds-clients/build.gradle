@@ -1,0 +1,5 @@
+dependencies {
+    implementation project(':xds')
+    implementation project(':grpc')
+    implementation project(':thrift0.17')
+}
