@@ -16,13 +16,13 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import static com.linecorp.armeria.xds.XdsTestResources.createStaticCluster;
-import static com.linecorp.armeria.xds.XdsTestResources.endpoint;
-import static com.linecorp.armeria.xds.XdsTestResources.loadAssignment;
-import static com.linecorp.armeria.xds.XdsTestResources.locality;
-import static com.linecorp.armeria.xds.XdsTestResources.percent;
-import static com.linecorp.armeria.xds.XdsTestResources.staticBootstrap;
-import static com.linecorp.armeria.xds.XdsTestResources.staticResourceListener;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.createStaticCluster;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.endpoint;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.loadAssignment;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.locality;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.percent;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.staticBootstrap;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.staticResourceListener;
 import static io.envoyproxy.envoy.config.core.v3.HealthStatus.HEALTHY;
 import static io.envoyproxy.envoy.config.core.v3.HealthStatus.UNHEALTHY;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,7 +48,7 @@ import com.linecorp.armeria.common.CommonPools;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.xds.XdsBootstrap;
-import com.linecorp.armeria.xds.XdsTestResources;
+import com.linecorp.armeria.xds.internal.XdsTestResources;
 import com.linecorp.armeria.xds.internal.common.XdsAttributeKeys;
 import com.linecorp.armeria.xds.internal.common.XdsRandom.RandomHint;
 

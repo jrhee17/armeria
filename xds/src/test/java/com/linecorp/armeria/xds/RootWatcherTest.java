@@ -24,6 +24,8 @@ import java.net.URI;
 
 import org.junit.jupiter.api.Test;
 
+import com.linecorp.armeria.xds.internal.XdsTestResources;
+
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 
 class RootWatcherTest {

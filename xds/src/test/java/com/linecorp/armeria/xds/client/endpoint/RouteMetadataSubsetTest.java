@@ -16,16 +16,16 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import static com.linecorp.armeria.xds.XdsTestResources.BOOTSTRAP_CLUSTER_NAME;
-import static com.linecorp.armeria.xds.XdsTestResources.bootstrapCluster;
-import static com.linecorp.armeria.xds.XdsTestResources.createStaticCluster;
-import static com.linecorp.armeria.xds.XdsTestResources.endpoint;
-import static com.linecorp.armeria.xds.XdsTestResources.localityLbEndpoints;
-import static com.linecorp.armeria.xds.XdsTestResources.staticBootstrap;
-import static com.linecorp.armeria.xds.XdsTestResources.staticResourceListener;
-import static com.linecorp.armeria.xds.XdsTestResources.stringValue;
 import static com.linecorp.armeria.xds.client.endpoint.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
 import static com.linecorp.armeria.xds.client.endpoint.XdsConverterUtilTest.sampleClusterLoadAssignment;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.BOOTSTRAP_CLUSTER_NAME;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.bootstrapCluster;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.createStaticCluster;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.endpoint;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.localityLbEndpoints;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.staticBootstrap;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.staticResourceListener;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.stringValue;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
@@ -48,7 +48,7 @@ import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import com.linecorp.armeria.xds.XdsBootstrap;
-import com.linecorp.armeria.xds.XdsTestResources;
+import com.linecorp.armeria.xds.internal.XdsTestResources;
 import com.linecorp.armeria.xds.internal.common.XdsAttributeKeys;
 import com.linecorp.armeria.xds.internal.common.XdsRandom.RandomHint;
 

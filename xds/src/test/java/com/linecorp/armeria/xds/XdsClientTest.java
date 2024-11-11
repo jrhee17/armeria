@@ -16,7 +16,7 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.linecorp.armeria.xds.XdsTestResources.BOOTSTRAP_CLUSTER_NAME;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.BOOTSTRAP_CLUSTER_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
@@ -39,6 +39,7 @@ import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.common.EventLoopExtension;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import com.linecorp.armeria.xds.client.endpoint.XdsExecutionPreparation;
+import com.linecorp.armeria.xds.internal.XdsTestResources;
 
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
 import io.envoyproxy.controlplane.cache.v3.Snapshot;

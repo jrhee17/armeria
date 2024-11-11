@@ -106,10 +106,6 @@ public final class GrpcClients {
                        executionPreparation).build(clientType);
     }
 
-    private static GrpcClientBuilder builder(Scheme scheme, ExecutionPreparation executionPreparation) {
-        return new GrpcClientBuilder(scheme, executionPreparation);
-    }
-
     /**
      * Creates a new gRPC client that connects to the specified {@link EndpointGroup} with the specified
      * {@link Scheme} using the default {@link ClientFactory}.
@@ -205,6 +201,10 @@ public final class GrpcClients {
         requireNonNull(scheme, "scheme");
         requireNonNull(endpointGroup, "endpointGroup");
         return new GrpcClientBuilder(scheme, endpointGroup);
+    }
+
+    private static GrpcClientBuilder builder(Scheme scheme, ExecutionPreparation executionPreparation) {
+        return new GrpcClientBuilder(scheme, executionPreparation);
     }
 
     private GrpcClients() {}

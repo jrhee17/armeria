@@ -18,7 +18,6 @@ package com.linecorp.armeria.xds;
 
 import java.net.URI;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -30,6 +29,7 @@ import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import com.linecorp.armeria.xds.client.endpoint.XdsExecutionPreparation;
+import com.linecorp.armeria.xds.internal.XdsTestResources;
 
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
 import io.envoyproxy.controlplane.cache.v3.Snapshot;
@@ -39,7 +39,6 @@ import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 import io.envoyproxy.envoy.config.listener.v3.Listener;
-import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 import io.grpc.stub.StreamObserver;
 import testing.grpc.Hello.HelloReply;
 import testing.grpc.Hello.HelloRequest;
@@ -60,7 +59,8 @@ class GrpcIntegrationTest {
                                       @Override
                                       public void hello(HelloRequest request,
                                                         StreamObserver<HelloReply> responseObserver) {
-                                          responseObserver.onNext(HelloReply.newBuilder().setMessage("Hello").build());
+                                          responseObserver.onNext(HelloReply.newBuilder()
+                                                                            .setMessage("Hello").build());
                                           responseObserver.onCompleted();
                                       }
                                   })

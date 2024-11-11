@@ -46,18 +46,6 @@ public interface ClientBuilderParams {
     /**
      * Returns a newly created {@link ClientBuilderParams} from the specified properties.
      */
-    static ClientBuilderParams of(Scheme scheme, EndpointGroup endpointGroup,
-                                  @Nullable String absolutePathRef, Class<?> type, ClientOptions options) {
-        requireNonNull(scheme, "scheme");
-        requireNonNull(endpointGroup, "endpointGroup");
-        requireNonNull(type, "type");
-        requireNonNull(options, "options");
-        return new DefaultClientBuilderParams(scheme, endpointGroup, absolutePathRef, type, options);
-    }
-
-    /**
-     * Returns a newly created {@link ClientBuilderParams} from the specified properties.
-     */
     static ClientBuilderParams of(Scheme scheme, ExecutionPreparation executionPreparation,
                                   @Nullable String absolutePathRef, Class<?> type, ClientOptions options) {
         requireNonNull(executionPreparation, "executionPreparation");

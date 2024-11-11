@@ -16,12 +16,12 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import static com.linecorp.armeria.xds.XdsTestResources.createStaticCluster;
-import static com.linecorp.armeria.xds.XdsTestResources.endpoint;
-import static com.linecorp.armeria.xds.XdsTestResources.locality;
-import static com.linecorp.armeria.xds.XdsTestResources.localityLbEndpoints;
-import static com.linecorp.armeria.xds.XdsTestResources.staticBootstrap;
-import static com.linecorp.armeria.xds.XdsTestResources.staticResourceListener;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.createStaticCluster;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.endpoint;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.locality;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.localityLbEndpoints;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.staticBootstrap;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.staticResourceListener;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 

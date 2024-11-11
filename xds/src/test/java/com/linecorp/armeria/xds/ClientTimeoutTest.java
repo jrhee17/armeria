@@ -16,7 +16,7 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.linecorp.armeria.xds.XdsTestResources.BOOTSTRAP_CLUSTER_NAME;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.BOOTSTRAP_CLUSTER_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
@@ -35,6 +35,7 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
+import com.linecorp.armeria.xds.internal.XdsTestResources;
 
 import io.envoyproxy.controlplane.cache.TestResources;
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
@@ -99,7 +100,8 @@ class ClientTimeoutTest {
             cache.setSnapshot(
                     GROUP,
                     Snapshot.create(ImmutableList.of(TestResources.createCluster(clusterName)),
-                                    ImmutableList.of(XdsTestResources.loadAssignment(clusterName, URI.create("http://a.b"))),
+                                    ImmutableList.of(
+                                            XdsTestResources.loadAssignment(clusterName, URI.create("http://a.b"))),
                                     ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), "2"));
             simulateTimeout.set(false);
             final Cluster expectedCluster = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);

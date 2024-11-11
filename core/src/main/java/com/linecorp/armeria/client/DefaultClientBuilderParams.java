@@ -70,11 +70,11 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         executionPreparation = endpointGroup;
     }
 
-    DefaultClientBuilderParams(Scheme scheme, EndpointGroup endpointGroup,
+    DefaultClientBuilderParams(Scheme scheme, ExecutionPreparation executionPreparation,
                                @Nullable String absolutePathRef,
                                Class<?> type, ClientOptions options) {
         this.type = requireNonNull(type, "type");
-        requireNonNull(endpointGroup, "endpointGroup");
+        requireNonNull(executionPreparation, "executionPreparation");
         this.options = requireNonNull(options, "options");
 
         final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
@@ -85,41 +85,24 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
             schemeStr = scheme.uriText();
         }
         final URI uri;
-        if (endpointGroup instanceof Endpoint) {
-            uri = URI.create(schemeStr + "://" + ((Endpoint) endpointGroup).authority() +
+        if (executionPreparation instanceof Endpoint) {
+            uri = URI.create(schemeStr + "://" + ((Endpoint) executionPreparation).authority() +
                              normalizedAbsolutePathRef);
+            endpointGroup = (EndpointGroup) executionPreparation;
+        } else if (executionPreparation instanceof EndpointGroup) {
+            endpointGroup = (EndpointGroup) executionPreparation;
+            uri = dummyUri(executionPreparation, schemeStr, normalizedAbsolutePathRef);
         } else {
             // Create a valid URI which will never succeed.
-            uri = dummyUri(endpointGroup, schemeStr, normalizedAbsolutePathRef);
+            uri = dummyUri(executionPreparation, schemeStr, normalizedAbsolutePathRef);
+            endpointGroup = Endpoint.parse(uri.getRawAuthority());
         }
         final ClientFactory factory = options.factory();
         this.scheme = factory.validateScheme(scheme);
-        this.endpointGroup = endpointGroup;
+
         this.absolutePathRef = normalizedAbsolutePathRef;
         this.uri = factory.validateUri(uri);
-        executionPreparation = endpointGroup;
-    }
-
-    /**
-     * Creates a new instance.
-     */
-    DefaultClientBuilderParams(Scheme scheme, ExecutionPreparation executionPreparation,
-                               @Nullable String absolutePathRef, Class<?> type, ClientOptions options) {
-        this.scheme = scheme;
-        this.executionPreparation = requireNonNull(executionPreparation, "executionPreparation");
-        final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
-        this.absolutePathRef = normalizedAbsolutePathRef;
-        this.type = requireNonNull(type, "type");
-        this.options = requireNonNull(options, "options");
-
-        final String schemeStr;
-        if (scheme.serializationFormat() == SerializationFormat.NONE) {
-            schemeStr = scheme.sessionProtocol().uriText();
-        } else {
-            schemeStr = scheme.uriText();
-        }
-        uri = dummyUri(executionPreparation, schemeStr, normalizedAbsolutePathRef);
-        endpointGroup = Endpoint.parse(uri.getRawAuthority());
+        this.executionPreparation = executionPreparation;
     }
 
     private static URI dummyUri(Object key, String schemeStr,

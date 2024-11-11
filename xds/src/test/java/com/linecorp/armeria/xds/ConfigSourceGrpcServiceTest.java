@@ -16,13 +16,13 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.linecorp.armeria.xds.XdsTestResources.BOOTSTRAP_CLUSTER_NAME;
-import static com.linecorp.armeria.xds.XdsTestResources.apiConfigSource;
-import static com.linecorp.armeria.xds.XdsTestResources.createCluster;
-import static com.linecorp.armeria.xds.XdsTestResources.exampleListener;
-import static com.linecorp.armeria.xds.XdsTestResources.httpConnectionManager;
-import static com.linecorp.armeria.xds.XdsTestResources.loadAssignment;
-import static com.linecorp.armeria.xds.XdsTestResources.routeConfiguration;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.BOOTSTRAP_CLUSTER_NAME;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.apiConfigSource;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.createCluster;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.exampleListener;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.httpConnectionManager;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.loadAssignment;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.routeConfiguration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
@@ -40,6 +40,7 @@ import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.auth.AuthService;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
+import com.linecorp.armeria.xds.internal.XdsTestResources;
 
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
 import io.envoyproxy.controlplane.cache.v3.Snapshot;

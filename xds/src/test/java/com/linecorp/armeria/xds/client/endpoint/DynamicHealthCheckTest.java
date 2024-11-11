@@ -17,11 +17,11 @@
 package com.linecorp.armeria.xds.client.endpoint;
 
 import static com.linecorp.armeria.server.TransientServiceOption.WITH_SERVICE_LOGGING;
-import static com.linecorp.armeria.xds.XdsTestResources.address;
-import static com.linecorp.armeria.xds.XdsTestResources.createStaticCluster;
-import static com.linecorp.armeria.xds.XdsTestResources.endpoint;
-import static com.linecorp.armeria.xds.XdsTestResources.localityLbEndpoints;
-import static com.linecorp.armeria.xds.XdsTestResources.staticResourceListener;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.address;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.createStaticCluster;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.endpoint;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.localityLbEndpoints;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.staticResourceListener;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
@@ -52,7 +52,7 @@ import com.linecorp.armeria.server.healthcheck.SettableHealthChecker;
 import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import com.linecorp.armeria.xds.XdsBootstrap;
-import com.linecorp.armeria.xds.XdsTestResources;
+import com.linecorp.armeria.xds.internal.XdsTestResources;
 
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
 import io.envoyproxy.controlplane.cache.v3.Snapshot;

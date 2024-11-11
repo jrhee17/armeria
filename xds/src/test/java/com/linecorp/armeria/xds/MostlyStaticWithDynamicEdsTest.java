@@ -16,11 +16,11 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.linecorp.armeria.xds.XdsTestResources.BOOTSTRAP_CLUSTER_NAME;
-import static com.linecorp.armeria.xds.XdsTestResources.bootstrapCluster;
-import static com.linecorp.armeria.xds.XdsTestResources.createCluster;
-import static com.linecorp.armeria.xds.XdsTestResources.loadAssignment;
-import static com.linecorp.armeria.xds.XdsTestResources.staticResourceListener;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.BOOTSTRAP_CLUSTER_NAME;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.bootstrapCluster;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.createCluster;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.loadAssignment;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.staticResourceListener;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
+import com.linecorp.armeria.xds.internal.XdsTestResources;
 
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
 import io.envoyproxy.controlplane.cache.v3.Snapshot;

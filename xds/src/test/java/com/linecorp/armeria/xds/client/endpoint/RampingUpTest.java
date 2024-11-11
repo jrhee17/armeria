@@ -17,9 +17,9 @@
 package com.linecorp.armeria.xds.client.endpoint;
 
 import static com.linecorp.armeria.internal.client.endpoint.EndpointAttributeKeys.createdAtNanos;
-import static com.linecorp.armeria.xds.XdsTestResources.BOOTSTRAP_CLUSTER_NAME;
-import static com.linecorp.armeria.xds.XdsTestResources.endpoint;
-import static com.linecorp.armeria.xds.XdsTestResources.localityLbEndpoints;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.BOOTSTRAP_CLUSTER_NAME;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.endpoint;
+import static com.linecorp.armeria.xds.internal.XdsTestResources.localityLbEndpoints;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
@@ -50,7 +50,7 @@ import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import com.linecorp.armeria.xds.XdsBootstrap;
-import com.linecorp.armeria.xds.XdsTestResources;
+import com.linecorp.armeria.xds.internal.XdsTestResources;
 
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
 import io.envoyproxy.controlplane.cache.v3.Snapshot;

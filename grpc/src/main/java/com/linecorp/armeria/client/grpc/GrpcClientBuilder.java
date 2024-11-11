@@ -129,7 +129,7 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
         executionPreparation = endpointGroup;
     }
 
-    public GrpcClientBuilder(Scheme scheme, ExecutionPreparation executionPreparation) {
+    GrpcClientBuilder(Scheme scheme, ExecutionPreparation executionPreparation) {
         requireNonNull(scheme, "scheme");
         requireNonNull(executionPreparation, "executionPreparation");
         uri = null;
