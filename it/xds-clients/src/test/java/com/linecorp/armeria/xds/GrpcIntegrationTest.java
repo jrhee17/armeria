@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.xds;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.net.URI;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +26,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import com.google.common.collect.ImmutableList;
 
+import com.linecorp.armeria.client.ClientOptions;
+import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
@@ -111,10 +115,12 @@ class GrpcIntegrationTest {
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              XdsExecutionPreparation preparation = XdsExecutionPreparation.of("listener", xdsBootstrap)) {
-            final TestServiceBlockingStub stub = GrpcClients.newClient(preparation,
+            TestServiceBlockingStub stub = GrpcClients.newClient(preparation,
                                                                        TestServiceBlockingStub.class);
-            final HelloReply res = stub.hello(HelloRequest.getDefaultInstance());
-            System.out.println(res);
+            assertThat(stub.hello(HelloRequest.getDefaultInstance()).getMessage()).isEqualTo("Hello");
+
+            stub = Clients.newDerivedClient(stub, ClientOptions.RESPONSE_TIMEOUT_MILLIS.newValue(10L));
+            assertThat(stub.hello(HelloRequest.getDefaultInstance()).getMessage()).isEqualTo("Hello");
         }
     }
 }

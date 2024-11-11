@@ -70,7 +70,7 @@ public final class ClientBuilder extends AbstractClientOptionsBuilder {
     @Nullable
     private final URI uri;
     @Nullable
-    private final EndpointGroup endpointGroup;
+    private final ExecutionPreparation executionPreparation;
     @Nullable
     private final String path;
     private final Scheme scheme;
@@ -79,18 +79,18 @@ public final class ClientBuilder extends AbstractClientOptionsBuilder {
         checkArgument(uri.getScheme() != null, "uri must have scheme: %s", uri);
         checkArgument(uri.getRawAuthority() != null, "uri must have authority: %s", uri);
         this.uri = uri;
-        endpointGroup = null;
+        executionPreparation = null;
         path = null;
         scheme = Scheme.parse(uri.getScheme());
     }
 
-    ClientBuilder(Scheme scheme, EndpointGroup endpointGroup, @Nullable String path) {
+    ClientBuilder(Scheme scheme, ExecutionPreparation executionPreparation, @Nullable String path) {
         if (path != null) {
             checkArgument(path.startsWith("/"),
                           "path: %s (expected: an absolute path starting with '/')", path);
         }
         uri = null;
-        this.endpointGroup = endpointGroup;
+        this.executionPreparation = executionPreparation;
         this.path = path;
         this.scheme = scheme;
     }
@@ -112,8 +112,8 @@ public final class ClientBuilder extends AbstractClientOptionsBuilder {
         if (uri != null) {
             client = factory.newClient(ClientBuilderParams.of(uri, clientType, options));
         } else {
-            assert endpointGroup != null;
-            client = factory.newClient(ClientBuilderParams.of(scheme, endpointGroup,
+            assert executionPreparation != null;
+            client = factory.newClient(ClientBuilderParams.of(scheme, executionPreparation,
                                                               path, clientType, options));
         }
 

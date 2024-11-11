@@ -84,8 +84,9 @@ public final class Clients {
      *                                  the specified {@code clientType} is unsupported for
      *                                  the specified {@code scheme}.
      */
-    public static <T> T newClient(String scheme, EndpointGroup endpointGroup, Class<T> clientType) {
-        return builder(scheme, endpointGroup).build(clientType);
+    public static <T> T newClient(String scheme, ExecutionPreparation executionPreparation,
+                                  Class<T> clientType) {
+        return builder(scheme, executionPreparation).build(clientType);
     }
 
     /**
@@ -93,7 +94,7 @@ public final class Clients {
      * {@code scheme} and {@code path} using the default {@link ClientFactory}.
      *
      * @param scheme the {@link Scheme} represented as a {@link String}
-     * @param endpointGroup the server {@link EndpointGroup}
+     * @param executionPreparation the server {@link EndpointGroup}
      * @param path the path to the endpoint
      * @param clientType the type of the new client
      *
@@ -101,9 +102,9 @@ public final class Clients {
      *                                  the specified {@code clientType} is unsupported for
      *                                  the specified {@code scheme}.
      */
-    public static <T> T newClient(String scheme, EndpointGroup endpointGroup, String path,
+    public static <T> T newClient(String scheme, ExecutionPreparation executionPreparation, String path,
                                   Class<T> clientType) {
-        return builder(scheme, endpointGroup, path).build(clientType);
+        return builder(scheme, executionPreparation, path).build(clientType);
     }
 
     /**
@@ -111,14 +112,15 @@ public final class Clients {
      * {@link Scheme} using the default {@link ClientFactory}.
      *
      * @param scheme the {@link Scheme}
-     * @param endpointGroup the server {@link EndpointGroup}
+     * @param executionPreparation the server {@link EndpointGroup}
      * @param clientType the type of the new client
      *
      * @throws IllegalArgumentException if the specified {@code clientType} is unsupported for
      *                                  the specified {@link Scheme}.
      */
-    public static <T> T newClient(Scheme scheme, EndpointGroup endpointGroup, Class<T> clientType) {
-        return builder(scheme, endpointGroup).build(clientType);
+    public static <T> T newClient(Scheme scheme, ExecutionPreparation executionPreparation,
+                                  Class<T> clientType) {
+        return builder(scheme, executionPreparation).build(clientType);
     }
 
     /**
@@ -126,16 +128,16 @@ public final class Clients {
      * {@link Scheme} and {@code path} using the default {@link ClientFactory}.
      *
      * @param scheme the {@link Scheme}
-     * @param endpointGroup the server {@link EndpointGroup}
+     * @param executionPreparation the server {@link EndpointGroup}
      * @param path the path to the endpoint
      * @param clientType the type of the new client
      *
      * @throws IllegalArgumentException if the specified {@code clientType} is unsupported for
      *                                  the specified {@link Scheme}.
      */
-    public static <T> T newClient(Scheme scheme, EndpointGroup endpointGroup, String path,
+    public static <T> T newClient(Scheme scheme, ExecutionPreparation executionPreparation, String path,
                                   Class<T> clientType) {
-        return builder(scheme, endpointGroup, path).build(clientType);
+        return builder(scheme, executionPreparation, path).build(clientType);
     }
 
     /**
@@ -143,15 +145,16 @@ public final class Clients {
      * the specified {@link SessionProtocol} using the default {@link ClientFactory}.
      *
      * @param protocol the {@link SessionProtocol}
-     * @param endpointGroup the server {@link EndpointGroup}
+     * @param executionPreparation the server {@link EndpointGroup}
      * @param clientType the type of the new client
      *
      * @throws IllegalArgumentException if the specified {@code clientType} is unsupported for
      *                                  the specified {@link SessionProtocol} or
      *                                  {@link SerializationFormat} is required.
      */
-    public static <T> T newClient(SessionProtocol protocol, EndpointGroup endpointGroup, Class<T> clientType) {
-        return builder(protocol, endpointGroup).build(clientType);
+    public static <T> T newClient(SessionProtocol protocol, ExecutionPreparation executionPreparation,
+                                  Class<T> clientType) {
+        return builder(protocol, executionPreparation).build(clientType);
     }
 
     /**
@@ -159,7 +162,7 @@ public final class Clients {
      * the specified {@link SessionProtocol} and {@code path} using the default {@link ClientFactory}.
      *
      * @param protocol the {@link SessionProtocol}
-     * @param endpointGroup the server {@link EndpointGroup}
+     * @param executionPreparation the server {@link EndpointGroup}
      * @param path the path to the endpoint
      * @param clientType the type of the new client
      *
@@ -167,9 +170,9 @@ public final class Clients {
      *                                  the specified {@link SessionProtocol} or
      *                                  {@link SerializationFormat} is required.
      */
-    public static <T> T newClient(SessionProtocol protocol, EndpointGroup endpointGroup, String path,
-                                  Class<T> clientType) {
-        return builder(protocol, endpointGroup, path).build(clientType);
+    public static <T> T newClient(SessionProtocol protocol, ExecutionPreparation executionPreparation,
+                                  String path, Class<T> clientType) {
+        return builder(protocol, executionPreparation, path).build(clientType);
     }
 
     /**
@@ -198,8 +201,8 @@ public final class Clients {
      *
      * @throws IllegalArgumentException if the {@code scheme} is invalid.
      */
-    public static ClientBuilder builder(String scheme, EndpointGroup endpointGroup) {
-        return builder(Scheme.parse(requireNonNull(scheme, "scheme")), endpointGroup);
+    public static ClientBuilder builder(String scheme, ExecutionPreparation executionPreparation) {
+        return builder(Scheme.parse(requireNonNull(scheme, "scheme")), executionPreparation);
     }
 
     /**
@@ -208,48 +211,49 @@ public final class Clients {
      *
      * @throws IllegalArgumentException if the {@code scheme} is invalid.
      */
-    public static ClientBuilder builder(String scheme, EndpointGroup endpointGroup, String path) {
-        return builder(Scheme.parse(requireNonNull(scheme, "scheme")), endpointGroup, path);
+    public static ClientBuilder builder(String scheme, ExecutionPreparation executionPreparation,
+                                        String path) {
+        return builder(Scheme.parse(requireNonNull(scheme, "scheme")), executionPreparation, path);
     }
 
     /**
      * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
      * {@link EndpointGroup} with the specified {@link SessionProtocol}.
      */
-    public static ClientBuilder builder(SessionProtocol protocol, EndpointGroup endpointGroup) {
+    public static ClientBuilder builder(SessionProtocol protocol, ExecutionPreparation executionPreparation) {
         return builder(Scheme.of(SerializationFormat.NONE, requireNonNull(protocol, "protocol")),
-                       endpointGroup);
+                       executionPreparation);
     }
 
     /**
      * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
      * {@link EndpointGroup} with the specified {@link SessionProtocol} and {@code path}.
      */
-    public static ClientBuilder builder(SessionProtocol protocol, EndpointGroup endpointGroup,
+    public static ClientBuilder builder(SessionProtocol protocol, ExecutionPreparation executionPreparation,
                                         String path) {
         return builder(Scheme.of(SerializationFormat.NONE, requireNonNull(protocol, "protocol")),
-                       endpointGroup, path);
+                       executionPreparation, path);
     }
 
     /**
      * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
      * {@link EndpointGroup} with the specified {@link Scheme}.
      */
-    public static ClientBuilder builder(Scheme scheme, EndpointGroup endpointGroup) {
+    public static ClientBuilder builder(Scheme scheme, ExecutionPreparation executionPreparation) {
         requireNonNull(scheme, "scheme");
-        requireNonNull(endpointGroup, "endpointGroup");
-        return new ClientBuilder(scheme, endpointGroup, null);
+        requireNonNull(executionPreparation, "endpointGroup");
+        return new ClientBuilder(scheme, executionPreparation, null);
     }
 
     /**
      * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
      * {@link EndpointGroup} with the specified {@link Scheme} and {@code path}.
      */
-    public static ClientBuilder builder(Scheme scheme, EndpointGroup endpointGroup, String path) {
+    public static ClientBuilder builder(Scheme scheme, ExecutionPreparation executionPreparation, String path) {
         requireNonNull(scheme, "scheme");
-        requireNonNull(endpointGroup, "endpointGroup");
+        requireNonNull(executionPreparation, "endpointGroup");
         requireNonNull(path, "path");
-        return new ClientBuilder(scheme, endpointGroup, path);
+        return new ClientBuilder(scheme, executionPreparation, path);
     }
 
     /**
@@ -315,7 +319,7 @@ public final class Clients {
     }
 
     private static ClientBuilder newDerivedBuilder(ClientBuilderParams params, boolean setOptions) {
-        final ClientBuilder builder = builder(params.scheme(), params.endpointGroup(),
+        final ClientBuilder builder = builder(params.scheme(), params.executionPreparation(),
                                               params.absolutePathRef());
         if (setOptions) {
             builder.options(params.options());
