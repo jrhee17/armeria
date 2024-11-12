@@ -1,6 +1,9 @@
 dependencies {
-    implementation project(':xds')
-    implementation project(':xds-testing-internal')
-    implementation project(':grpc')
-    implementation project(':thrift0.13')
+    testImplementation project(':xds')
+    testImplementation project(':xds-testing-internal')
+    testImplementation project(':grpc')
+    testImplementation project(':thrift0.13')
+    testImplementation project(':scala_2.13')
+
+    testImplementation libs.jackson.scala.v213
 }

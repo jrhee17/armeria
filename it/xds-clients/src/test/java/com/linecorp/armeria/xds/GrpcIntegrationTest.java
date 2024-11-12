@@ -85,9 +85,6 @@ class GrpcIntegrationTest {
                                   .addService(v3DiscoveryServer.getRouteDiscoveryServiceImpl())
                                   .addService(v3DiscoveryServer.getEndpointDiscoveryServiceImpl())
                                   .build());
-            sb.tlsSelfSigned();
-            sb.http(0);
-            sb.https(0);
         }
     };
 

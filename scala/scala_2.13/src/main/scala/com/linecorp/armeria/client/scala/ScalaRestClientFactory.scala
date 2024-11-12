@@ -29,10 +29,11 @@ private[scala] final class ScalaRestClientFactory(delegate: ClientFactory)
     val scheme = params.scheme()
     val newParams = ClientBuilderParams.of(
       Scheme.of(SerializationFormat.NONE, scheme.sessionProtocol()),
-      params.endpointGroup(),
+      params.executionPreparation(),
       params.absolutePathRef(),
       classOf[WebClient],
-      params.options())
+      params.options()
+    )
     val webClient = super.newClient(newParams).asInstanceOf[WebClient]
     ScalaRestClient(webClient)
   }

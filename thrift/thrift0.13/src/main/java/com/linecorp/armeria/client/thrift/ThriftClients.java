@@ -224,10 +224,12 @@ public final class ThriftClients {
     /**
      * TBU.
      */
-    public static ThriftClientBuilder builder(SerializationFormat serializationFormat, ExecutionPreparation executionPreparation) {
+    public static ThriftClientBuilder builder(SerializationFormat serializationFormat,
+                                              ExecutionPreparation executionPreparation) {
         requireNonNull(serializationFormat, "serializationFormat");
         requireNonNull(executionPreparation, "executionPreparation");
-        return new ThriftClientBuilder(Scheme.of(serializationFormat, SessionProtocol.UNDETERMINED), executionPreparation);
+        return new ThriftClientBuilder(Scheme.of(serializationFormat, SessionProtocol.UNDETERMINED),
+                                       executionPreparation);
     }
 
     private ThriftClients() {}
