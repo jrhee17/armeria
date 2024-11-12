@@ -81,7 +81,6 @@ final class DefaultTHttpClient extends UserClient<RpcRequest, RpcResponse> imple
         final RpcRequest call = RpcRequest.of(serviceType, method, args);
         final HttpRequest httpReq = HttpRequest.of(
                 RequestHeaders.builder(HttpMethod.POST, reqTarget.path())
-                              .scheme(scheme().sessionProtocol())
                               .contentType(scheme().serializationFormat().mediaType())
                               .build());
         final RequestParams reqParams = RequestParams.of(httpReq, call, UNARY_REQUEST_OPTIONS, reqTarget);

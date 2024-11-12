@@ -77,7 +77,7 @@ public final class Clients {
      * {@code scheme} using the default {@link ClientFactory}.
      *
      * @param scheme the {@link Scheme} represented as a {@link String}
-     * @param endpointGroup the server {@link EndpointGroup}
+     * @param executionPreparation the server {@link EndpointGroup}
      * @param clientType the type of the new client
      *
      * @throws IllegalArgumentException if the specified {@code scheme} is invalid or

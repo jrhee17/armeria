@@ -41,6 +41,7 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.ExecutionPreparation;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.RpcClient;
@@ -66,7 +67,7 @@ import com.linecorp.armeria.common.thrift.ThriftSerializationFormats;
 public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
 
     @Nullable
-    private final EndpointGroup endpointGroup;
+    private final ExecutionPreparation executionPreparation;
 
     @Nullable
     private URI uri;
@@ -77,19 +78,19 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
     ThriftClientBuilder(URI uri) {
         requireNonNull(uri, "uri");
         checkArgument(uri.getScheme() != null, "uri must have scheme: %s", uri);
-        endpointGroup = null;
+        executionPreparation = null;
         this.uri = uri;
         scheme = Scheme.parse(uri.getScheme());
         validateOrSetSerializationFormat();
     }
 
-    ThriftClientBuilder(Scheme scheme, EndpointGroup endpointGroup) {
+    ThriftClientBuilder(Scheme scheme, ExecutionPreparation executionPreparation) {
         requireNonNull(scheme, "scheme");
-        requireNonNull(endpointGroup, "endpointGroup");
+        requireNonNull(executionPreparation, "executionPreparation");
         uri = null;
         this.scheme = scheme;
         validateOrSetSerializationFormat();
-        this.endpointGroup = endpointGroup;
+        this.executionPreparation = executionPreparation;
     }
 
     private void validateOrSetSerializationFormat() {
@@ -195,8 +196,8 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
             }
             client = factory.newClient(ClientBuilderParams.of(uri, clientType, options));
         } else {
-            assert endpointGroup != null;
-            client = factory.newClient(ClientBuilderParams.of(scheme, endpointGroup,
+            assert executionPreparation != null;
+            client = factory.newClient(ClientBuilderParams.of(scheme, executionPreparation,
                                                               path, clientType, options));
         }
 

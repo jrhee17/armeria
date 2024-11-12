@@ -2,5 +2,5 @@ dependencies {
     implementation project(':xds')
     implementation project(':xds-testing-internal')
     implementation project(':grpc')
-    implementation project(':thrift0.17')
+    implementation project(':thrift0.13')
 }

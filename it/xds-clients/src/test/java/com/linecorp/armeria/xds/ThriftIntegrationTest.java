@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
 
+import org.apache.thrift.TException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -28,9 +29,11 @@ import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.Clients;
-import com.linecorp.armeria.client.grpc.GrpcClients;
+import com.linecorp.armeria.client.thrift.ThriftClients;
+import com.linecorp.armeria.common.thrift.ThriftSerializationFormats;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
+import com.linecorp.armeria.server.thrift.THttpService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import com.linecorp.armeria.xds.client.endpoint.XdsExecutionPreparation;
 import com.linecorp.armeria.xds.internal.XdsTestResources;
@@ -43,13 +46,10 @@ import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 import io.envoyproxy.envoy.config.listener.v3.Listener;
-import io.grpc.stub.StreamObserver;
-import testing.grpc.Hello.HelloReply;
-import testing.grpc.Hello.HelloRequest;
-import testing.grpc.TestServiceGrpc;
-import testing.grpc.TestServiceGrpc.TestServiceBlockingStub;
+import testing.thrift.TestService;
+import testing.thrift.TestService.Iface;
 
-class GrpcIntegrationTest {
+class ThriftIntegrationTest {
 
     public static final String BOOTSTRAP_CLUSTER_NAME = "bootstrap-cluster";
     private static final SimpleCache<String> cache = new SimpleCache<>(node -> "GROUP");
@@ -58,18 +58,13 @@ class GrpcIntegrationTest {
     static final ServerExtension server = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
-            sb.service(GrpcService.builder()
-                                  .addService(new TestServiceGrpc.TestServiceImplBase() {
-                                      @Override
-                                      public void hello(HelloRequest request,
-                                                        StreamObserver<HelloReply> responseObserver) {
-                                          responseObserver.onNext(HelloReply.newBuilder()
-                                                                            .setMessage("Hello").build());
-                                          responseObserver.onCompleted();
-                                      }
-                                  })
-                                  .enableUnframedRequests(true)
-                                  .build());
+            sb.service("/thrift", THttpService.of(new TestService.Iface() {
+
+                @Override
+                public String sayHello(String name) throws TException {
+                    return "World";
+                }
+            }));
         }
     };
 
@@ -104,7 +99,7 @@ class GrpcIntegrationTest {
     }
 
     @Test
-    void simpleClient() {
+    void basicCase() throws Exception {
         final ConfigSource configSource = XdsTestResources.basicConfigSource(BOOTSTRAP_CLUSTER_NAME);
         final URI uri = controlPlaneServer.httpUri();
         final ClusterLoadAssignment loadAssignment =
@@ -115,12 +110,13 @@ class GrpcIntegrationTest {
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              XdsExecutionPreparation preparation = XdsExecutionPreparation.of("listener", xdsBootstrap)) {
-            TestServiceBlockingStub stub = GrpcClients.newClient(preparation,
-                                                                 TestServiceBlockingStub.class);
-            assertThat(stub.hello(HelloRequest.getDefaultInstance()).getMessage()).isEqualTo("Hello");
+            Iface iface = ThriftClients.builder(ThriftSerializationFormats.BINARY, preparation)
+                                       .path("/thrift")
+                                       .build(Iface.class);
+            assertThat(iface.sayHello("Hello, ")).isEqualTo("World");
 
-            stub = Clients.newDerivedClient(stub, ClientOptions.RESPONSE_TIMEOUT_MILLIS.newValue(10L));
-            assertThat(stub.hello(HelloRequest.getDefaultInstance()).getMessage()).isEqualTo("Hello");
+            iface = Clients.newDerivedClient(iface, ClientOptions.RESPONSE_TIMEOUT_MILLIS.newValue(10L));
+            assertThat(iface.sayHello("Hello, ")).isEqualTo("World");
         }
     }
 }
