@@ -97,8 +97,6 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
 
     private final ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
     @Nullable
-    private final EndpointGroup endpointGroup;
-    @Nullable
     private final ExecutionPreparation executionPreparation;
 
     @Nullable
@@ -112,21 +110,10 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
     GrpcClientBuilder(URI uri) {
         requireNonNull(uri, "uri");
         checkArgument(uri.getScheme() != null, "uri must have scheme: %s", uri);
-        endpointGroup = null;
         executionPreparation = null;
         this.uri = uri;
         scheme = Scheme.parse(uri.getScheme());
         validateOrSetSerializationFormat();
-    }
-
-    GrpcClientBuilder(Scheme scheme, EndpointGroup endpointGroup) {
-        requireNonNull(scheme, "scheme");
-        requireNonNull(endpointGroup, "endpointGroup");
-        uri = null;
-        this.scheme = scheme;
-        validateOrSetSerializationFormat();
-        this.endpointGroup = endpointGroup;
-        executionPreparation = endpointGroup;
     }
 
     GrpcClientBuilder(Scheme scheme, ExecutionPreparation executionPreparation) {
@@ -134,7 +121,6 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
         requireNonNull(executionPreparation, "executionPreparation");
         uri = null;
         this.scheme = scheme;
-        endpointGroup = null;
         this.executionPreparation = executionPreparation;
         validateOrSetSerializationFormat();
     }
@@ -446,9 +432,6 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
                 uri = uri.resolve(prefix);
             }
             client = factory.newClient(ClientBuilderParams.of(uri, clientType, options));
-        } else if (endpointGroup != null) {
-            client = factory.newClient(ClientBuilderParams.of(scheme, endpointGroup,
-                                                              prefix, clientType, options));
         } else {
             assert executionPreparation != null;
             client = factory.newClient(ClientBuilderParams.of(scheme, executionPreparation,

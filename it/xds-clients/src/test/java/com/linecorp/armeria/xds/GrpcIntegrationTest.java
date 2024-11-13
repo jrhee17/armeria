@@ -27,8 +27,17 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.ClientOptions;
+import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.ClientRequestContextCaptor;
 import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.grpc.GrpcClients;
+import com.linecorp.armeria.client.grpc.protocol.UnaryGrpcClient;
+import com.linecorp.armeria.common.HttpHeaders;
+import com.linecorp.armeria.common.Scheme;
+import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
+import com.linecorp.armeria.common.grpc.protocol.GrpcHeaderNames;
+import com.linecorp.armeria.common.grpc.protocol.GrpcWebTrailers;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
@@ -118,6 +127,36 @@ class GrpcIntegrationTest {
 
             stub = Clients.newDerivedClient(stub, ClientOptions.RESPONSE_TIMEOUT_MILLIS.newValue(10L));
             assertThat(stub.hello(HelloRequest.getDefaultInstance()).getMessage()).isEqualTo("Hello");
+        }
+    }
+
+    @Test
+    void unary() throws Exception {
+        final ConfigSource configSource = XdsTestResources.basicConfigSource(BOOTSTRAP_CLUSTER_NAME);
+        final URI uri = controlPlaneServer.httpUri();
+        final ClusterLoadAssignment loadAssignment =
+                XdsTestResources.loadAssignment(BOOTSTRAP_CLUSTER_NAME,
+                                                uri.getHost(), uri.getPort());
+        final Cluster bootstrapCluster =
+                XdsTestResources.createStaticCluster(BOOTSTRAP_CLUSTER_NAME, loadAssignment);
+        final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
+        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
+             XdsExecutionPreparation preparation = XdsExecutionPreparation.of("listener", xdsBootstrap)) {
+            final UnaryGrpcClient client = Clients.newClient(Scheme.of(GrpcSerializationFormats.PROTO,
+                                                                       SessionProtocol.UNDETERMINED),
+                                                             preparation, UnaryGrpcClient.class);
+            final HelloRequest request = HelloRequest.getDefaultInstance();
+
+            try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
+                final byte[] responseBytes =
+                        client.execute("/testing.grpc.TestService/Hello", request.toByteArray()).join();
+                final ClientRequestContext ctx = captor.get();
+                final HttpHeaders trailers = GrpcWebTrailers.get(ctx);
+                assertThat(trailers).isNotNull();
+                assertThat(trailers.getInt(GrpcHeaderNames.GRPC_STATUS)).isZero();
+                final HelloReply response = HelloReply.parseFrom(responseBytes);
+                assertThat(response.getMessage()).isEqualTo("Hello");
+            }
         }
     }
 }

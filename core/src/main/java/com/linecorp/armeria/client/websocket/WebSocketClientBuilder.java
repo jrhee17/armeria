@@ -87,18 +87,18 @@ public final class WebSocketClientBuilder extends AbstractWebClientBuilder {
     private boolean aggregateContinuation;
 
     WebSocketClientBuilder(URI uri) {
-        super(validateUri(requireNonNull(uri, "uri")), null, null, null, null);
+        super(validateUri(requireNonNull(uri, "uri")), null, null, null);
         setWebSocketDefaultOption();
     }
 
     WebSocketClientBuilder(Scheme scheme, EndpointGroup endpointGroup, @Nullable String path) {
-        super(null, validateScheme(requireNonNull(scheme, "scheme")), endpointGroup, null, path);
+        super(null, validateScheme(requireNonNull(scheme, "scheme")), endpointGroup, path);
         setWebSocketDefaultOption();
     }
 
     WebSocketClientBuilder(ExecutionPreparation executionPreparation) {
         super(null, Scheme.of(SerializationFormat.WS, SessionProtocol.UNDETERMINED),
-              null, requireNonNull(executionPreparation, "executionPreparation"), null);
+              requireNonNull(executionPreparation, "executionPreparation"), null);
         setWebSocketDefaultOption();
     }
 

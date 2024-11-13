@@ -37,8 +37,6 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     @Nullable
     private final URI uri;
     @Nullable
-    private final EndpointGroup endpointGroup;
-    @Nullable
     private final ExecutionPreparation executionPreparation;
     @Nullable
     private final Scheme scheme;
@@ -49,7 +47,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      * Creates a new instance.
      */
     protected AbstractWebClientBuilder() {
-        this(UNDEFINED_URI, null, null, null, null);
+        this(UNDEFINED_URI, null, null, null);
     }
 
     /**
@@ -59,7 +57,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      *                                  in {@link SessionProtocol}
      */
     protected AbstractWebClientBuilder(URI uri) {
-        this(validateUri(uri), null, null, null, null);
+        this(validateUri(uri), null, null, null);
     }
 
     /**
@@ -71,7 +69,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     protected AbstractWebClientBuilder(SessionProtocol sessionProtocol, EndpointGroup endpointGroup,
                                        @Nullable String path) {
         this(null, validateSessionProtocol(sessionProtocol),
-             requireNonNull(endpointGroup, "endpointGroup"), null, path);
+             requireNonNull(endpointGroup, "endpointGroup"), path);
     }
 
     /**
@@ -83,22 +81,19 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     protected AbstractWebClientBuilder(SerializationFormat serializationFormat,
                                        ExecutionPreparation executionPreparation, @Nullable String path) {
         this(null, Scheme.of(serializationFormat, SessionProtocol.UNDETERMINED),
-             null, requireNonNull(executionPreparation, "executionPreparation"), path);
+             requireNonNull(executionPreparation, "executionPreparation"), path);
     }
 
     /**
      * Creates a new instance.
      */
     protected AbstractWebClientBuilder(@Nullable URI uri, @Nullable Scheme scheme,
-                                       @Nullable EndpointGroup endpointGroup,
                                        @Nullable ExecutionPreparation executionPreparation,
                                        @Nullable String path) {
-        assert uri != null || (scheme != null && endpointGroup != null) ||
-               (executionPreparation != null && scheme != null);
+        assert uri != null || (scheme != null && executionPreparation != null);
         assert path == null || uri == null;
         this.uri = uri;
         this.scheme = scheme;
-        this.endpointGroup = endpointGroup;
         this.executionPreparation = executionPreparation;
         this.path = validatePath(path);
     }
@@ -174,13 +169,9 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
             return ClientBuilderParams.of(uri, WebClient.class, options);
         }
         assert scheme != null;
+        assert executionPreparation != null;
 
-        if (executionPreparation != null) {
-            return ClientBuilderParams.of(scheme, executionPreparation, path, WebClient.class, options);
-        }
-
-        assert endpointGroup != null;
-        return ClientBuilderParams.of(scheme, endpointGroup, path, WebClient.class, options);
+        return ClientBuilderParams.of(scheme, executionPreparation, path, WebClient.class, options);
     }
 
     /**

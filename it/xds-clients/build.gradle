@@ -2,6 +2,7 @@ dependencies {
     testImplementation project(':xds')
     testImplementation project(':xds-testing-internal')
     testImplementation project(':grpc')
+    testImplementation project(':grpc-protocol')
     testImplementation project(':thrift0.13')
     testImplementation project(':scala_2.13')
 

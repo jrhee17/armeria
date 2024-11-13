@@ -29,7 +29,10 @@ import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.client.logging.LoggingClient;
+import com.linecorp.armeria.client.thrift.THttpClient;
 import com.linecorp.armeria.client.thrift.ThriftClients;
+import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.thrift.ThriftSerializationFormats;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
@@ -109,11 +112,38 @@ class ThriftIntegrationTest {
              XdsExecutionPreparation preparation = XdsExecutionPreparation.of("listener", xdsBootstrap)) {
             Iface iface = ThriftClients.builder(ThriftSerializationFormats.BINARY, preparation)
                                        .path("/thrift")
+                                       .decorator(LoggingClient.newDecorator())
                                        .build(Iface.class);
             assertThat(iface.sayHello("Hello, ")).isEqualTo("World");
 
             iface = Clients.newDerivedClient(iface, ClientOptions.RESPONSE_TIMEOUT_MILLIS.newValue(10L));
             assertThat(iface.sayHello("Hello, ")).isEqualTo("World");
+        }
+    }
+
+    @Test
+    void tHttpClient() throws Exception {
+        final ConfigSource configSource = XdsTestResources.basicConfigSource(BOOTSTRAP_CLUSTER_NAME);
+        final URI uri = controlPlaneServer.httpUri();
+        final ClusterLoadAssignment loadAssignment =
+                XdsTestResources.loadAssignment(BOOTSTRAP_CLUSTER_NAME,
+                                                uri.getHost(), uri.getPort());
+        final Cluster bootstrapCluster =
+                XdsTestResources.createStaticCluster(BOOTSTRAP_CLUSTER_NAME, loadAssignment);
+        final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
+        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
+             XdsExecutionPreparation preparation = XdsExecutionPreparation.of("listener", xdsBootstrap)) {
+            THttpClient tHttpClient = ThriftClients.builder(ThriftSerializationFormats.BINARY, preparation)
+                    .decorator(LoggingClient.newDecorator())
+                                                   .path("/thrift")
+                                                   .build(THttpClient.class);
+            RpcResponse res = tHttpClient.execute("", TestService.Iface.class, "sayHello", "World");
+            assertThat(res.get()).isEqualTo("World");
+
+            tHttpClient = Clients.newDerivedClient(tHttpClient,
+                                                   ClientOptions.RESPONSE_TIMEOUT_MILLIS.newValue(10L));
+            res = tHttpClient.execute("", TestService.Iface.class, "sayHello", "World");
+            assertThat(res.get()).isEqualTo("World");
         }
     }
 }
