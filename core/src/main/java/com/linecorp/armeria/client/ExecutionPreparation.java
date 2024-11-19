@@ -38,7 +38,7 @@ public interface ExecutionPreparation {
         /**
          * TBU.
          */
-        O execute(Client<I, O> delegate, I req) throws Exception;
+        O execute(I req) throws Exception;
     }
 
     /**
@@ -48,5 +48,11 @@ public interface ExecutionPreparation {
      */
     <I extends Request, O extends Response>
     ClientExecution<I, O> prepare(ClientBuilderParams clientBuilderParams,
-                                  RequestParams requestParams);
+                                  RequestParams requestParams, Client<I, O> delegate);
+
+    /**
+     * TBU.
+     */
+    default void validate(ClientBuilderParams params) {
+    }
 }

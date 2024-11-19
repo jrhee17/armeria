@@ -5,6 +5,8 @@ dependencies {
     testImplementation project(':grpc-protocol')
     testImplementation project(':thrift0.13')
     testImplementation project(':scala_2.13')
+    testImplementation project(':retrofit2')
+    testImplementation libs.retrofit2.converter.jackson
 
     testImplementation libs.jackson.scala.v213
 }

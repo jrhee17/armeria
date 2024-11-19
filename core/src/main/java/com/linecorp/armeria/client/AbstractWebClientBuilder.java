@@ -78,10 +78,9 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      * @throws IllegalArgumentException if the {@code sessionProtocol} is not one of the fields
      *                                  in {@link SessionProtocol}
      */
-    protected AbstractWebClientBuilder(SerializationFormat serializationFormat,
+    protected AbstractWebClientBuilder(Scheme scheme,
                                        ExecutionPreparation executionPreparation, @Nullable String path) {
-        this(null, Scheme.of(serializationFormat, SessionProtocol.UNDETERMINED),
-             requireNonNull(executionPreparation, "executionPreparation"), path);
+        this(null, scheme, requireNonNull(executionPreparation, "executionPreparation"), path);
     }
 
     /**

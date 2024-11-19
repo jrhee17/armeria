@@ -32,6 +32,7 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.QueryParams;
 import com.linecorp.armeria.common.RequestHeaders;
+import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -160,8 +161,8 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      * the specified {@code protocol} using the default {@link ClientFactory} and the default
      * {@link ClientOptions}.
      */
-    static WebClient of(SerializationFormat serializationFormat, ExecutionPreparation executionPreparation) {
-        return builder(serializationFormat, executionPreparation).build();
+    static WebClient of(Scheme scheme, ExecutionPreparation executionPreparation) {
+        return builder(scheme, executionPreparation).build();
     }
 
     /**
@@ -169,9 +170,8 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      * the specified {@code protocol} using the default {@link ClientFactory} and the default
      * {@link ClientOptions}.
      */
-    static WebClient of(SerializationFormat serializationFormat, ExecutionPreparation executionPreparation,
-                        String path) {
-        return builder(serializationFormat, executionPreparation, path).build();
+    static WebClient of(Scheme scheme, ExecutionPreparation executionPreparation, String path) {
+        return builder(scheme, executionPreparation, path).build();
     }
 
     /**
@@ -265,30 +265,29 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      */
     static WebClientBuilder builder(ExecutionPreparation executionPreparation) {
         requireNonNull(executionPreparation, "executionPreparation");
-        return new WebClientBuilder(SerializationFormat.NONE, executionPreparation, null);
+        return new WebClientBuilder(Scheme.of(SerializationFormat.NONE, SessionProtocol.UNDETERMINED),
+                                    executionPreparation, null);
     }
 
     /**
      * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
      * and base {@link ExecutionPreparation}.
      */
-    static WebClientBuilder builder(SerializationFormat serializationFormat,
-                                    ExecutionPreparation executionPreparation) {
-        requireNonNull(serializationFormat, "serializationFormat");
+    static WebClientBuilder builder(Scheme scheme, ExecutionPreparation executionPreparation) {
+        requireNonNull(scheme, "scheme");
         requireNonNull(executionPreparation, "executionPreparation");
-        return new WebClientBuilder(serializationFormat, executionPreparation, null);
+        return new WebClientBuilder(scheme, executionPreparation, null);
     }
 
     /**
      * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
      * and base {@link ExecutionPreparation}.
      */
-    static WebClientBuilder builder(SerializationFormat serializationFormat,
-                                    ExecutionPreparation executionPreparation, String path) {
-        requireNonNull(serializationFormat, "serializationFormat");
+    static WebClientBuilder builder(Scheme scheme, ExecutionPreparation executionPreparation, String path) {
+        requireNonNull(scheme, "scheme");
         requireNonNull(executionPreparation, "executionPreparation");
         requireNonNull(path, "path");
-        return new WebClientBuilder(serializationFormat, executionPreparation, path);
+        return new WebClientBuilder(scheme, executionPreparation, path);
     }
 
     /**

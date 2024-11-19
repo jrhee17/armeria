@@ -18,6 +18,7 @@ package com.linecorp.armeria.internal.client;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 
+import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.client.ExecutionPreparation;
@@ -27,20 +28,26 @@ import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.Scheme;
 
-public final class DefaultExecutionPreparation implements ExecutionPreparation {
+public final class EndpointGroupExecutionPreparation implements ExecutionPreparation {
+    private final EndpointGroup endpointGroup;
+
+    public EndpointGroupExecutionPreparation(EndpointGroup endpointGroup) {
+        this.endpointGroup = endpointGroup;
+    }
 
     @Override
     public <I extends Request, O extends Response>
-    ClientExecution<I, O> prepare(ClientBuilderParams clientBuilderParams, RequestParams requestParams) {
+    ClientExecution<I, O> prepare(ClientBuilderParams clientBuilderParams, RequestParams requestParams,
+                                  Client<I, O> delegate) {
         final HttpRequest req = requestParams.httpRequest();
         final EndpointGroup endpointGroup =
-                firstNonNull(requestParams.endpoint(), clientBuilderParams.endpointGroup());
+                firstNonNull(requestParams.endpoint(), this.endpointGroup);
         final Scheme parsedScheme = firstNonNull(requestParams.scheme(), clientBuilderParams.scheme());
 
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 clientBuilderParams.options().factory().meterRegistry(), parsedScheme.sessionProtocol(),
                 req.method(), requestParams.requestTarget(), clientBuilderParams.options(),
                 req, requestParams.rpcRequest(), requestParams.requestOptions());
-        return new DefaultClientExecution<>(ctx, endpointGroup);
+        return new DefaultClientExecution<>(ctx, endpointGroup, delegate);
     }
 }

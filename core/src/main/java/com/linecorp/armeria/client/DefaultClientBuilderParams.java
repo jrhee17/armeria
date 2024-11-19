@@ -68,6 +68,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         this.absolutePathRef = absolutePathRef;
 
         executionPreparation = endpointGroup;
+        executionPreparation.validate(this);
     }
 
     DefaultClientBuilderParams(Scheme scheme, ExecutionPreparation executionPreparation,
@@ -103,6 +104,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         this.absolutePathRef = normalizedAbsolutePathRef;
         this.uri = factory.validateUri(uri);
         this.executionPreparation = executionPreparation;
+        executionPreparation.validate(this);
     }
 
     private static URI dummyUri(Object key, String schemeStr,

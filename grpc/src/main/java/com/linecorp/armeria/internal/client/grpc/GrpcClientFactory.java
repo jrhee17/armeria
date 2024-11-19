@@ -166,7 +166,7 @@ final class GrpcClientFactory extends DecoratingClientFactory {
             jsonMarshaller = null;
         }
         final ArmeriaChannel armeriaChannel =
-                new ArmeriaChannel(newParams, httpClient, meterRegistry(), scheme.sessionProtocol(),
+                new ArmeriaChannel(newParams, httpClient, meterRegistry(),
                                    serializationFormat, jsonMarshaller, simpleMethodNames);
         final Iterable<? extends ClientInterceptor> interceptors = options.get(GrpcClientOptions.INTERCEPTORS);
         final Channel channel;
@@ -224,7 +224,7 @@ final class GrpcClientFactory extends DecoratingClientFactory {
         decorators.forEach(optionsBuilder::decorator);
 
         return ClientBuilderParams.of(
-                params.scheme(), params.endpointGroup(), params.absolutePathRef(),
+                params.scheme(), params.executionPreparation(), params.absolutePathRef(),
                 params.clientType(), optionsBuilder.build());
     }
 

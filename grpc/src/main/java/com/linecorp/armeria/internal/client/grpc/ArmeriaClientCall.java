@@ -251,7 +251,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
 
         final HttpResponse res;
         try {
-            res = clientExecution.execute(httpClient, newReq);
+            res = clientExecution.execute(newReq);
         } catch (Throwable t) {
             final Status status = convertException(t);
             close(status, new Metadata());

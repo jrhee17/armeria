@@ -18,6 +18,7 @@ package com.linecorp.armeria.xds;
 
 import static com.linecorp.armeria.xds.internal.XdsTestResources.BOOTSTRAP_CLUSTER_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.net.URI;
 import java.util.function.Consumer;
@@ -34,6 +35,9 @@ import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.grpc.GrpcClientBuilder;
 import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.Scheme;
+import com.linecorp.armeria.common.SerializationFormat;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.common.EventLoopExtension;
@@ -106,7 +110,7 @@ class XdsClientTest {
     void beforeEach() {
         final Cluster httpCluster = XdsTestResources.createCluster(clusterName, 0);
         final Cluster httpsCluster = XdsTestResources.createCluster(httpsClusterName, 0)
-                .toBuilder().setTransportSocket(TLS_SOCKET).build();
+                                                     .toBuilder().setTransportSocket(TLS_SOCKET).build();
         final ClusterLoadAssignment httpAssignment =
                 XdsTestResources.loadAssignment(clusterName,
                                                 helloServer.httpSocketAddress().getHostString(),
@@ -131,6 +135,25 @@ class XdsClientTest {
                         ImmutableList.of(httpRoute, httpsRoute),
                         ImmutableList.of(),
                         "1"));
+    }
+
+    @Test
+    void specifyingSessionProtocolFails() {
+        final ConfigSource configSource = XdsTestResources.basicConfigSource(BOOTSTRAP_CLUSTER_NAME);
+        final URI uri = server.httpUri();
+        final ClusterLoadAssignment loadAssignment =
+                XdsTestResources.loadAssignment(BOOTSTRAP_CLUSTER_NAME,
+                                                uri.getHost(), uri.getPort());
+        final Cluster bootstrapCluster =
+                XdsTestResources.createStaticCluster(BOOTSTRAP_CLUSTER_NAME, loadAssignment);
+        final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
+        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
+             XdsExecutionPreparation xdsEndpointHint = XdsExecutionPreparation.of(listenerName, xdsBootstrap)) {
+            assertThatThrownBy(() -> WebClient.of(Scheme.of(SerializationFormat.NONE, SessionProtocol.H1),
+                                                  xdsEndpointHint))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("must be 'undetermined'");
+        }
     }
 
     @Test

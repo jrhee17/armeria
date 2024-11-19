@@ -31,13 +31,16 @@ public final class DefaultClientExecution<I extends Request, O extends Response>
 
     private final ClientRequestContextExtension ctx;
     private final EndpointGroup endpointGroup;
+    private final Client<I, O> delegate;
 
     /**
      * TBU.
      */
-    public DefaultClientExecution(ClientRequestContextExtension ctx, EndpointGroup endpointGroup) {
+    public DefaultClientExecution(ClientRequestContextExtension ctx, EndpointGroup endpointGroup,
+                                  Client<I, O> delegate) {
         this.ctx = ctx;
         this.endpointGroup = endpointGroup;
+        this.delegate = delegate;
     }
 
     @Override
@@ -46,7 +49,7 @@ public final class DefaultClientExecution<I extends Request, O extends Response>
     }
 
     @Override
-    public O execute(Client<I, O> delegate, I req) throws Exception {
+    public O execute(I req) throws Exception {
         return ClientUtil.initContextAndExecuteWithFallback(delegate, ctx, endpointGroup, req);
     }
 }

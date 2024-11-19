@@ -22,6 +22,7 @@ import java.net.URI;
 
 import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.ExecutionPreparation;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.SessionProtocol;
@@ -187,6 +188,14 @@ public final class ArmeriaRetrofit {
         requireNonNull(endpointGroup, "endpointGroup");
         requireNonNull(path, "path");
         return builder(WebClient.of(protocol, endpointGroup, path));
+    }
+
+    /**
+     * TBU.
+     */
+    public static ArmeriaRetrofitBuilder builder(ExecutionPreparation executionPreparation) {
+        requireNonNull(executionPreparation, "protocol");
+        return builder(WebClient.of(executionPreparation));
     }
 
     /**

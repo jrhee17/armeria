@@ -47,7 +47,6 @@ import com.linecorp.armeria.common.RequestHeadersBuilder;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
-import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.grpc.GrpcCallOptions;
 import com.linecorp.armeria.common.grpc.GrpcJsonMarshaller;
@@ -93,7 +92,6 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
     private final HttpClient httpClient;
 
     private final MeterRegistry meterRegistry;
-    private final SessionProtocol sessionProtocol;
     private final SerializationFormat serializationFormat;
     @Nullable
     private final GrpcJsonMarshaller jsonMarshaller;
@@ -110,14 +108,12 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
     ArmeriaChannel(ClientBuilderParams params,
                    HttpClient httpClient,
                    MeterRegistry meterRegistry,
-                   SessionProtocol sessionProtocol,
                    SerializationFormat serializationFormat,
                    @Nullable GrpcJsonMarshaller jsonMarshaller,
                    Map<MethodDescriptor<?, ?>, String> simpleMethodNames) {
         this.params = params;
         this.httpClient = httpClient;
         this.meterRegistry = meterRegistry;
-        this.sessionProtocol = sessionProtocol;
         this.serializationFormat = serializationFormat;
         this.jsonMarshaller = jsonMarshaller;
         this.simpleMethodNames = simpleMethodNames;
@@ -145,22 +141,6 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         }
 
         final HttpRequestWriter req = HttpRequest.streaming(headersBuilder.build());
-        final RequestOptions requestOptions = REQUEST_OPTIONS_MAP.get(method.getType());
-        assert requestOptions != null;
-        final String path = req.path();
-        final RequestTarget reqTarget = RequestTarget.forClient(path);
-        assert reqTarget != null : path;
-        RequestTargetCache.putForClient(path, reqTarget);
-        final RequestParams requestParams = RequestParams.of(req, null, requestOptions, reqTarget);
-        final ClientExecution<HttpRequest, HttpResponse> clientExecution =
-                params.executionPreparation().prepare(params, requestParams);
-        final ClientRequestContext ctx = clientExecution.ctx();
-
-        GrpcCallOptions.set(ctx, callOptions);
-
-        ctx.logBuilder().serializationFormat(serializationFormat);
-        ctx.logBuilder().defer(RequestLogProperty.REQUEST_CONTENT,
-                               RequestLogProperty.RESPONSE_CONTENT);
 
         final Client<HttpRequest, HttpResponse> client;
 
@@ -180,6 +160,23 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         } else {
             client = httpClient;
         }
+
+        final RequestOptions requestOptions = REQUEST_OPTIONS_MAP.get(method.getType());
+        assert requestOptions != null;
+        final String path = req.path();
+        final RequestTarget reqTarget = RequestTarget.forClient(path);
+        assert reqTarget != null : path;
+        RequestTargetCache.putForClient(path, reqTarget);
+        final RequestParams requestParams = RequestParams.of(req, null, requestOptions, reqTarget);
+        final ClientExecution<HttpRequest, HttpResponse> clientExecution =
+                params.executionPreparation().prepare(params, requestParams, client);
+        final ClientRequestContext ctx = clientExecution.ctx();
+
+        GrpcCallOptions.set(ctx, callOptions);
+
+        ctx.logBuilder().serializationFormat(serializationFormat);
+        ctx.logBuilder().defer(RequestLogProperty.REQUEST_CONTENT,
+                               RequestLogProperty.RESPONSE_CONTENT);
 
         final BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory =
                 (unused, cause) -> {

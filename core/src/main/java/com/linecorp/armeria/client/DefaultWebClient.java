@@ -111,8 +111,8 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
 
         try {
             return params().executionPreparation()
-                           .<HttpRequest, HttpResponse>prepare(params(), requestParams)
-                           .execute(unwrap(), newReq);
+                           .prepare(params(), requestParams, unwrap())
+                           .execute(newReq);
         } catch (Exception e) {
             return HttpResponse.ofFailure(e);
         }

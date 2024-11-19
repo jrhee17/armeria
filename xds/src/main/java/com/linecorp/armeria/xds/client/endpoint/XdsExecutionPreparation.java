@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.util.concurrent.CompletableFuture;
 
 import com.google.common.base.Strings;
@@ -77,7 +79,8 @@ public final class XdsExecutionPreparation implements ExecutionPreparation, Asyn
 
     @Override
     public <I extends Request, O extends Response>
-    ClientExecution<I, O> prepare(ClientBuilderParams clientBuilderParams, RequestParams requestParams) {
+    ClientExecution<I, O> prepare(ClientBuilderParams clientBuilderParams, RequestParams requestParams,
+                                  Client<I, O> delegate) {
         HttpRequest req = requestParams.httpRequest();
         final RequestTarget reqTarget;
         if (requestParams.requestTarget() != null) {
@@ -107,7 +110,7 @@ public final class XdsExecutionPreparation implements ExecutionPreparation, Asyn
             }
 
             @Override
-            public O execute(Client<I, O> delegate, I req) throws Exception {
+            public O execute(I req) throws Exception {
                 return new XdsClient<>(delegate, clusterManager).execute(ctx, req);
             }
         };
@@ -117,5 +120,12 @@ public final class XdsExecutionPreparation implements ExecutionPreparation, Asyn
                                                                          IllegalArgumentException e) {
         req.abort(e);
         return e;
+    }
+
+    @Override
+    public void validate(ClientBuilderParams params) {
+        checkArgument(params.scheme().sessionProtocol() == SessionProtocol.UNDETERMINED,
+                      "The scheme '%s' must be '%s' for %s", params.scheme().sessionProtocol(),
+                      SessionProtocol.UNDETERMINED, getClass().getSimpleName());
     }
 }
