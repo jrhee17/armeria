@@ -46,12 +46,12 @@ public interface ClientBuilderParams {
     /**
      * Returns a newly created {@link ClientBuilderParams} from the specified properties.
      */
-    static ClientBuilderParams of(Scheme scheme, ExecutionPreparation executionPreparation,
+    static ClientBuilderParams of(Scheme scheme, ContextInitializer contextInitializer,
                                   @Nullable String absolutePathRef, Class<?> type, ClientOptions options) {
-        requireNonNull(executionPreparation, "executionPreparation");
+        requireNonNull(contextInitializer, "executionPreparation");
         requireNonNull(type, "type");
         requireNonNull(options, "options");
-        return new DefaultClientBuilderParams(scheme, executionPreparation, absolutePathRef, type, options);
+        return new DefaultClientBuilderParams(scheme, contextInitializer, absolutePathRef, type, options);
     }
 
     /**
@@ -112,7 +112,7 @@ public interface ClientBuilderParams {
     /**
      * TBU.
      */
-    ExecutionPreparation executionPreparation();
+    ContextInitializer executionPreparation();
 
     /**
      * TBU.

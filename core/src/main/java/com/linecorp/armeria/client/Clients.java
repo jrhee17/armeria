@@ -77,16 +77,16 @@ public final class Clients {
      * {@code scheme} using the default {@link ClientFactory}.
      *
      * @param scheme the {@link Scheme} represented as a {@link String}
-     * @param executionPreparation the server {@link EndpointGroup}
+     * @param contextInitializer the server {@link EndpointGroup}
      * @param clientType the type of the new client
      *
      * @throws IllegalArgumentException if the specified {@code scheme} is invalid or
      *                                  the specified {@code clientType} is unsupported for
      *                                  the specified {@code scheme}.
      */
-    public static <T> T newClient(String scheme, ExecutionPreparation executionPreparation,
+    public static <T> T newClient(String scheme, ContextInitializer contextInitializer,
                                   Class<T> clientType) {
-        return builder(scheme, executionPreparation).build(clientType);
+        return builder(scheme, contextInitializer).build(clientType);
     }
 
     /**
@@ -94,7 +94,7 @@ public final class Clients {
      * {@code scheme} and {@code path} using the default {@link ClientFactory}.
      *
      * @param scheme the {@link Scheme} represented as a {@link String}
-     * @param executionPreparation the server {@link EndpointGroup}
+     * @param contextInitializer the server {@link EndpointGroup}
      * @param path the path to the endpoint
      * @param clientType the type of the new client
      *
@@ -102,9 +102,9 @@ public final class Clients {
      *                                  the specified {@code clientType} is unsupported for
      *                                  the specified {@code scheme}.
      */
-    public static <T> T newClient(String scheme, ExecutionPreparation executionPreparation, String path,
+    public static <T> T newClient(String scheme, ContextInitializer contextInitializer, String path,
                                   Class<T> clientType) {
-        return builder(scheme, executionPreparation, path).build(clientType);
+        return builder(scheme, contextInitializer, path).build(clientType);
     }
 
     /**
@@ -112,15 +112,15 @@ public final class Clients {
      * {@link Scheme} using the default {@link ClientFactory}.
      *
      * @param scheme the {@link Scheme}
-     * @param executionPreparation the server {@link EndpointGroup}
+     * @param contextInitializer the server {@link EndpointGroup}
      * @param clientType the type of the new client
      *
      * @throws IllegalArgumentException if the specified {@code clientType} is unsupported for
      *                                  the specified {@link Scheme}.
      */
-    public static <T> T newClient(Scheme scheme, ExecutionPreparation executionPreparation,
+    public static <T> T newClient(Scheme scheme, ContextInitializer contextInitializer,
                                   Class<T> clientType) {
-        return builder(scheme, executionPreparation).build(clientType);
+        return builder(scheme, contextInitializer).build(clientType);
     }
 
     /**
@@ -128,16 +128,16 @@ public final class Clients {
      * {@link Scheme} and {@code path} using the default {@link ClientFactory}.
      *
      * @param scheme the {@link Scheme}
-     * @param executionPreparation the server {@link EndpointGroup}
+     * @param contextInitializer the server {@link EndpointGroup}
      * @param path the path to the endpoint
      * @param clientType the type of the new client
      *
      * @throws IllegalArgumentException if the specified {@code clientType} is unsupported for
      *                                  the specified {@link Scheme}.
      */
-    public static <T> T newClient(Scheme scheme, ExecutionPreparation executionPreparation, String path,
+    public static <T> T newClient(Scheme scheme, ContextInitializer contextInitializer, String path,
                                   Class<T> clientType) {
-        return builder(scheme, executionPreparation, path).build(clientType);
+        return builder(scheme, contextInitializer, path).build(clientType);
     }
 
     /**
@@ -145,16 +145,16 @@ public final class Clients {
      * the specified {@link SessionProtocol} using the default {@link ClientFactory}.
      *
      * @param protocol the {@link SessionProtocol}
-     * @param executionPreparation the server {@link EndpointGroup}
+     * @param contextInitializer the server {@link EndpointGroup}
      * @param clientType the type of the new client
      *
      * @throws IllegalArgumentException if the specified {@code clientType} is unsupported for
      *                                  the specified {@link SessionProtocol} or
      *                                  {@link SerializationFormat} is required.
      */
-    public static <T> T newClient(SessionProtocol protocol, ExecutionPreparation executionPreparation,
+    public static <T> T newClient(SessionProtocol protocol, ContextInitializer contextInitializer,
                                   Class<T> clientType) {
-        return builder(protocol, executionPreparation).build(clientType);
+        return builder(protocol, contextInitializer).build(clientType);
     }
 
     /**
@@ -162,7 +162,7 @@ public final class Clients {
      * the specified {@link SessionProtocol} and {@code path} using the default {@link ClientFactory}.
      *
      * @param protocol the {@link SessionProtocol}
-     * @param executionPreparation the server {@link EndpointGroup}
+     * @param contextInitializer the server {@link EndpointGroup}
      * @param path the path to the endpoint
      * @param clientType the type of the new client
      *
@@ -170,9 +170,9 @@ public final class Clients {
      *                                  the specified {@link SessionProtocol} or
      *                                  {@link SerializationFormat} is required.
      */
-    public static <T> T newClient(SessionProtocol protocol, ExecutionPreparation executionPreparation,
+    public static <T> T newClient(SessionProtocol protocol, ContextInitializer contextInitializer,
                                   String path, Class<T> clientType) {
-        return builder(protocol, executionPreparation, path).build(clientType);
+        return builder(protocol, contextInitializer, path).build(clientType);
     }
 
     /**
@@ -201,8 +201,8 @@ public final class Clients {
      *
      * @throws IllegalArgumentException if the {@code scheme} is invalid.
      */
-    public static ClientBuilder builder(String scheme, ExecutionPreparation executionPreparation) {
-        return builder(Scheme.parse(requireNonNull(scheme, "scheme")), executionPreparation);
+    public static ClientBuilder builder(String scheme, ContextInitializer contextInitializer) {
+        return builder(Scheme.parse(requireNonNull(scheme, "scheme")), contextInitializer);
     }
 
     /**
@@ -211,49 +211,49 @@ public final class Clients {
      *
      * @throws IllegalArgumentException if the {@code scheme} is invalid.
      */
-    public static ClientBuilder builder(String scheme, ExecutionPreparation executionPreparation,
+    public static ClientBuilder builder(String scheme, ContextInitializer contextInitializer,
                                         String path) {
-        return builder(Scheme.parse(requireNonNull(scheme, "scheme")), executionPreparation, path);
+        return builder(Scheme.parse(requireNonNull(scheme, "scheme")), contextInitializer, path);
     }
 
     /**
      * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
      * {@link EndpointGroup} with the specified {@link SessionProtocol}.
      */
-    public static ClientBuilder builder(SessionProtocol protocol, ExecutionPreparation executionPreparation) {
+    public static ClientBuilder builder(SessionProtocol protocol, ContextInitializer contextInitializer) {
         return builder(Scheme.of(SerializationFormat.NONE, requireNonNull(protocol, "protocol")),
-                       executionPreparation);
+                       contextInitializer);
     }
 
     /**
      * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
      * {@link EndpointGroup} with the specified {@link SessionProtocol} and {@code path}.
      */
-    public static ClientBuilder builder(SessionProtocol protocol, ExecutionPreparation executionPreparation,
+    public static ClientBuilder builder(SessionProtocol protocol, ContextInitializer contextInitializer,
                                         String path) {
         return builder(Scheme.of(SerializationFormat.NONE, requireNonNull(protocol, "protocol")),
-                       executionPreparation, path);
+                       contextInitializer, path);
     }
 
     /**
      * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
      * {@link EndpointGroup} with the specified {@link Scheme}.
      */
-    public static ClientBuilder builder(Scheme scheme, ExecutionPreparation executionPreparation) {
+    public static ClientBuilder builder(Scheme scheme, ContextInitializer contextInitializer) {
         requireNonNull(scheme, "scheme");
-        requireNonNull(executionPreparation, "endpointGroup");
-        return new ClientBuilder(scheme, executionPreparation, null);
+        requireNonNull(contextInitializer, "endpointGroup");
+        return new ClientBuilder(scheme, contextInitializer, null);
     }
 
     /**
      * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
      * {@link EndpointGroup} with the specified {@link Scheme} and {@code path}.
      */
-    public static ClientBuilder builder(Scheme scheme, ExecutionPreparation executionPreparation, String path) {
+    public static ClientBuilder builder(Scheme scheme, ContextInitializer contextInitializer, String path) {
         requireNonNull(scheme, "scheme");
-        requireNonNull(executionPreparation, "endpointGroup");
+        requireNonNull(contextInitializer, "endpointGroup");
         requireNonNull(path, "path");
-        return new ClientBuilder(scheme, executionPreparation, path);
+        return new ClientBuilder(scheme, contextInitializer, path);
     }
 
     /**

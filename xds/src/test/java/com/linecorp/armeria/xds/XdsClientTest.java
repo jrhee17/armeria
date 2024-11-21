@@ -42,7 +42,7 @@ import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.common.EventLoopExtension;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
-import com.linecorp.armeria.xds.client.endpoint.XdsExecutionPreparation;
+import com.linecorp.armeria.xds.client.endpoint.XdsContextInitializer;
 import com.linecorp.armeria.xds.internal.XdsTestResources;
 
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
@@ -148,7 +148,7 @@ class XdsClientTest {
                 XdsTestResources.createStaticCluster(BOOTSTRAP_CLUSTER_NAME, loadAssignment);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
-             XdsExecutionPreparation xdsEndpointHint = XdsExecutionPreparation.of(listenerName, xdsBootstrap)) {
+             XdsContextInitializer xdsEndpointHint = XdsContextInitializer.of(listenerName, xdsBootstrap)) {
             assertThatThrownBy(() -> WebClient.of(Scheme.of(SerializationFormat.NONE, SessionProtocol.H1),
                                                   xdsEndpointHint))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -167,7 +167,7 @@ class XdsClientTest {
                 XdsTestResources.createStaticCluster(BOOTSTRAP_CLUSTER_NAME, loadAssignment);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
-             XdsExecutionPreparation xdsEndpointHint = XdsExecutionPreparation.of(listenerName, xdsBootstrap)) {
+             XdsContextInitializer xdsEndpointHint = XdsContextInitializer.of(listenerName, xdsBootstrap)) {
             final BlockingWebClient blockingClient = WebClient.of(xdsEndpointHint)
                                                               .blocking();
             assertThat(blockingClient.get("/hello").contentUtf8()).isEqualTo("world");
@@ -189,7 +189,7 @@ class XdsClientTest {
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         final Consumer<GrpcClientBuilder> customizer = cb -> cb.factory(ClientFactory.insecure());
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(bootstrap, eventLoop.get(), customizer);
-             XdsExecutionPreparation xdsEndpointHint = XdsExecutionPreparation.of(listenerName, xdsBootstrap)) {
+             XdsContextInitializer xdsEndpointHint = XdsContextInitializer.of(listenerName, xdsBootstrap)) {
             final BlockingWebClient blockingClient = WebClient.builder(xdsEndpointHint)
                                                               .factory(ClientFactory.insecure())
                                                               .build().blocking();
@@ -212,7 +212,7 @@ class XdsClientTest {
         try (XdsBootstrapImpl xdsBootstrap = new XdsBootstrapImpl(
                 XdsTestResources.bootstrap(configSource, cluster),
                 eventLoop.get(), cb -> cb.factory(ClientFactory.insecure()));
-             XdsExecutionPreparation xdsEndpointHint = XdsExecutionPreparation.of(listenerName, xdsBootstrap)) {
+             XdsContextInitializer xdsEndpointHint = XdsContextInitializer.of(listenerName, xdsBootstrap)) {
             final BlockingWebClient blockingClient = WebClient.builder(xdsEndpointHint)
                                                               .factory(ClientFactory.insecure())
                                                               .build().blocking();

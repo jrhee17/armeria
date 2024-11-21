@@ -70,9 +70,9 @@ public final class WebClientBuilder extends AbstractWebClientBuilder {
     /**
      * Creates a new instance.
      */
-    WebClientBuilder(Scheme scheme, ExecutionPreparation executionPreparation,
+    WebClientBuilder(Scheme scheme, ContextInitializer contextInitializer,
                      @Nullable String path) {
-        super(scheme, executionPreparation, path);
+        super(scheme, contextInitializer, path);
     }
 
     /**

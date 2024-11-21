@@ -38,7 +38,7 @@ import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.thrift.THttpService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
-import com.linecorp.armeria.xds.client.endpoint.XdsExecutionPreparation;
+import com.linecorp.armeria.xds.client.endpoint.XdsContextInitializer;
 import com.linecorp.armeria.xds.internal.XdsTestResources;
 
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
@@ -109,7 +109,7 @@ class ThriftIntegrationTest {
                 XdsTestResources.createStaticCluster(BOOTSTRAP_CLUSTER_NAME, loadAssignment);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
-             XdsExecutionPreparation preparation = XdsExecutionPreparation.of("listener", xdsBootstrap)) {
+             XdsContextInitializer preparation = XdsContextInitializer.of("listener", xdsBootstrap)) {
             Iface iface = ThriftClients.builder(ThriftSerializationFormats.BINARY, preparation)
                                        .path("/thrift")
                                        .decorator(LoggingClient.newDecorator())
@@ -132,7 +132,7 @@ class ThriftIntegrationTest {
                 XdsTestResources.createStaticCluster(BOOTSTRAP_CLUSTER_NAME, loadAssignment);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
-             XdsExecutionPreparation preparation = XdsExecutionPreparation.of("listener", xdsBootstrap)) {
+             XdsContextInitializer preparation = XdsContextInitializer.of("listener", xdsBootstrap)) {
             THttpClient tHttpClient = ThriftClients.builder(ThriftSerializationFormats.BINARY, preparation)
                     .decorator(LoggingClient.newDecorator())
                                                    .path("/thrift")

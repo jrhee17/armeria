@@ -39,7 +39,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.ExecutionPreparation.ClientExecution;
+import com.linecorp.armeria.client.ContextInitializer.ClientExecution;
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpRequestWriter;

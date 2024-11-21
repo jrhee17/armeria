@@ -41,7 +41,7 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.client.ExecutionPreparation;
+import com.linecorp.armeria.client.ContextInitializer;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.RpcClient;
@@ -67,7 +67,7 @@ import com.linecorp.armeria.common.thrift.ThriftSerializationFormats;
 public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
 
     @Nullable
-    private final ExecutionPreparation executionPreparation;
+    private final ContextInitializer contextInitializer;
 
     @Nullable
     private URI uri;
@@ -78,19 +78,19 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
     ThriftClientBuilder(URI uri) {
         requireNonNull(uri, "uri");
         checkArgument(uri.getScheme() != null, "uri must have scheme: %s", uri);
-        executionPreparation = null;
+        contextInitializer = null;
         this.uri = uri;
         scheme = Scheme.parse(uri.getScheme());
         validateOrSetSerializationFormat();
     }
 
-    ThriftClientBuilder(Scheme scheme, ExecutionPreparation executionPreparation) {
+    ThriftClientBuilder(Scheme scheme, ContextInitializer contextInitializer) {
         requireNonNull(scheme, "scheme");
-        requireNonNull(executionPreparation, "executionPreparation");
+        requireNonNull(contextInitializer, "executionPreparation");
         uri = null;
         this.scheme = scheme;
         validateOrSetSerializationFormat();
-        this.executionPreparation = executionPreparation;
+        this.contextInitializer = contextInitializer;
     }
 
     private void validateOrSetSerializationFormat() {
@@ -196,8 +196,8 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
             }
             client = factory.newClient(ClientBuilderParams.of(uri, clientType, options));
         } else {
-            assert executionPreparation != null;
-            client = factory.newClient(ClientBuilderParams.of(scheme, executionPreparation,
+            assert contextInitializer != null;
+            client = factory.newClient(ClientBuilderParams.of(scheme, contextInitializer,
                                                               path, clientType, options));
         }
 

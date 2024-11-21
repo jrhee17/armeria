@@ -116,7 +116,7 @@ public abstract class UserClient<I extends Request, O extends Response>
     }
 
     @Override
-    public ExecutionPreparation executionPreparation() {
+    public ContextInitializer executionPreparation() {
         return params.executionPreparation();
     }
 

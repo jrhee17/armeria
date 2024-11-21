@@ -21,17 +21,17 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
-import com.linecorp.armeria.client.ExecutionPreparation;
+import com.linecorp.armeria.client.ContextInitializer;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.Scheme;
 
-public final class EndpointGroupExecutionPreparation implements ExecutionPreparation {
+public final class EndpointGroupContextInitializer implements ContextInitializer {
     private final EndpointGroup endpointGroup;
 
-    public EndpointGroupExecutionPreparation(EndpointGroup endpointGroup) {
+    public EndpointGroupContextInitializer(EndpointGroup endpointGroup) {
         this.endpointGroup = endpointGroup;
     }
 

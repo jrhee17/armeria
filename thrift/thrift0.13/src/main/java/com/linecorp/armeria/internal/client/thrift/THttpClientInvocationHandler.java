@@ -31,7 +31,7 @@ import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ClientRequestContextCaptor;
 import com.linecorp.armeria.client.Clients;
-import com.linecorp.armeria.client.ExecutionPreparation;
+import com.linecorp.armeria.client.ContextInitializer;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.thrift.THttpClient;
 import com.linecorp.armeria.common.RpcResponse;
@@ -85,7 +85,7 @@ final class THttpClientInvocationHandler
     }
 
     @Override
-    public ExecutionPreparation executionPreparation() {
+    public ContextInitializer executionPreparation() {
         return params.executionPreparation();
     }
 

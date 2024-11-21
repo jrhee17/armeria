@@ -80,7 +80,7 @@ final class DefaultBlockingWebClient implements BlockingWebClient {
     }
 
     @Override
-    public ExecutionPreparation executionPreparation() {
+    public ContextInitializer executionPreparation() {
         return delegate.executionPreparation();
     }
 

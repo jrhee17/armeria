@@ -30,8 +30,8 @@ import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.ExecutionPreparation;
-import com.linecorp.armeria.client.ExecutionPreparation.ClientExecution;
+import com.linecorp.armeria.client.ContextInitializer;
+import com.linecorp.armeria.client.ContextInitializer.ClientExecution;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -244,7 +244,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
     }
 
     @Override
-    public ExecutionPreparation executionPreparation() {
+    public ContextInitializer executionPreparation() {
         return params.executionPreparation();
     }
 

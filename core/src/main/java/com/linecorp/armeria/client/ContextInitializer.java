@@ -23,7 +23,7 @@ import com.linecorp.armeria.common.Response;
 /**
  * TBU.
  */
-public interface ExecutionPreparation {
+public interface ContextInitializer {
 
     /**
      * TBU.

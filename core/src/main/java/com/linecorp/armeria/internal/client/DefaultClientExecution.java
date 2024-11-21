@@ -18,7 +18,7 @@ package com.linecorp.armeria.internal.client;
 
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.ExecutionPreparation.ClientExecution;
+import com.linecorp.armeria.client.ContextInitializer.ClientExecution;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;

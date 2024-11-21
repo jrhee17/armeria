@@ -21,7 +21,7 @@ import static java.util.Objects.requireNonNull;
 import java.net.URI;
 
 import com.linecorp.armeria.client.ClientFactory;
-import com.linecorp.armeria.client.ExecutionPreparation;
+import com.linecorp.armeria.client.ContextInitializer;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
@@ -91,19 +91,19 @@ public final class GrpcClients {
      * TBU.
      */
     public static <T> T newClient(SerializationFormat serializationFormat,
-                                  ExecutionPreparation executionPreparation,
+                                  ContextInitializer contextInitializer,
                                   Class<T> clientType) {
         return builder(Scheme.of(serializationFormat, SessionProtocol.UNDETERMINED),
-                       executionPreparation).build(clientType);
+                       contextInitializer).build(clientType);
     }
 
     /**
      * TBU.
      */
-    public static <T> T newClient(ExecutionPreparation executionPreparation,
+    public static <T> T newClient(ContextInitializer contextInitializer,
                                   Class<T> clientType) {
         return builder(Scheme.of(GrpcSerializationFormats.PROTO, SessionProtocol.UNDETERMINED),
-                       executionPreparation).build(clientType);
+                       contextInitializer).build(clientType);
     }
 
     /**
@@ -203,8 +203,8 @@ public final class GrpcClients {
         return new GrpcClientBuilder(scheme, endpointGroup);
     }
 
-    private static GrpcClientBuilder builder(Scheme scheme, ExecutionPreparation executionPreparation) {
-        return new GrpcClientBuilder(scheme, executionPreparation);
+    private static GrpcClientBuilder builder(Scheme scheme, ContextInitializer contextInitializer) {
+        return new GrpcClientBuilder(scheme, contextInitializer);
     }
 
     private GrpcClients() {}

@@ -152,8 +152,8 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      * the specified {@code protocol} using the default {@link ClientFactory} and the default
      * {@link ClientOptions}.
      */
-    static WebClient of(ExecutionPreparation executionPreparation) {
-        return builder(executionPreparation).build();
+    static WebClient of(ContextInitializer contextInitializer) {
+        return builder(contextInitializer).build();
     }
 
     /**
@@ -161,8 +161,8 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      * the specified {@code protocol} using the default {@link ClientFactory} and the default
      * {@link ClientOptions}.
      */
-    static WebClient of(Scheme scheme, ExecutionPreparation executionPreparation) {
-        return builder(scheme, executionPreparation).build();
+    static WebClient of(Scheme scheme, ContextInitializer contextInitializer) {
+        return builder(scheme, contextInitializer).build();
     }
 
     /**
@@ -170,8 +170,8 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      * the specified {@code protocol} using the default {@link ClientFactory} and the default
      * {@link ClientOptions}.
      */
-    static WebClient of(Scheme scheme, ExecutionPreparation executionPreparation, String path) {
-        return builder(scheme, executionPreparation, path).build();
+    static WebClient of(Scheme scheme, ContextInitializer contextInitializer, String path) {
+        return builder(scheme, contextInitializer, path).build();
     }
 
     /**
@@ -261,33 +261,33 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
 
     /**
      * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
-     * and base {@link ExecutionPreparation}.
+     * and base {@link ContextInitializer}.
      */
-    static WebClientBuilder builder(ExecutionPreparation executionPreparation) {
-        requireNonNull(executionPreparation, "executionPreparation");
+    static WebClientBuilder builder(ContextInitializer contextInitializer) {
+        requireNonNull(contextInitializer, "executionPreparation");
         return new WebClientBuilder(Scheme.of(SerializationFormat.NONE, SessionProtocol.UNDETERMINED),
-                                    executionPreparation, null);
+                                    contextInitializer, null);
     }
 
     /**
      * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
-     * and base {@link ExecutionPreparation}.
+     * and base {@link ContextInitializer}.
      */
-    static WebClientBuilder builder(Scheme scheme, ExecutionPreparation executionPreparation) {
+    static WebClientBuilder builder(Scheme scheme, ContextInitializer contextInitializer) {
         requireNonNull(scheme, "scheme");
-        requireNonNull(executionPreparation, "executionPreparation");
-        return new WebClientBuilder(scheme, executionPreparation, null);
+        requireNonNull(contextInitializer, "executionPreparation");
+        return new WebClientBuilder(scheme, contextInitializer, null);
     }
 
     /**
      * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
-     * and base {@link ExecutionPreparation}.
+     * and base {@link ContextInitializer}.
      */
-    static WebClientBuilder builder(Scheme scheme, ExecutionPreparation executionPreparation, String path) {
+    static WebClientBuilder builder(Scheme scheme, ContextInitializer contextInitializer, String path) {
         requireNonNull(scheme, "scheme");
-        requireNonNull(executionPreparation, "executionPreparation");
+        requireNonNull(contextInitializer, "executionPreparation");
         requireNonNull(path, "path");
-        return new WebClientBuilder(scheme, executionPreparation, path);
+        return new WebClientBuilder(scheme, contextInitializer, path);
     }
 
     /**

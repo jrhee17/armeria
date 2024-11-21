@@ -37,7 +37,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     @Nullable
     private final URI uri;
     @Nullable
-    private final ExecutionPreparation executionPreparation;
+    private final ContextInitializer contextInitializer;
     @Nullable
     private final Scheme scheme;
     @Nullable
@@ -79,21 +79,21 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      *                                  in {@link SessionProtocol}
      */
     protected AbstractWebClientBuilder(Scheme scheme,
-                                       ExecutionPreparation executionPreparation, @Nullable String path) {
-        this(null, scheme, requireNonNull(executionPreparation, "executionPreparation"), path);
+                                       ContextInitializer contextInitializer, @Nullable String path) {
+        this(null, scheme, requireNonNull(contextInitializer, "executionPreparation"), path);
     }
 
     /**
      * Creates a new instance.
      */
     protected AbstractWebClientBuilder(@Nullable URI uri, @Nullable Scheme scheme,
-                                       @Nullable ExecutionPreparation executionPreparation,
+                                       @Nullable ContextInitializer contextInitializer,
                                        @Nullable String path) {
-        assert uri != null || (scheme != null && executionPreparation != null);
+        assert uri != null || (scheme != null && contextInitializer != null);
         assert path == null || uri == null;
         this.uri = uri;
         this.scheme = scheme;
-        this.executionPreparation = executionPreparation;
+        this.contextInitializer = contextInitializer;
         this.path = validatePath(path);
     }
 
@@ -168,9 +168,9 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
             return ClientBuilderParams.of(uri, WebClient.class, options);
         }
         assert scheme != null;
-        assert executionPreparation != null;
+        assert contextInitializer != null;
 
-        return ClientBuilderParams.of(scheme, executionPreparation, path, WebClient.class, options);
+        return ClientBuilderParams.of(scheme, contextInitializer, path, WebClient.class, options);
     }
 
     /**

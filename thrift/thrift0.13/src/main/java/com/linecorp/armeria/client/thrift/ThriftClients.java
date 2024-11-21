@@ -21,7 +21,7 @@ import static java.util.Objects.requireNonNull;
 import java.net.URI;
 
 import com.linecorp.armeria.client.ClientFactory;
-import com.linecorp.armeria.client.ExecutionPreparation;
+import com.linecorp.armeria.client.ContextInitializer;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
@@ -225,11 +225,11 @@ public final class ThriftClients {
      * TBU.
      */
     public static ThriftClientBuilder builder(SerializationFormat serializationFormat,
-                                              ExecutionPreparation executionPreparation) {
+                                              ContextInitializer contextInitializer) {
         requireNonNull(serializationFormat, "serializationFormat");
-        requireNonNull(executionPreparation, "executionPreparation");
+        requireNonNull(contextInitializer, "executionPreparation");
         return new ThriftClientBuilder(Scheme.of(serializationFormat, SessionProtocol.UNDETERMINED),
-                                       executionPreparation);
+                                       contextInitializer);
     }
 
     private ThriftClients() {}

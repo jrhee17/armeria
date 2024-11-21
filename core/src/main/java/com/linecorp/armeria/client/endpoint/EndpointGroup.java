@@ -31,7 +31,7 @@ import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.client.ExecutionPreparation;
+import com.linecorp.armeria.client.ContextInitializer;
 import com.linecorp.armeria.client.retry.RetryingClient;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
@@ -39,14 +39,14 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.common.util.Listenable;
-import com.linecorp.armeria.internal.client.EndpointGroupExecutionPreparation;
+import com.linecorp.armeria.internal.client.EndpointGroupContextInitializer;
 import com.linecorp.armeria.internal.client.endpoint.StaticEndpointGroup;
 
 /**
  * A list of {@link Endpoint}s.
  */
 public interface EndpointGroup extends Listenable<List<Endpoint>>, EndpointSelector, AsyncCloseable,
-                                       ExecutionPreparation {
+                                       ContextInitializer {
 
     /**
      * Returns a singleton {@link EndpointGroup} which does not contain any {@link Endpoint}s.
@@ -201,7 +201,7 @@ public interface EndpointGroup extends Listenable<List<Endpoint>>, EndpointSelec
     @Override
     default <I extends Request, O extends Response> ClientExecution<I, O> prepare(
             ClientBuilderParams clientBuilderParams, RequestParams requestParams, Client<I, O> delegate) {
-        return new EndpointGroupExecutionPreparation(this).prepare(clientBuilderParams, requestParams,
-                                                                   delegate);
+        return new EndpointGroupContextInitializer(this).prepare(clientBuilderParams, requestParams,
+                                                                 delegate);
     }
 }

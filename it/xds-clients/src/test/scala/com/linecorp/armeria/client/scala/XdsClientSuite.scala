@@ -23,7 +23,7 @@ import com.linecorp.armeria.server.ServerBuilder
 import com.linecorp.armeria.server.grpc.GrpcService
 import com.linecorp.armeria.testing.junit5.server.ServerExtension
 import com.linecorp.armeria.xds.XdsBootstrap
-import com.linecorp.armeria.xds.client.endpoint.XdsExecutionPreparation
+import com.linecorp.armeria.xds.client.endpoint.XdsContextInitializer
 import com.linecorp.armeria.xds.internal.XdsTestResources
 import io.envoyproxy.controlplane.cache.v3.{SimpleCache, Snapshot}
 import io.envoyproxy.controlplane.server.V3DiscoveryServer
@@ -77,7 +77,7 @@ class XdsClientSuite extends FunSuite {
     val bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster)
     Using.Manager { use =>
       val xdsBootstrap = use(XdsBootstrap.of(bootstrap))
-      val preparation = use(XdsExecutionPreparation.of("listener", xdsBootstrap))
+      val preparation = use(XdsContextInitializer.of("listener", xdsBootstrap))
       var restClient = ScalaRestClient(WebClient.of(preparation))
       var content = Await.result(restClient.get("/hello").execute[MyResponse](), Duration.Inf).content()
       assertThat(content).isEqualTo(MyResponse("world"))

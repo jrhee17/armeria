@@ -26,7 +26,7 @@ import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.ExecutionPreparation;
+import com.linecorp.armeria.client.ContextInitializer;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestTarget;
@@ -40,21 +40,21 @@ import com.linecorp.armeria.xds.XdsBootstrap;
 /**
  * TBU.
  */
-public final class XdsExecutionPreparation implements ExecutionPreparation, AsyncCloseable {
+public final class XdsContextInitializer implements ContextInitializer, AsyncCloseable {
 
     /**
      * TBU.
      */
-    public static XdsExecutionPreparation of(String listenerName, XdsBootstrap xdsBootstrap) {
-        return new XdsExecutionPreparation(listenerName, xdsBootstrap, SerializationFormat.NONE, "/");
+    public static XdsContextInitializer of(String listenerName, XdsBootstrap xdsBootstrap) {
+        return new XdsContextInitializer(listenerName, xdsBootstrap, SerializationFormat.NONE, "/");
     }
 
     /**
      * TBU.
      */
-    public static XdsExecutionPreparation of(String listenerName, XdsBootstrap xdsBootstrap,
-                                             SerializationFormat serializationFormat) {
-        return new XdsExecutionPreparation(listenerName, xdsBootstrap, serializationFormat, "/");
+    public static XdsContextInitializer of(String listenerName, XdsBootstrap xdsBootstrap,
+                                           SerializationFormat serializationFormat) {
+        return new XdsContextInitializer(listenerName, xdsBootstrap, serializationFormat, "/");
     }
 
     private final ClusterManager clusterManager;
@@ -62,8 +62,8 @@ public final class XdsExecutionPreparation implements ExecutionPreparation, Asyn
     /**
      * TBU.
      */
-    private XdsExecutionPreparation(String listenerName, XdsBootstrap xdsBootstrap,
-                                    SerializationFormat serializationFormat, String absolutePathRef) {
+    private XdsContextInitializer(String listenerName, XdsBootstrap xdsBootstrap,
+                                  SerializationFormat serializationFormat, String absolutePathRef) {
         clusterManager = new ClusterManager(listenerName, xdsBootstrap);
     }
 

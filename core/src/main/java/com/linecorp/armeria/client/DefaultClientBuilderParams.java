@@ -34,7 +34,7 @@ import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
  */
 final class DefaultClientBuilderParams implements ClientBuilderParams {
 
-    private final ExecutionPreparation executionPreparation;
+    private final ContextInitializer contextInitializer;
     private final Class<?> type;
     private final ClientOptions options;
     private final Scheme scheme;
@@ -67,15 +67,15 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         }
         this.absolutePathRef = absolutePathRef;
 
-        executionPreparation = endpointGroup;
-        executionPreparation.validate(this);
+        contextInitializer = endpointGroup;
+        contextInitializer.validate(this);
     }
 
-    DefaultClientBuilderParams(Scheme scheme, ExecutionPreparation executionPreparation,
+    DefaultClientBuilderParams(Scheme scheme, ContextInitializer contextInitializer,
                                @Nullable String absolutePathRef,
                                Class<?> type, ClientOptions options) {
         this.type = requireNonNull(type, "type");
-        requireNonNull(executionPreparation, "executionPreparation");
+        requireNonNull(contextInitializer, "executionPreparation");
         this.options = requireNonNull(options, "options");
 
         final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
@@ -86,16 +86,16 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
             schemeStr = scheme.uriText();
         }
         final URI uri;
-        if (executionPreparation instanceof Endpoint) {
-            uri = URI.create(schemeStr + "://" + ((Endpoint) executionPreparation).authority() +
+        if (contextInitializer instanceof Endpoint) {
+            uri = URI.create(schemeStr + "://" + ((Endpoint) contextInitializer).authority() +
                              normalizedAbsolutePathRef);
-            endpointGroup = (EndpointGroup) executionPreparation;
-        } else if (executionPreparation instanceof EndpointGroup) {
-            endpointGroup = (EndpointGroup) executionPreparation;
-            uri = dummyUri(executionPreparation, schemeStr, normalizedAbsolutePathRef);
+            endpointGroup = (EndpointGroup) contextInitializer;
+        } else if (contextInitializer instanceof EndpointGroup) {
+            endpointGroup = (EndpointGroup) contextInitializer;
+            uri = dummyUri(contextInitializer, schemeStr, normalizedAbsolutePathRef);
         } else {
             // Create a valid URI which will never succeed.
-            uri = dummyUri(executionPreparation, schemeStr, normalizedAbsolutePathRef);
+            uri = dummyUri(contextInitializer, schemeStr, normalizedAbsolutePathRef);
             endpointGroup = Endpoint.parse(uri.getRawAuthority());
         }
         final ClientFactory factory = options.factory();
@@ -103,8 +103,8 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
 
         this.absolutePathRef = normalizedAbsolutePathRef;
         this.uri = factory.validateUri(uri);
-        this.executionPreparation = executionPreparation;
-        executionPreparation.validate(this);
+        this.contextInitializer = contextInitializer;
+        contextInitializer.validate(this);
     }
 
     private static URI dummyUri(Object key, String schemeStr,
@@ -155,14 +155,14 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     }
 
     @Override
-    public ExecutionPreparation executionPreparation() {
-        return executionPreparation;
+    public ContextInitializer executionPreparation() {
+        return contextInitializer;
     }
 
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-                          .add("executionPreparation", executionPreparation)
+                          .add("executionPreparation", contextInitializer)
                           .add("type", type)
                           .toString();
     }
