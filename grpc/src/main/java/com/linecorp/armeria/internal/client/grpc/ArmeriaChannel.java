@@ -169,7 +169,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         RequestTargetCache.putForClient(path, reqTarget);
         final RequestParams requestParams = RequestParams.of(req, null, requestOptions, reqTarget);
         final ClientExecution<HttpRequest, HttpResponse> clientExecution =
-                params.executionPreparation().prepare(params, requestParams, client);
+                params.contextInitializer().prepare(params, requestParams, client);
         final ClientRequestContext ctx = clientExecution.ctx();
 
         GrpcCallOptions.set(ctx, callOptions);
@@ -244,8 +244,8 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
     }
 
     @Override
-    public ContextInitializer executionPreparation() {
-        return params.executionPreparation();
+    public ContextInitializer contextInitializer() {
+        return params.contextInitializer();
     }
 
     @Nullable

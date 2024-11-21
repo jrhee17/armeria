@@ -85,8 +85,8 @@ final class THttpClientInvocationHandler
     }
 
     @Override
-    public ContextInitializer executionPreparation() {
-        return params.executionPreparation();
+    public ContextInitializer contextInitializer() {
+        return params.contextInitializer();
     }
 
     @Nullable

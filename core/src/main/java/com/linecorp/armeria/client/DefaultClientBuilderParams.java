@@ -75,7 +75,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
                                @Nullable String absolutePathRef,
                                Class<?> type, ClientOptions options) {
         this.type = requireNonNull(type, "type");
-        requireNonNull(contextInitializer, "executionPreparation");
+        requireNonNull(contextInitializer, "contextInitializer");
         this.options = requireNonNull(options, "options");
 
         final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
@@ -155,14 +155,14 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     }
 
     @Override
-    public ContextInitializer executionPreparation() {
+    public ContextInitializer contextInitializer() {
         return contextInitializer;
     }
 
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-                          .add("executionPreparation", contextInitializer)
+                          .add("contextInitializer", contextInitializer)
                           .add("type", type)
                           .toString();
     }

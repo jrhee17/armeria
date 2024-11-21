@@ -110,7 +110,7 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
         }
 
         try {
-            return params().executionPreparation()
+            return params().contextInitializer()
                            .prepare(params(), requestParams, unwrap())
                            .execute(newReq);
         } catch (Exception e) {

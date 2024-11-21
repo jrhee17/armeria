@@ -270,8 +270,8 @@ final class DefaultWebSocketClient implements WebSocketClient {
     }
 
     @Override
-    public ContextInitializer executionPreparation() {
-        return webClient.executionPreparation();
+    public ContextInitializer contextInitializer() {
+        return webClient.contextInitializer();
     }
 
     @Override

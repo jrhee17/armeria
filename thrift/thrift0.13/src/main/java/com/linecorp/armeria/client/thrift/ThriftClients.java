@@ -227,7 +227,7 @@ public final class ThriftClients {
     public static ThriftClientBuilder builder(SerializationFormat serializationFormat,
                                               ContextInitializer contextInitializer) {
         requireNonNull(serializationFormat, "serializationFormat");
-        requireNonNull(contextInitializer, "executionPreparation");
+        requireNonNull(contextInitializer, "contextInitializer");
         return new ThriftClientBuilder(Scheme.of(serializationFormat, SessionProtocol.UNDETERMINED),
                                        contextInitializer);
     }

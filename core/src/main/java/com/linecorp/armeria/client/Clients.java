@@ -319,7 +319,7 @@ public final class Clients {
     }
 
     private static ClientBuilder newDerivedBuilder(ClientBuilderParams params, boolean setOptions) {
-        final ClientBuilder builder = builder(params.scheme(), params.executionPreparation(),
+        final ClientBuilder builder = builder(params.scheme(), params.contextInitializer(),
                                               params.absolutePathRef());
         if (setOptions) {
             builder.options(params.options());

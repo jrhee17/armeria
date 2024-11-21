@@ -80,7 +80,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      */
     protected AbstractWebClientBuilder(Scheme scheme,
                                        ContextInitializer contextInitializer, @Nullable String path) {
-        this(null, scheme, requireNonNull(contextInitializer, "executionPreparation"), path);
+        this(null, scheme, requireNonNull(contextInitializer, "contextInitializer"), path);
     }
 
     /**

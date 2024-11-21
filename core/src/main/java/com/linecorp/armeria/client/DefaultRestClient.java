@@ -73,8 +73,8 @@ final class DefaultRestClient implements RestClient {
     }
 
     @Override
-    public ContextInitializer executionPreparation() {
-        return delegate.executionPreparation();
+    public ContextInitializer contextInitializer() {
+        return delegate.contextInitializer();
     }
 
     @Override

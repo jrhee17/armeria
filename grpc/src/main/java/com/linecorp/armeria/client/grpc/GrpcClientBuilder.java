@@ -118,7 +118,7 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
 
     GrpcClientBuilder(Scheme scheme, ContextInitializer contextInitializer) {
         requireNonNull(scheme, "scheme");
-        requireNonNull(contextInitializer, "executionPreparation");
+        requireNonNull(contextInitializer, "contextInitializer");
         uri = null;
         this.scheme = scheme;
         this.contextInitializer = contextInitializer;

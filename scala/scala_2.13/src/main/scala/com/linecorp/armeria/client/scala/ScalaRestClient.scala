@@ -184,7 +184,7 @@ private final class DefaultScalaRestClient(delegate: RestClient) extends ScalaRe
 
   override def options(): ClientOptions = delegate.options()
 
-  override def executionPreparation(): ContextInitializer = delegate.executionPreparation()
+  override def contextInitializer(): ContextInitializer = delegate.contextInitializer()
 
   override def unwrap(): HttpClient = delegate.unwrap().asInstanceOf[HttpClient]
 

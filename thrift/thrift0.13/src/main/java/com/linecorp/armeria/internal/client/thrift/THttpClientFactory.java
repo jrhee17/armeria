@@ -81,7 +81,7 @@ final class THttpClientFactory extends DecoratingClientFactory {
         // Create a THttpClient without path.
         final ClientBuilderParams delegateParams =
                 ClientBuilderParams.of(params.scheme(),
-                                       params.executionPreparation(),
+                                       params.contextInitializer(),
                                        "/", THttpClient.class,
                                        options);
 

@@ -86,7 +86,7 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
 
     ThriftClientBuilder(Scheme scheme, ContextInitializer contextInitializer) {
         requireNonNull(scheme, "scheme");
-        requireNonNull(contextInitializer, "executionPreparation");
+        requireNonNull(contextInitializer, "contextInitializer");
         uri = null;
         this.scheme = scheme;
         validateOrSetSerializationFormat();

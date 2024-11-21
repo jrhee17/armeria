@@ -264,7 +264,7 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      * and base {@link ContextInitializer}.
      */
     static WebClientBuilder builder(ContextInitializer contextInitializer) {
-        requireNonNull(contextInitializer, "executionPreparation");
+        requireNonNull(contextInitializer, "contextInitializer");
         return new WebClientBuilder(Scheme.of(SerializationFormat.NONE, SessionProtocol.UNDETERMINED),
                                     contextInitializer, null);
     }
@@ -275,7 +275,7 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      */
     static WebClientBuilder builder(Scheme scheme, ContextInitializer contextInitializer) {
         requireNonNull(scheme, "scheme");
-        requireNonNull(contextInitializer, "executionPreparation");
+        requireNonNull(contextInitializer, "contextInitializer");
         return new WebClientBuilder(scheme, contextInitializer, null);
     }
 
@@ -285,7 +285,7 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      */
     static WebClientBuilder builder(Scheme scheme, ContextInitializer contextInitializer, String path) {
         requireNonNull(scheme, "scheme");
-        requireNonNull(contextInitializer, "executionPreparation");
+        requireNonNull(contextInitializer, "contextInitializer");
         requireNonNull(path, "path");
         return new WebClientBuilder(scheme, contextInitializer, path);
     }

@@ -48,7 +48,7 @@ public interface ClientBuilderParams {
      */
     static ClientBuilderParams of(Scheme scheme, ContextInitializer contextInitializer,
                                   @Nullable String absolutePathRef, Class<?> type, ClientOptions options) {
-        requireNonNull(contextInitializer, "executionPreparation");
+        requireNonNull(contextInitializer, "contextInitializer");
         requireNonNull(type, "type");
         requireNonNull(options, "options");
         return new DefaultClientBuilderParams(scheme, contextInitializer, absolutePathRef, type, options);
@@ -112,7 +112,7 @@ public interface ClientBuilderParams {
     /**
      * TBU.
      */
-    ContextInitializer executionPreparation();
+    ContextInitializer contextInitializer();
 
     /**
      * TBU.
