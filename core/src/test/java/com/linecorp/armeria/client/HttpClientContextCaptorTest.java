@@ -23,7 +23,12 @@ import java.util.NoSuchElementException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import com.linecorp.armeria.client.WebClient.ExecutionContext;
+import com.linecorp.armeria.common.AggregatedHttpResponse;
+import com.linecorp.armeria.common.HttpMethod;
+import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
@@ -66,6 +71,18 @@ class HttpClientContextCaptorTest {
             assertThatThrownBy(ctxCaptor::get).isInstanceOf(NoSuchElementException.class)
                                               .hasMessageContaining("no request was made");
             res.aggregate();
+        }
+    }
+
+    @Test
+    void executionCtx() {
+        try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
+            final HttpRequest req = HttpRequest.of(RequestHeaders.of(HttpMethod.GET, "/foo"));
+            final ExecutionContext<HttpResponse> executionContext =
+                    server.webClient().executionContext(req);
+            final AggregatedHttpResponse res = executionContext.execute().aggregate().join();
+            assertThat(res.status().code()).isEqualTo(200);
+            assertThat(captor.get()).isSameAs(executionContext.ctx());
         }
     }
 }

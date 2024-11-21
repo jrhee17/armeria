@@ -36,7 +36,11 @@ public interface ContextInitializer {
         ClientRequestContext ctx();
 
         /**
-         * TBU.
+         * The {@link Request} that will be used for this context.
+         * Note that {@param req} may not necessarily coincide with the one supplied by {@link RequestParams}.
+         * For instance, Armeria's gRPC integration initializes the context first, and appends headers
+         * right before executing a request. However, the provided {@param req} must match
+         * the request set in {@link ClientRequestContext}.
          */
         O execute(I req) throws Exception;
     }

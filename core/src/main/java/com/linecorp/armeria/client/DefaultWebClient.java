@@ -20,6 +20,7 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Strings;
 
+import com.linecorp.armeria.client.ContextInitializer.ClientExecution;
 import com.linecorp.armeria.common.ExchangeType;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
@@ -53,66 +54,8 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
     public HttpResponse execute(HttpRequest req, RequestOptions requestOptions) {
         requireNonNull(req, "req");
         requireNonNull(requestOptions, "requestOptions");
-
-        final String originalPath = req.path();
-        final String prefix = Strings.emptyToNull(uri().getRawPath());
-        final RequestTarget reqTarget = RequestTarget.forClient(originalPath, prefix);
-        if (reqTarget == null) {
-            return abortRequestAndReturnFailureResponse(
-                    req, new IllegalArgumentException("Invalid request target: " + originalPath));
-        }
-
-        final String newPath = reqTarget.pathAndQuery();
-        final HttpRequest newReq;
-        if (newPath.equals(originalPath)) {
-            newReq = req;
-        } else {
-            newReq = req.withHeaders(req.headers().toBuilder().path(newPath));
-        }
-
-        final RequestParams requestParams;
-
-        if (Clients.isUndefinedUri(uri())) {
-            final String scheme;
-            final String authority;
-            if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
-                scheme = reqTarget.scheme();
-                authority = reqTarget.authority();
-                assert scheme != null;
-                assert authority != null;
-            } else {
-                scheme = req.scheme();
-                authority = req.authority();
-
-                if (scheme == null || authority == null) {
-                    return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
-                            "Scheme and authority must be specified in \":path\" or " +
-                            "in \":scheme\" and \":authority\". :path=" +
-                            originalPath + ", :scheme=" + req.scheme() + ", :authority=" + req.authority()));
-                }
-            }
-            final Endpoint endpoint = Endpoint.parse(authority);
-            final Scheme parsedScheme;
-            try {
-                parsedScheme = Scheme.parse(scheme);
-            } catch (Exception e) {
-                return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
-                        "Failed to parse a scheme: " + reqTarget.scheme(), e));
-            }
-            requestParams = RequestParams.of(newReq, null, requestOptions, reqTarget, parsedScheme, endpoint);
-        } else {
-            if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
-                return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
-                        "Cannot send a request with a \":path\" header that contains an authority, " +
-                        "because the client was created with a base URI. path: " + originalPath));
-            }
-            requestParams = RequestParams.of(newReq, null, requestOptions, reqTarget);
-        }
-
         try {
-            return params().contextInitializer()
-                           .prepare(params(), requestParams, unwrap())
-                           .execute(newReq);
+            return executionContext(req, requestOptions).execute();
         } catch (Exception e) {
             return HttpResponse.ofFailure(e);
         }
@@ -143,5 +86,86 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
     @Override
     public HttpClient unwrap() {
         return (HttpClient) super.unwrap();
+    }
+
+    @Override
+    public ExecutionContext<HttpResponse> executionContext(HttpRequest req) {
+        return executionContext(req, RequestOptions.of());
+    }
+
+    @Override
+    public ExecutionContext<HttpResponse> executionContext(HttpRequest req, RequestOptions requestOptions) {
+        requireNonNull(req, "req");
+        requireNonNull(requestOptions, "requestOptions");
+
+        final String originalPath = req.path();
+        final String prefix = Strings.emptyToNull(uri().getRawPath());
+        final RequestTarget reqTarget = RequestTarget.forClient(originalPath, prefix);
+        if (reqTarget == null) {
+            throw new IllegalArgumentException("Invalid request target: " + originalPath);
+        }
+
+        final String newPath = reqTarget.pathAndQuery();
+        final HttpRequest newReq;
+        if (newPath.equals(originalPath)) {
+            newReq = req;
+        } else {
+            newReq = req.withHeaders(req.headers().toBuilder().path(newPath));
+        }
+
+        final RequestParams requestParams;
+
+        if (Clients.isUndefinedUri(uri())) {
+            final String scheme;
+            final String authority;
+            if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
+                scheme = reqTarget.scheme();
+                authority = reqTarget.authority();
+                assert scheme != null;
+                assert authority != null;
+            } else {
+                scheme = req.scheme();
+                authority = req.authority();
+
+                if (scheme == null || authority == null) {
+                    throw new IllegalArgumentException(
+                            "Scheme and authority must be specified in \":path\" or " +
+                            "in \":scheme\" and \":authority\". :path=" +
+                            originalPath + ", :scheme=" + req.scheme() + ", :authority=" + req.authority());
+                }
+            }
+            final Endpoint endpoint = Endpoint.parse(authority);
+            final Scheme parsedScheme;
+            try {
+                parsedScheme = Scheme.parse(scheme);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Failed to parse a scheme: " + reqTarget.scheme(), e);
+            }
+            requestParams = RequestParams.of(newReq, null, requestOptions, reqTarget, parsedScheme, endpoint);
+        } else {
+            if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
+                throw new IllegalArgumentException(
+                        "Cannot send a request with a \":path\" header that contains an authority, " +
+                        "because the client was created with a base URI. path: " + originalPath);
+            }
+            requestParams = RequestParams.of(newReq, null, requestOptions, reqTarget);
+        }
+        final ClientExecution<HttpRequest, HttpResponse> execution =
+                params().contextInitializer().prepare(params(), requestParams, unwrap());
+        return new ExecutionContext<HttpResponse>() {
+            @Override
+            public ClientRequestContext ctx() {
+                return execution.ctx();
+            }
+
+            @Override
+            public HttpResponse execute() {
+                try {
+                    return execution.execute(newReq);
+                } catch (Exception e) {
+                    return HttpResponse.ofFailure(e);
+                }
+            }
+        };
     }
 }

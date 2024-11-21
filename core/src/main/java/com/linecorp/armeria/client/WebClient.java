@@ -32,6 +32,7 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.QueryParams;
 import com.linecorp.armeria.common.RequestHeaders;
+import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
@@ -668,4 +669,32 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
 
     @Override
     HttpClient unwrap();
+
+    /**
+     * TBU.
+     */
+    ExecutionContext<HttpResponse> executionContext(HttpRequest req);
+
+    /**
+     * TBU.
+     */
+    ExecutionContext<HttpResponse> executionContext(HttpRequest req, RequestOptions requestOptions);
+
+    /**
+     * TBU.
+     */
+    interface ExecutionContext<O extends Response> {
+
+        /**
+         * Note: If exposing {@link ClientRequestContext} itself is a risk, perhaps we can
+         * introduce a super-interface (e.g. PartialClientRequestContext) and expose this instead with
+         * useful functions such as `ctx#log`.
+         */
+        ClientRequestContext ctx();
+
+        /**
+         * This must be called at most once.
+         */
+        O execute();
+    }
 }
