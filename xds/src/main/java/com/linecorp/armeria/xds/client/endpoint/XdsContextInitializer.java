@@ -78,9 +78,8 @@ public final class XdsContextInitializer implements ContextInitializer, AsyncClo
     }
 
     @Override
-    public <I extends Request, O extends Response>
-    ClientExecution<I, O> prepare(ClientBuilderParams clientBuilderParams, RequestParams requestParams,
-                                  Client<I, O> delegate) {
+    public ClientExecution prepare(ClientBuilderParams clientBuilderParams, RequestParams requestParams) {
+        validateSessionProtocol(clientBuilderParams.scheme().sessionProtocol());
         HttpRequest req = requestParams.httpRequest();
         final RequestTarget reqTarget;
         if (requestParams.requestTarget() != null) {
@@ -103,14 +102,15 @@ public final class XdsContextInitializer implements ContextInitializer, AsyncClo
                 clientBuilderParams.options().factory().meterRegistry(), SessionProtocol.UNDETERMINED,
                 req.method(), reqTarget, clientBuilderParams.options(),
                 req, requestParams.rpcRequest(), requestParams.requestOptions());
-        return new ClientExecution<I, O>() {
+        return new ClientExecution() {
             @Override
             public ClientRequestContext ctx() {
                 return ctx;
             }
 
             @Override
-            public O execute(I req) throws Exception {
+            public <I extends Request, O extends Response>
+            O execute(Client<I, O> delegate, I req) throws Exception {
                 return new XdsClient<>(delegate, clusterManager).execute(ctx, req);
             }
         };
@@ -124,8 +124,12 @@ public final class XdsContextInitializer implements ContextInitializer, AsyncClo
 
     @Override
     public void validate(ClientBuilderParams params) {
-        checkArgument(params.scheme().sessionProtocol() == SessionProtocol.UNDETERMINED,
-                      "The scheme '%s' must be '%s' for %s", params.scheme().sessionProtocol(),
+        validateSessionProtocol(params.scheme().sessionProtocol());
+    }
+
+    private void validateSessionProtocol(SessionProtocol sessionProtocol) {
+        checkArgument(sessionProtocol == SessionProtocol.UNDETERMINED,
+                      "The scheme '%s' must be '%s' for %s", sessionProtocol,
                       SessionProtocol.UNDETERMINED, getClass().getSimpleName());
     }
 }

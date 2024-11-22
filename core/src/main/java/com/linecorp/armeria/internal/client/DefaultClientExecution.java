@@ -26,21 +26,17 @@ import com.linecorp.armeria.common.Response;
 /**
  * TBU.
  */
-public final class DefaultClientExecution<I extends Request, O extends Response> implements
-                                                                                 ClientExecution<I, O> {
+public final class DefaultClientExecution implements ClientExecution {
 
     private final ClientRequestContextExtension ctx;
     private final EndpointGroup endpointGroup;
-    private final Client<I, O> delegate;
 
     /**
      * TBU.
      */
-    public DefaultClientExecution(ClientRequestContextExtension ctx, EndpointGroup endpointGroup,
-                                  Client<I, O> delegate) {
+    public DefaultClientExecution(ClientRequestContextExtension ctx, EndpointGroup endpointGroup) {
         this.ctx = ctx;
         this.endpointGroup = endpointGroup;
-        this.delegate = delegate;
     }
 
     @Override
@@ -49,7 +45,7 @@ public final class DefaultClientExecution<I extends Request, O extends Response>
     }
 
     @Override
-    public O execute(I req) throws Exception {
+    public <I extends Request, O extends Response> O execute(Client<I, O> delegate, I req) throws Exception {
         return ClientUtil.initContextAndExecuteWithFallback(delegate, ctx, endpointGroup, req);
     }
 }

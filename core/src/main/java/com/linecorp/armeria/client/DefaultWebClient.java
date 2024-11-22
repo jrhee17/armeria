@@ -113,8 +113,7 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
             newReq = req.withHeaders(req.headers().toBuilder().path(newPath));
         }
 
-        final RequestParams requestParams;
-
+        final ClientExecution execution;
         if (Clients.isUndefinedUri(uri())) {
             final String scheme;
             final String authority;
@@ -141,17 +140,18 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
             } catch (Exception e) {
                 throw new IllegalArgumentException("Failed to parse a scheme: " + reqTarget.scheme(), e);
             }
-            requestParams = RequestParams.of(newReq, null, requestOptions, reqTarget, parsedScheme, endpoint);
+            final RequestParams requestParams = RequestParams.of(newReq, null, requestOptions, reqTarget);
+            execution = new UndefinedUriInitializer(parsedScheme.sessionProtocol(), endpoint)
+                    .prepare(params(), requestParams);
         } else {
             if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
                 throw new IllegalArgumentException(
                         "Cannot send a request with a \":path\" header that contains an authority, " +
                         "because the client was created with a base URI. path: " + originalPath);
             }
-            requestParams = RequestParams.of(newReq, null, requestOptions, reqTarget);
+            final RequestParams requestParams = RequestParams.of(newReq, null, requestOptions, reqTarget);
+            execution = params().contextInitializer().prepare(params(), requestParams);
         }
-        final ClientExecution<HttpRequest, HttpResponse> execution =
-                params().contextInitializer().prepare(params(), requestParams, unwrap());
         return new ExecutionContext<HttpResponse>() {
             @Override
             public ClientRequestContext ctx() {
@@ -161,7 +161,7 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
             @Override
             public HttpResponse execute() {
                 try {
-                    return execution.execute(newReq);
+                    return execution.execute(unwrap(), newReq);
                 } catch (Exception e) {
                     return HttpResponse.ofFailure(e);
                 }

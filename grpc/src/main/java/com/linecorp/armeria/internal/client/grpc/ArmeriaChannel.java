@@ -168,8 +168,8 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         assert reqTarget != null : path;
         RequestTargetCache.putForClient(path, reqTarget);
         final RequestParams requestParams = RequestParams.of(req, null, requestOptions, reqTarget);
-        final ClientExecution<HttpRequest, HttpResponse> clientExecution =
-                params.contextInitializer().prepare(params, requestParams, client);
+        final ClientExecution clientExecution =
+                params.contextInitializer().prepare(params, requestParams);
         final ClientRequestContext ctx = clientExecution.ctx();
 
         GrpcCallOptions.set(ctx, callOptions);

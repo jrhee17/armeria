@@ -28,7 +28,7 @@ public interface ContextInitializer {
     /**
      * TBU.
      */
-    interface ClientExecution<I extends Request, O extends Response> {
+    interface ClientExecution {
 
         /**
          * TBU.
@@ -42,7 +42,7 @@ public interface ContextInitializer {
          * right before executing a request. However, the provided {@param req} must match
          * the request set in {@link ClientRequestContext}.
          */
-        O execute(I req) throws Exception;
+        <I extends Request, O extends Response> O execute(Client<I, O> delegate, I req) throws Exception;
     }
 
     /**
@@ -50,9 +50,7 @@ public interface ContextInitializer {
      * same thread as the caller. This is important to ensure backwards compatibility for APIs
      * such as {@link Clients#newContextCaptor()}.
      */
-    <I extends Request, O extends Response>
-    ClientExecution<I, O> prepare(ClientBuilderParams clientBuilderParams,
-                                  RequestParams requestParams, Client<I, O> delegate);
+    ClientExecution prepare(ClientBuilderParams clientBuilderParams, RequestParams requestParams);
 
     /**
      * TBU.

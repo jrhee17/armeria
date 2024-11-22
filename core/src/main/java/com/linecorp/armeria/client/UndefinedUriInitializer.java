@@ -14,30 +14,32 @@
  * under the License.
  */
 
-package com.linecorp.armeria.internal.client;
+package com.linecorp.armeria.client;
 
-import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
-import com.linecorp.armeria.client.ContextInitializer;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.internal.client.DefaultClientExecution;
+import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 
-public final class EndpointGroupContextInitializer implements ContextInitializer {
+final class UndefinedUriInitializer implements ContextInitializer {
 
     private final EndpointGroup endpointGroup;
+    private final SessionProtocol sessionProtocol;
 
-    public EndpointGroupContextInitializer(EndpointGroup endpointGroup) {
+    UndefinedUriInitializer(SessionProtocol sessionProtocol, EndpointGroup endpointGroup) {
+        this.sessionProtocol = sessionProtocol;
         this.endpointGroup = endpointGroup;
     }
 
     @Override
     public ClientExecution prepare(ClientBuilderParams clientBuilderParams, RequestParams requestParams) {
+        assert Clients.isUndefinedUri(clientBuilderParams.uri());
         final HttpRequest req = requestParams.httpRequest();
-
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 clientBuilderParams.options().factory().meterRegistry(),
-                clientBuilderParams.scheme().sessionProtocol(), req.method(), requestParams.requestTarget(),
-                clientBuilderParams.options(),
+                sessionProtocol, req.method(), requestParams.requestTarget(), clientBuilderParams.options(),
                 req, requestParams.rpcRequest(), requestParams.requestOptions());
         return new DefaultClientExecution(ctx, endpointGroup);
     }

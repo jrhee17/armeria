@@ -26,15 +26,12 @@ import java.util.function.Consumer;
 
 import com.google.common.collect.ImmutableList;
 
-import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ContextInitializer;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.retry.RetryingClient;
-import com.linecorp.armeria.common.Request;
-import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.AsyncCloseable;
@@ -199,9 +196,7 @@ public interface EndpointGroup extends Listenable<List<Endpoint>>, EndpointSelec
     }
 
     @Override
-    default <I extends Request, O extends Response> ClientExecution<I, O> prepare(
-            ClientBuilderParams clientBuilderParams, RequestParams requestParams, Client<I, O> delegate) {
-        return new EndpointGroupContextInitializer(this).prepare(clientBuilderParams, requestParams,
-                                                                 delegate);
+    default ClientExecution prepare(ClientBuilderParams clientBuilderParams, RequestParams requestParams) {
+        return new EndpointGroupContextInitializer(this).prepare(clientBuilderParams, requestParams);
     }
 }

@@ -125,7 +125,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
     private final boolean grpcWebText;
     private final Compressor compressor;
     private final InternalGrpcExceptionHandler exceptionHandler;
-    private final ClientExecution<HttpRequest, HttpResponse> clientExecution;
+    private final ClientExecution clientExecution;
 
     private boolean endpointInitialized;
     @Nullable
@@ -145,7 +145,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
     private volatile int pendingMessages;
 
     ArmeriaClientCall(
-            ClientExecution<HttpRequest, HttpResponse> clientExecution,
+            ClientExecution clientExecution,
             ClientBuilderParams params,
             Client<HttpRequest, HttpResponse> httpClient,
             HttpRequestWriter req,
@@ -251,7 +251,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
 
         final HttpResponse res;
         try {
-            res = clientExecution.execute(newReq);
+            res = clientExecution.execute(httpClient, newReq);
         } catch (Throwable t) {
             final Status status = convertException(t);
             close(status, new Metadata());
