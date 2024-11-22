@@ -19,12 +19,14 @@ package com.linecorp.armeria.client;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import com.linecorp.armeria.client.ContextInitializer.ClientExecution;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
+import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.Response;
+import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.testing.junit5.common.EventLoopGroupExtension;
@@ -51,25 +53,29 @@ class CustomContextInitTest {
 
     @Test
     void basicCase() {
-        final WebClient client = WebClient.of((clientBuilderParams, requestParams) -> {
-            final HttpRequest req = requestParams.httpRequest();
-            final SessionProtocol sessionProtocol = clientBuilderParams.scheme().sessionProtocol();
-            final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                    clientBuilderParams.options().factory().meterRegistry(), sessionProtocol,
-                    req.method(), requestParams.requestTarget(), clientBuilderParams.options(),
-                    req, requestParams.rpcRequest(), requestParams.requestOptions());
-            return new ClientExecution() {
-                @Override
-                public ClientRequestContext ctx() {
-                    return ctx;
-                }
+        final WebClient client = WebClient.of(new ContextInitializer() {
+            @Override
+            public ClientExecution prepare(ClientBuilderParams clientBuilderParams, HttpRequest httpRequest,
+                                           @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
+                                           RequestOptions requestOptions) {
+                final SessionProtocol sessionProtocol = clientBuilderParams.scheme().sessionProtocol();
+                final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
+                        clientBuilderParams.options().factory().meterRegistry(), sessionProtocol,
+                        httpRequest.method(), requestTarget, clientBuilderParams.options(),
+                        httpRequest, rpcRequest, requestOptions);
+                return new ClientExecution() {
+                    @Override
+                    public ClientRequestContext ctx() {
+                        return ctx;
+                    }
 
-                @Override
-                public <I extends Request, O extends Response> O execute(Client<I, O> delegate, I req)
-                        throws Exception {
-                    return delegate.execute(ctx, req);
-                }
-            };
+                    @Override
+                    public <I extends Request, O extends Response> O execute(Client<I, O> delegate, I req)
+                            throws Exception {
+                        return delegate.execute(ctx, req);
+                    }
+                };
+            }
         });
     }
 }

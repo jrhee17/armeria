@@ -17,10 +17,13 @@
 package com.linecorp.armeria.internal.client;
 
 import com.linecorp.armeria.client.ClientBuilderParams;
-import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.client.ContextInitializer;
+import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.RequestTarget;
+import com.linecorp.armeria.common.RpcRequest;
+import com.linecorp.armeria.common.annotation.Nullable;
 
 public final class EndpointGroupContextInitializer implements ContextInitializer {
 
@@ -31,14 +34,13 @@ public final class EndpointGroupContextInitializer implements ContextInitializer
     }
 
     @Override
-    public ClientExecution prepare(ClientBuilderParams clientBuilderParams, RequestParams requestParams) {
-        final HttpRequest req = requestParams.httpRequest();
-
+    public ClientExecution prepare(ClientBuilderParams clientBuilderParams, HttpRequest httpRequest,
+                                   @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
+                                   RequestOptions requestOptions) {
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 clientBuilderParams.options().factory().meterRegistry(),
-                clientBuilderParams.scheme().sessionProtocol(), req.method(), requestParams.requestTarget(),
-                clientBuilderParams.options(),
-                req, requestParams.rpcRequest(), requestParams.requestOptions());
+                clientBuilderParams.scheme().sessionProtocol(), httpRequest.method(), requestTarget,
+                clientBuilderParams.options(), httpRequest, rpcRequest, requestOptions);
         return new DefaultClientExecution(ctx, endpointGroup);
     }
 }

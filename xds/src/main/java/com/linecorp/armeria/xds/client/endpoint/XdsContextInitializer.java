@@ -20,19 +20,19 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.concurrent.CompletableFuture;
 
-import com.google.common.base.Strings;
-
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientBuilderParams;
-import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ContextInitializer;
+import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.Response;
+import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 import com.linecorp.armeria.xds.XdsBootstrap;
@@ -78,30 +78,13 @@ public final class XdsContextInitializer implements ContextInitializer, AsyncClo
     }
 
     @Override
-    public ClientExecution prepare(ClientBuilderParams clientBuilderParams, RequestParams requestParams) {
-        validateSessionProtocol(clientBuilderParams.scheme().sessionProtocol());
-        HttpRequest req = requestParams.httpRequest();
-        final RequestTarget reqTarget;
-        if (requestParams.requestTarget() != null) {
-            reqTarget = requestParams.requestTarget();
-        } else {
-            final String originalPath = req.path();
-            final String prefix = Strings.emptyToNull(clientBuilderParams.uri().getRawPath());
-            reqTarget = RequestTarget.forClient(originalPath, prefix);
-            if (reqTarget == null) {
-                throw abortRequestAndReturnFailureResponse(
-                        req, new IllegalArgumentException("Invalid request target: " + originalPath));
-            }
-            final String newPath = reqTarget.pathAndQuery();
-            if (!newPath.equals(originalPath)) {
-                req = req.withHeaders(req.headers().toBuilder().path(newPath));
-            }
-        }
-
+    public ClientExecution prepare(ClientBuilderParams clientBuilderParams, HttpRequest httpRequest,
+                                   @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
+                                   RequestOptions requestOptions) {
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 clientBuilderParams.options().factory().meterRegistry(), SessionProtocol.UNDETERMINED,
-                req.method(), reqTarget, clientBuilderParams.options(),
-                req, requestParams.rpcRequest(), requestParams.requestOptions());
+                httpRequest.method(), requestTarget, clientBuilderParams.options(),
+                httpRequest, rpcRequest, requestOptions);
         return new ClientExecution() {
             @Override
             public ClientRequestContext ctx() {
@@ -114,12 +97,6 @@ public final class XdsContextInitializer implements ContextInitializer, AsyncClo
                 return new XdsClient<>(delegate, clusterManager).execute(ctx, req);
             }
         };
-    }
-
-    private static RuntimeException abortRequestAndReturnFailureResponse(HttpRequest req,
-                                                                         IllegalArgumentException e) {
-        req.abort(e);
-        return e;
     }
 
     @Override

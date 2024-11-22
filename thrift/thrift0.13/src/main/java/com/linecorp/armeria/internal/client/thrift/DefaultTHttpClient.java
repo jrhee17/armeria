@@ -83,9 +83,9 @@ final class DefaultTHttpClient extends UserClient<RpcRequest, RpcResponse> imple
                 RequestHeaders.builder(HttpMethod.POST, reqTarget.path())
                               .contentType(scheme().serializationFormat().mediaType())
                               .build());
-        final RequestParams reqParams = RequestParams.of(httpReq, call, UNARY_REQUEST_OPTIONS, reqTarget);
         try {
-            return params().contextInitializer().prepare(params(), reqParams)
+            return params().contextInitializer()
+                           .prepare(params(), httpReq, call, reqTarget, UNARY_REQUEST_OPTIONS)
                            .execute(unwrap(), call);
         } catch (Exception e) {
             return RpcResponse.ofFailure(e);

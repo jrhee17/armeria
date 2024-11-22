@@ -27,11 +27,14 @@ import java.util.function.Consumer;
 import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.ClientBuilderParams;
-import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ContextInitializer;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.retry.RetryingClient;
+import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.RequestTarget;
+import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.AsyncCloseable;
@@ -196,7 +199,10 @@ public interface EndpointGroup extends Listenable<List<Endpoint>>, EndpointSelec
     }
 
     @Override
-    default ClientExecution prepare(ClientBuilderParams clientBuilderParams, RequestParams requestParams) {
-        return new EndpointGroupContextInitializer(this).prepare(clientBuilderParams, requestParams);
+    default ClientExecution prepare(ClientBuilderParams clientBuilderParams, HttpRequest httpRequest,
+                                    @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
+                                    RequestOptions requestOptions) {
+        return new EndpointGroupContextInitializer(this).prepare(clientBuilderParams, httpRequest,
+                                                                 rpcRequest, requestTarget, requestOptions);
     }
 }

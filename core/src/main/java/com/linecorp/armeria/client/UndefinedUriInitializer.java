@@ -16,10 +16,12 @@
 
 package com.linecorp.armeria.client;
 
-import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.RequestTarget;
+import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.DefaultClientExecution;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 
@@ -34,13 +36,14 @@ final class UndefinedUriInitializer implements ContextInitializer {
     }
 
     @Override
-    public ClientExecution prepare(ClientBuilderParams clientBuilderParams, RequestParams requestParams) {
+    public ClientExecution prepare(ClientBuilderParams clientBuilderParams, HttpRequest httpRequest,
+                                   @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
+                                   RequestOptions requestOptions) {
         assert Clients.isUndefinedUri(clientBuilderParams.uri());
-        final HttpRequest req = requestParams.httpRequest();
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 clientBuilderParams.options().factory().meterRegistry(),
-                sessionProtocol, req.method(), requestParams.requestTarget(), clientBuilderParams.options(),
-                req, requestParams.rpcRequest(), requestParams.requestOptions());
+                sessionProtocol, httpRequest.method(), requestTarget, clientBuilderParams.options(),
+                httpRequest, rpcRequest, requestOptions);
         return new DefaultClientExecution(ctx, endpointGroup);
     }
 }

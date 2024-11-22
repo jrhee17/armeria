@@ -140,17 +140,16 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
             } catch (Exception e) {
                 throw new IllegalArgumentException("Failed to parse a scheme: " + reqTarget.scheme(), e);
             }
-            final RequestParams requestParams = RequestParams.of(newReq, null, requestOptions, reqTarget);
             execution = new UndefinedUriInitializer(parsedScheme.sessionProtocol(), endpoint)
-                    .prepare(params(), requestParams);
+                    .prepare(params(), newReq, null, reqTarget, requestOptions);
         } else {
             if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
                 throw new IllegalArgumentException(
                         "Cannot send a request with a \":path\" header that contains an authority, " +
                         "because the client was created with a base URI. path: " + originalPath);
             }
-            final RequestParams requestParams = RequestParams.of(newReq, null, requestOptions, reqTarget);
-            execution = params().contextInitializer().prepare(params(), requestParams);
+            execution = params().contextInitializer()
+                                .prepare(params(), newReq, null, reqTarget, requestOptions);
         }
         return new ExecutionContext<HttpResponse>() {
             @Override
