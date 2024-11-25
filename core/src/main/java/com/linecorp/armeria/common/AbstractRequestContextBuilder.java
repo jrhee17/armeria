@@ -66,7 +66,7 @@ public abstract class AbstractRequestContextBuilder {
     private final HttpRequest req;
     @Nullable
     private final RpcRequest rpcReq;
-    private SessionProtocol sessionProtocol;
+    private SessionProtocol sessionProtocol = SessionProtocol.UNDETERMINED;
     @Nullable
     private RequestId id;
     private HttpMethod method;
@@ -158,6 +158,22 @@ public abstract class AbstractRequestContextBuilder {
                     uri.getRawPath(), uri.getRawPath(), null,
                     uri.getRawQuery(), uri.getRawFragment());
         }
+    }
+
+    /**
+     * TBU.
+     */
+    protected AbstractRequestContextBuilder(boolean server,
+                                            HttpRequest httpRequest, @Nullable RpcRequest rpcReq,
+                                            RequestTarget reqTarget) {
+        this.server = server;
+        this.rpcReq = rpcReq;
+        method = httpRequest.method();
+
+        authority = firstNonNull(reqTarget.authority(), FALLBACK_AUTHORITY);
+
+        this.reqTarget = reqTarget;
+        req = httpRequest;
     }
 
     private static SessionProtocol getSessionProtocol(URI uri) {

@@ -16,9 +16,19 @@
 
 package com.linecorp.armeria.client;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import com.google.common.collect.Lists;
+
+import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
@@ -27,12 +37,13 @@ import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.testing.junit5.common.EventLoopGroupExtension;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
 import io.netty.channel.Channel;
+import io.netty.channel.EventLoop;
+import io.netty.util.concurrent.EventExecutor;
 
 class CustomContextInitTest {
 
@@ -52,17 +63,23 @@ class CustomContextInitTest {
     static EventLoopGroupExtension eventLoopGroup = new EventLoopGroupExtension(4);
 
     @Test
-    void basicCase() {
+    void specifyEventLoops() {
+        final AtomicInteger counter = new AtomicInteger();
+        final ArrayList<EventExecutor> eventExecutors = Lists.newArrayList(eventLoopGroup.get().iterator());
         final WebClient client = WebClient.of(new ContextInitializer() {
             @Override
             public ClientExecution prepare(ClientBuilderParams clientBuilderParams, HttpRequest httpRequest,
                                            @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
                                            RequestOptions requestOptions) {
-                final SessionProtocol sessionProtocol = clientBuilderParams.scheme().sessionProtocol();
-                final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                        clientBuilderParams.options().factory().meterRegistry(), sessionProtocol,
-                        httpRequest.method(), requestTarget, clientBuilderParams.options(),
-                        httpRequest, rpcRequest, requestOptions);
+                final ClientRequestContext ctx =
+                        ClientRequestContext
+                                .builder(httpRequest, rpcRequest, requestTarget)
+                                .requestOptions(requestOptions)
+                                .eventLoop((EventLoop) eventExecutors.get(counter.getAndIncrement() % 4))
+                                .endpointGroup(server.httpEndpoint())
+                                .options(clientBuilderParams.options())
+                                .sessionProtocol(SessionProtocol.HTTP)
+                                .build();
                 return new ClientExecution() {
                     @Override
                     public ClientRequestContext ctx() {
@@ -77,5 +94,12 @@ class CustomContextInitTest {
                 };
             }
         });
+        final Set<String> channelIds = new HashSet<>();
+        for (int i = 0; i < 4; i++) {
+            final AggregatedHttpResponse res = client.blocking().get("/");
+            assertThat(res.status().code()).isEqualTo(200);
+            channelIds.add(res.contentUtf8());
+        }
+        assertThat(channelIds).hasSize(4);
     }
 }
