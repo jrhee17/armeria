@@ -68,7 +68,7 @@ class CustomContextInitTest {
         final ArrayList<EventExecutor> eventExecutors = Lists.newArrayList(eventLoopGroup.get().iterator());
         final WebClient client = WebClient.of(new ContextInitializer() {
             @Override
-            public ClientExecution prepare(ClientBuilderParams clientBuilderParams, HttpRequest httpRequest,
+            public ClientExecution prepare(ClientOptions clientOptions, HttpRequest httpRequest,
                                            @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
                                            RequestOptions requestOptions) {
                 final ClientRequestContext ctx =
@@ -77,7 +77,7 @@ class CustomContextInitTest {
                                 .requestOptions(requestOptions)
                                 .eventLoop((EventLoop) eventExecutors.get(counter.getAndIncrement() % 4))
                                 .endpointGroup(server.httpEndpoint())
-                                .options(clientBuilderParams.options())
+                                .options(clientOptions)
                                 .sessionProtocol(SessionProtocol.HTTP)
                                 .build();
                 return new ClientExecution() {

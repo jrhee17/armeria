@@ -36,14 +36,18 @@ final class UndefinedUriInitializer implements ContextInitializer {
     }
 
     @Override
-    public ClientExecution prepare(ClientBuilderParams clientBuilderParams, HttpRequest httpRequest,
+    public ClientExecution prepare(ClientOptions clientOptions, HttpRequest httpRequest,
                                    @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
                                    RequestOptions requestOptions) {
-        assert Clients.isUndefinedUri(clientBuilderParams.uri());
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                clientBuilderParams.options().factory().meterRegistry(),
-                sessionProtocol, httpRequest.method(), requestTarget, clientBuilderParams.options(),
+                clientOptions.factory().meterRegistry(),
+                sessionProtocol, httpRequest.method(), requestTarget, clientOptions,
                 httpRequest, rpcRequest, requestOptions);
         return new DefaultClientExecution(ctx, endpointGroup);
+    }
+
+    @Override
+    public EndpointGroup endpointGroup() {
+        return endpointGroup;
     }
 }

@@ -17,6 +17,7 @@
 package com.linecorp.armeria.client;
 
 import com.linecorp.armeria.client.ClientBuilderParams.RequestParams;
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestTarget;
@@ -54,9 +55,17 @@ public interface ContextInitializer {
      * same thread as the caller. This is important to ensure backwards compatibility for APIs
      * such as {@link Clients#newContextCaptor()}.
      */
-    ClientExecution prepare(ClientBuilderParams clientBuilderParams, HttpRequest httpRequest,
+    ClientExecution prepare(ClientOptions clientOptions, HttpRequest httpRequest,
                             @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
                             RequestOptions requestOptions);
+
+    /**
+     * TBU.
+     */
+    @Nullable
+    default EndpointGroup endpointGroup() {
+        return null;
+    }
 
     /**
      * TBU.

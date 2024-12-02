@@ -27,6 +27,7 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.EndpointGroupContextInitializer;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
 
 /**
@@ -67,7 +68,37 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         }
         this.absolutePathRef = absolutePathRef;
 
-        contextInitializer = endpointGroup;
+        contextInitializer = new EndpointGroupContextInitializer(scheme.sessionProtocol(), endpointGroup);
+        contextInitializer.validate(this);
+    }
+
+    DefaultClientBuilderParams(Scheme scheme, EndpointGroup endpointGroup,
+                               @Nullable String absolutePathRef,
+                               Class<?> type, ClientOptions options) {
+        this.type = requireNonNull(type, "type");
+        this.options = requireNonNull(options, "options");
+
+        final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
+        final String schemeStr;
+        if (scheme.serializationFormat() == SerializationFormat.NONE) {
+            schemeStr = scheme.sessionProtocol().uriText();
+        } else {
+            schemeStr = scheme.uriText();
+        }
+        final URI uri;
+        if (endpointGroup instanceof Endpoint) {
+            uri = URI.create(schemeStr + "://" + ((Endpoint) endpointGroup).authority() +
+                             normalizedAbsolutePathRef);
+        } else {
+            uri = dummyUri(endpointGroup, schemeStr, normalizedAbsolutePathRef);
+        }
+        this.endpointGroup = endpointGroup;
+        final ClientFactory factory = options.factory();
+        this.scheme = factory.validateScheme(scheme);
+
+        this.absolutePathRef = normalizedAbsolutePathRef;
+        this.uri = factory.validateUri(uri);
+        this.contextInitializer = new EndpointGroupContextInitializer(scheme.sessionProtocol(), endpointGroup);
         contextInitializer.validate(this);
     }
 
@@ -85,18 +116,19 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         } else {
             schemeStr = scheme.uriText();
         }
+        EndpointGroup endpointGroup = contextInitializer.endpointGroup();
+        if (endpointGroup == null) {
+            endpointGroup = EndpointGroup.of();
+        }
+        this.endpointGroup = endpointGroup;
+
         final URI uri;
-        if (contextInitializer instanceof Endpoint) {
-            uri = URI.create(schemeStr + "://" + ((Endpoint) contextInitializer).authority() +
+        if (endpointGroup instanceof Endpoint) {
+            uri = URI.create(schemeStr + "://" + ((Endpoint) endpointGroup).authority() +
                              normalizedAbsolutePathRef);
-            endpointGroup = (EndpointGroup) contextInitializer;
-        } else if (contextInitializer instanceof EndpointGroup) {
-            endpointGroup = (EndpointGroup) contextInitializer;
-            uri = dummyUri(contextInitializer, schemeStr, normalizedAbsolutePathRef);
         } else {
             // Create a valid URI which will never succeed.
             uri = dummyUri(contextInitializer, schemeStr, normalizedAbsolutePathRef);
-            endpointGroup = Endpoint.parse(uri.getRawAuthority());
         }
         final ClientFactory factory = options.factory();
         this.scheme = factory.validateScheme(scheme);

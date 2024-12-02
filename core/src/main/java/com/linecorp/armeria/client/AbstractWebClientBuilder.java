@@ -28,6 +28,7 @@ import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.EndpointGroupContextInitializer;
 
 /**
  * A skeletal builder implementation for {@link WebClient}.
@@ -69,7 +70,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     protected AbstractWebClientBuilder(SessionProtocol sessionProtocol, EndpointGroup endpointGroup,
                                        @Nullable String path) {
         this(null, validateSessionProtocol(sessionProtocol),
-             requireNonNull(endpointGroup, "endpointGroup"), path);
+             new EndpointGroupContextInitializer(sessionProtocol, endpointGroup), path);
     }
 
     /**

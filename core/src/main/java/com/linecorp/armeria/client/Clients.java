@@ -36,6 +36,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.common.util.Unwrappable;
 import com.linecorp.armeria.internal.client.ClientThreadLocalState;
+import com.linecorp.armeria.internal.client.EndpointGroupContextInitializer;
 
 /**
  * Creates a new client that connects to a specified {@link URI}.
@@ -201,8 +202,29 @@ public final class Clients {
      *
      * @throws IllegalArgumentException if the {@code scheme} is invalid.
      */
+    public static ClientBuilder builder(String scheme, EndpointGroup endpointGroup) {
+        return builder(Scheme.parse(requireNonNull(scheme, "scheme")), endpointGroup);
+    }
+
+    /**
+     * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
+     * {@link EndpointGroup} with the specified {@code scheme}.
+     *
+     * @throws IllegalArgumentException if the {@code scheme} is invalid.
+     */
     public static ClientBuilder builder(String scheme, ContextInitializer contextInitializer) {
         return builder(Scheme.parse(requireNonNull(scheme, "scheme")), contextInitializer);
+    }
+
+    /**
+     * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
+     * {@link EndpointGroup} with the specified {@code scheme} and {@code path}.
+     *
+     * @throws IllegalArgumentException if the {@code scheme} is invalid.
+     */
+    public static ClientBuilder builder(String scheme, EndpointGroup endpointGroup,
+                                        String path) {
+        return builder(Scheme.parse(requireNonNull(scheme, "scheme")), endpointGroup, path);
     }
 
     /**
@@ -239,10 +261,33 @@ public final class Clients {
      * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
      * {@link EndpointGroup} with the specified {@link Scheme}.
      */
+    public static ClientBuilder builder(Scheme scheme, EndpointGroup endpointGroup) {
+        requireNonNull(scheme, "scheme");
+        requireNonNull(endpointGroup, "endpointGroup");
+        return new ClientBuilder(scheme, new EndpointGroupContextInitializer(
+                scheme.sessionProtocol(), endpointGroup), null);
+    }
+
+    /**
+     * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
+     * {@link EndpointGroup} with the specified {@link Scheme}.
+     */
     public static ClientBuilder builder(Scheme scheme, ContextInitializer contextInitializer) {
         requireNonNull(scheme, "scheme");
-        requireNonNull(contextInitializer, "endpointGroup");
+        requireNonNull(contextInitializer, "contextInitializer");
         return new ClientBuilder(scheme, contextInitializer, null);
+    }
+
+    /**
+     * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
+     * {@link EndpointGroup} with the specified {@link Scheme} and {@code path}.
+     */
+    public static ClientBuilder builder(Scheme scheme, EndpointGroup endpointGroup, String path) {
+        requireNonNull(scheme, "scheme");
+        requireNonNull(endpointGroup, "endpointGroup");
+        requireNonNull(path, "path");
+        return new ClientBuilder(scheme, new EndpointGroupContextInitializer(
+                scheme.sessionProtocol(), endpointGroup), path);
     }
 
     /**

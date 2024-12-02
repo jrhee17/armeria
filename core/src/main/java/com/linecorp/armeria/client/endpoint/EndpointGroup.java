@@ -26,27 +26,19 @@ import java.util.function.Consumer;
 
 import com.google.common.collect.ImmutableList;
 
-import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.ContextInitializer;
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.retry.RetryingClient;
-import com.linecorp.armeria.common.HttpRequest;
-import com.linecorp.armeria.common.RequestTarget;
-import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.common.util.Listenable;
-import com.linecorp.armeria.internal.client.EndpointGroupContextInitializer;
 import com.linecorp.armeria.internal.client.endpoint.StaticEndpointGroup;
 
 /**
  * A list of {@link Endpoint}s.
  */
-public interface EndpointGroup extends Listenable<List<Endpoint>>, EndpointSelector, AsyncCloseable,
-                                       ContextInitializer {
+public interface EndpointGroup extends Listenable<List<Endpoint>>, EndpointSelector, AsyncCloseable {
 
     /**
      * Returns a singleton {@link EndpointGroup} which does not contain any {@link Endpoint}s.
@@ -196,13 +188,5 @@ public interface EndpointGroup extends Listenable<List<Endpoint>>, EndpointSelec
      */
     default EndpointGroup orElse(EndpointGroup nextEndpointGroup) {
         return new OrElseEndpointGroup(this, nextEndpointGroup);
-    }
-
-    @Override
-    default ClientExecution prepare(ClientBuilderParams clientBuilderParams, HttpRequest httpRequest,
-                                    @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
-                                    RequestOptions requestOptions) {
-        return new EndpointGroupContextInitializer(this).prepare(clientBuilderParams, httpRequest,
-                                                                 rpcRequest, requestTarget, requestOptions);
     }
 }

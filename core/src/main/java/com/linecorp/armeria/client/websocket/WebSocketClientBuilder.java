@@ -65,6 +65,7 @@ import com.linecorp.armeria.common.auth.BasicToken;
 import com.linecorp.armeria.common.auth.OAuth1aToken;
 import com.linecorp.armeria.common.auth.OAuth2Token;
 import com.linecorp.armeria.common.websocket.WebSocketFrameType;
+import com.linecorp.armeria.internal.client.EndpointGroupContextInitializer;
 
 /**
  * Builds a {@link WebSocketClient}.
@@ -92,7 +93,8 @@ public final class WebSocketClientBuilder extends AbstractWebClientBuilder {
     }
 
     WebSocketClientBuilder(Scheme scheme, EndpointGroup endpointGroup, @Nullable String path) {
-        super(null, validateScheme(requireNonNull(scheme, "scheme")), endpointGroup, path);
+        super(null, validateScheme(requireNonNull(scheme, "scheme")),
+              new EndpointGroupContextInitializer(scheme.sessionProtocol(), endpointGroup), path);
         setWebSocketDefaultOption();
     }
 

@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientBuilderParams;
+import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ContextInitializer;
 import com.linecorp.armeria.client.RequestOptions;
@@ -78,12 +79,12 @@ public final class XdsContextInitializer implements ContextInitializer, AsyncClo
     }
 
     @Override
-    public ClientExecution prepare(ClientBuilderParams clientBuilderParams, HttpRequest httpRequest,
+    public ClientExecution prepare(ClientOptions clientOptions, HttpRequest httpRequest,
                                    @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
                                    RequestOptions requestOptions) {
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                clientBuilderParams.options().factory().meterRegistry(), SessionProtocol.UNDETERMINED,
-                httpRequest.method(), requestTarget, clientBuilderParams.options(),
+                clientOptions.factory().meterRegistry(), SessionProtocol.UNDETERMINED,
+                httpRequest.method(), requestTarget, clientOptions,
                 httpRequest, rpcRequest, requestOptions);
         return new ClientExecution() {
             @Override

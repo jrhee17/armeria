@@ -16,31 +16,38 @@
 
 package com.linecorp.armeria.internal.client;
 
-import com.linecorp.armeria.client.ClientBuilderParams;
+import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ContextInitializer;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RpcRequest;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 
 public final class EndpointGroupContextInitializer implements ContextInitializer {
 
+    private final SessionProtocol sessionProtocol;
     private final EndpointGroup endpointGroup;
 
-    public EndpointGroupContextInitializer(EndpointGroup endpointGroup) {
+    public EndpointGroupContextInitializer(SessionProtocol sessionProtocol, EndpointGroup endpointGroup) {
+        this.sessionProtocol = sessionProtocol;
         this.endpointGroup = endpointGroup;
     }
 
     @Override
-    public ClientExecution prepare(ClientBuilderParams clientBuilderParams, HttpRequest httpRequest,
+    public ClientExecution prepare(ClientOptions clientOptions, HttpRequest httpRequest,
                                    @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
                                    RequestOptions requestOptions) {
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                clientBuilderParams.options().factory().meterRegistry(),
-                clientBuilderParams.scheme().sessionProtocol(), httpRequest.method(), requestTarget,
-                clientBuilderParams.options(), httpRequest, rpcRequest, requestOptions);
+                clientOptions.factory().meterRegistry(), sessionProtocol, httpRequest.method(),
+                requestTarget, clientOptions, httpRequest, rpcRequest, requestOptions);
         return new DefaultClientExecution(ctx, endpointGroup);
+    }
+
+    @Override
+    public EndpointGroup endpointGroup() {
+        return endpointGroup;
     }
 }

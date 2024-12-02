@@ -28,6 +28,7 @@ import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
+import com.linecorp.armeria.internal.client.EndpointGroupContextInitializer;
 
 /**
  * Creates a new gRPC client that connects to a {@link URI} or an {@link EndpointGroup}.
@@ -200,7 +201,8 @@ public final class GrpcClients {
     public static GrpcClientBuilder builder(Scheme scheme, EndpointGroup endpointGroup) {
         requireNonNull(scheme, "scheme");
         requireNonNull(endpointGroup, "endpointGroup");
-        return new GrpcClientBuilder(scheme, endpointGroup);
+        return new GrpcClientBuilder(scheme, new EndpointGroupContextInitializer(
+                scheme.sessionProtocol(), endpointGroup));
     }
 
     private static GrpcClientBuilder builder(Scheme scheme, ContextInitializer contextInitializer) {
