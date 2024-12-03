@@ -68,9 +68,9 @@ class CustomContextInitTest {
         final ArrayList<EventExecutor> eventExecutors = Lists.newArrayList(eventLoopGroup.get().iterator());
         final WebClient client = WebClient.of(new ContextInitializer() {
             @Override
-            public ClientExecution prepare(ClientOptions clientOptions, HttpRequest httpRequest,
+            public ClientExecution prepare(HttpRequest httpRequest,
                                            @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
-                                           RequestOptions requestOptions) {
+                                           RequestOptions requestOptions, ClientOptions clientOptions) {
                 final ClientRequestContext ctx =
                         ClientRequestContext
                                 .builder(httpRequest, rpcRequest, requestTarget)

@@ -38,7 +38,6 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     private final ContextInitializer contextInitializer;
     private final Class<?> type;
     private final ClientOptions options;
-    private final EndpointGroup endpointGroup;
     private final URI uri;
     private final String absolutePathRef;
     final Scheme scheme;
@@ -51,7 +50,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         this.options = requireNonNull(options, "options");
         final ClientFactory factory = requireNonNull(options, "options").factory();
         this.uri = factory.validateUri(uri);
-        endpointGroup = Endpoint.parse(uri.getRawAuthority());
+        final EndpointGroup endpointGroup = Endpoint.parse(uri.getRawAuthority());
         scheme = factory.validateScheme(Scheme.parse(uri.getScheme()));
 
         final String absolutePathRef;
@@ -69,7 +68,6 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         this.absolutePathRef = absolutePathRef;
 
         contextInitializer = new EndpointGroupContextInitializer(scheme.sessionProtocol(), endpointGroup);
-        contextInitializer.validate(this);
     }
 
     DefaultClientBuilderParams(SerializationFormat serializationFormat, ContextInitializer contextInitializer,
@@ -86,12 +84,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         } else {
             schemeStr = scheme.uriText();
         }
-        EndpointGroup endpointGroup = contextInitializer.endpointGroup();
-        if (endpointGroup == null) {
-            endpointGroup = EndpointGroup.of();
-        }
-        this.endpointGroup = endpointGroup;
-
+        final EndpointGroup endpointGroup = contextInitializer.endpointGroup();
         final URI uri;
         if (endpointGroup instanceof Endpoint) {
             uri = URI.create(schemeStr + "://" + ((Endpoint) endpointGroup).authority() +
@@ -106,7 +99,6 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         this.absolutePathRef = normalizedAbsolutePathRef;
         this.uri = factory.validateUri(uri);
         this.contextInitializer = contextInitializer;
-        contextInitializer.validate(this);
     }
 
     private static URI dummyUri(Object key, String schemeStr,

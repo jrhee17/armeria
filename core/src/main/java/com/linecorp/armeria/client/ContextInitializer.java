@@ -56,9 +56,9 @@ public interface ContextInitializer {
      * same thread as the caller. This is important to ensure backwards compatibility for APIs
      * such as {@link Clients#newContextCaptor()}.
      */
-    ClientExecution prepare(ClientOptions clientOptions, HttpRequest httpRequest,
+    ClientExecution prepare(HttpRequest httpRequest,
                             @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
-                            RequestOptions requestOptions);
+                            RequestOptions requestOptions, ClientOptions clientOptions);
 
     /**
      * TBU.
@@ -73,11 +73,5 @@ public interface ContextInitializer {
      */
     default SessionProtocol sessionProtocol() {
         return SessionProtocol.UNDETERMINED;
-    }
-
-    /**
-     * TBU.
-     */
-    default void validate(ClientBuilderParams params) {
     }
 }

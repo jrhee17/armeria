@@ -16,12 +16,9 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import java.util.concurrent.CompletableFuture;
 
 import com.linecorp.armeria.client.Client;
-import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ContextInitializer;
@@ -79,9 +76,9 @@ public final class XdsContextInitializer implements ContextInitializer, AsyncClo
     }
 
     @Override
-    public ClientExecution prepare(ClientOptions clientOptions, HttpRequest httpRequest,
+    public ClientExecution prepare(HttpRequest httpRequest,
                                    @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
-                                   RequestOptions requestOptions) {
+                                   RequestOptions requestOptions, ClientOptions clientOptions) {
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 clientOptions.factory().meterRegistry(), SessionProtocol.UNDETERMINED,
                 httpRequest.method(), requestTarget, clientOptions,
@@ -98,16 +95,5 @@ public final class XdsContextInitializer implements ContextInitializer, AsyncClo
                 return new XdsClient<>(delegate, clusterManager).execute(ctx, req);
             }
         };
-    }
-
-    @Override
-    public void validate(ClientBuilderParams params) {
-        validateSessionProtocol(params.scheme().sessionProtocol());
-    }
-
-    private void validateSessionProtocol(SessionProtocol sessionProtocol) {
-        checkArgument(sessionProtocol == SessionProtocol.UNDETERMINED,
-                      "The scheme '%s' must be '%s' for %s", sessionProtocol,
-                      SessionProtocol.UNDETERMINED, getClass().getSimpleName());
     }
 }

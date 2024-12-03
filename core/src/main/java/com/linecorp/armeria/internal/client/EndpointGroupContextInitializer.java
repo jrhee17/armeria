@@ -37,9 +37,9 @@ public final class EndpointGroupContextInitializer implements ContextInitializer
     }
 
     @Override
-    public ClientExecution prepare(ClientOptions clientOptions, HttpRequest httpRequest,
+    public ClientExecution prepare(HttpRequest httpRequest,
                                    @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
-                                   RequestOptions requestOptions) {
+                                   RequestOptions requestOptions, ClientOptions clientOptions) {
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 clientOptions.factory().meterRegistry(), sessionProtocol, httpRequest.method(),
                 requestTarget, clientOptions, httpRequest, rpcRequest, requestOptions);

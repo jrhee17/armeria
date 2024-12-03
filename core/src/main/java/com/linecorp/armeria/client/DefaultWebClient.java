@@ -142,7 +142,7 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
                 throw new IllegalArgumentException("Failed to parse a scheme: " + reqTarget.scheme(), e);
             }
             execution = new EndpointGroupContextInitializer(parsedScheme.sessionProtocol(), endpoint)
-                    .prepare(params().options(), newReq, null, reqTarget, requestOptions);
+                    .prepare(newReq, null, reqTarget, requestOptions, params().options());
         } else {
             if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
                 throw new IllegalArgumentException(
@@ -150,7 +150,7 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
                         "because the client was created with a base URI. path: " + originalPath);
             }
             execution = params().contextInitializer()
-                                .prepare(params().options(), newReq, null, reqTarget, requestOptions);
+                                .prepare(newReq, null, reqTarget, requestOptions, params().options());
         }
         return new ExecutionContext<HttpResponse>() {
             @Override
