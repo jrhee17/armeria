@@ -50,4 +50,9 @@ public final class EndpointGroupContextInitializer implements ContextInitializer
     public EndpointGroup endpointGroup() {
         return endpointGroup;
     }
+
+    @Override
+    public SessionProtocol sessionProtocol() {
+        return sessionProtocol;
+    }
 }

@@ -50,6 +50,7 @@ import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.SplitHttpResponse;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.stream.ByteStreamMessage;
 import com.linecorp.armeria.common.stream.StreamMessage;
@@ -245,6 +246,7 @@ final class DefaultWebSocketClient implements WebSocketClient {
     }
 
     @Override
+    @Nullable
     public EndpointGroup endpointGroup() {
         return webClient.endpointGroup();
     }

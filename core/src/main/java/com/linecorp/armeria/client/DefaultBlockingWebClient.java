@@ -23,6 +23,7 @@ import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.ExchangeType;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.Scheme;
+import com.linecorp.armeria.common.annotation.Nullable;
 
 final class DefaultBlockingWebClient implements BlockingWebClient {
 
@@ -55,6 +56,7 @@ final class DefaultBlockingWebClient implements BlockingWebClient {
     }
 
     @Override
+    @Nullable
     public EndpointGroup endpointGroup() {
         return delegate.endpointGroup();
     }

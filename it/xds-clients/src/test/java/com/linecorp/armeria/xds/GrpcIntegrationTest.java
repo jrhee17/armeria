@@ -33,8 +33,6 @@ import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.client.grpc.protocol.UnaryGrpcClient;
 import com.linecorp.armeria.common.HttpHeaders;
-import com.linecorp.armeria.common.Scheme;
-import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
 import com.linecorp.armeria.common.grpc.protocol.GrpcHeaderNames;
 import com.linecorp.armeria.common.grpc.protocol.GrpcWebTrailers;
@@ -121,7 +119,7 @@ class GrpcIntegrationTest {
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              XdsContextInitializer preparation = XdsContextInitializer.of("listener", xdsBootstrap)) {
-            TestServiceBlockingStub stub = GrpcClients.newClient(preparation,
+            TestServiceBlockingStub stub = GrpcClients.newClient(GrpcSerializationFormats.PROTO, preparation,
                                                                  TestServiceBlockingStub.class);
             assertThat(stub.hello(HelloRequest.getDefaultInstance()).getMessage()).isEqualTo("Hello");
 
@@ -142,9 +140,8 @@ class GrpcIntegrationTest {
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              XdsContextInitializer preparation = XdsContextInitializer.of("listener", xdsBootstrap)) {
-            final UnaryGrpcClient client = Clients.newClient(Scheme.of(GrpcSerializationFormats.PROTO,
-                                                                       SessionProtocol.UNDETERMINED),
-                                                             preparation, UnaryGrpcClient.class);
+            final UnaryGrpcClient client = Clients.newClient(GrpcSerializationFormats.PROTO, preparation,
+                                                             UnaryGrpcClient.class);
             final HelloRequest request = HelloRequest.getDefaultInstance();
 
             try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {

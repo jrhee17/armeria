@@ -29,6 +29,7 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.redirect.RedirectConfig;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.Scheme;
+import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SuccessFunction;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
@@ -36,6 +37,7 @@ import com.linecorp.armeria.common.auth.AuthToken;
 import com.linecorp.armeria.common.auth.BasicToken;
 import com.linecorp.armeria.common.auth.OAuth1aToken;
 import com.linecorp.armeria.common.auth.OAuth2Token;
+import com.linecorp.armeria.internal.client.EndpointGroupContextInitializer;
 
 /**
  * Creates a new client that connects to the specified {@link URI} using the builder pattern. Use the factory
@@ -84,7 +86,19 @@ public final class ClientBuilder extends AbstractClientOptionsBuilder {
         scheme = Scheme.parse(uri.getScheme());
     }
 
-    ClientBuilder(Scheme scheme, ContextInitializer contextInitializer, @Nullable String path) {
+    ClientBuilder(Scheme scheme, EndpointGroup endpointGroup, @Nullable String path) {
+        if (path != null) {
+            checkArgument(path.startsWith("/"),
+                          "path: %s (expected: an absolute path starting with '/')", path);
+        }
+        uri = null;
+        contextInitializer = new EndpointGroupContextInitializer(scheme.sessionProtocol(), endpointGroup);
+        this.path = path;
+        this.scheme = scheme;
+    }
+
+    ClientBuilder(SerializationFormat serializationFormat,
+                  ContextInitializer contextInitializer, @Nullable String path) {
         if (path != null) {
             checkArgument(path.startsWith("/"),
                           "path: %s (expected: an absolute path starting with '/')", path);
@@ -92,7 +106,7 @@ public final class ClientBuilder extends AbstractClientOptionsBuilder {
         uri = null;
         this.contextInitializer = contextInitializer;
         this.path = path;
-        this.scheme = scheme;
+        scheme = Scheme.of(serializationFormat, contextInitializer.sessionProtocol());
     }
 
     /**
@@ -113,7 +127,7 @@ public final class ClientBuilder extends AbstractClientOptionsBuilder {
             client = factory.newClient(ClientBuilderParams.of(uri, clientType, options));
         } else {
             assert contextInitializer != null;
-            client = factory.newClient(ClientBuilderParams.of(scheme, contextInitializer,
+            client = factory.newClient(ClientBuilderParams.of(scheme.serializationFormat(), contextInitializer,
                                                               path, clientType, options));
         }
 

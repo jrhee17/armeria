@@ -91,6 +91,7 @@ public abstract class UserClient<I extends Request, O extends Response>
     }
 
     @Override
+    @Nullable
     public final EndpointGroup endpointGroup() {
         return params.endpointGroup();
     }
@@ -143,34 +144,35 @@ public abstract class UserClient<I extends Request, O extends Response>
      */
     protected final O execute(SessionProtocol protocol, HttpMethod method, RequestTarget reqTarget,
                               I req, RequestOptions requestOptions) {
-        return execute(protocol, endpointGroup(), method, reqTarget, req, requestOptions);
+        return execute(protocol, contextInitializer(), method, reqTarget, req, requestOptions);
     }
 
     /**
      * Executes the specified {@link Request} via the delegate.
      *
      * @param protocol the {@link SessionProtocol} to use
-     * @param endpointGroup the {@link EndpointGroup} of the {@link Request}
+     * @param contextInitializer the {@link EndpointGroup} of the {@link Request}
      * @param method the method of the {@link Request}
      * @param reqTarget the {@link RequestTarget} of the {@link Request}
      * @param req the {@link Request}
      */
-    protected final O execute(SessionProtocol protocol, EndpointGroup endpointGroup, HttpMethod method,
-                              RequestTarget reqTarget, I req) {
-        return execute(protocol, endpointGroup, method, reqTarget, req, RequestOptions.of());
+    protected final O execute(SessionProtocol protocol, ContextInitializer contextInitializer,
+                              HttpMethod method, RequestTarget reqTarget, I req) {
+        return execute(protocol, contextInitializer, method, reqTarget, req, RequestOptions.of());
     }
 
     /**
      * Executes the specified {@link Request} via the delegate.
      *
      * @param protocol the {@link SessionProtocol} to use
-     * @param endpointGroup the {@link EndpointGroup} of the {@link Request}
+     * @param contextInitializer the {@link EndpointGroup} of the {@link Request}
      * @param method the method of the {@link Request}
      * @param reqTarget the {@link RequestTarget} of the {@link Request}
      * @param req the {@link Request}
      * @param requestOptions the {@link RequestOptions} of the {@link Request}
      */
-    protected final O execute(SessionProtocol protocol, EndpointGroup endpointGroup, HttpMethod method,
+    protected final O execute(SessionProtocol protocol, ContextInitializer contextInitializer,
+                              HttpMethod method,
                               RequestTarget reqTarget, I req, RequestOptions requestOptions) {
         final HttpRequest httpReq;
         final RpcRequest rpcReq;
@@ -181,13 +183,14 @@ public abstract class UserClient<I extends Request, O extends Response>
             httpReq = null;
             rpcReq = (RpcRequest) req;
         }
-        return execute(protocol, endpointGroup, method, reqTarget, rpcReq, httpReq, requestOptions);
+        return execute(protocol, contextInitializer, method, reqTarget, rpcReq, httpReq, requestOptions);
     }
 
     /**
      * TBU.
      */
-    protected final O execute(SessionProtocol protocol, EndpointGroup endpointGroup, HttpMethod method,
+    protected final O execute(SessionProtocol protocol, ContextInitializer contextInitializer,
+                              HttpMethod method,
                               RequestTarget reqTarget, @Nullable RpcRequest rpcReq,
                               @Nullable HttpRequest httpReq, RequestOptions requestOptions) {
         throw new RuntimeException();

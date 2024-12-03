@@ -33,7 +33,6 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.QueryParams;
 import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.Response;
-import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -162,17 +161,8 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      * the specified {@code protocol} using the default {@link ClientFactory} and the default
      * {@link ClientOptions}.
      */
-    static WebClient of(Scheme scheme, ContextInitializer contextInitializer) {
-        return builder(scheme, contextInitializer).build();
-    }
-
-    /**
-     * Returns a new {@link WebClient} that connects to the specified {@link EndpointGroup} with
-     * the specified {@code protocol} using the default {@link ClientFactory} and the default
-     * {@link ClientOptions}.
-     */
-    static WebClient of(Scheme scheme, ContextInitializer contextInitializer, String path) {
-        return builder(scheme, contextInitializer, path).build();
+    static WebClient of(ContextInitializer contextInitializer, String path) {
+        return builder(contextInitializer, path).build();
     }
 
     /**
@@ -266,29 +256,17 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      */
     static WebClientBuilder builder(ContextInitializer contextInitializer) {
         requireNonNull(contextInitializer, "contextInitializer");
-        return new WebClientBuilder(Scheme.of(SerializationFormat.NONE, SessionProtocol.UNDETERMINED),
-                                    contextInitializer, null);
+        return new WebClientBuilder(contextInitializer, null);
     }
 
     /**
      * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
      * and base {@link ContextInitializer}.
      */
-    static WebClientBuilder builder(Scheme scheme, ContextInitializer contextInitializer) {
-        requireNonNull(scheme, "scheme");
-        requireNonNull(contextInitializer, "contextInitializer");
-        return new WebClientBuilder(scheme, contextInitializer, null);
-    }
-
-    /**
-     * Returns a new {@link WebClientBuilder} created with the specified {@link SerializationFormat}
-     * and base {@link ContextInitializer}.
-     */
-    static WebClientBuilder builder(Scheme scheme, ContextInitializer contextInitializer, String path) {
-        requireNonNull(scheme, "scheme");
+    static WebClientBuilder builder(ContextInitializer contextInitializer, String path) {
         requireNonNull(contextInitializer, "contextInitializer");
         requireNonNull(path, "path");
-        return new WebClientBuilder(scheme, contextInitializer, path);
+        return new WebClientBuilder(contextInitializer, path);
     }
 
     /**

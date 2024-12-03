@@ -224,7 +224,7 @@ final class GrpcClientFactory extends DecoratingClientFactory {
         decorators.forEach(optionsBuilder::decorator);
 
         return ClientBuilderParams.of(
-                params.scheme(), params.contextInitializer(), params.absolutePathRef(),
+                params.scheme().serializationFormat(), params.contextInitializer(), params.absolutePathRef(),
                 params.clientType(), optionsBuilder.build());
     }
 

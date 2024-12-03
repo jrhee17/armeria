@@ -218,6 +218,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
     }
 
     @Override
+    @Nullable
     public EndpointGroup endpointGroup() {
         return params.endpointGroup();
     }

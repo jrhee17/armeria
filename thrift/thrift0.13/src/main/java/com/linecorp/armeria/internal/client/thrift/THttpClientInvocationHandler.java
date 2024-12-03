@@ -60,6 +60,7 @@ final class THttpClientInvocationHandler
     }
 
     @Override
+    @Nullable
     public EndpointGroup endpointGroup() {
         return params.endpointGroup();
     }

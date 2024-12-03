@@ -23,6 +23,7 @@ import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcRequest;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 
 /**
@@ -65,6 +66,13 @@ public interface ContextInitializer {
     @Nullable
     default EndpointGroup endpointGroup() {
         return null;
+    }
+
+    /**
+     * TBU.
+     */
+    default SessionProtocol sessionProtocol() {
+        return SessionProtocol.UNDETERMINED;
     }
 
     /**

@@ -84,11 +84,10 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
         validateOrSetSerializationFormat();
     }
 
-    ThriftClientBuilder(Scheme scheme, ContextInitializer contextInitializer) {
-        requireNonNull(scheme, "scheme");
+    ThriftClientBuilder(SerializationFormat serializationFormat, ContextInitializer contextInitializer) {
         requireNonNull(contextInitializer, "contextInitializer");
         uri = null;
-        this.scheme = scheme;
+        scheme = Scheme.of(serializationFormat, contextInitializer.sessionProtocol());
         validateOrSetSerializationFormat();
         this.contextInitializer = contextInitializer;
     }
@@ -197,8 +196,8 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
             client = factory.newClient(ClientBuilderParams.of(uri, clientType, options));
         } else {
             assert contextInitializer != null;
-            client = factory.newClient(ClientBuilderParams.of(scheme, contextInitializer,
-                                                              path, clientType, options));
+            client = factory.newClient(ClientBuilderParams.of(scheme.serializationFormat(),
+                                                              contextInitializer, path, clientType, options));
         }
 
         @SuppressWarnings("unchecked")

@@ -26,6 +26,7 @@ import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.Scheme;
+import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
 
 /**
@@ -46,12 +47,14 @@ public interface ClientBuilderParams {
     /**
      * Returns a newly created {@link ClientBuilderParams} from the specified properties.
      */
-    static ClientBuilderParams of(Scheme scheme, ContextInitializer contextInitializer,
+    static ClientBuilderParams of(SerializationFormat serializationFormat,
+                                  ContextInitializer contextInitializer,
                                   @Nullable String absolutePathRef, Class<?> type, ClientOptions options) {
         requireNonNull(contextInitializer, "contextInitializer");
         requireNonNull(type, "type");
         requireNonNull(options, "options");
-        return new DefaultClientBuilderParams(scheme, contextInitializer, absolutePathRef, type, options);
+        return new DefaultClientBuilderParams(serializationFormat, contextInitializer,
+                                              absolutePathRef, type, options);
     }
 
     /**
@@ -87,6 +90,7 @@ public interface ClientBuilderParams {
     /**
      * Returns the {@link EndpointGroup} of the client.
      */
+    @Nullable
     EndpointGroup endpointGroup();
 
     /**

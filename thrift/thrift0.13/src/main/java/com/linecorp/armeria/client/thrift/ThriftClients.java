@@ -219,19 +219,17 @@ public final class ThriftClients {
     public static ThriftClientBuilder builder(Scheme scheme, EndpointGroup endpointGroup) {
         requireNonNull(scheme, "scheme");
         requireNonNull(endpointGroup, "endpointGroup");
-        return new ThriftClientBuilder(scheme, new EndpointGroupContextInitializer(
-                scheme.sessionProtocol(), endpointGroup));
+        return new ThriftClientBuilder(scheme.serializationFormat(),
+                                       new EndpointGroupContextInitializer(scheme.sessionProtocol(),
+                                                                           endpointGroup));
     }
 
     /**
      * TBU.
      */
-    public static ThriftClientBuilder builder(SerializationFormat serializationFormat,
-                                              ContextInitializer contextInitializer) {
-        requireNonNull(serializationFormat, "serializationFormat");
+    public static ThriftClientBuilder builder(ContextInitializer contextInitializer) {
         requireNonNull(contextInitializer, "contextInitializer");
-        return new ThriftClientBuilder(Scheme.of(serializationFormat, SessionProtocol.UNDETERMINED),
-                                       contextInitializer);
+        return new ThriftClientBuilder(SerializationFormat.NONE, contextInitializer);
     }
 
     private ThriftClients() {}

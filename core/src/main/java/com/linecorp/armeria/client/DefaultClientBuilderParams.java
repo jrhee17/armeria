@@ -38,10 +38,10 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     private final ContextInitializer contextInitializer;
     private final Class<?> type;
     private final ClientOptions options;
-    private final Scheme scheme;
     private final EndpointGroup endpointGroup;
     private final URI uri;
     private final String absolutePathRef;
+    final Scheme scheme;
 
     /**
      * Creates a new instance.
@@ -72,45 +72,15 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         contextInitializer.validate(this);
     }
 
-    DefaultClientBuilderParams(Scheme scheme, EndpointGroup endpointGroup,
-                               @Nullable String absolutePathRef,
-                               Class<?> type, ClientOptions options) {
-        this.type = requireNonNull(type, "type");
-        this.options = requireNonNull(options, "options");
-
-        final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
-        final String schemeStr;
-        if (scheme.serializationFormat() == SerializationFormat.NONE) {
-            schemeStr = scheme.sessionProtocol().uriText();
-        } else {
-            schemeStr = scheme.uriText();
-        }
-        final URI uri;
-        if (endpointGroup instanceof Endpoint) {
-            uri = URI.create(schemeStr + "://" + ((Endpoint) endpointGroup).authority() +
-                             normalizedAbsolutePathRef);
-        } else {
-            uri = dummyUri(endpointGroup, schemeStr, normalizedAbsolutePathRef);
-        }
-        this.endpointGroup = endpointGroup;
-        final ClientFactory factory = options.factory();
-        this.scheme = factory.validateScheme(scheme);
-
-        this.absolutePathRef = normalizedAbsolutePathRef;
-        this.uri = factory.validateUri(uri);
-        this.contextInitializer = new EndpointGroupContextInitializer(scheme.sessionProtocol(), endpointGroup);
-        contextInitializer.validate(this);
-    }
-
-    DefaultClientBuilderParams(Scheme scheme, ContextInitializer contextInitializer,
-                               @Nullable String absolutePathRef,
-                               Class<?> type, ClientOptions options) {
+    DefaultClientBuilderParams(SerializationFormat serializationFormat, ContextInitializer contextInitializer,
+                               @Nullable String absolutePathRef, Class<?> type, ClientOptions options) {
         this.type = requireNonNull(type, "type");
         requireNonNull(contextInitializer, "contextInitializer");
         this.options = requireNonNull(options, "options");
 
         final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
         final String schemeStr;
+        scheme = Scheme.of(serializationFormat, contextInitializer.sessionProtocol());
         if (scheme.serializationFormat() == SerializationFormat.NONE) {
             schemeStr = scheme.sessionProtocol().uriText();
         } else {
@@ -131,7 +101,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
             uri = dummyUri(contextInitializer, schemeStr, normalizedAbsolutePathRef);
         }
         final ClientFactory factory = options.factory();
-        this.scheme = factory.validateScheme(scheme);
+        factory.validateScheme(scheme);
 
         this.absolutePathRef = normalizedAbsolutePathRef;
         this.uri = factory.validateUri(uri);
@@ -162,8 +132,9 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     }
 
     @Override
+    @Nullable
     public EndpointGroup endpointGroup() {
-        return endpointGroup;
+        return contextInitializer.endpointGroup();
     }
 
     @Override

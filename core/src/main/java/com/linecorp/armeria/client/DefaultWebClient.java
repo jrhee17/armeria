@@ -28,6 +28,7 @@ import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RequestTargetForm;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.EndpointGroupContextInitializer;
 
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -140,7 +141,7 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
             } catch (Exception e) {
                 throw new IllegalArgumentException("Failed to parse a scheme: " + reqTarget.scheme(), e);
             }
-            execution = new UndefinedUriInitializer(parsedScheme.sessionProtocol(), endpoint)
+            execution = new EndpointGroupContextInitializer(parsedScheme.sessionProtocol(), endpoint)
                     .prepare(params().options(), newReq, null, reqTarget, requestOptions);
         } else {
             if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {

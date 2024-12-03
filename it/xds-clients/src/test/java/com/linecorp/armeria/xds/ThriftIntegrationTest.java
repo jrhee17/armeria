@@ -33,7 +33,6 @@ import com.linecorp.armeria.client.logging.LoggingClient;
 import com.linecorp.armeria.client.thrift.THttpClient;
 import com.linecorp.armeria.client.thrift.ThriftClients;
 import com.linecorp.armeria.common.RpcResponse;
-import com.linecorp.armeria.common.thrift.ThriftSerializationFormats;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.server.thrift.THttpService;
@@ -110,7 +109,7 @@ class ThriftIntegrationTest {
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              XdsContextInitializer preparation = XdsContextInitializer.of("listener", xdsBootstrap)) {
-            Iface iface = ThriftClients.builder(ThriftSerializationFormats.BINARY, preparation)
+            Iface iface = ThriftClients.builder(preparation)
                                        .path("/thrift")
                                        .decorator(LoggingClient.newDecorator())
                                        .build(Iface.class);
@@ -133,7 +132,7 @@ class ThriftIntegrationTest {
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              XdsContextInitializer preparation = XdsContextInitializer.of("listener", xdsBootstrap)) {
-            THttpClient tHttpClient = ThriftClients.builder(ThriftSerializationFormats.BINARY, preparation)
+            THttpClient tHttpClient = ThriftClients.builder(preparation)
                     .decorator(LoggingClient.newDecorator())
                                                    .path("/thrift")
                                                    .build(THttpClient.class);

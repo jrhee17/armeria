@@ -434,7 +434,7 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
             client = factory.newClient(ClientBuilderParams.of(uri, clientType, options));
         } else {
             assert contextInitializer != null;
-            client = factory.newClient(ClientBuilderParams.of(scheme, contextInitializer,
+            client = factory.newClient(ClientBuilderParams.of(scheme.serializationFormat(), contextInitializer,
                                                               prefix, clientType, options));
         }
 

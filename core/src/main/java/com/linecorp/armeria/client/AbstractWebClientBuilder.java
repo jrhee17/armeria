@@ -171,7 +171,8 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
         assert scheme != null;
         assert contextInitializer != null;
 
-        return ClientBuilderParams.of(scheme, contextInitializer, path, WebClient.class, options);
+        return ClientBuilderParams.of(scheme.serializationFormat(), contextInitializer,
+                                      path, WebClient.class, options);
     }
 
     /**
