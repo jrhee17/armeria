@@ -16,9 +16,12 @@
 
 package com.linecorp.armeria.client;
 
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
+import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
+import com.linecorp.armeria.internal.client.ClientUtil;
 
 /**
  * TBU.
@@ -28,8 +31,8 @@ public interface RequestExecution {
     /**
      * TBU.
      */
-    static RequestExecution of(ClientRequestContext ctx, EndpointGroup endpointGroup) {
-        return new DefaultRequestExecution(ctx, endpointGroup);
+    static RequestExecution of(ClientRequestContext ctx) {
+        return new DefaultRequestExecution(ctx);
     }
 
     /**
@@ -43,5 +46,10 @@ public interface RequestExecution {
      * right before executing a request. However, the provided {@param req} must match
      * the request set in {@link ClientRequestContext}.
      */
-    <I extends Request, O extends Response> O execute(Client<I, O> delegate, I req) throws Exception;
+    default <I extends Request, O extends Response> O execute(Client<I, O> delegate, I req) throws Exception {
+        final ClientRequestContext ctx = ctx();
+        final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
+        checkArgument(ctxExt != null, "ctx (%s) should be created from 'ClientRequestContextBuilder'", ctx);
+        return ClientUtil.initContextAndExecuteWithFallback(delegate, ctxExt, req);
+    }
 }

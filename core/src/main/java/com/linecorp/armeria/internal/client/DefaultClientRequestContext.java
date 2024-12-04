@@ -135,8 +135,7 @@ public final class DefaultClientRequestContext
     private boolean initializationTriggered;
     @Nullable
     private EventLoop eventLoop;
-    @Nullable
-    private EndpointGroup endpointGroup;
+    private final EndpointGroup endpointGroup;
     @Nullable
     private Endpoint endpoint;
     @Nullable
@@ -180,10 +179,11 @@ public final class DefaultClientRequestContext
 
     public DefaultClientRequestContext(SessionProtocol sessionProtocol, HttpRequest httpRequest,
                                        @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
+                                       EndpointGroup endpointGroup,
                                        RequestOptions requestOptions, ClientOptions clientOptions) {
         this(null, clientOptions.factory().meterRegistry(),
              sessionProtocol, nextRequestId(clientOptions), httpRequest.method(), requestTarget,
-             clientOptions, httpRequest, rpcRequest, requestOptions, serviceRequestContext(),
+             endpointGroup, clientOptions, httpRequest, rpcRequest, requestOptions, serviceRequestContext(),
              null, System.nanoTime(), SystemInfo.currentTimeMicros());
     }
 
@@ -203,12 +203,12 @@ public final class DefaultClientRequestContext
      */
     public DefaultClientRequestContext(
             @Nullable EventLoop eventLoop, MeterRegistry meterRegistry, SessionProtocol sessionProtocol,
-            RequestId id, HttpMethod method, RequestTarget reqTarget,
+            RequestId id, HttpMethod method, RequestTarget reqTarget, EndpointGroup endpointGroup,
             ClientOptions options, HttpRequest req, @Nullable RpcRequest rpcReq,
             RequestOptions requestOptions, CancellationScheduler responseCancellationScheduler,
             long requestStartTimeNanos, long requestStartTimeMicros) {
-        this(eventLoop, meterRegistry, sessionProtocol,
-             id, method, reqTarget, options, req, rpcReq, requestOptions, serviceRequestContext(),
+        this(eventLoop, meterRegistry, sessionProtocol, id, method, reqTarget, endpointGroup,
+             options, req, rpcReq, requestOptions, serviceRequestContext(),
              requireNonNull(responseCancellationScheduler, "responseCancellationScheduler"),
              requestStartTimeNanos, requestStartTimeMicros);
     }
@@ -228,12 +228,12 @@ public final class DefaultClientRequestContext
      */
     public DefaultClientRequestContext(
             MeterRegistry meterRegistry, SessionProtocol sessionProtocol,
-            RequestId id, HttpMethod method, RequestTarget reqTarget,
+            RequestId id, HttpMethod method, RequestTarget reqTarget, EndpointGroup endpointGroup,
             ClientOptions options, HttpRequest req, @Nullable RpcRequest rpcReq,
             RequestOptions requestOptions,
             long requestStartTimeNanos, long requestStartTimeMicros) {
         this(null, meterRegistry, sessionProtocol,
-             id, method, reqTarget, options, req, rpcReq, requestOptions,
+             id, method, reqTarget, endpointGroup, options, req, rpcReq, requestOptions,
              serviceRequestContext(), /* responseCancellationScheduler */ null,
              requestStartTimeNanos, requestStartTimeMicros);
     }
@@ -241,7 +241,7 @@ public final class DefaultClientRequestContext
     private DefaultClientRequestContext(
             @Nullable EventLoop eventLoop, MeterRegistry meterRegistry,
             SessionProtocol sessionProtocol, RequestId id, HttpMethod method,
-            RequestTarget reqTarget, ClientOptions options,
+            RequestTarget reqTarget, EndpointGroup endpointGroup, ClientOptions options,
             HttpRequest req, @Nullable RpcRequest rpcReq, RequestOptions requestOptions,
             @Nullable ServiceRequestContext root, @Nullable CancellationScheduler responseCancellationScheduler,
             long requestStartTimeNanos, long requestStartTimeMicros) {
@@ -299,6 +299,8 @@ public final class DefaultClientRequestContext
             this.customizer = customizer.andThen(threadLocalCustomizer);
         }
         responseTimeoutMode = responseTimeoutMode(options, requestOptions);
+
+        this.endpointGroup = mapEndpoint(endpointGroup);
     }
 
     private static ExchangeType guessExchangeType(RequestOptions requestOptions, @Nullable HttpRequest req) {
@@ -344,7 +346,7 @@ public final class DefaultClientRequestContext
     }
 
     @Override
-    public CompletableFuture<Boolean> init(EndpointGroup endpointGroup) {
+    public CompletableFuture<Boolean> init() {
         assert endpoint == null : endpoint;
         assert !initializationTriggered;
         initializationTriggered = true;
@@ -357,7 +359,6 @@ public final class DefaultClientRequestContext
             //         an additional authority.
             runContextCustomizer();
 
-            endpointGroup = mapEndpoint(endpointGroup);
             if (endpointGroup instanceof Endpoint) {
                 return initEndpoint((Endpoint) endpointGroup);
             } else {
@@ -380,14 +381,12 @@ public final class DefaultClientRequestContext
     }
 
     private CompletableFuture<Boolean> initEndpoint(Endpoint endpoint) {
-        endpointGroup = null;
         updateEndpoint(endpoint);
         acquireEventLoop(endpoint);
         return initFuture(true, null);
     }
 
     private CompletableFuture<Boolean> initEndpointGroup(EndpointGroup endpointGroup) {
-        this.endpointGroup = endpointGroup;
         final Endpoint endpoint = endpointGroup.selectNow(this);
         if (endpoint != null) {
             updateEndpoint(endpoint);
@@ -535,7 +534,7 @@ public final class DefaultClientRequestContext
                                         RequestId id,
                                         HttpRequest req,
                                         @Nullable RpcRequest rpcReq,
-                                        @Nullable Endpoint endpoint, @Nullable EndpointGroup endpointGroup,
+                                        @Nullable Endpoint endpoint, EndpointGroup endpointGroup,
                                         SessionProtocol sessionProtocol, HttpMethod method,
                                         RequestTarget reqTarget) {
         super(ctx.meterRegistry(), sessionProtocol, id, method, reqTarget, ctx.exchangeType(),
@@ -646,7 +645,7 @@ public final class DefaultClientRequestContext
 
             if (reqTarget.form() != RequestTargetForm.ABSOLUTE) {
                 // Not an absolute URI.
-                return new DefaultClientRequestContext(this, id, req, rpcReq, endpoint, null,
+                return new DefaultClientRequestContext(this, id, req, rpcReq, endpoint, endpointGroup(),
                                                        sessionProtocol(), newHeaders.method(), reqTarget);
             }
 
@@ -661,7 +660,7 @@ public final class DefaultClientRequestContext
             final HttpRequest newReq = req.withHeaders(req.headers()
                                                           .toBuilder()
                                                           .path(reqTarget.pathAndQuery()));
-            return new DefaultClientRequestContext(this, id, newReq, rpcReq, newEndpoint, null,
+            return new DefaultClientRequestContext(this, id, newReq, rpcReq, newEndpoint, newEndpoint,
                                                    protocol, newHeaders.method(), reqTarget);
         }
         return new DefaultClientRequestContext(this, id, req, rpcReq, endpoint, endpointGroup(),
@@ -746,7 +745,6 @@ public final class DefaultClientRequestContext
         return options;
     }
 
-    @Nullable
     @Override
     public EndpointGroup endpointGroup() {
         return endpointGroup;

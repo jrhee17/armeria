@@ -16,33 +16,16 @@
 
 package com.linecorp.armeria.client;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
-import com.linecorp.armeria.common.Request;
-import com.linecorp.armeria.common.Response;
-import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
-import com.linecorp.armeria.internal.client.ClientUtil;
-
 final class DefaultRequestExecution implements RequestExecution {
 
     private final ClientRequestContext ctx;
-    private final EndpointGroup endpointGroup;
 
-    DefaultRequestExecution(ClientRequestContext ctx, EndpointGroup endpointGroup) {
+    DefaultRequestExecution(ClientRequestContext ctx) {
         this.ctx = ctx;
-        this.endpointGroup = endpointGroup;
     }
 
     @Override
     public ClientRequestContext ctx() {
         return ctx;
-    }
-
-    @Override
-    public <I extends Request, O extends Response> O execute(Client<I, O> delegate, I req) throws Exception {
-        final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
-        checkArgument(ctxExt != null, "ctx (%s) should be created from 'ClientRequestContextBuilder'", ctx);
-        return ClientUtil.initContextAndExecuteWithFallback(delegate, ctxExt, endpointGroup, req);
     }
 }

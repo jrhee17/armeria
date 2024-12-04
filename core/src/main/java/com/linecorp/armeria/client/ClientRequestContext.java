@@ -260,9 +260,8 @@ public interface ClientRequestContext extends RequestContext {
      * Returns the {@link EndpointGroup} used for the current {@link Request}.
      *
      * @return the {@link EndpointGroup} if a user specified an {@link EndpointGroup} when initiating
-     *         a {@link Request}. {@code null} if a user specified an {@link Endpoint}.
+     *         a {@link Request}.
      */
-    @Nullable
     EndpointGroup endpointGroup();
 
     /**

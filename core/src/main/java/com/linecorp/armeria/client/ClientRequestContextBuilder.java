@@ -139,12 +139,12 @@ public final class ClientRequestContextBuilder extends AbstractRequestContextBui
             responseCancellationScheduler = CancellationScheduler.ofClient(0);
         }
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                eventLoop(), meterRegistry(), sessionProtocol(), id(), method(), requestTarget(), options,
-                request(), rpcRequest(), requestOptions, responseCancellationScheduler,
+                eventLoop(), meterRegistry(), sessionProtocol(), id(), method(), requestTarget(),
+                endpointGroup, options, request(), rpcRequest(), requestOptions, responseCancellationScheduler,
                 isRequestStartTimeSet() ? requestStartTimeNanos() : System.nanoTime(),
                 isRequestStartTimeSet() ? requestStartTimeMicros() : SystemInfo.currentTimeMicros());
 
-        ctx.init(endpointGroup).handle((unused, cause) -> {
+        ctx.init().handle((unused, cause) -> {
             if (!timedOut()) {
                 ctx.responseCancellationScheduler().initAndStart(ctx.eventLoop(), noopCancellationTask);
             }

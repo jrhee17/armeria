@@ -56,23 +56,20 @@ public final class ClientUtil {
     O initContextAndExecuteWithFallback(
             U delegate,
             ClientRequestContextExtension ctx,
-            EndpointGroup endpointGroup,
             I req,
             BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
         try {
-            return initContextAndExecuteWithFallback(delegate, ctx, endpointGroup, req);
+            return initContextAndExecuteWithFallback(delegate, ctx, req);
         } catch (Exception e) {
             return errorResponseFactory.apply(ctx, e);
         }
     }
 
     public static <I extends Request, O extends Response, U extends Client<I, O>>
-    O initContextAndExecuteWithFallback(U delegate, ClientRequestContextExtension ctx,
-                                        EndpointGroup endpointGroup, I req) throws Exception {
+    O initContextAndExecuteWithFallback(U delegate, ClientRequestContextExtension ctx, I req) throws Exception {
 
         requireNonNull(delegate, "delegate");
         requireNonNull(ctx, "ctx");
-        requireNonNull(endpointGroup, "endpointGroup");
         requireNonNull(req, "req");
 
         final Function<CompletableFuture<O>, O> futureConverter = futureConverter(req);
@@ -83,7 +80,7 @@ public final class ClientUtil {
             if (ctx.initializationTriggered()) {
                 initFuture = ctx.whenInitialized();
             } else {
-                initFuture = ctx.init(endpointGroup);
+                initFuture = ctx.init();
             }
             if (initFuture.isDone()) {
                 // Initialization has been done immediately.

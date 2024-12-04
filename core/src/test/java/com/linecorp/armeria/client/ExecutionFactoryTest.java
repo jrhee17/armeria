@@ -84,7 +84,7 @@ class ExecutionFactoryTest {
                                 .options(clientOptions)
                                 .sessionProtocol(SessionProtocol.HTTP)
                                 .build();
-                return RequestExecution.of(ctx, server.httpEndpoint());
+                return RequestExecution.of(ctx);
             }
         };
     }
@@ -107,7 +107,7 @@ class ExecutionFactoryTest {
                                 .options(clientOptions)
                                 .sessionProtocol(SessionProtocol.HTTP)
                                 .build();
-                return RequestExecution.of(ctx, server.httpEndpoint());
+                return RequestExecution.of(ctx);
             }
         });
         final Set<String> channelIds = new HashSet<>();

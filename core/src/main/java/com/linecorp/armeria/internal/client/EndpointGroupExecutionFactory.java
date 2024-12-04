@@ -49,8 +49,9 @@ public final class EndpointGroupExecutionFactory implements RequestExecutionFact
                                     RequestTarget requestTarget, RequestOptions requestOptions,
                                     ClientOptions clientOptions) {
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                sessionProtocol, httpRequest, rpcRequest, requestTarget, requestOptions, clientOptions);
-        return RequestExecution.of(ctx, endpointGroup);
+                sessionProtocol, httpRequest, rpcRequest, requestTarget, endpointGroup,
+                requestOptions, clientOptions);
+        return RequestExecution.of(ctx);
     }
 
     @Override
