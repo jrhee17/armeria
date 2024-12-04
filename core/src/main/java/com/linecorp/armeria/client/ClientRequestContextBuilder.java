@@ -28,6 +28,7 @@ import com.linecorp.armeria.common.AbstractRequestContextBuilder;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.RequestId;
+import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -60,6 +61,11 @@ public final class ClientRequestContextBuilder extends AbstractRequestContextBui
 
     ClientRequestContextBuilder(RpcRequest request, URI uri) {
         super(false, request, uri);
+    }
+
+    ClientRequestContextBuilder(HttpRequest httpRequest, @Nullable RpcRequest request,
+                                RequestTarget requestTarget) {
+        super(false, httpRequest, request, requestTarget);
     }
 
     @Override
@@ -136,7 +142,6 @@ public final class ClientRequestContextBuilder extends AbstractRequestContextBui
                 isRequestStartTimeSet() ? requestStartTimeMicros() : SystemInfo.currentTimeMicros());
 
         ctx.init(endpointGroup).handle((unused, cause) -> {
-            ctx.finishInitialization(cause == null);
             if (!timedOut()) {
                 ctx.responseCancellationScheduler().initAndStart(ctx.eventLoop(), noopCancellationTask);
             }

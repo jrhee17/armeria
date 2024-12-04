@@ -132,7 +132,7 @@ public final class DefaultClientRequestContext
     private static final short STR_CHANNEL_AVAILABILITY = 1;
     private static final short STR_PARENT_LOG_AVAILABILITY = 1 << 1;
 
-    private boolean initialized;
+    private boolean initializationTriggered;
     @Nullable
     private EventLoop eventLoop;
     @Nullable
@@ -346,8 +346,8 @@ public final class DefaultClientRequestContext
     @Override
     public CompletableFuture<Boolean> init(EndpointGroup endpointGroup) {
         assert endpoint == null : endpoint;
-        assert !initialized;
-        initialized = true;
+        assert !initializationTriggered;
+        initializationTriggered = true;
 
         try {
             // Note: context customizer must be run before:
@@ -420,13 +420,14 @@ public final class DefaultClientRequestContext
         }).thenCompose(Function.identity());
     }
 
-    private static CompletableFuture<Boolean> initFuture(boolean success,
-                                                         @Nullable EventLoop acquiredEventLoop) {
+    private CompletableFuture<Boolean> initFuture(boolean success,
+                                                  @Nullable EventLoop acquiredEventLoop) {
         if (acquiredEventLoop == null) {
-            return UnmodifiableFuture.completedFuture(success);
+            finishInitialization(success);
         } else {
-            return CompletableFuture.supplyAsync(() -> success, acquiredEventLoop);
+            acquiredEventLoop.execute(() -> finishInitialization(success));
         }
+        return whenInitialized();
     }
 
     @Override
@@ -1095,6 +1096,11 @@ public final class DefaultClientRequestContext
             return requestOptionTimeoutMode;
         }
         return options.responseTimeoutMode();
+    }
+
+    @Override
+    public boolean initializationTriggered() {
+        return initializationTriggered;
     }
 
     private static RequestId nextRequestId(ClientOptions options) {

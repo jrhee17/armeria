@@ -40,6 +40,7 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestContext;
 import com.linecorp.armeria.common.RequestId;
+import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.TimeoutException;
@@ -174,6 +175,15 @@ public interface ClientRequestContext extends RequestContext {
      */
     static ClientRequestContextBuilder builder(RpcRequest request, URI uri) {
         return new ClientRequestContextBuilder(request, uri);
+    }
+
+    /**
+     * Returns a new {@link ClientRequestContextBuilder} created from the specified
+     * {@link HttpRequest}, {@link RpcRequest} and {@link URI}.
+     */
+    static ClientRequestContextBuilder builder(HttpRequest httpRequest, @Nullable RpcRequest rpcRequest,
+                                               RequestTarget requestTarget) {
+        return new ClientRequestContextBuilder(httpRequest, rpcRequest, requestTarget);
     }
 
     /**

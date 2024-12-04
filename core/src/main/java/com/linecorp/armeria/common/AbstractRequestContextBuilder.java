@@ -131,14 +131,29 @@ public abstract class AbstractRequestContextBuilder {
      * @param uri the {@link URI} of the request endpoint.
      */
     protected AbstractRequestContextBuilder(boolean server, RpcRequest rpcReq, URI uri) {
+        this(server, rpcReq, requestTargetFromURI(server, uri));
+    }
+
+    private AbstractRequestContextBuilder(boolean server, RpcRequest rpcReq, RequestTarget requestTarget) {
+        this(server, HttpRequest.of(HttpMethod.POST, requestTarget.pathAndQuery()), rpcReq, requestTarget);
+    }
+
+    /**
+     * TBU.
+     */
+    protected AbstractRequestContextBuilder(boolean server, HttpRequest httpReq,
+                                            @Nullable RpcRequest rpcReq, RequestTarget requestTarget) {
         this.server = server;
-        this.rpcReq = requireNonNull(rpcReq, "rpcReq");
-        method = HttpMethod.POST;
+        req = httpReq;
+        this.rpcReq = rpcReq;
+        method = httpReq.method();
 
-        requireNonNull(uri, "uri");
-        authority = firstNonNull(uri.getRawAuthority(), FALLBACK_AUTHORITY);
-        sessionProtocol = getSessionProtocol(uri);
+        authority = firstNonNull(requestTarget.authority(), FALLBACK_AUTHORITY);
+        sessionProtocol = getSessionProtocol(requestTarget);
+        reqTarget = requestTarget;
+    }
 
+    private static RequestTarget requestTargetFromURI(boolean server, URI uri) {
         if (server) {
             String path = uri.getRawPath();
             final String query = uri.getRawQuery();
@@ -149,35 +164,38 @@ public abstract class AbstractRequestContextBuilder {
             if (reqTarget == null) {
                 throw new IllegalArgumentException("invalid uri: " + uri);
             }
-            this.reqTarget = reqTarget;
+            return reqTarget;
         } else {
-            reqTarget = DefaultRequestTarget.createWithoutValidation(
-                    RequestTargetForm.ORIGIN, null, null, null, -1,
-                    uri.getRawPath(), uri.getRawPath(), null,
-                    uri.getRawQuery(), uri.getRawFragment());
+            final RequestTarget reqTarget = DefaultRequestTarget.forClient(uri.toString(), null);
+            if (reqTarget == null) {
+                throw new IllegalArgumentException("invalid uri: " + uri);
+            }
+            return reqTarget;
         }
-        req = HttpRequest.of(method, reqTarget.path());
     }
 
-    private static SessionProtocol getSessionProtocol(URI uri) {
-        final String schemeStr = uri.getScheme();
-        if (schemeStr != null && schemeStr.indexOf('+') < 0) {
+    private static SessionProtocol getSessionProtocol(RequestTarget requestTarget) {
+        final String schemeStr = requestTarget.scheme();
+        if (schemeStr == null) {
+            return SessionProtocol.UNSPECIFIED;
+        }
+        if (schemeStr.indexOf('+') < 0) {
             final SessionProtocol parsed = SessionProtocol.find(schemeStr);
             if (parsed == null) {
-                throw newInvalidSchemeException(uri);
+                throw newInvalidSchemeException(requestTarget);
             }
             return parsed;
         } else {
             final Scheme parsed = Scheme.tryParse(schemeStr);
             if (parsed == null) {
-                throw newInvalidSchemeException(uri);
+                throw newInvalidSchemeException(requestTarget);
             }
             return parsed.sessionProtocol();
         }
     }
 
-    private static IllegalArgumentException newInvalidSchemeException(URI uri) {
-        return new IllegalArgumentException("uri.scheme is not valid: " + uri);
+    private static IllegalArgumentException newInvalidSchemeException(RequestTarget requestTarget) {
+        return new IllegalArgumentException("uri.scheme is not valid: " + requestTarget);
     }
 
     /**
@@ -259,7 +277,7 @@ public abstract class AbstractRequestContextBuilder {
      */
     public AbstractRequestContextBuilder sessionProtocol(SessionProtocol sessionProtocol) {
         requireNonNull(sessionProtocol, "sessionProtocol");
-        if (rpcReq != null) {
+        if (rpcReq != null && this.sessionProtocol != SessionProtocol.UNSPECIFIED) {
             checkArgument(sessionProtocol == this.sessionProtocol,
                           "sessionProtocol: %s (expected: same as the session protocol specified in 'uri')",
                           sessionProtocol);

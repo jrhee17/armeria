@@ -75,4 +75,6 @@ public interface ClientRequestContextExtension extends ClientRequestContext, Req
     HttpHeaders internalRequestHeaders();
 
     long remainingTimeoutNanos();
+
+    boolean initializationTriggered();
 }

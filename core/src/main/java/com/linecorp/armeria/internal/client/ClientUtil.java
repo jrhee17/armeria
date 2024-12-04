@@ -77,12 +77,15 @@ public final class ClientUtil {
 
         final Function<CompletableFuture<O>, O> futureConverter = futureConverter(req);
 
-        boolean initialized = false;
-        boolean success = false;
         try {
-            final CompletableFuture<Boolean> initFuture = ctx.init(endpointGroup);
-            initialized = initFuture.isDone();
-            if (initialized) {
+            final boolean success;
+            final CompletableFuture<Boolean> initFuture;
+            if (ctx.initializationTriggered()) {
+                initFuture = ctx.whenInitialized();
+            } else {
+                initFuture = ctx.init(endpointGroup);
+            }
+            if (initFuture.isDone()) {
                 // Initialization has been done immediately.
                 try {
                     success = initFuture.get();
@@ -102,18 +105,12 @@ public final class ClientUtil {
                     } catch (Throwable t) {
                         fail(ctx, t);
                         throw UnprocessedRequestException.of(Exceptions.peel(t));
-                    } finally {
-                        ctx.finishInitialization(success0);
                     }
                 }));
             }
         } catch (Throwable cause) {
             fail(ctx, cause);
             throw cause;
-        } finally {
-            if (initialized) {
-                ctx.finishInitialization(success);
-            }
         }
     }
 
