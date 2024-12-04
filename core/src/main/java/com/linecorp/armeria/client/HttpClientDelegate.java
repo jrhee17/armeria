@@ -73,8 +73,8 @@ final class HttpClientDelegate implements HttpClient {
         }
         if (!SessionProtocol.httpAndHttpsValues().contains(ctx.sessionProtocol())) {
             return earlyFailedResponse(
-                    new IllegalStateException("ctx.request() does not match the actual request; " +
-                                              "did you forget to call ctx.updateRequest() in your decorator?"),
+                    new IllegalStateException("ctx.sessionProtocol() must be one of '" +
+                                              SessionProtocol.httpAndHttpsValues() + "'."),
                     ctx);
         }
 

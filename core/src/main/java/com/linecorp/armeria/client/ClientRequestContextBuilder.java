@@ -15,6 +15,7 @@
  */
 package com.linecorp.armeria.client;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.linecorp.armeria.internal.common.CancellationScheduler.noopCancellationTask;
 import static java.util.Objects.requireNonNull;
 
@@ -122,6 +123,8 @@ public final class ClientRequestContextBuilder extends AbstractRequestContextBui
      * Returns a new {@link ClientRequestContext} created with the properties of this builder.
      */
     public ClientRequestContext build() {
+        checkState(SessionProtocol.httpAndHttpsValues().contains(sessionProtocol()),
+                   "ctx.sessionProtocol() must be one of '%s'.", SessionProtocol.httpAndHttpsValues());
         final EndpointGroup endpointGroup;
         if (this.endpointGroup != null) {
             endpointGroup = this.endpointGroup;
