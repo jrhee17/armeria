@@ -257,7 +257,7 @@ public abstract class AbstractRetryingClient<I extends Request, O extends Respon
      * If {@link ClientRequestContext#endpointGroup()} exists, a new {@link Endpoint} will be selected.
      */
     protected static ClientRequestContext newDerivedContext(ClientRequestContext ctx,
-                                                            @Nullable HttpRequest req,
+                                                            HttpRequest req,
                                                             @Nullable RpcRequest rpcReq,
                                                             boolean initialAttempt) {
         return ClientUtil.newDerivedContext(ctx, req, rpcReq, initialAttempt);

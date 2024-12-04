@@ -106,7 +106,7 @@ class HttpClientRequestPathTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = SessionProtocol.class, mode = Mode.EXCLUDE, names = "PROXY")
+    @EnumSource(value = SessionProtocol.class, mode = Mode.EXCLUDE, names = {"PROXY", "UNSPECIFIED"})
     void default_withScheme(SessionProtocol protocol) {
         final HttpRequest request = HttpRequest.of(HttpMethod.GET, server2.uri(protocol) + "/simple-client");
         try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
@@ -128,7 +128,8 @@ class HttpClientRequestPathTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = SessionProtocol.class, mode = Mode.EXCLUDE, names = { "HTTP", "HTTPS", "PROXY"})
+    @EnumSource(value = SessionProtocol.class, mode = Mode.EXCLUDE,
+            names = { "HTTP", "HTTPS", "PROXY", "UNSPECIFIED" })
     void default_withRetryClient(SessionProtocol protocol) {
         final HttpRequest request = HttpRequest.of(HttpMethod.GET, server2.uri(protocol) + "/retry");
         final WebClient client = WebClient.builder()

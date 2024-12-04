@@ -90,7 +90,7 @@ public final class WebSocketClientBuilder extends AbstractWebClientBuilder {
     }
 
     WebSocketClientBuilder(Scheme scheme, EndpointGroup endpointGroup, @Nullable String path) {
-        super(null, validateScheme(requireNonNull(scheme, "scheme")), endpointGroup, path);
+        super(validateScheme(requireNonNull(scheme, "scheme")), endpointGroup, path);
         setWebSocketDefaultOption();
     }
 

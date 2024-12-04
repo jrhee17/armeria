@@ -23,6 +23,7 @@ import java.net.URI;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.Scheme;
+import com.linecorp.armeria.common.annotation.Nullable;
 
 final class DefaultRestClient implements RestClient {
 
@@ -47,9 +48,15 @@ final class DefaultRestClient implements RestClient {
         return delegate.scheme();
     }
 
+    @Nullable
     @Override
     public EndpointGroup endpointGroup() {
         return delegate.endpointGroup();
+    }
+
+    @Override
+    public RequestExecutionFactory executionFactory() {
+        return delegate.executionFactory();
     }
 
     @Override

@@ -176,6 +176,8 @@ private final class DefaultScalaRestClient(delegate: RestClient) extends ScalaRe
 
   override def endpointGroup(): EndpointGroup = delegate.endpointGroup()
 
+  override def executionFactory(): RequestExecutionFactory = delegate.executionFactory()
+
   override def absolutePathRef(): String = delegate.absolutePathRef()
 
   override def uri(): URI = delegate.uri()

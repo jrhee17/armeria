@@ -62,7 +62,6 @@ public abstract class AbstractRequestContextBuilder {
     private static final String FALLBACK_AUTHORITY = "127.0.0.1";
 
     private final boolean server;
-    @Nullable
     private final HttpRequest req;
     @Nullable
     private final RpcRequest rpcReq;
@@ -133,7 +132,6 @@ public abstract class AbstractRequestContextBuilder {
      */
     protected AbstractRequestContextBuilder(boolean server, RpcRequest rpcReq, URI uri) {
         this.server = server;
-        req = null;
         this.rpcReq = requireNonNull(rpcReq, "rpcReq");
         method = HttpMethod.POST;
 
@@ -158,6 +156,7 @@ public abstract class AbstractRequestContextBuilder {
                     uri.getRawPath(), uri.getRawPath(), null,
                     uri.getRawQuery(), uri.getRawFragment());
         }
+        req = HttpRequest.of(method, reqTarget.path());
     }
 
     private static SessionProtocol getSessionProtocol(URI uri) {
@@ -231,7 +230,6 @@ public abstract class AbstractRequestContextBuilder {
     /**
      * Returns the {@link HttpRequest} of the context.
      */
-    @Nullable
     protected final HttpRequest request() {
         return req;
     }

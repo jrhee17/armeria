@@ -233,6 +233,16 @@ public final class Clients {
 
     /**
      * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
+     * {@link RequestExecutionFactory} with the specified {@link SerializationFormat} and {@code path}.
+     */
+    public static ClientBuilder builder(SerializationFormat serializationFormat,
+                                        RequestExecutionFactory executionFactory,
+                                        String path) {
+        return new ClientBuilder(serializationFormat, executionFactory, path);
+    }
+
+    /**
+     * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
      * {@link EndpointGroup} with the specified {@link Scheme}.
      */
     public static ClientBuilder builder(Scheme scheme, EndpointGroup endpointGroup) {
@@ -315,7 +325,7 @@ public final class Clients {
     }
 
     private static ClientBuilder newDerivedBuilder(ClientBuilderParams params, boolean setOptions) {
-        final ClientBuilder builder = builder(params.scheme(), params.endpointGroup(),
+        final ClientBuilder builder = builder(params.scheme().serializationFormat(), params.executionFactory(),
                                               params.absolutePathRef());
         if (setOptions) {
             builder.options(params.options());

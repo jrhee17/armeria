@@ -29,6 +29,7 @@ import com.linecorp.armeria.common.RequestTargetForm;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.EndpointGroupExecutionFactory;
 
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -64,6 +65,14 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
                     req, new IllegalArgumentException("Invalid request target: " + originalPath));
         }
 
+        final String newPath = reqTarget.pathAndQuery();
+        final HttpRequest newReq;
+        if (newPath.equals(originalPath)) {
+            newReq = req;
+        } else {
+            newReq = req.withHeaders(req.headers().toBuilder().path(newPath));
+        }
+
         final EndpointGroup endpointGroup;
         final SessionProtocol protocol;
 
@@ -94,31 +103,25 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
                 return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
                         "Failed to parse a scheme: " + reqTarget.scheme(), e));
             }
-        } else {
-            if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
-                return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
-                        "Cannot send a request with a \":path\" header that contains an authority, " +
-                        "because the client was created with a base URI. path: " + originalPath));
+            try {
+                return new EndpointGroupExecutionFactory(protocol, endpointGroup)
+                        .prepare(newReq, null, reqTarget, requestOptions, options())
+                        .execute(unwrap(), newReq);
+            } catch (Exception e) {
+                return HttpResponse.ofFailure(e);
             }
-
-            endpointGroup = endpointGroup();
-            protocol = scheme().sessionProtocol();
         }
-
-        final String newPath = reqTarget.pathAndQuery();
-        final HttpRequest newReq;
-        if (newPath.equals(originalPath)) {
-            newReq = req;
-        } else {
-            newReq = req.withHeaders(req.headers().toBuilder().path(newPath));
+        if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
+            return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
+                    "Cannot send a request with a \":path\" header that contains an authority, " +
+                    "because the client was created with a base URI. path: " + originalPath));
         }
-
-        return execute(protocol,
-                       endpointGroup,
-                       newReq.method(),
-                       reqTarget,
-                       newReq,
-                       requestOptions);
+        try {
+            return executionFactory().prepare(newReq, null, reqTarget, requestOptions, options())
+                                     .execute(unwrap(), newReq);
+        } catch (Exception e) {
+            return HttpResponse.ofFailure(e);
+        }
     }
 
     private static HttpResponse abortRequestAndReturnFailureResponse(

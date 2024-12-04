@@ -27,6 +27,7 @@ import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.thrift.ThriftSerializationFormats;
+import com.linecorp.armeria.internal.client.EndpointGroupExecutionFactory;
 
 /**
  * Creates a new Thrift client that connects to a {@link URI} or an {@link EndpointGroup}.
@@ -217,7 +218,10 @@ public final class ThriftClients {
     public static ThriftClientBuilder builder(Scheme scheme, EndpointGroup endpointGroup) {
         requireNonNull(scheme, "scheme");
         requireNonNull(endpointGroup, "endpointGroup");
-        return new ThriftClientBuilder(scheme, endpointGroup);
+        final EndpointGroupExecutionFactory executionFactory = new EndpointGroupExecutionFactory(
+                scheme.sessionProtocol(), endpointGroup);
+        return new ThriftClientBuilder(scheme.serializationFormat(),
+                                       executionFactory);
     }
 
     private ThriftClients() {}

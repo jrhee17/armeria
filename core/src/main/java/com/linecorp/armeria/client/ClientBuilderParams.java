@@ -22,6 +22,7 @@ import java.net.URI;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
+import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
 
 /**
@@ -42,13 +43,15 @@ public interface ClientBuilderParams {
     /**
      * Returns a newly created {@link ClientBuilderParams} from the specified properties.
      */
-    static ClientBuilderParams of(Scheme scheme, EndpointGroup endpointGroup,
+    static ClientBuilderParams of(SerializationFormat serializationFormat,
+                                  RequestExecutionFactory executionFactory,
                                   @Nullable String absolutePathRef, Class<?> type, ClientOptions options) {
-        requireNonNull(scheme, "scheme");
-        requireNonNull(endpointGroup, "endpointGroup");
+        requireNonNull(serializationFormat, "serializationFormat");
+        requireNonNull(executionFactory, "executionFactory");
         requireNonNull(type, "type");
         requireNonNull(options, "options");
-        return new DefaultClientBuilderParams(scheme, endpointGroup, absolutePathRef, type, options);
+        return new DefaultClientBuilderParams(serializationFormat, executionFactory,
+                                              absolutePathRef, type, options);
     }
 
     /**
@@ -59,7 +62,13 @@ public interface ClientBuilderParams {
     /**
      * Returns the {@link EndpointGroup} of the client.
      */
+    @Nullable
     EndpointGroup endpointGroup();
+
+    /**
+     * TBU.
+     */
+    RequestExecutionFactory executionFactory();
 
     /**
      * Returns the {@link String} that consists of path, query string and fragment.

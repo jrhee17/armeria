@@ -163,7 +163,7 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
             return;
         }
 
-        final ClientRequestContext derivedCtx = newDerivedContext(ctx, null, req, initialAttempt);
+        final ClientRequestContext derivedCtx = newDerivedContext(ctx, ctx.request(), req, initialAttempt);
 
         if (!initialAttempt) {
             derivedCtx.mutateAdditionalRequestHeaders(
@@ -179,10 +179,10 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
             // clear the pending throwable to retry endpoint selection
             ClientPendingThrowableUtil.removePendingThrowable(derivedCtx);
             // if the endpoint hasn't been selected, try to initialize the ctx with a new endpoint/event loop
-            res = initContextAndExecuteWithFallback(unwrap(), ctxExtension, endpointGroup, RpcResponse::from,
+            res = initContextAndExecuteWithFallback(unwrap(), ctxExtension, endpointGroup, req,
                                                     (context, cause) -> RpcResponse.ofFailure(cause));
         } else {
-            res = executeWithFallback(unwrap(), derivedCtx,
+            res = executeWithFallback(unwrap(), derivedCtx, req,
                                       (context, cause) -> RpcResponse.ofFailure(cause));
         }
 

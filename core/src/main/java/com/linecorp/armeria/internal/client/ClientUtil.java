@@ -15,7 +15,6 @@
  */
 package com.linecorp.armeria.internal.client;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.util.Objects.requireNonNull;
 
 import java.net.URI;
@@ -30,10 +29,12 @@ import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcRequest;
+import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.logging.RequestLog;
 import com.linecorp.armeria.common.logging.RequestLogAccess;
@@ -42,6 +43,7 @@ import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.stream.StreamMessage;
 import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.common.util.SafeCloseable;
+import com.linecorp.armeria.common.util.UnmodifiableFuture;
 
 public final class ClientUtil {
 
@@ -55,14 +57,25 @@ public final class ClientUtil {
             U delegate,
             ClientRequestContextExtension ctx,
             EndpointGroup endpointGroup,
-            Function<CompletableFuture<O>, O> futureConverter,
+            I req,
             BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
+        try {
+            return initContextAndExecuteWithFallback(delegate, ctx, endpointGroup, req);
+        } catch (Exception e) {
+            return errorResponseFactory.apply(ctx, e);
+        }
+    }
+
+    public static <I extends Request, O extends Response, U extends Client<I, O>>
+    O initContextAndExecuteWithFallback(U delegate, ClientRequestContextExtension ctx,
+                                        EndpointGroup endpointGroup, I req) throws Exception {
 
         requireNonNull(delegate, "delegate");
         requireNonNull(ctx, "ctx");
         requireNonNull(endpointGroup, "endpointGroup");
-        requireNonNull(futureConverter, "futureConverter");
-        requireNonNull(errorResponseFactory, "errorResponseFactory");
+        requireNonNull(req, "req");
+
+        final Function<CompletableFuture<O>, O> futureConverter = futureConverter(req);
 
         boolean initialized = false;
         boolean success = false;
@@ -77,7 +90,7 @@ public final class ClientUtil {
                     throw UnprocessedRequestException.of(Exceptions.peel(e));
                 }
 
-                return initContextAndExecuteWithFallback(delegate, ctx, errorResponseFactory, success);
+                return initContextAndExecuteWithFallback(delegate, ctx, req, success);
             } else {
                 return futureConverter.apply(initFuture.handle((success0, cause) -> {
                     try {
@@ -85,10 +98,10 @@ public final class ClientUtil {
                             throw UnprocessedRequestException.of(Exceptions.peel(cause));
                         }
 
-                        return initContextAndExecuteWithFallback(delegate, ctx, errorResponseFactory, success0);
+                        return initContextAndExecuteWithFallback(delegate, ctx, req, success0);
                     } catch (Throwable t) {
                         fail(ctx, t);
-                        return errorResponseFactory.apply(ctx, t);
+                        throw UnprocessedRequestException.of(Exceptions.peel(t));
                     } finally {
                         ctx.finishInitialization(success0);
                     }
@@ -96,7 +109,7 @@ public final class ClientUtil {
             }
         } catch (Throwable cause) {
             fail(ctx, cause);
-            return errorResponseFactory.apply(ctx, cause);
+            throw cause;
         } finally {
             if (initialized) {
                 ctx.finishInitialization(success);
@@ -106,12 +119,11 @@ public final class ClientUtil {
 
     private static <I extends Request, O extends Response, U extends Client<I, O>>
     O initContextAndExecuteWithFallback(
-            U delegate, ClientRequestContextExtension ctx,
-            BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory, boolean succeeded)
+            U delegate, ClientRequestContextExtension ctx, I req, boolean succeeded)
             throws Exception {
 
         if (succeeded) {
-            return pushAndExecute(delegate, ctx);
+            return pushAndExecute(delegate, ctx, req);
         } else {
             final Throwable cause = ctx.log().partial().requestCause();
             assert cause != null;
@@ -123,7 +135,7 @@ public final class ClientUtil {
             // See `init()` and `failEarly()` in `DefaultClientRequestContext`.
 
             // Call the decorator chain anyway so that the request is seen by the decorators.
-            final O res = pushAndExecute(delegate, ctx);
+            final O res = pushAndExecute(delegate, ctx, req);
 
             // We will use the fallback response which is created from the exception
             // raised in ctx.init(), so the response returned can be aborted.
@@ -132,12 +144,20 @@ public final class ClientUtil {
             }
 
             // No need to call `fail()` because failed by `DefaultRequestContext.init()` already.
-            return errorResponseFactory.apply(ctx, cause);
+            if (cause instanceof Exception) {
+                throw (Exception) cause;
+            } else {
+                // a hack to avoid adding a throws Throwable to the method definition
+                @SuppressWarnings("unchecked")
+                final O o = (O) futureConverter(req)
+                        .apply(UnmodifiableFuture.exceptionallyCompletedFuture(cause));
+                return o;
+            }
         }
     }
 
     public static <I extends Request, O extends Response, U extends Client<I, O>>
-    O executeWithFallback(U delegate, ClientRequestContext ctx,
+    O executeWithFallback(U delegate, ClientRequestContext ctx, I req,
                           BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
 
         requireNonNull(delegate, "delegate");
@@ -145,7 +165,7 @@ public final class ClientUtil {
         requireNonNull(errorResponseFactory, "errorResponseFactory");
 
         try {
-            return pushAndExecute(delegate, ctx);
+            return pushAndExecute(delegate, ctx, req);
         } catch (Throwable cause) {
             fail(ctx, cause);
             return errorResponseFactory.apply(ctx, cause);
@@ -153,9 +173,7 @@ public final class ClientUtil {
     }
 
     private static <I extends Request, O extends Response, U extends Client<I, O>>
-    O pushAndExecute(U delegate, ClientRequestContext ctx) throws Exception {
-        @SuppressWarnings("unchecked")
-        final I req = (I) firstNonNull(ctx.request(), ctx.rpcRequest());
+    O pushAndExecute(U delegate, ClientRequestContext ctx, I req) throws Exception {
         try (SafeCloseable ignored = ctx.push()) {
             return delegate.execute(ctx, req);
         }
@@ -177,7 +195,7 @@ public final class ClientUtil {
      * If {@link ClientRequestContext#endpointGroup()} exists, a new {@link Endpoint} will be selected.
      */
     public static ClientRequestContext newDerivedContext(ClientRequestContext ctx,
-                                                         @Nullable HttpRequest req,
+                                                         HttpRequest req,
                                                          @Nullable RpcRequest rpcReq,
                                                          boolean initialAttempt) {
         final RequestId id = ctx.options().requestIdGenerator().get();
@@ -233,6 +251,19 @@ public final class ClientUtil {
         }
         ctx.logBuilder().addChild(derived.log());
         return derived;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <I extends Request, O extends Response> Function<CompletableFuture<O>, O> futureConverter(
+            I req) {
+        final Function<CompletableFuture<O>, O> futureConverter0;
+        if (req instanceof RpcRequest) {
+            futureConverter0 = value -> (O) RpcResponse.from(value);
+        } else {
+            assert req instanceof HttpRequest;
+            futureConverter0 = value -> (O) HttpResponse.of((CompletableFuture<? extends HttpResponse>) value);
+        }
+        return futureConverter0;
     }
 
     private ClientUtil() {}

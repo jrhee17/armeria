@@ -57,8 +57,7 @@ public class DecoratingClientFactory extends AbstractUnwrappable<ClientFactory> 
         if (Clients.isUndefinedUri(uri)) {
             newParams = ClientBuilderParams.of(uri, HttpClient.class, newOptions);
         } else {
-            final Scheme newScheme = Scheme.of(SerializationFormat.NONE, params.scheme().sessionProtocol());
-            newParams = ClientBuilderParams.of(newScheme, params.endpointGroup(),
+            newParams = ClientBuilderParams.of(SerializationFormat.NONE, params.executionFactory(),
                                                null, HttpClient.class, newOptions);
         }
 

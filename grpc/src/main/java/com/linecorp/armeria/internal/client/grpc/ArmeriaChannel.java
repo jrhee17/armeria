@@ -15,6 +15,7 @@
  */
 package com.linecorp.armeria.internal.client.grpc;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.linecorp.armeria.internal.client.grpc.GrpcClientUtil.maxInboundMessageSizeBytes;
 import static com.linecorp.armeria.internal.common.grpc.GrpcExchangeTypeUtil.toExchangeType;
 
@@ -28,6 +29,8 @@ import com.google.common.collect.Maps;
 import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.HttpClient;
+import com.linecorp.armeria.client.RequestExecution;
+import com.linecorp.armeria.client.RequestExecutionFactory;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.grpc.GrpcClientOptions;
@@ -46,9 +49,8 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.grpc.GrpcCallOptions;
 import com.linecorp.armeria.common.grpc.GrpcJsonMarshaller;
 import com.linecorp.armeria.common.logging.RequestLogProperty;
-import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.common.util.Unwrappable;
-import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
+import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.common.RequestTargetCache;
 import com.linecorp.armeria.internal.common.grpc.InternalGrpcExceptionHandler;
 
@@ -139,7 +141,10 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         }
 
         final HttpRequestWriter req = HttpRequest.streaming(headersBuilder.build());
-        final DefaultClientRequestContext ctx = newContext(HttpMethod.POST, req, method);
+        final RequestExecution requestExecution = newContext(req, method);
+        final ClientRequestContextExtension ctx =
+                requestExecution.ctx().as(ClientRequestContextExtension.class);
+        checkArgument(ctx != null, "ctx (%s) should be created from 'ClientRequestContextBuilder'", ctx);
 
         GrpcCallOptions.set(ctx, callOptions);
 
@@ -167,8 +172,8 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         }
 
         return new ArmeriaClientCall<>(
+                requestExecution,
                 ctx,
-                params.endpointGroup(),
                 client,
                 req,
                 method,
@@ -197,8 +202,14 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
     }
 
     @Override
+    @Nullable
     public EndpointGroup endpointGroup() {
         return params.endpointGroup();
+    }
+
+    @Override
+    public RequestExecutionFactory executionFactory() {
+        return params.executionFactory();
     }
 
     @Override
@@ -232,8 +243,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         return httpClient.as(type);
     }
 
-    private <I, O> DefaultClientRequestContext newContext(HttpMethod method, HttpRequest req,
-                                                          MethodDescriptor<I, O> methodDescriptor) {
+    private <I, O> RequestExecution newContext(HttpRequest req, MethodDescriptor<I, O> methodDescriptor) {
         final String path = req.path();
         final RequestTarget reqTarget = RequestTarget.forClient(path);
         assert reqTarget != null : path;
@@ -242,18 +252,8 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
         final RequestOptions requestOptions = REQUEST_OPTIONS_MAP.get(methodDescriptor.getType());
         assert requestOptions != null;
 
-        return new DefaultClientRequestContext(
-                meterRegistry,
-                sessionProtocol,
-                options().requestIdGenerator().get(),
-                method,
-                reqTarget,
-                options(),
-                req,
-                null,
-                requestOptions,
-                System.nanoTime(),
-                SystemInfo.currentTimeMicros());
+        return params.executionFactory().prepare(req, null, reqTarget, requestOptions,
+                                                 options());
     }
 
     private static RequestOptions newRequestOptions(ExchangeType exchangeType) {

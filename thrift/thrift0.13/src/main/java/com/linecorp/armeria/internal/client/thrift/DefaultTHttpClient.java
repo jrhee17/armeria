@@ -28,6 +28,8 @@ import com.linecorp.armeria.client.UserClient;
 import com.linecorp.armeria.client.thrift.THttpClient;
 import com.linecorp.armeria.common.ExchangeType;
 import com.linecorp.armeria.common.HttpMethod;
+import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
@@ -77,8 +79,17 @@ final class DefaultTHttpClient extends UserClient<RpcRequest, RpcResponse> imple
         RequestTargetCache.putForClient(path, reqTarget);
 
         final RpcRequest call = RpcRequest.of(serviceType, method, args);
-        return execute(scheme().sessionProtocol(), HttpMethod.POST,
-                       reqTarget, call, UNARY_REQUEST_OPTIONS);
+
+        final HttpRequest httpReq = HttpRequest.of(
+                RequestHeaders.builder(HttpMethod.POST, reqTarget.path())
+                              .contentType(scheme().serializationFormat().mediaType())
+                              .build());
+        try {
+            return executionFactory().prepare(httpReq, call, reqTarget, UNARY_REQUEST_OPTIONS, options())
+                                     .execute(unwrap(), call);
+        } catch (Exception e) {
+            return RpcResponse.ofFailure(decodeException(e, null));
+        }
     }
 
     @Override

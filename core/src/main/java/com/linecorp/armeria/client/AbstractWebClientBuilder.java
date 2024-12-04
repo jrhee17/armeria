@@ -28,6 +28,7 @@ import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.EndpointGroupExecutionFactory;
 
 /**
  * A skeletal builder implementation for {@link WebClient}.
@@ -37,11 +38,10 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     @Nullable
     private final URI uri;
     @Nullable
-    private final EndpointGroup endpointGroup;
-    @Nullable
-    private final Scheme scheme;
+    private final RequestExecutionFactory executionFactory;
     @Nullable
     private final String path;
+    private final SerializationFormat serializationFormat;
 
     /**
      * Creates a new instance.
@@ -68,20 +68,43 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      */
     protected AbstractWebClientBuilder(SessionProtocol sessionProtocol, EndpointGroup endpointGroup,
                                        @Nullable String path) {
-        this(null, validateSessionProtocol(sessionProtocol),
-             requireNonNull(endpointGroup, "endpointGroup"), path);
+        this(null, null, new EndpointGroupExecutionFactory(
+                validateSessionProtocol(sessionProtocol),
+                requireNonNull(endpointGroup, "endpointGroup")), path);
     }
 
     /**
      * Creates a new instance.
      */
-    protected AbstractWebClientBuilder(@Nullable URI uri, @Nullable Scheme scheme,
-                                       @Nullable EndpointGroup endpointGroup, @Nullable String path) {
-        assert uri != null || (scheme != null && endpointGroup != null);
+    protected AbstractWebClientBuilder(Scheme scheme,
+                                       EndpointGroup endpointGroup,
+                                       @Nullable String path) {
+        this(null, scheme.serializationFormat(),
+             new EndpointGroupExecutionFactory(scheme.sessionProtocol(), endpointGroup), path);
+    }
+
+    /**
+     * Creates a new instance.
+     */
+    AbstractWebClientBuilder(SerializationFormat serializationFormat,
+                             RequestExecutionFactory executionFactory,
+                             @Nullable String path) {
+        this(null, serializationFormat, executionFactory, path);
+    }
+
+    /**
+     * Creates a new instance.
+     */
+    protected AbstractWebClientBuilder(@Nullable URI uri,
+                                       @Nullable SerializationFormat serializationFormat,
+                                       @Nullable RequestExecutionFactory executionFactory,
+                                       @Nullable String path) {
+        assert uri != null || executionFactory != null;
         assert path == null || uri == null;
         this.uri = uri;
-        this.scheme = scheme;
-        this.endpointGroup = endpointGroup;
+        this.executionFactory = executionFactory;
+        this.serializationFormat = serializationFormat != null ? serializationFormat
+                                                               : SerializationFormat.NONE;
         this.path = validatePath(path);
     }
 
@@ -101,10 +124,10 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
         return URI.create(scheme.uriText() + uri.toString().substring(givenScheme.length()));
     }
 
-    private static Scheme validateSessionProtocol(SessionProtocol sessionProtocol) {
+    private static SessionProtocol validateSessionProtocol(SessionProtocol sessionProtocol) {
         requireNonNull(sessionProtocol, "sessionProtocol");
         validateScheme(sessionProtocol.uriText());
-        return Scheme.of(SerializationFormat.NONE, sessionProtocol);
+        return sessionProtocol;
     }
 
     private static Scheme validateScheme(String scheme) {
@@ -156,9 +179,9 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
             return ClientBuilderParams.of(uri, WebClient.class, options);
         }
 
-        assert scheme != null;
-        assert endpointGroup != null;
-        return ClientBuilderParams.of(scheme, endpointGroup, path, WebClient.class, options);
+        assert executionFactory != null;
+        return ClientBuilderParams.of(serializationFormat, executionFactory,
+                                      path, WebClient.class, options);
     }
 
     /**

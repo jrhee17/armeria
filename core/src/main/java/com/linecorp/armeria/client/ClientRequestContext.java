@@ -180,7 +180,6 @@ public interface ClientRequestContext extends RequestContext {
      * {@inheritDoc} For example, when you send an RPC request, this method will return {@code null} until
      * the RPC request is translated into an HTTP request.
      */
-    @Nullable
     @Override
     HttpRequest request();
 
@@ -244,7 +243,7 @@ public interface ClientRequestContext extends RequestContext {
      *
      * <p>Note that this method does not copy the {@link RequestLog} properties to the derived context.
      */
-    ClientRequestContext newDerivedContext(RequestId id, @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
+    ClientRequestContext newDerivedContext(RequestId id, HttpRequest req, @Nullable RpcRequest rpcReq,
                                            @Nullable Endpoint endpoint);
 
     /**

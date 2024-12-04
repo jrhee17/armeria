@@ -26,6 +26,7 @@ import java.util.function.Supplier;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.redirect.RedirectConfig;
 import com.linecorp.armeria.common.RequestId;
+import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.SuccessFunction;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -64,6 +65,16 @@ public final class WebClientBuilder extends AbstractWebClientBuilder {
      */
     WebClientBuilder(SessionProtocol sessionProtocol, EndpointGroup endpointGroup, @Nullable String path) {
         super(sessionProtocol, endpointGroup, path);
+    }
+
+    /**
+     * Creates a new instance.
+     *
+     * @throws IllegalArgumentException if the {@code sessionProtocol} is not one of the fields
+     *                                  in {@link SessionProtocol}
+     */
+    WebClientBuilder(RequestExecutionFactory executionFactory, @Nullable String path) {
+        super(SerializationFormat.NONE, executionFactory, path);
     }
 
     /**

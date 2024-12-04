@@ -55,6 +55,7 @@ import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpClient;
+import com.linecorp.armeria.client.RequestExecutionFactory;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.RpcClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -96,7 +97,7 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
 
     private final ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
     @Nullable
-    private final EndpointGroup endpointGroup;
+    private final RequestExecutionFactory executionFactory;
 
     @Nullable
     private URI uri;
@@ -109,19 +110,19 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
     GrpcClientBuilder(URI uri) {
         requireNonNull(uri, "uri");
         checkArgument(uri.getScheme() != null, "uri must have scheme: %s", uri);
-        endpointGroup = null;
+        executionFactory = null;
         this.uri = uri;
         scheme = Scheme.parse(uri.getScheme());
         validateOrSetSerializationFormat();
     }
 
-    GrpcClientBuilder(Scheme scheme, EndpointGroup endpointGroup) {
-        requireNonNull(scheme, "scheme");
-        requireNonNull(endpointGroup, "endpointGroup");
+    GrpcClientBuilder(SerializationFormat serializationFormat, RequestExecutionFactory executionFactory) {
+        requireNonNull(serializationFormat, "serializationFormat");
+        requireNonNull(executionFactory, "executionFactory");
         uri = null;
-        this.scheme = scheme;
+        scheme = Scheme.of(serializationFormat, executionFactory.sessionProtocol());
         validateOrSetSerializationFormat();
-        this.endpointGroup = endpointGroup;
+        this.executionFactory = executionFactory;
     }
 
     private void validateOrSetSerializationFormat() {
@@ -432,8 +433,8 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
             }
             client = factory.newClient(ClientBuilderParams.of(uri, clientType, options));
         } else {
-            assert endpointGroup != null;
-            client = factory.newClient(ClientBuilderParams.of(scheme, endpointGroup,
+            assert executionFactory != null;
+            client = factory.newClient(ClientBuilderParams.of(scheme.serializationFormat(), executionFactory,
                                                               prefix, clientType, options));
         }
 

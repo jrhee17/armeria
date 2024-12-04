@@ -104,7 +104,6 @@ public abstract class RequestContextWrapper<T extends RequestContext>
         return unwrap().setAttr(key, value);
     }
 
-    @Nullable
     @Override
     public HttpRequest request() {
         return unwrap().request();

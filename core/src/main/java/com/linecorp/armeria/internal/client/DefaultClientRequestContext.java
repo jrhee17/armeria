@@ -36,6 +36,9 @@ import java.util.function.Function;
 
 import javax.net.ssl.SSLSession;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
@@ -68,6 +71,7 @@ import com.linecorp.armeria.common.logging.RequestLogBuilder;
 import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.util.ReleasableHolder;
 import com.linecorp.armeria.common.util.SafeCloseable;
+import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.common.util.TextFormatter;
 import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.common.util.UnmodifiableFuture;
@@ -122,6 +126,9 @@ public final class DefaultClientRequestContext
         }
     }
 
+    private static final Logger logger = LoggerFactory.getLogger(DefaultClientRequestContext.class);
+    private static boolean warnedNullRequestId;
+
     private static final short STR_CHANNEL_AVAILABILITY = 1;
     private static final short STR_PARENT_LOG_AVAILABILITY = 1 << 1;
 
@@ -171,6 +178,15 @@ public final class DefaultClientRequestContext
 
     private final ResponseTimeoutMode responseTimeoutMode;
 
+    public DefaultClientRequestContext(SessionProtocol sessionProtocol, HttpRequest httpRequest,
+                                       @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
+                                       RequestOptions requestOptions, ClientOptions clientOptions) {
+        this(null, clientOptions.factory().meterRegistry(),
+             sessionProtocol, nextRequestId(clientOptions), httpRequest.method(), requestTarget,
+             clientOptions, httpRequest, rpcRequest, requestOptions, serviceRequestContext(),
+             null, System.nanoTime(), SystemInfo.currentTimeMicros());
+    }
+
     /**
      * Creates a new instance. Note that {@link #init(EndpointGroup)} method must be invoked to finish
      * the construction of this context.
@@ -188,7 +204,7 @@ public final class DefaultClientRequestContext
     public DefaultClientRequestContext(
             @Nullable EventLoop eventLoop, MeterRegistry meterRegistry, SessionProtocol sessionProtocol,
             RequestId id, HttpMethod method, RequestTarget reqTarget,
-            ClientOptions options, @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
+            ClientOptions options, HttpRequest req, @Nullable RpcRequest rpcReq,
             RequestOptions requestOptions, CancellationScheduler responseCancellationScheduler,
             long requestStartTimeNanos, long requestStartTimeMicros) {
         this(eventLoop, meterRegistry, sessionProtocol,
@@ -213,7 +229,7 @@ public final class DefaultClientRequestContext
     public DefaultClientRequestContext(
             MeterRegistry meterRegistry, SessionProtocol sessionProtocol,
             RequestId id, HttpMethod method, RequestTarget reqTarget,
-            ClientOptions options, @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
+            ClientOptions options, HttpRequest req, @Nullable RpcRequest rpcReq,
             RequestOptions requestOptions,
             long requestStartTimeNanos, long requestStartTimeMicros) {
         this(null, meterRegistry, sessionProtocol,
@@ -226,7 +242,7 @@ public final class DefaultClientRequestContext
             @Nullable EventLoop eventLoop, MeterRegistry meterRegistry,
             SessionProtocol sessionProtocol, RequestId id, HttpMethod method,
             RequestTarget reqTarget, ClientOptions options,
-            @Nullable HttpRequest req, @Nullable RpcRequest rpcReq, RequestOptions requestOptions,
+            HttpRequest req, @Nullable RpcRequest rpcReq, RequestOptions requestOptions,
             @Nullable ServiceRequestContext root, @Nullable CancellationScheduler responseCancellationScheduler,
             long requestStartTimeNanos, long requestStartTimeMicros) {
         super(meterRegistry, desiredSessionProtocol(sessionProtocol, options), id, method, reqTarget,
@@ -516,7 +532,7 @@ public final class DefaultClientRequestContext
      */
     private DefaultClientRequestContext(DefaultClientRequestContext ctx,
                                         RequestId id,
-                                        @Nullable HttpRequest req,
+                                        HttpRequest req,
                                         @Nullable RpcRequest rpcReq,
                                         @Nullable Endpoint endpoint, @Nullable EndpointGroup endpointGroup,
                                         SessionProtocol sessionProtocol, HttpMethod method,
@@ -616,38 +632,36 @@ public final class DefaultClientRequestContext
 
     @Override
     public ClientRequestContext newDerivedContext(RequestId id,
-                                                  @Nullable HttpRequest req,
+                                                  HttpRequest req,
                                                   @Nullable RpcRequest rpcReq,
                                                   @Nullable Endpoint endpoint) {
-        if (req != null) {
-            final RequestHeaders newHeaders = req.headers();
-            final String oldPath = requestTarget().pathAndQuery();
-            final String newPath = newHeaders.path();
-            if (!oldPath.equals(newPath)) {
-                // path is changed.
-                final RequestTarget reqTarget = RequestTarget.forClient(newPath);
-                checkArgument(reqTarget != null, "invalid path: %s", newPath);
+        final RequestHeaders newHeaders = req.headers();
+        final String oldPath = requestTarget().pathAndQuery();
+        final String newPath = newHeaders.path();
+        if (!oldPath.equals(newPath)) {
+            // path is changed.
+            final RequestTarget reqTarget = RequestTarget.forClient(newPath);
+            checkArgument(reqTarget != null, "invalid path: %s", newPath);
 
-                if (reqTarget.form() != RequestTargetForm.ABSOLUTE) {
-                    // Not an absolute URI.
-                    return new DefaultClientRequestContext(this, id, req, rpcReq, endpoint, null,
-                                                           sessionProtocol(), newHeaders.method(), reqTarget);
-                }
-
-                // Recalculate protocol and endpoint from the absolute URI.
-                final String scheme = reqTarget.scheme();
-                final String authority = reqTarget.authority();
-                assert scheme != null;
-                assert authority != null;
-
-                final SessionProtocol protocol = Scheme.parse(scheme).sessionProtocol();
-                final Endpoint newEndpoint = Endpoint.parse(authority);
-                final HttpRequest newReq = req.withHeaders(req.headers()
-                                                              .toBuilder()
-                                                              .path(reqTarget.pathAndQuery()));
-                return new DefaultClientRequestContext(this, id, newReq, rpcReq, newEndpoint, null,
-                                                       protocol, newHeaders.method(), reqTarget);
+            if (reqTarget.form() != RequestTargetForm.ABSOLUTE) {
+                // Not an absolute URI.
+                return new DefaultClientRequestContext(this, id, req, rpcReq, endpoint, null,
+                                                       sessionProtocol(), newHeaders.method(), reqTarget);
             }
+
+            // Recalculate protocol and endpoint from the absolute URI.
+            final String scheme = reqTarget.scheme();
+            final String authority = reqTarget.authority();
+            assert scheme != null;
+            assert authority != null;
+
+            final SessionProtocol protocol = Scheme.parse(scheme).sessionProtocol();
+            final Endpoint newEndpoint = Endpoint.parse(authority);
+            final HttpRequest newReq = req.withHeaders(req.headers()
+                                                          .toBuilder()
+                                                          .path(reqTarget.pathAndQuery()));
+            return new DefaultClientRequestContext(this, id, newReq, rpcReq, newEndpoint, null,
+                                                   protocol, newHeaders.method(), reqTarget);
         }
         return new DefaultClientRequestContext(this, id, req, rpcReq, endpoint, endpointGroup(),
                                                sessionProtocol(), method(), requestTarget());
@@ -1081,5 +1095,18 @@ public final class DefaultClientRequestContext
             return requestOptionTimeoutMode;
         }
         return options.responseTimeoutMode();
+    }
+
+    private static RequestId nextRequestId(ClientOptions options) {
+        final RequestId id = options.requestIdGenerator().get();
+        if (id == null) {
+            if (!warnedNullRequestId) {
+                warnedNullRequestId = true;
+                logger.warn("requestIdGenerator.get() returned null; using RequestId.random()");
+            }
+            return RequestId.random();
+        } else {
+            return id;
+        }
     }
 }

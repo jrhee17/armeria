@@ -27,6 +27,7 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.EndpointGroupExecutionFactory;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
 
 /**
@@ -35,11 +36,11 @@ import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
 final class DefaultClientBuilderParams implements ClientBuilderParams {
 
     private final Scheme scheme;
-    private final EndpointGroup endpointGroup;
     private final String absolutePathRef;
     private final URI uri;
     private final Class<?> type;
     private final ClientOptions options;
+    private final RequestExecutionFactory executionFactory;
 
     /**
      * Creates a new instance.
@@ -51,7 +52,8 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         this.options = options;
 
         scheme = factory.validateScheme(Scheme.parse(uri.getScheme()));
-        endpointGroup = Endpoint.parse(uri.getRawAuthority());
+        final EndpointGroup endpointGroup = Endpoint.parse(uri.getRawAuthority());
+        executionFactory = new EndpointGroupExecutionFactory(scheme.sessionProtocol(), endpointGroup);
 
         try (TemporaryThreadLocals tempThreadLocals = TemporaryThreadLocals.acquire()) {
             final StringBuilder buf = tempThreadLocals.stringBuilder();
@@ -66,14 +68,16 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         }
     }
 
-    DefaultClientBuilderParams(Scheme scheme, EndpointGroup endpointGroup,
+    DefaultClientBuilderParams(SerializationFormat serializationFormat,
+                               RequestExecutionFactory executionFactory,
                                @Nullable String absolutePathRef,
                                Class<?> type, ClientOptions options) {
         final ClientFactory factory = requireNonNull(options, "options").factory();
+        final Scheme scheme = Scheme.of(serializationFormat, executionFactory.sessionProtocol());
         this.scheme = factory.validateScheme(scheme);
-        this.endpointGroup = requireNonNull(endpointGroup, "endpointGroup");
         this.type = requireNonNull(type, "type");
         this.options = options;
+        this.executionFactory = executionFactory;
 
         final String schemeStr;
         if (scheme.serializationFormat() == SerializationFormat.NONE) {
@@ -83,6 +87,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         }
 
         final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
+        final EndpointGroup endpointGroup = executionFactory.endpointGroup();
         final URI uri;
         if (endpointGroup instanceof Endpoint) {
             uri = URI.create(schemeStr + "://" + ((Endpoint) endpointGroup).authority() +
@@ -90,7 +95,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         } else {
             // Create a valid URI which will never succeed.
             uri = URI.create(schemeStr + "://armeria-group-" +
-                             Integer.toHexString(System.identityHashCode(endpointGroup)) +
+                             Integer.toHexString(System.identityHashCode(executionFactory)) +
                              ":1" + normalizedAbsolutePathRef);
         }
 
@@ -114,8 +119,14 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     }
 
     @Override
+    @Nullable
     public EndpointGroup endpointGroup() {
-        return endpointGroup;
+        return executionFactory.endpointGroup();
+    }
+
+    @Override
+    public RequestExecutionFactory executionFactory() {
+        return executionFactory;
     }
 
     @Override
@@ -142,7 +153,7 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
     public String toString() {
         return MoreObjects.toStringHelper(this)
                           .add("scheme", scheme)
-                          .add("endpointGroup", endpointGroup)
+                          .add("executionFactory", executionFactory)
                           .add("absolutePathRef", absolutePathRef)
                           .add("type", type)
                           .add("options", options).toString();

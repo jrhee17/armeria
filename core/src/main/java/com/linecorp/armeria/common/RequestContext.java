@@ -310,10 +310,8 @@ public interface RequestContext extends Unwrappable {
     <V> V setAttr(AttributeKey<V> key, @Nullable V value);
 
     /**
-     * Returns the {@link HttpRequest} associated with this context, or {@code null} if there's no
-     * {@link HttpRequest} associated with this context yet.
+     * Returns the {@link HttpRequest} associated with this context.
      */
-    @Nullable
     HttpRequest request();
 
     /**

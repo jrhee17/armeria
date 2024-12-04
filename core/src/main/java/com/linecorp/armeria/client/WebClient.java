@@ -231,6 +231,33 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
     }
 
     /**
+     * Returns a new {@link WebClientBuilder} created with the specified
+     * base {@link RequestExecutionFactory} and path.
+     *
+     * @throws IllegalArgumentException if the {@code protocol} is not one of the values in
+     *                                  {@link SessionProtocol#httpValues()} or
+     *                                  {@link SessionProtocol#httpsValues()}.
+     */
+    static WebClientBuilder builder(RequestExecutionFactory executionFactory) {
+        requireNonNull(executionFactory, "executionFactory");
+        return new WebClientBuilder(executionFactory, null);
+    }
+
+    /**
+     * Returns a new {@link WebClientBuilder} created with the specified
+     * base {@link RequestExecutionFactory} and path.
+     *
+     * @throws IllegalArgumentException if the {@code protocol} is not one of the values in
+     *                                  {@link SessionProtocol#httpValues()} or
+     *                                  {@link SessionProtocol#httpsValues()}.
+     */
+    static WebClientBuilder builder(RequestExecutionFactory executionFactory, String path) {
+        requireNonNull(executionFactory, "executionFactory");
+        requireNonNull(path, "path");
+        return new WebClientBuilder(executionFactory, path);
+    }
+
+    /**
      * Sends the specified HTTP request.
      */
     @CheckReturnValue

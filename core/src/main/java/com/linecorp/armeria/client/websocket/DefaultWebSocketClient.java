@@ -33,6 +33,7 @@ import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ClientRequestContextCaptor;
 import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.client.RequestExecutionFactory;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -49,6 +50,7 @@ import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.SplitHttpResponse;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.stream.ByteStreamMessage;
 import com.linecorp.armeria.common.stream.StreamMessage;
@@ -243,9 +245,15 @@ final class DefaultWebSocketClient implements WebSocketClient {
         return webClient.scheme();
     }
 
+    @Nullable
     @Override
     public EndpointGroup endpointGroup() {
         return webClient.endpointGroup();
+    }
+
+    @Override
+    public RequestExecutionFactory executionFactory() {
+        return webClient.executionFactory();
     }
 
     @Override

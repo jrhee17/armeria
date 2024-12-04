@@ -71,7 +71,6 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
     private String decodedPath;
 
     private final Request originalRequest;
-    @Nullable
     private volatile HttpRequest req;
     @Nullable
     private volatile RpcRequest rpcReq;
@@ -85,9 +84,8 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
             MeterRegistry meterRegistry, SessionProtocol sessionProtocol,
             RequestId id, HttpMethod method, RequestTarget reqTarget, ExchangeType exchangeType,
             long requestAutoAbortDelayMillis,
-            @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
+            HttpRequest req, @Nullable RpcRequest rpcReq,
             @Nullable AttributesGetters rootAttributeMap, Supplier<? extends AutoCloseable> contextHook) {
-        assert req != null || rpcReq != null;
 
         this.meterRegistry = requireNonNull(meterRegistry, "meterRegistry");
         if (rootAttributeMap == null) {
@@ -102,14 +100,13 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
         this.reqTarget = requireNonNull(reqTarget, "reqTarget");
         this.exchangeType = requireNonNull(exchangeType, "exchangeType");
         this.requestAutoAbortDelayMillis = requestAutoAbortDelayMillis;
-        originalRequest = firstNonNull(req, rpcReq);
+        originalRequest = firstNonNull(rpcReq, req);
         this.req = req;
         this.rpcReq = rpcReq;
         //noinspection unchecked
         this.contextHook = (Supplier<AutoCloseable>) contextHook;
     }
 
-    @Nullable
     @Override
     public final HttpRequest request() {
         return req;

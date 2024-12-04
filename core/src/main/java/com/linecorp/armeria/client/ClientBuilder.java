@@ -29,6 +29,7 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.redirect.RedirectConfig;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.Scheme;
+import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SuccessFunction;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
@@ -36,6 +37,7 @@ import com.linecorp.armeria.common.auth.AuthToken;
 import com.linecorp.armeria.common.auth.BasicToken;
 import com.linecorp.armeria.common.auth.OAuth1aToken;
 import com.linecorp.armeria.common.auth.OAuth2Token;
+import com.linecorp.armeria.internal.client.EndpointGroupExecutionFactory;
 
 /**
  * Creates a new client that connects to the specified {@link URI} using the builder pattern. Use the factory
@@ -70,29 +72,36 @@ public final class ClientBuilder extends AbstractClientOptionsBuilder {
     @Nullable
     private final URI uri;
     @Nullable
-    private final EndpointGroup endpointGroup;
+    private final RequestExecutionFactory executionFactory;
     @Nullable
     private final String path;
-    private final Scheme scheme;
+    @Nullable
+    private final SerializationFormat serializationFormat;
 
     ClientBuilder(URI uri) {
         checkArgument(uri.getScheme() != null, "uri must have scheme: %s", uri);
         checkArgument(uri.getRawAuthority() != null, "uri must have authority: %s", uri);
         this.uri = uri;
-        endpointGroup = null;
+        executionFactory = null;
         path = null;
-        scheme = Scheme.parse(uri.getScheme());
+        serializationFormat = null;
     }
 
     ClientBuilder(Scheme scheme, EndpointGroup endpointGroup, @Nullable String path) {
+        this(scheme.serializationFormat(),
+             new EndpointGroupExecutionFactory(scheme.sessionProtocol(), endpointGroup), path);
+    }
+
+    ClientBuilder(SerializationFormat serializationFormat, RequestExecutionFactory executionFactory,
+                  @Nullable String path) {
         if (path != null) {
             checkArgument(path.startsWith("/"),
                           "path: %s (expected: an absolute path starting with '/')", path);
         }
         uri = null;
-        this.endpointGroup = endpointGroup;
+        this.executionFactory = executionFactory;
         this.path = path;
-        this.scheme = scheme;
+        this.serializationFormat = serializationFormat;
     }
 
     /**
@@ -112,8 +121,9 @@ public final class ClientBuilder extends AbstractClientOptionsBuilder {
         if (uri != null) {
             client = factory.newClient(ClientBuilderParams.of(uri, clientType, options));
         } else {
-            assert endpointGroup != null;
-            client = factory.newClient(ClientBuilderParams.of(scheme, endpointGroup,
+            assert serializationFormat != null;
+            assert executionFactory != null;
+            client = factory.newClient(ClientBuilderParams.of(serializationFormat, executionFactory,
                                                               path, clientType, options));
         }
 

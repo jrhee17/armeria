@@ -15,32 +15,25 @@
  */
 package com.linecorp.armeria.client;
 
-import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
-
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
-import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractUnwrappable;
-import com.linecorp.armeria.common.util.SystemInfo;
-import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -57,9 +50,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 public abstract class UserClient<I extends Request, O extends Response>
         extends AbstractUnwrappable<Client<I, O>>
         implements ClientBuilderParams {
-
-    private static final Logger logger = LoggerFactory.getLogger(UserClient.class);
-    private static boolean warnedNullRequestId;
 
     private final ClientBuilderParams params;
     private final MeterRegistry meterRegistry;
@@ -93,9 +83,15 @@ public abstract class UserClient<I extends Request, O extends Response>
         return params.scheme();
     }
 
+    @Nullable
     @Override
     public final EndpointGroup endpointGroup() {
         return params.endpointGroup();
+    }
+
+    @Override
+    public RequestExecutionFactory executionFactory() {
+        return params.executionFactory();
     }
 
     @Override
@@ -153,8 +149,8 @@ public abstract class UserClient<I extends Request, O extends Response>
      * @param reqTarget the {@link RequestTarget} of the {@link Request}
      * @param req the {@link Request}
      */
-    protected final O execute(SessionProtocol protocol, EndpointGroup endpointGroup, HttpMethod method,
-                              RequestTarget reqTarget, I req) {
+    protected final O execute(SessionProtocol protocol, @Nullable EndpointGroup endpointGroup,
+                              HttpMethod method, RequestTarget reqTarget, I req) {
         return execute(protocol, endpointGroup, method, reqTarget, req, RequestOptions.of());
     }
 
@@ -168,39 +164,28 @@ public abstract class UserClient<I extends Request, O extends Response>
      * @param req the {@link Request}
      * @param requestOptions the {@link RequestOptions} of the {@link Request}
      */
-    protected final O execute(SessionProtocol protocol, EndpointGroup endpointGroup, HttpMethod method,
-                              RequestTarget reqTarget, I req, RequestOptions requestOptions) {
+    protected final O execute(SessionProtocol protocol, @Nullable EndpointGroup endpointGroup,
+                              HttpMethod method, RequestTarget reqTarget, I req,
+                              RequestOptions requestOptions) {
 
         final HttpRequest httpReq;
         final RpcRequest rpcReq;
-        final RequestId id = nextRequestId();
 
         if (req instanceof HttpRequest) {
             httpReq = (HttpRequest) req;
             rpcReq = null;
         } else {
-            httpReq = null;
+            httpReq = HttpRequest.of(method, "/");
             rpcReq = (RpcRequest) req;
         }
 
-        final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                meterRegistry, protocol, id, method, reqTarget, options(), httpReq, rpcReq,
-                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros());
-
-        return initContextAndExecuteWithFallback(unwrap(), ctx, endpointGroup,
-                                                 futureConverter, errorResponseFactory);
-    }
-
-    private RequestId nextRequestId() {
-        final RequestId id = options().requestIdGenerator().get();
-        if (id == null) {
-            if (!warnedNullRequestId) {
-                warnedNullRequestId = true;
-                logger.warn("requestIdGenerator.get() returned null; using RequestId.random()");
-            }
-            return RequestId.random();
-        } else {
-            return id;
+        final RequestExecution execution =
+                params.executionFactory().prepare(httpReq, rpcReq, reqTarget, requestOptions,
+                                                  params.options());
+        try {
+            return execution.execute(unwrap(), req);
+        } catch (Throwable t) {
+            return errorResponseFactory.apply(execution.ctx(), t);
         }
     }
 }
