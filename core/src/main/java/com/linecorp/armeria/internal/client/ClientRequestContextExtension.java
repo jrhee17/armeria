@@ -18,10 +18,14 @@ package com.linecorp.armeria.internal.client;
 
 import java.util.concurrent.CompletableFuture;
 
+import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.RequestExecution;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpHeaders;
+import com.linecorp.armeria.common.Request;
+import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.logging.RequestLog;
 import com.linecorp.armeria.internal.common.CancellationScheduler;
 import com.linecorp.armeria.internal.common.RequestContextExtension;
@@ -30,7 +34,8 @@ import com.linecorp.armeria.internal.common.RequestContextExtension;
  * This class exposes extension methods for {@link ClientRequestContext}
  * which are used internally by Armeria but aren't intended for public usage.
  */
-public interface ClientRequestContextExtension extends ClientRequestContext, RequestContextExtension {
+public interface ClientRequestContextExtension extends ClientRequestContext, RequestContextExtension,
+                                                       RequestExecution {
 
     /**
      * Returns the {@link CancellationScheduler} used to schedule a response timeout.
@@ -77,4 +82,14 @@ public interface ClientRequestContextExtension extends ClientRequestContext, Req
     long remainingTimeoutNanos();
 
     boolean initializationTriggered();
+
+    @Override
+    default ClientRequestContext ctx() {
+        return this;
+    }
+
+    @Override
+    default <I extends Request, O extends Response> O execute(Client<I, O> delegate, I req) throws Exception {
+        return RequestExecution.super.execute(delegate, req);
+    }
 }

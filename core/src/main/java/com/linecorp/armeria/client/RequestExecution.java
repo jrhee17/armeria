@@ -32,7 +32,9 @@ public interface RequestExecution {
      * TBU.
      */
     static RequestExecution of(ClientRequestContext ctx) {
-        return new DefaultRequestExecution(ctx);
+        final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
+        checkArgument(ctxExt != null, "ctx (%s) should be created from 'ClientRequestContextBuilder'", ctx);
+        return ctxExt;
     }
 
     /**
