@@ -69,8 +69,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     protected AbstractWebClientBuilder(SessionProtocol sessionProtocol, EndpointGroup endpointGroup,
                                        @Nullable String path) {
         this(null, null, new EndpointGroupExecutionFactory(
-                validateSessionProtocol(sessionProtocol),
-                requireNonNull(endpointGroup, "endpointGroup")), path);
+                sessionProtocol, requireNonNull(endpointGroup, "endpointGroup")), path);
     }
 
     /**
@@ -83,13 +82,9 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
              new EndpointGroupExecutionFactory(scheme.sessionProtocol(), endpointGroup), path);
     }
 
-    /**
-     * Creates a new instance.
-     */
-    AbstractWebClientBuilder(SerializationFormat serializationFormat,
-                             RequestExecutionFactory executionFactory,
+    AbstractWebClientBuilder(RequestExecutionFactory executionFactory,
                              @Nullable String path) {
-        this(null, serializationFormat, executionFactory, path);
+        this(null, SerializationFormat.NONE, executionFactory, path);
     }
 
     /**
@@ -122,12 +117,6 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
         // Replace the user-specified scheme with the normalized one.
         // e.g. http://foo.com/ -> none+http://foo.com/
         return URI.create(scheme.uriText() + uri.toString().substring(givenScheme.length()));
-    }
-
-    private static SessionProtocol validateSessionProtocol(SessionProtocol sessionProtocol) {
-        requireNonNull(sessionProtocol, "sessionProtocol");
-        validateScheme(sessionProtocol.uriText());
-        return sessionProtocol;
     }
 
     private static Scheme validateScheme(String scheme) {

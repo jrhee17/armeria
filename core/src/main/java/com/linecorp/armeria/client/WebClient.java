@@ -96,7 +96,7 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
     }
 
     /**
-     * Returns a new {@link WebClient} that connects to the specified {@link EndpointGroup} with
+     * Returns a new {@link WebClient} that connects to the specified {@link RequestExecutionFactory} with
      * the specified {@code protocol} using the default {@link ClientFactory} and the default
      * {@link ClientOptions}.
      *
@@ -158,6 +158,22 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
      */
     static WebClient of(SessionProtocol protocol, EndpointGroup endpointGroup, String path) {
         return builder(protocol, endpointGroup, path).build();
+    }
+
+    /**
+     * Returns a new {@link WebClient} that connects to the specified {@link RequestExecutionFactory} with
+     * the specified {@link SessionProtocol} and {@code path} using the default {@link ClientFactory} and
+     * the default {@link ClientOptions}.
+     *
+     * @param executionFactory the server {@link RequestExecutionFactory}
+     * @param path the path to the endpoint
+     *
+     * @throws IllegalArgumentException if the {@code protocol} is not one of the values in
+     *                                  {@link SessionProtocol#httpValues()} or
+     *                                  {@link SessionProtocol#httpsValues()}.
+     */
+    static WebClient of(RequestExecutionFactory executionFactory, String path) {
+        return builder(executionFactory, path).build();
     }
 
     /**

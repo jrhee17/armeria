@@ -236,9 +236,18 @@ public final class Clients {
      * {@link RequestExecutionFactory} with the specified {@link SerializationFormat} and {@code path}.
      */
     public static ClientBuilder builder(SerializationFormat serializationFormat,
+                                        RequestExecutionFactory executionFactory) {
+        return new ClientBuilder(serializationFormat, executionFactory, null);
+    }
+
+    /**
+     * Returns a new {@link ClientBuilder} that builds the client that connects to the specified
+     * {@link RequestExecutionFactory} with the specified {@link SerializationFormat} and {@code path}.
+     */
+    public static ClientBuilder builder(SerializationFormat serializationFormat,
                                         RequestExecutionFactory executionFactory,
                                         String path) {
-        return new ClientBuilder(serializationFormat, executionFactory, path);
+        return new ClientBuilder(serializationFormat, executionFactory, requireNonNull(path, "path"));
     }
 
     /**

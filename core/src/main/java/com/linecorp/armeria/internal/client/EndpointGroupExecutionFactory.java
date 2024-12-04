@@ -16,6 +16,11 @@
 
 package com.linecorp.armeria.internal.client;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.linecorp.armeria.common.SessionProtocol.httpAndHttpsValues;
+
+import com.google.common.base.MoreObjects;
+
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.RequestExecution;
 import com.linecorp.armeria.client.RequestExecutionFactory;
@@ -33,6 +38,8 @@ public final class EndpointGroupExecutionFactory implements RequestExecutionFact
     private final EndpointGroup endpointGroup;
 
     public EndpointGroupExecutionFactory(SessionProtocol sessionProtocol, EndpointGroup endpointGroup) {
+        checkArgument(httpAndHttpsValues().contains(sessionProtocol),
+                      "sessionProtocol: '%s' (expected: one of '%s'", sessionProtocol, httpAndHttpsValues());
         this.sessionProtocol = sessionProtocol;
         this.endpointGroup = endpointGroup;
     }
@@ -54,5 +61,13 @@ public final class EndpointGroupExecutionFactory implements RequestExecutionFact
     @Override
     public SessionProtocol sessionProtocol() {
         return sessionProtocol;
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("sessionProtocol", sessionProtocol)
+                          .add("endpointGroup", endpointGroup)
+                          .toString();
     }
 }
