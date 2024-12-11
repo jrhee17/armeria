@@ -69,6 +69,11 @@ class GraphqlServiceTest {
                                   })
                                   .build();
             sb.service("/graphql", service);
+
+            sb.route()
+              .path("/max-request-len/graphql")
+              .maxRequestLength(1)
+              .build(service);
         }
     };
 
@@ -311,5 +316,18 @@ class GraphqlServiceTest {
                                                                  .execute(request);
         assertThat(response.status()).isEqualTo(HttpStatus.OK);
         assertThatJson(response.contentUtf8()).node("data.optionalInput").isEqualTo(null);
+    }
+
+    @Test
+    void maxRequestLengthExceeded() {
+        final HttpRequest request =
+                HttpRequest.builder()
+                           .post("/max-request-len/graphql")
+                           .content(MediaType.GRAPHQL_RESPONSE_JSON, "{\"query\": \"{foo}\"}")
+                           .build();
+        final AggregatedHttpResponse response = BlockingWebClient.of(server.httpUri())
+                                                                 .execute(request);
+
+        assertThat(response.status()).isEqualTo(HttpStatus.REQUEST_ENTITY_TOO_LARGE);
     }
 }

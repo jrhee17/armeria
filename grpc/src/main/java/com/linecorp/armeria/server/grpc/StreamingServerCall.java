@@ -272,6 +272,6 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
             // failure there's no need to notify the server listener of it).
             return;
         }
-        closeListener(new ServerStatusAndMetadata(status, metadata, true));
+        close(new ServerStatusAndMetadata(status, metadata, true));
     }
 }

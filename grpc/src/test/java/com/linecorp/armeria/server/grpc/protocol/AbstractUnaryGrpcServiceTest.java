@@ -18,6 +18,7 @@ package com.linecorp.armeria.server.grpc.protocol;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchException;
 
 import java.io.UncheckedIOException;
 import java.util.concurrent.CompletionException;
@@ -32,6 +33,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
+import com.google.common.base.Strings;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -61,6 +63,7 @@ import com.linecorp.armeria.testing.server.ServiceRequestContextCaptor;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Status;
+import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
 import testing.grpc.Messages;
 import testing.grpc.Messages.EchoStatus;
@@ -87,6 +90,10 @@ class AbstractUnaryGrpcServiceTest {
                                                       .setMessage("not for your eyes")
                                                       .build())
                          .build();
+    public static final Payload LARGE_PAYLOAD =
+            Payload.newBuilder()
+                   .setBody(ByteString.copyFromUtf8(Strings.repeat("Hello", 10)))
+                   .build();
 
     // This service only depends on protobuf. Users can use a custom decoder / encoder to avoid even that.
     private static class TestService extends AbstractUnaryGrpcService {
@@ -120,6 +127,15 @@ class AbstractUnaryGrpcServiceTest {
     static final ServerExtension server = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) {
+            sb.service(METHOD_NAME, new TestService());
+        }
+    };
+
+    @RegisterExtension
+    static final ServerExtension serverWithMaxLen = new ServerExtension() {
+        @Override
+        protected void configure(ServerBuilder sb) {
+            sb.maxRequestLength(10);
             sb.service(METHOD_NAME, new TestService());
         }
     };
@@ -210,8 +226,8 @@ class AbstractUnaryGrpcServiceTest {
     @Test
     void exceptionWithDetails() throws Exception {
         final UnaryGrpcClient client = Clients.newClient(
-            server.httpUri(UnaryGrpcSerializationFormats.PROTO),
-                           UnaryGrpcClient.class);
+                server.httpUri(UnaryGrpcSerializationFormats.PROTO),
+                UnaryGrpcClient.class);
 
         try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
             assertThatThrownBy(
@@ -222,10 +238,10 @@ class AbstractUnaryGrpcServiceTest {
                     .hasCauseInstanceOf(ArmeriaStatusException.class)
                     .cause()
                     .satisfies(ex -> {
-                            final ArmeriaStatusException cause = (ArmeriaStatusException) ex;
-                            assertThat(cause.getGrpcStatusDetailsBin()).isNotEmpty();
-                            assertThat(cause.getGrpcStatusDetailsBin()).isEqualTo("TestDetails".getBytes());
-                        });
+                        final ArmeriaStatusException cause = (ArmeriaStatusException) ex;
+                        assertThat(cause.getGrpcStatusDetailsBin()).isNotEmpty();
+                        assertThat(cause.getGrpcStatusDetailsBin()).isEqualTo("TestDetails".getBytes());
+                    });
             final ClientRequestContext ctx = captor.get();
             final HttpHeaders trailers = GrpcWebTrailers.get(ctx);
             assertThat(trailers).isNotNull();
@@ -253,5 +269,17 @@ class AbstractUnaryGrpcServiceTest {
         final HttpHeaders trailers = GrpcWebTrailers.get(captor.take());
         assertThat(trailers).isNotNull();
         assertThat(trailers.getInt(GrpcHeaderNames.GRPC_STATUS)).isEqualTo(StatusCodes.INTERNAL);
+    }
+
+    @Test
+    void exceedMaxContentLength() {
+        final TestServiceBlockingStub stub =
+                GrpcClients.newClient(serverWithMaxLen.httpUri(UnaryGrpcSerializationFormats.PROTO),
+                                      TestServiceBlockingStub.class);
+        final SimpleRequest req = SimpleRequest.newBuilder().setPayload(LARGE_PAYLOAD).build();
+        final Exception exception = catchException(() -> stub.unaryCall(req));
+        assertThat(exception).isInstanceOf(StatusRuntimeException.class);
+        final StatusRuntimeException statusException = (StatusRuntimeException) exception;
+        assertThat(statusException.getStatus().getCode()).isEqualTo(Code.RESOURCE_EXHAUSTED);
     }
 }

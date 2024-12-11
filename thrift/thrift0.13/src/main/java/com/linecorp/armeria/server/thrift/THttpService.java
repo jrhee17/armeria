@@ -426,11 +426,10 @@ public final class THttpService extends DecoratingService<RpcRequest, RpcRespons
            .handle((aReq, cause) -> {
                if (cause != null) {
                    cause = Exceptions.peel(cause);
-                   if (cause instanceof HttpStatusException || cause instanceof HttpResponseException) {
-                       return HttpResponse.ofFailure(cause);
-                   }
                    final HttpResponse errorRes;
-                   if (ctx.config().verboseResponses()) {
+                   if (cause instanceof HttpStatusException || cause instanceof HttpResponseException) {
+                       errorRes = HttpResponse.ofFailure(cause);
+                   } else if (ctx.config().verboseResponses()) {
                        errorRes = HttpResponse.of(HttpStatus.INTERNAL_SERVER_ERROR,
                                                   MediaType.PLAIN_TEXT_UTF_8,
                                                   Exceptions.traceText(cause));

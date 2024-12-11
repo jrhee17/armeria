@@ -288,7 +288,12 @@ final class Http2RequestDecoder extends Http2EventAdapter {
                 logInvalidStream = true;
             }
         } else {
-            if (req.isResponseAborted()) {
+            if (req.shouldResetOnlyIfRemoteIsOpen()) {
+                assert encoder != null;
+                final Http2Stream stream = encoder.findStream(streamId);
+                if (stream != null && !stream.state().localSideOpen()) {
+                    encoder.writeReset(req.id(), streamId, INTERNAL_ERROR, false);
+                }
                 // Discard the DATA frame received after the response has been aborted
                 // because an aborted response means we have finished handling the
                 // request.
@@ -334,7 +339,7 @@ final class Http2RequestDecoder extends Http2EventAdapter {
             final HttpStatusException httpStatusException =
                     HttpStatusException.of(HttpStatus.REQUEST_ENTITY_TOO_LARGE, cause);
             decodedReq.setShouldResetOnlyIfRemoteIsOpen(shouldReset);
-            decodedReq.abortResponse(httpStatusException, true);
+            decodedReq.abort(httpStatusException);
         } else if (decodedReq.isOpen()) {
             try {
                 // The decodedReq will be automatically closed if endOfStream is true.

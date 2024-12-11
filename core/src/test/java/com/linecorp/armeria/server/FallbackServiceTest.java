@@ -18,6 +18,7 @@ package com.linecorp.armeria.server;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -78,7 +79,16 @@ class FallbackServiceTest {
         protected void configure(ServerBuilder sb) throws Exception {
             sb.maxRequestLength(100);
             sb.decorator((delegate, ctx, req) -> {
-                return HttpResponse.delayed(HttpResponse.of(200), Duration.ofSeconds(5));
+                final CompletableFuture<HttpResponse> resFuture = new CompletableFuture<>();
+                req.aggregate().handle((aggReq, t) -> {
+                    if (t != null) {
+                        resFuture.completeExceptionally(t);
+                    } else {
+                        resFuture.complete(HttpResponse.of(200));
+                    }
+                    return null;
+                });
+                return HttpResponse.delayed(HttpResponse.of(resFuture), Duration.ofSeconds(5));
             });
             sb.service("/", (ctx, req) -> HttpResponse.of(200));
         }

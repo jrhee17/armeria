@@ -30,6 +30,7 @@ import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
+import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import testing.grpc.FlowControlTestServiceGrpc.FlowControlTestServiceImplBase;
@@ -90,8 +91,8 @@ class GrpcLargeRequestTest {
                     @Override
                     public void onError(Throwable t) {
                         assertThat(t).isInstanceOf(StatusRuntimeException.class);
-                        assertThat(((StatusRuntimeException) t).getStatus().getCause()).hasMessageContaining(
-                                "ContentTooLargeException");
+                        assertThat(((StatusRuntimeException) t).getStatus().getCode()).isEqualTo(
+                                Code.RESOURCE_EXHAUSTED);
                         onErrorLatch.countDown();
                     }
 

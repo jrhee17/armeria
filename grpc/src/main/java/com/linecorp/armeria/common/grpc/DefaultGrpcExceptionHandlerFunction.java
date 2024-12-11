@@ -28,6 +28,8 @@ import com.linecorp.armeria.common.ContentTooLargeException;
 import com.linecorp.armeria.common.RequestContext;
 import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.stream.ClosedStreamException;
+import com.linecorp.armeria.server.HttpResponseException;
+import com.linecorp.armeria.server.HttpStatusException;
 import com.linecorp.armeria.server.RequestTimeoutException;
 import com.linecorp.armeria.server.ServiceRequestContext;
 
@@ -49,6 +51,12 @@ enum DefaultGrpcExceptionHandlerFunction implements GrpcExceptionHandlerFunction
         if (status.getCode() != Code.UNKNOWN) {
             return status;
         }
+
+        if ((cause instanceof HttpStatusException || cause instanceof HttpResponseException) &&
+            cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+
         if (cause instanceof ClosedSessionException || cause instanceof ClosedChannelException) {
             if (ctx instanceof ServiceRequestContext) {
                 // Upstream uses CANCELLED

@@ -26,6 +26,7 @@ import java.util.concurrent.CompletionStage;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
+import com.linecorp.armeria.common.ContentTooLargeException;
 import com.linecorp.armeria.common.ExchangeType;
 import com.linecorp.armeria.common.HttpData;
 import com.linecorp.armeria.common.HttpHeaders;
@@ -52,6 +53,8 @@ import com.linecorp.armeria.internal.common.grpc.protocol.GrpcTrailersUtil;
 import com.linecorp.armeria.internal.common.grpc.protocol.StatusCodes;
 import com.linecorp.armeria.internal.common.grpc.protocol.UnaryGrpcSerializationFormats;
 import com.linecorp.armeria.server.AbstractHttpService;
+import com.linecorp.armeria.server.HttpResponseException;
+import com.linecorp.armeria.server.HttpStatusException;
 import com.linecorp.armeria.server.RoutingContext;
 import com.linecorp.armeria.server.ServiceRequestContext;
 
@@ -158,6 +161,11 @@ public abstract class AbstractUnsafeUnaryGrpcService extends AbstractHttpService
 
                     cause = Exceptions.peel(cause);
 
+                    if ((cause instanceof HttpStatusException || cause instanceof HttpResponseException) &&
+                        cause.getCause() != null) {
+                        cause = cause.getCause();
+                    }
+
                     // Send Trailers-Only → HTTP-Status Content-Type Trailers.
                     final ResponseHeadersBuilder trailersBuilder = ResponseHeaders
                             .builder(HttpStatus.OK).contentType(serializationFormat.mediaType());
@@ -166,6 +174,9 @@ public abstract class AbstractUnsafeUnaryGrpcService extends AbstractHttpService
                         GrpcTrailersUtil.addStatusMessageToTrailers(
                                 trailersBuilder, statusException.getCode(), statusException.getMessage(),
                                 statusException.getGrpcStatusDetailsBin());
+                    } else if (cause instanceof ContentTooLargeException) {
+                        GrpcTrailersUtil.addStatusMessageToTrailers(
+                                trailersBuilder, StatusCodes.RESOURCE_EXHAUSTED, cause.getMessage(), null);
                     } else {
                         GrpcTrailersUtil.addStatusMessageToTrailers(
                                 trailersBuilder, StatusCodes.INTERNAL, cause.getMessage(), null);
