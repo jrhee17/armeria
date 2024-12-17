@@ -319,27 +319,19 @@ final class Http1RequestDecoder extends ChannelDuplexHandler {
                                                         .contentLength(req.headers())
                                                         .transferred(transferredLength)
                                                         .build();
+                        final HttpStatusException httpStatusException =
+                                HttpStatusException.of(HttpStatus.REQUEST_ENTITY_TOO_LARGE, cause);
+                        decodedReq.contentLengthExceeded(true);
                         discarding = true;
                         req = null;
-                        final boolean shouldReset;
                         if (encoder instanceof ServerHttp1ObjectEncoder) {
                             if (encoder.isResponseHeadersSent(id, 1)) {
                                 ctx.channel().close();
                             } else {
                                 keepAliveHandler.disconnectWhenFinished();
                             }
-                            shouldReset = false;
-                        } else {
-                            // Upgraded to HTTP/2. Reset only if the remote peer is still open.
-                            shouldReset = !endOfStream;
                         }
-
-                        // Wrap the cause with the returned status to let LoggingService correctly log the
-                        // status.
-                        final HttpStatusException httpStatusException =
-                                HttpStatusException.of(HttpStatus.REQUEST_ENTITY_TOO_LARGE, cause);
-                        decodedReq.setShouldResetOnlyIfRemoteIsOpen(shouldReset);
-                        decodedReq.abortResponse(httpStatusException, true);
+                        decodedReq.abort(httpStatusException);
                         return;
                     }
 
@@ -419,7 +411,7 @@ final class Http1RequestDecoder extends ChannelDuplexHandler {
         if (encoder.isResponseHeadersSent(id, 1)) {
             // The response is sent or being sent by HttpResponseSubscriber, so we cannot send
             // the error response.
-            encoder.writeReset(id, 1, Http2Error.PROTOCOL_ERROR, false);
+            encoder.writeReset(id, 1, Http2Error.PROTOCOL_ERROR);
         } else {
             discarding = true;
             req = null;

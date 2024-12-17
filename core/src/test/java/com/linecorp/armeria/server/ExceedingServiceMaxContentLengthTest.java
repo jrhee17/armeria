@@ -28,7 +28,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -68,7 +67,8 @@ class ExceedingServiceMaxContentLengthTest {
 
     private static final AtomicReference<Throwable> responseCause = new AtomicReference<>();
 
-    private static final Queue<ByteBuf> byteBufs = new ArrayBlockingQueue<>(16);
+    private static final int BYTEBUF_QUEUE_SIZE = 8;
+    private static final Queue<ByteBuf> byteBufs = new ArrayBlockingQueue<>(BYTEBUF_QUEUE_SIZE);
 
     @RegisterExtension
     private static final EventLoopExtension eventLoopExtension = new EventLoopExtension();
@@ -139,7 +139,17 @@ class ExceedingServiceMaxContentLengthTest {
                 }
             });
 
-            sb.service("/200", (ctx, req) -> HttpResponse.of(200));
+            sb.service("/200", new HttpService() {
+                @Override
+                public HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
+                    return HttpResponse.of(200);
+                }
+
+                @Override
+                public ExchangeType exchangeType(RoutingContext routingContext) {
+                    return ExchangeType.valueOf(routingContext.headers().get("exchangeType"));
+                }
+            });
         }
     };
 
@@ -174,6 +184,7 @@ class ExceedingServiceMaxContentLengthTest {
         final RequestLog log = sctx.log().whenComplete().join();
         // Make sure that the response was correctly logged.
         assertThat(log.responseStatus()).isEqualTo(HttpStatus.REQUEST_ENTITY_TOO_LARGE);
+        assertThat(log.requestCause()).isInstanceOf(ContentTooLargeException.class);
         // Make sure that LoggingService is called.
         await().untilAsserted(
                 () -> assertThat(responseCause.get()).isExactlyInstanceOf(ContentTooLargeException.class));
@@ -181,17 +192,26 @@ class ExceedingServiceMaxContentLengthTest {
         await().untilAsserted(() -> assertThat(byteBufs).allSatisfy(buf -> assertThat(buf.refCnt()).isZero()));
     }
 
-    @Test
-    void maxContentLengthAbortsRequest() throws InterruptedException {
-        final SessionProtocol protocol = SessionProtocol.H2C;
+    @ParameterizedTest
+    @CsvSource({
+            "H1C, UNARY",
+            "H1C, BIDI_STREAMING",
+            "H2C, UNARY",
+            "H2C, BIDI_STREAMING",
+    })
+    void maxContentLengthAbortsRequest(SessionProtocol protocol, ExchangeType exchangeType) throws Exception {
         final String path = "/200";
         final HttpRequestWriter streaming = HttpRequest.streaming(HttpMethod.POST, path);
+        eventLoopExtension.get().scheduleWithFixedDelay(() -> {
+            streaming.write(HttpData.ofUtf8(Strings.repeat("a", 30)));
+        }, 100, 100, TimeUnit.MILLISECONDS);
 
         final ClientRequestContext cctx;
         final AggregatedHttpResponse response;
         try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
             response = WebClient.builder(server.uri(protocol))
                                 .requestAutoAbortDelayMillis(Long.MAX_VALUE)
+                                .addHeader("exchangeType", exchangeType.name())
                                 .build()
                                 .execute(streaming)
                                 .aggregate()
@@ -203,19 +223,16 @@ class ExceedingServiceMaxContentLengthTest {
         final RequestLog log = sctx.log().whenComplete().join();
         assertThat(log.responseStatus()).isEqualTo(HttpStatus.OK);
 
-        // now send request data and trigger rst_stream
-        assertThat(streaming.isComplete()).isFalse();
-        eventLoopExtension.get().scheduleWithFixedDelay(() -> {
-            streaming.write(HttpData.ofUtf8(Strings.repeat("a", 30)));
-        }, 100, 100, TimeUnit.MILLISECONDS);
         await().untilAsserted(() -> streaming.whenComplete().isDone());
         assertThatThrownBy(() -> streaming.whenComplete().join())
                 .isInstanceOf(CompletionException.class)
                 .hasCauseInstanceOf(CancelledSubscriptionException.class);
         await().untilAsserted(() -> cctx.log().isComplete());
-        assertThat(cctx.log().ensureComplete().requestCause()).isInstanceOf(ClosedStreamException.class);
+        assertThat(cctx.log().whenComplete().join().requestCause()).isInstanceOf(ClosedStreamException.class);
 
         // all data should be released
         await().untilAsserted(() -> assertThat(byteBufs).allSatisfy(buf -> assertThat(buf.refCnt()).isZero()));
+        // the request should be aborted before the queue size is reached
+        assertThat(byteBufs).hasSizeLessThan(BYTEBUF_QUEUE_SIZE);
     }
 }

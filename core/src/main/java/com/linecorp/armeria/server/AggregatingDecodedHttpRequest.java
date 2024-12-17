@@ -57,6 +57,7 @@ final class AggregatingDecodedHttpRequest extends AggregatingStreamMessage<HttpO
     private Throwable abortResponseCause;
 
     private boolean isNormallyClosed;
+    private boolean contentLengthExceeded;
 
     private final CompletableFuture<Void> aggregationFuture = new CompletableFuture<>();
 
@@ -252,5 +253,15 @@ final class AggregatingDecodedHttpRequest extends AggregatingStreamMessage<HttpO
     @Override
     public RequestHeaders headers() {
         return headers;
+    }
+
+    @Override
+    public boolean contentLengthExceeded() {
+        return contentLengthExceeded;
+    }
+
+    @Override
+    public void contentLengthExceeded(boolean contentLengthExceeded) {
+        this.contentLengthExceeded = contentLengthExceeded;
     }
 }

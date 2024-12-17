@@ -234,12 +234,12 @@ final class StreamingDecodedHttpRequest extends DefaultHttpRequest implements De
     }
 
     @Override
-    public void setShouldResetOnlyIfRemoteIsOpen(boolean shouldResetOnlyIfRemoteIsOpen) {
+    public void contentLengthExceeded(boolean shouldResetOnlyIfRemoteIsOpen) {
         this.shouldResetOnlyIfRemoteIsOpen = shouldResetOnlyIfRemoteIsOpen;
     }
 
     @Override
-    public boolean shouldResetOnlyIfRemoteIsOpen() {
+    public boolean contentLengthExceeded() {
         return shouldResetOnlyIfRemoteIsOpen;
     }
 }

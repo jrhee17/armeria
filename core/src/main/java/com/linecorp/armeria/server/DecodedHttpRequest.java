@@ -145,14 +145,14 @@ interface DecodedHttpRequest extends HttpRequest {
     /**
      * Sets whether to send an RST_STREAM after the response sending response when the peer is open state.
      */
-    default void setShouldResetOnlyIfRemoteIsOpen(boolean shouldResetOnlyIfRemoteIsOpen) {
+    default void contentLengthExceeded(boolean contentLengthExceeded) {
         // no-op
     }
 
     /**
      * Tells whether to send an RST_STREAM after the response sending response when the peer is open state.
      */
-    default boolean shouldResetOnlyIfRemoteIsOpen() {
+    default boolean contentLengthExceeded() {
         return false;
     }
 }

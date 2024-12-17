@@ -443,7 +443,7 @@ abstract class AbstractHttpRequestHandler implements ChannelFutureListener {
         }
 
         if (ch.isActive()) {
-            encoder.writeReset(id, streamId(), error, false);
+            encoder.writeReset(id, streamId(), error);
             ch.flush();
         }
     }
