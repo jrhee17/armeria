@@ -114,6 +114,10 @@ public final class ClientPreprocessors {
         return execution;
     }
 
+    boolean isEmpty() {
+        return preprocessors.isEmpty() && rpcPreprocessors.isEmpty();
+    }
+
     @Override
     public boolean equals(Object object) {
         if (this == object) {

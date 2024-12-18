@@ -408,8 +408,7 @@ public final class WebSocketClientBuilder extends AbstractWebClientBuilder {
     @Override
     @Deprecated
     public WebSocketClientBuilder preprocessor(HttpPreprocessor preprocessor) {
-        throw new UnsupportedOperationException(
-                "RPC preprocessor cannot be added to the websocket client builder.");
+        throw new UnsupportedOperationException("WebSocketClientBuilder does not support preprocessor.");
     }
 
     @Override
