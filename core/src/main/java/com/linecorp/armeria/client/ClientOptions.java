@@ -410,6 +410,10 @@ public final class ClientOptions
         return get(RESPONSE_TIMEOUT_MODE);
     }
 
+    public ClientPreprocessors clientPreprocessors() {
+        return ClientPreprocessors.of();
+    }
+
     /**
      * Returns a new {@link ClientOptionsBuilder} created from this {@link ClientOptions}.
      */

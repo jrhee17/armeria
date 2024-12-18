@@ -39,6 +39,7 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.MediaType;
 import com.linecorp.armeria.common.stream.StreamMessage;
 import com.linecorp.armeria.common.stream.StreamWriter;
+import com.linecorp.armeria.internal.client.PreprocessorAttributeKeys;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
@@ -222,6 +223,9 @@ class RequestOptionsTest {
             final Iterator<Entry<AttributeKey<?>, Object>> attrs = ctx.attrs();
             while (attrs.hasNext()) {
                 final Entry<AttributeKey<?>, Object> next = attrs.next();
+                if (PreprocessorAttributeKeys.keys().contains(next.getKey())) {
+                    continue;
+                }
                 assertThat(requestOptions.attrs()).contains(next);
             }
             assertThat(res.join().contentUtf8()).isEqualTo("pong");

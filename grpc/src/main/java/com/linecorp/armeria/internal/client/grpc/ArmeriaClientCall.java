@@ -15,7 +15,6 @@
  */
 package com.linecorp.armeria.internal.client.grpc;
 
-import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 import static com.linecorp.armeria.internal.client.grpc.protocol.InternalGrpcWebUtil.messageBuf;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -29,7 +28,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import java.util.function.BiFunction;
 
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -38,8 +36,10 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.MoreExecutors;
 
-import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.ClientPreprocessors;
 import com.linecorp.armeria.client.HttpClient;
+import com.linecorp.armeria.client.HttpPreprocessor;
+import com.linecorp.armeria.client.TailClientPreprocessor;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.HttpRequest;
@@ -110,7 +110,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
 
     private final DefaultClientRequestContext ctx;
     private final EndpointGroup endpointGroup;
-    private final HttpClient httpClient;
+    private final HttpPreprocessor httpPreprocessor;
     private final HttpRequestWriter req;
     private final MethodDescriptor<I, O> method;
     private final Map<MethodDescriptor<?, ?>, String> simpleMethodNames;
@@ -126,6 +126,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
     private final boolean grpcWebText;
     private final Compressor compressor;
     private final InternalGrpcExceptionHandler exceptionHandler;
+    private final ClientPreprocessors clientPreprocessors;
 
     private boolean endpointInitialized;
     @Nullable
@@ -161,10 +162,11 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
             @Nullable GrpcJsonMarshaller jsonMarshaller,
             boolean unsafeWrapResponseBuffers,
             InternalGrpcExceptionHandler exceptionHandler,
-            boolean useMethodMarshaller) {
+            boolean useMethodMarshaller,
+            ClientPreprocessors clientPreprocessors) {
         this.ctx = ctx;
         this.endpointGroup = endpointGroup;
-        this.httpClient = httpClient;
+        httpPreprocessor = TailClientPreprocessor.of(httpClient);
         this.req = req;
         this.method = method;
         this.simpleMethodNames = simpleMethodNames;
@@ -177,6 +179,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
         grpcWebText = GrpcSerializationFormats.isGrpcWebText(serializationFormat);
         this.maxInboundMessageSizeBytes = maxInboundMessageSizeBytes;
         this.exceptionHandler = exceptionHandler;
+        this.clientPreprocessors = clientPreprocessors;
 
         ctx.whenInitialized().handle((unused1, unused2) -> {
             runPendingTask();
@@ -245,19 +248,9 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
         }
 
         // Must come after handling deadline.
-        prepareHeaders(compressor, metadata, remainingNanos);
-
-        final BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory =
-                (unused, cause) -> {
-                    final StatusAndMetadata statusAndMetadata = exceptionHandler.handle(ctx, cause);
-                    Status status = statusAndMetadata.status();
-                    if (status.getDescription() == null) {
-                        status = status.withDescription(cause.getMessage());
-                    }
-                    return HttpResponse.ofFailure(status.asRuntimeException());
-                };
-        final HttpResponse res = initContextAndExecuteWithFallback(
-                httpClient, ctx, endpointGroup, HttpResponse::of, errorResponseFactory);
+        final HttpRequest newReq = prepareHeaders(compressor, metadata, remainingNanos);
+        final HttpResponse res = clientPreprocessors.decorate(httpPreprocessor)
+                                                    .execute(ctx, newReq, ctx.requestOptions());
 
         final HttpStreamDeframer deframer = new HttpStreamDeframer(
                 decompressorRegistry, ctx, this, exceptionHandler,
@@ -493,7 +486,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
         });
     }
 
-    private void prepareHeaders(Compressor compressor, Metadata metadata, long remainingNanos) {
+    private HttpRequest prepareHeaders(Compressor compressor, Metadata metadata, long remainingNanos) {
         final RequestHeadersBuilder newHeaders = req.headers().toBuilder();
         if (compressor != Identity.NONE) {
             newHeaders.set(GrpcHeaderNames.GRPC_ENCODING, compressor.getMessageEncoding());
@@ -512,6 +505,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
 
         final HttpRequest newReq = req.withHeaders(newHeaders);
         ctx.updateRequest(newReq);
+        return newReq;
     }
 
     private void closeWhenListenerThrows(Throwable t) {

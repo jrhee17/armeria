@@ -56,7 +56,8 @@ public final class ClientUtil {
             ClientRequestContextExtension ctx,
             EndpointGroup endpointGroup,
             Function<CompletableFuture<O>, O> futureConverter,
-            BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
+            BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory,
+            I req) {
 
         requireNonNull(delegate, "delegate");
         requireNonNull(ctx, "ctx");
@@ -77,7 +78,7 @@ public final class ClientUtil {
                     throw UnprocessedRequestException.of(Exceptions.peel(e));
                 }
 
-                return initContextAndExecuteWithFallback(delegate, ctx, errorResponseFactory, success);
+                return initContextAndExecuteWithFallback(delegate, ctx, errorResponseFactory, success, req);
             } else {
                 return futureConverter.apply(initFuture.handle((success0, cause) -> {
                     try {
@@ -85,7 +86,8 @@ public final class ClientUtil {
                             throw UnprocessedRequestException.of(Exceptions.peel(cause));
                         }
 
-                        return initContextAndExecuteWithFallback(delegate, ctx, errorResponseFactory, success0);
+                        return initContextAndExecuteWithFallback(
+                                delegate, ctx, errorResponseFactory, success0, req);
                     } catch (Throwable t) {
                         fail(ctx, t);
                         return errorResponseFactory.apply(ctx, t);
@@ -107,11 +109,11 @@ public final class ClientUtil {
     private static <I extends Request, O extends Response, U extends Client<I, O>>
     O initContextAndExecuteWithFallback(
             U delegate, ClientRequestContextExtension ctx,
-            BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory, boolean succeeded)
+            BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory, boolean succeeded, I req)
             throws Exception {
 
         if (succeeded) {
-            return pushAndExecute(delegate, ctx);
+            return pushAndExecute(delegate, ctx, req);
         } else {
             final Throwable cause = ctx.log().partial().requestCause();
             assert cause != null;
@@ -123,7 +125,7 @@ public final class ClientUtil {
             // See `init()` and `failEarly()` in `DefaultClientRequestContext`.
 
             // Call the decorator chain anyway so that the request is seen by the decorators.
-            final O res = pushAndExecute(delegate, ctx);
+            final O res = pushAndExecute(delegate, ctx, req);
 
             // We will use the fallback response which is created from the exception
             // raised in ctx.init(), so the response returned can be aborted.
@@ -138,14 +140,14 @@ public final class ClientUtil {
 
     public static <I extends Request, O extends Response, U extends Client<I, O>>
     O executeWithFallback(U delegate, ClientRequestContext ctx,
-                          BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
+                          BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory, I req) {
 
         requireNonNull(delegate, "delegate");
         requireNonNull(ctx, "ctx");
         requireNonNull(errorResponseFactory, "errorResponseFactory");
 
         try {
-            return pushAndExecute(delegate, ctx);
+            return pushAndExecute(delegate, ctx, req);
         } catch (Throwable cause) {
             fail(ctx, cause);
             return errorResponseFactory.apply(ctx, cause);
@@ -153,9 +155,7 @@ public final class ClientUtil {
     }
 
     private static <I extends Request, O extends Response, U extends Client<I, O>>
-    O pushAndExecute(U delegate, ClientRequestContext ctx) throws Exception {
-        @SuppressWarnings("unchecked")
-        final I req = (I) firstNonNull(ctx.request(), ctx.rpcRequest());
+    O pushAndExecute(U delegate, ClientRequestContext ctx, I req) throws Exception {
         try (SafeCloseable ignored = ctx.push()) {
             return delegate.execute(ctx, req);
         }

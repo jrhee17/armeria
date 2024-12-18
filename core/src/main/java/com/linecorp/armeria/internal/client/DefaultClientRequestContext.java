@@ -36,6 +36,9 @@ import java.util.function.Function;
 
 import javax.net.ssl.SSLSession;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
@@ -68,6 +71,7 @@ import com.linecorp.armeria.common.logging.RequestLogBuilder;
 import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.util.ReleasableHolder;
 import com.linecorp.armeria.common.util.SafeCloseable;
+import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.common.util.TextFormatter;
 import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.common.util.UnmodifiableFuture;
@@ -99,6 +103,8 @@ public final class DefaultClientRequestContext
         extends NonWrappingRequestContext
         implements ClientRequestContextExtension {
 
+    private static final Logger logger = LoggerFactory.getLogger(DefaultClientRequestContext.class);
+
     private static final AtomicReferenceFieldUpdater<DefaultClientRequestContext, HttpHeaders>
             additionalRequestHeadersUpdater = AtomicReferenceFieldUpdater.newUpdater(
             DefaultClientRequestContext.class, HttpHeaders.class, "additionalRequestHeaders");
@@ -124,6 +130,7 @@ public final class DefaultClientRequestContext
 
     private static final short STR_CHANNEL_AVAILABILITY = 1;
     private static final short STR_PARENT_LOG_AVAILABILITY = 1 << 1;
+    private static boolean warnedNullRequestId;
 
     private boolean initialized;
     @Nullable
@@ -170,6 +177,16 @@ public final class DefaultClientRequestContext
     private volatile CompletableFuture<Boolean> whenInitialized;
 
     private final ResponseTimeoutMode responseTimeoutMode;
+    private final RequestOptions requestOptions;
+
+    public DefaultClientRequestContext(SessionProtocol sessionProtocol, HttpRequest httpRequest,
+                                       @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
+                                       RequestOptions requestOptions, ClientOptions clientOptions) {
+        this(null, clientOptions.factory().meterRegistry(),
+             sessionProtocol, nextRequestId(clientOptions), httpRequest.method(), requestTarget,
+             clientOptions, httpRequest, rpcRequest, requestOptions, serviceRequestContext(),
+             null, System.nanoTime(), SystemInfo.currentTimeMicros());
+    }
 
     /**
      * Creates a new instance. Note that {@link #init(EndpointGroup)} method must be invoked to finish
@@ -191,8 +208,8 @@ public final class DefaultClientRequestContext
             ClientOptions options, @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
             RequestOptions requestOptions, CancellationScheduler responseCancellationScheduler,
             long requestStartTimeNanos, long requestStartTimeMicros) {
-        this(eventLoop, meterRegistry, sessionProtocol,
-             id, method, reqTarget, options, req, rpcReq, requestOptions, serviceRequestContext(),
+        this(eventLoop, meterRegistry, sessionProtocol, id, method, reqTarget,
+             options, req, rpcReq, requestOptions, serviceRequestContext(),
              requireNonNull(responseCancellationScheduler, "responseCancellationScheduler"),
              requestStartTimeNanos, requestStartTimeMicros);
     }
@@ -213,7 +230,7 @@ public final class DefaultClientRequestContext
     public DefaultClientRequestContext(
             MeterRegistry meterRegistry, SessionProtocol sessionProtocol,
             RequestId id, HttpMethod method, RequestTarget reqTarget,
-            ClientOptions options, @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
+            ClientOptions options, HttpRequest req, @Nullable RpcRequest rpcReq,
             RequestOptions requestOptions,
             long requestStartTimeNanos, long requestStartTimeMicros) {
         this(null, meterRegistry, sessionProtocol,
@@ -237,6 +254,7 @@ public final class DefaultClientRequestContext
         this.eventLoop = eventLoop;
         this.options = requireNonNull(options, "options");
         this.root = root;
+        this.requestOptions = requestOptions;
 
         log = RequestLog.builder(this);
         log.startRequest(requestStartTimeNanos, requestStartTimeMicros);
@@ -533,6 +551,7 @@ public final class DefaultClientRequestContext
         // So we don't check the nullness of rpcRequest unlike request.
         // See https://github.com/line/armeria/pull/3251 and https://github.com/line/armeria/issues/3248.
 
+        requestOptions = ctx.requestOptions();
         options = ctx.options();
         root = ctx.root();
 
@@ -1074,6 +1093,10 @@ public final class DefaultClientRequestContext
         return responseTimeoutMode;
     }
 
+    public RequestOptions requestOptions() {
+        return requestOptions;
+    }
+
     private static ResponseTimeoutMode responseTimeoutMode(ClientOptions options,
                                                            RequestOptions requestOptions) {
         final ResponseTimeoutMode requestOptionTimeoutMode = requestOptions.responseTimeoutMode();
@@ -1081,5 +1104,18 @@ public final class DefaultClientRequestContext
             return requestOptionTimeoutMode;
         }
         return options.responseTimeoutMode();
+    }
+
+    private static RequestId nextRequestId(ClientOptions options) {
+        final RequestId id = options.requestIdGenerator().get();
+        if (id == null) {
+            if (!warnedNullRequestId) {
+                warnedNullRequestId = true;
+                logger.warn("requestIdGenerator.get() returned null; using RequestId.random()");
+            }
+            return RequestId.random();
+        } else {
+            return id;
+        }
     }
 }

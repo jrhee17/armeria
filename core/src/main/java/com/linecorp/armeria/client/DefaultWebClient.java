@@ -29,6 +29,8 @@ import com.linecorp.armeria.common.RequestTargetForm;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
+import com.linecorp.armeria.internal.client.PreprocessorAttributeKeys;
 
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -113,12 +115,17 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
             newReq = req.withHeaders(req.headers().toBuilder().path(newPath));
         }
 
-        return execute(protocol,
-                       endpointGroup,
-                       newReq.method(),
-                       reqTarget,
-                       newReq,
-                       requestOptions);
+        final RequestOptions reqOptions = requestOptions
+                .toBuilder()
+                .attr(PreprocessorAttributeKeys.FUTURE_CONVERTER_KEY, futureConverter())
+                .attr(PreprocessorAttributeKeys.ERROR_RESPONSE_FACTORY_KEY, errorResponseFactory())
+                .attr(PreprocessorAttributeKeys.ENDPOINT_GROUP_KEY, endpointGroup)
+                .build();
+        final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
+                protocol, newReq, null, reqTarget,
+                reqOptions, options());
+        return options().clientPreprocessors().decorate(TailClientPreprocessor.of(unwrap()))
+                        .execute(ctx, newReq, reqOptions);
     }
 
     private static HttpResponse abortRequestAndReturnFailureResponse(
