@@ -24,14 +24,14 @@ import com.google.common.collect.ImmutableList;
 /**
  * A set of {@link Function}s that transforms a {@link HttpPreprocessor} or {@link RpcPreprocessor} into another.
  */
-public final class Preprocessors {
+public final class ClientPreprocessors {
 
-    private static final Preprocessors NONE = new Preprocessors(ImmutableList.of(), ImmutableList.of());
+    private static final ClientPreprocessors NONE = new ClientPreprocessors(ImmutableList.of(), ImmutableList.of());
 
     /**
      * Returns an empty {@link ClientDecoration} which does not decorate a {@link Client}.
      */
-    public static Preprocessors of() {
+    public static ClientPreprocessors of() {
         return NONE;
     }
 
@@ -41,7 +41,7 @@ public final class Preprocessors {
      * @param preprocessor the {@link HttpPreprocessor} that transforms an
      *                  {@link HttpClientExecution} to another
      */
-    public static Preprocessors of(HttpPreprocessor preprocessor) {
+    public static ClientPreprocessors of(HttpPreprocessor preprocessor) {
         return builder().add(preprocessor).build();
     }
 
@@ -51,7 +51,7 @@ public final class Preprocessors {
      * @param preprocessor the {@link RpcPreprocessor} that transforms an {@link RpcClientExecution}
      *                  to another
      */
-    public static Preprocessors ofRpc(RpcPreprocessor preprocessor) {
+    public static ClientPreprocessors ofRpc(RpcPreprocessor preprocessor) {
         return builder().addRpc(preprocessor).build();
     }
 
@@ -62,7 +62,7 @@ public final class Preprocessors {
     private final List<HttpPreprocessor> preprocessors;
     private final List<RpcPreprocessor> rpcPreprocessors;
 
-    Preprocessors(List<HttpPreprocessor> preprocessors, List<RpcPreprocessor> rpcPreprocessors) {
+    ClientPreprocessors(List<HttpPreprocessor> preprocessors, List<RpcPreprocessor> rpcPreprocessors) {
         this.preprocessors = ImmutableList.copyOf(preprocessors);
         this.rpcPreprocessors = ImmutableList.copyOf(rpcPreprocessors);
     }

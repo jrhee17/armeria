@@ -98,7 +98,7 @@ public final class ClientBuilder extends AbstractClientOptionsBuilder {
         this.scheme = scheme;
     }
 
-    ClientBuilder(Preprocessors preprocessors, @Nullable String path) {
+    ClientBuilder(ClientPreprocessors preprocessors, @Nullable String path) {
         uri = null;
         endpointGroup = FailingEndpointGroup.of(new RuntimeException());
         this.path = path;

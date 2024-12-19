@@ -31,7 +31,7 @@ final class PreprocessorsBuilder {
         return this;
     }
 
-    PreprocessorsBuilder add(Preprocessors preprocessors) {
+    PreprocessorsBuilder add(ClientPreprocessors preprocessors) {
         requireNonNull(preprocessors, "preprocessors");
         preprocessors.preprocessors().forEach(this::add);
         preprocessors.rpcPreprocessors().forEach(this::addRpc);
@@ -46,7 +46,7 @@ final class PreprocessorsBuilder {
     /**
      * Returns a newly-created {@link ClientDecoration} based on the decorators added to this builder.
      */
-    public Preprocessors build() {
-        return new Preprocessors(preprocessors, rpcPreprocessors);
+    public ClientPreprocessors build() {
+        return new ClientPreprocessors(preprocessors, rpcPreprocessors);
     }
 }

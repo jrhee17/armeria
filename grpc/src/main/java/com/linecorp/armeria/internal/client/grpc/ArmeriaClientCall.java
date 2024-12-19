@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import com.linecorp.armeria.client.HttpClientExecution;
-import com.linecorp.armeria.client.Preprocessors;
+import com.linecorp.armeria.client.ClientPreprocessors;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.HttpRequest;
@@ -124,7 +124,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
     private final boolean grpcWebText;
     private final Compressor compressor;
     private final InternalGrpcExceptionHandler exceptionHandler;
-    private final Preprocessors preprocessors;
+    private final ClientPreprocessors preprocessors;
 
     private boolean endpointInitialized;
     @Nullable
@@ -161,7 +161,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
             boolean unsafeWrapResponseBuffers,
             InternalGrpcExceptionHandler exceptionHandler,
             boolean useMethodMarshaller,
-            Preprocessors preprocessors) {
+            ClientPreprocessors preprocessors) {
         this.ctx = ctx;
         this.endpointGroup = endpointGroup;
         this.httpPreprocessor = httpPreprocessor;
