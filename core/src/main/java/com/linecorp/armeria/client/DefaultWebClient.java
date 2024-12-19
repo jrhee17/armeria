@@ -30,7 +30,7 @@ import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
-import com.linecorp.armeria.internal.client.TailClientPreprocessor;
+import com.linecorp.armeria.internal.client.TailPreprocessor;
 
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -116,9 +116,9 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
         }
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 protocol, newReq, null, reqTarget, endpointGroup, requestOptions, options());
-        return options().clientPreprocessors()
-                        .decorate(TailClientPreprocessor.of(unwrap(), futureConverter(),
-                                                            errorResponseFactory()))
+        return options().preprocessors()
+                        .decorate(TailPreprocessor.of(unwrap(), futureConverter(),
+                                                      errorResponseFactory()))
                         .execute(ctx, newReq);
     }
 

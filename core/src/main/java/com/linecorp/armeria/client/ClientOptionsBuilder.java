@@ -227,4 +227,26 @@ public final class ClientOptionsBuilder extends AbstractClientOptionsBuilder {
     public ClientOptionsBuilder responseTimeoutMode(ResponseTimeoutMode responseTimeoutMode) {
         return (ClientOptionsBuilder) super.responseTimeoutMode(responseTimeoutMode);
     }
+
+    @Override
+    public ClientOptionsBuilder preprocessor(
+            Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
+        return (ClientOptionsBuilder) super.preprocessor(decorator);
+    }
+
+    @Override
+    public ClientOptionsBuilder preprocessor(DecoratingHttpPreprocessorFunction decorator) {
+        return (ClientOptionsBuilder) super.preprocessor(decorator);
+    }
+
+    @Override
+    public ClientOptionsBuilder rpcPreprocessor(
+            Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
+        return (ClientOptionsBuilder) super.rpcPreprocessor(decorator);
+    }
+
+    @Override
+    public ClientOptionsBuilder rpcPreprocessor(DecoratingRpcPreprocessorFunction decorator) {
+        return (ClientOptionsBuilder) super.rpcPreprocessor(decorator);
+    }
 }

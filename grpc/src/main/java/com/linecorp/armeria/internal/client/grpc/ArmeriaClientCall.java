@@ -36,8 +36,8 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.MoreExecutors;
 
-import com.linecorp.armeria.client.ClientPreprocessors;
 import com.linecorp.armeria.client.HttpPreprocessor;
+import com.linecorp.armeria.client.Preprocessors;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.HttpRequest;
@@ -124,7 +124,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
     private final boolean grpcWebText;
     private final Compressor compressor;
     private final InternalGrpcExceptionHandler exceptionHandler;
-    private final ClientPreprocessors clientPreprocessors;
+    private final Preprocessors preprocessors;
 
     private boolean endpointInitialized;
     @Nullable
@@ -161,7 +161,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
             boolean unsafeWrapResponseBuffers,
             InternalGrpcExceptionHandler exceptionHandler,
             boolean useMethodMarshaller,
-            ClientPreprocessors clientPreprocessors) {
+            Preprocessors preprocessors) {
         this.ctx = ctx;
         this.endpointGroup = endpointGroup;
         this.httpPreprocessor = httpPreprocessor;
@@ -177,7 +177,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
         grpcWebText = GrpcSerializationFormats.isGrpcWebText(serializationFormat);
         this.maxInboundMessageSizeBytes = maxInboundMessageSizeBytes;
         this.exceptionHandler = exceptionHandler;
-        this.clientPreprocessors = clientPreprocessors;
+        this.preprocessors = preprocessors;
 
         ctx.whenInitialized().handle((unused1, unused2) -> {
             runPendingTask();
@@ -247,8 +247,8 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
 
         // Must come after handling deadline.
         final HttpRequest newReq = prepareHeaders(compressor, metadata, remainingNanos);
-        final HttpResponse res = clientPreprocessors.decorate(httpPreprocessor)
-                                                    .execute(ctx, newReq);
+        final HttpResponse res = preprocessors.decorate(httpPreprocessor)
+                                              .execute(ctx, newReq);
 
         final HttpStreamDeframer deframer = new HttpStreamDeframer(
                 decompressorRegistry, ctx, this, exceptionHandler,

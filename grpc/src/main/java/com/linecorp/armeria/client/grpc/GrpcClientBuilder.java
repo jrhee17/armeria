@@ -52,11 +52,15 @@ import com.linecorp.armeria.client.ClientOptionValue;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
+import com.linecorp.armeria.client.DecoratingHttpPreprocessorFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
+import com.linecorp.armeria.client.DecoratingRpcPreprocessorFunction;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpClient;
+import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.RpcClient;
+import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.redirect.RedirectConfig;
 import com.linecorp.armeria.common.RequestContext;
@@ -599,6 +603,28 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
     @Override
     public GrpcClientBuilder responseTimeoutMode(ResponseTimeoutMode responseTimeoutMode) {
         return (GrpcClientBuilder) super.responseTimeoutMode(responseTimeoutMode);
+    }
+
+    @Override
+    public GrpcClientBuilder preprocessor(
+            Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
+        return (GrpcClientBuilder) super.preprocessor(decorator);
+    }
+
+    @Override
+    public GrpcClientBuilder preprocessor(DecoratingHttpPreprocessorFunction decorator) {
+        return (GrpcClientBuilder) super.preprocessor(decorator);
+    }
+
+    @Override
+    public GrpcClientBuilder rpcPreprocessor(
+            Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
+        return (GrpcClientBuilder) super.rpcPreprocessor(decorator);
+    }
+
+    @Override
+    public GrpcClientBuilder rpcPreprocessor(DecoratingRpcPreprocessorFunction decorator) {
+        return (GrpcClientBuilder) super.rpcPreprocessor(decorator);
     }
 
     /**

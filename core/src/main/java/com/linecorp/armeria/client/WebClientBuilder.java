@@ -255,4 +255,26 @@ public final class WebClientBuilder extends AbstractWebClientBuilder {
     public WebClientBuilder responseTimeoutMode(ResponseTimeoutMode responseTimeoutMode) {
         return (WebClientBuilder) super.responseTimeoutMode(responseTimeoutMode);
     }
+
+    @Override
+    public WebClientBuilder preprocessor(
+            Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
+        return (WebClientBuilder) super.preprocessor(decorator);
+    }
+
+    @Override
+    public WebClientBuilder preprocessor(DecoratingHttpPreprocessorFunction decorator) {
+        return (WebClientBuilder) super.preprocessor(decorator);
+    }
+
+    @Override
+    public WebClientBuilder rpcPreprocessor(
+            Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
+        return (WebClientBuilder) super.rpcPreprocessor(decorator);
+    }
+
+    @Override
+    public WebClientBuilder rpcPreprocessor(DecoratingRpcPreprocessorFunction decorator) {
+        return (WebClientBuilder) super.rpcPreprocessor(decorator);
+    }
 }

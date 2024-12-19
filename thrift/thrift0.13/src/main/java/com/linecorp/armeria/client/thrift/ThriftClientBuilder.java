@@ -39,11 +39,15 @@ import com.linecorp.armeria.client.ClientOptionValue;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
+import com.linecorp.armeria.client.DecoratingHttpPreprocessorFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
+import com.linecorp.armeria.client.DecoratingRpcPreprocessorFunction;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpClient;
+import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.RpcClient;
+import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.redirect.RedirectConfig;
 import com.linecorp.armeria.common.RequestId;
@@ -378,5 +382,27 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
     @Override
     public ThriftClientBuilder responseTimeoutMode(ResponseTimeoutMode responseTimeoutMode) {
         return (ThriftClientBuilder) super.responseTimeoutMode(responseTimeoutMode);
+    }
+
+    @Override
+    public ThriftClientBuilder preprocessor(
+            Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
+        return (ThriftClientBuilder) super.preprocessor(decorator);
+    }
+
+    @Override
+    public ThriftClientBuilder preprocessor(DecoratingHttpPreprocessorFunction decorator) {
+        return (ThriftClientBuilder) super.preprocessor(decorator);
+    }
+
+    @Override
+    public ThriftClientBuilder rpcPreprocessor(
+            Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
+        return (ThriftClientBuilder) super.rpcPreprocessor(decorator);
+    }
+
+    @Override
+    public ThriftClientBuilder rpcPreprocessor(DecoratingRpcPreprocessorFunction decorator) {
+        return (ThriftClientBuilder) super.rpcPreprocessor(decorator);
     }
 }

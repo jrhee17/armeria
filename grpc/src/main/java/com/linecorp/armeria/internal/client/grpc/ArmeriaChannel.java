@@ -53,7 +53,7 @@ import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.common.util.Unwrappable;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
-import com.linecorp.armeria.internal.client.TailClientPreprocessor;
+import com.linecorp.armeria.internal.client.TailPreprocessor;
 import com.linecorp.armeria.internal.common.RequestTargetCache;
 import com.linecorp.armeria.internal.common.grpc.InternalGrpcExceptionHandler;
 import com.linecorp.armeria.internal.common.grpc.StatusAndMetadata;
@@ -183,7 +183,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
                     return HttpResponse.ofFailure(status.asRuntimeException());
                 };
         final HttpPreprocessor httpPreprocessor =
-                TailClientPreprocessor.of(client, HttpResponse::of, errorResponseFactory);
+                TailPreprocessor.of(client, HttpResponse::of, errorResponseFactory);
 
         return new ArmeriaClientCall<>(
                 ctx,
@@ -203,7 +203,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
                 unsafeWrapResponseBuffers,
                 exceptionHandler,
                 useMethodMarshaller,
-                options().clientPreprocessors());
+                options().preprocessors());
     }
 
     @Override

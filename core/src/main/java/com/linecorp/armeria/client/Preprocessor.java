@@ -16,12 +16,17 @@
 
 package com.linecorp.armeria.client;
 
-import com.linecorp.armeria.common.HttpRequest;
-import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.Request;
+import com.linecorp.armeria.common.Response;
 
 /**
  * TBU.
  */
 @FunctionalInterface
-public interface HttpPreprocessor extends Preprocessor<HttpRequest, HttpResponse> {
+public interface Preprocessor<I extends Request, O extends Response> {
+
+    /**
+     * TBU.
+     */
+    O execute(PartialClientRequestContext ctx, I req);
 }

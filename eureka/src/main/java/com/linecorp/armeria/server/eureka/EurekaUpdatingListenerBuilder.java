@@ -38,11 +38,15 @@ import com.linecorp.armeria.client.ClientOptionValue;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
+import com.linecorp.armeria.client.DecoratingHttpPreprocessorFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
+import com.linecorp.armeria.client.DecoratingRpcPreprocessorFunction;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpClient;
+import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.RpcClient;
+import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.retry.RetryRule;
@@ -556,5 +560,27 @@ public final class EurekaUpdatingListenerBuilder extends AbstractWebClientBuilde
     @Override
     public EurekaUpdatingListenerBuilder responseTimeoutMode(ResponseTimeoutMode responseTimeoutMode) {
         return (EurekaUpdatingListenerBuilder) super.responseTimeoutMode(responseTimeoutMode);
+    }
+
+    @Override
+    public EurekaUpdatingListenerBuilder preprocessor(
+            Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
+        return (EurekaUpdatingListenerBuilder) super.preprocessor(decorator);
+    }
+
+    @Override
+    public EurekaUpdatingListenerBuilder preprocessor(DecoratingHttpPreprocessorFunction decorator) {
+        return (EurekaUpdatingListenerBuilder) super.preprocessor(decorator);
+    }
+
+    @Override
+    public EurekaUpdatingListenerBuilder rpcPreprocessor(
+            Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
+        return (EurekaUpdatingListenerBuilder) super.rpcPreprocessor(decorator);
+    }
+
+    @Override
+    public EurekaUpdatingListenerBuilder rpcPreprocessor(DecoratingRpcPreprocessorFunction decorator) {
+        return (EurekaUpdatingListenerBuilder) super.rpcPreprocessor(decorator);
     }
 }

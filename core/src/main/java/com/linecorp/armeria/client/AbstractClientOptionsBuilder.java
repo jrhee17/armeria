@@ -57,6 +57,7 @@ public class AbstractClientOptionsBuilder {
 
     private final Map<ClientOption<?>, ClientOptionValue<?>> options = new LinkedHashMap<>();
     private final ClientDecorationBuilder decoration = ClientDecoration.builder();
+    private final PreprocessorsBuilder preprocessorsBuilder = new PreprocessorsBuilder();
     private final HttpHeadersBuilder headers = HttpHeaders.builder();
 
     @Nullable
@@ -521,6 +522,48 @@ public class AbstractClientOptionsBuilder {
     }
 
     /**
+     * Adds the specified HTTP-level {@code decorator}.
+     *
+     * @param decorator the {@link Function} that transforms an {@link HttpClient} to another
+     */
+    public AbstractClientOptionsBuilder preprocessor(
+            Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
+        preprocessorsBuilder.add(decorator);
+        return this;
+    }
+
+    /**
+     * Adds the specified HTTP-level {@code decorator}.
+     *
+     * @param decorator the {@link DecoratingHttpPreprocessorFunction} that intercepts an invocation
+     */
+    public AbstractClientOptionsBuilder preprocessor(DecoratingHttpPreprocessorFunction decorator) {
+        preprocessorsBuilder.add(decorator);
+        return this;
+    }
+
+    /**
+     * Adds the specified RPC-level {@code decorator}.
+     *
+     * @param decorator the {@link Function} that transforms an {@link RpcPreprocessor} to another
+     */
+    public AbstractClientOptionsBuilder rpcPreprocessor(
+            Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
+        preprocessorsBuilder.addRpc(decorator);
+        return this;
+    }
+
+    /**
+     * Adds the specified RPC-level {@code decorator}.
+     *
+     * @param decorator the {@link DecoratingRpcPreprocessorFunction} that intercepts an invocation
+     */
+    public AbstractClientOptionsBuilder rpcPreprocessor(DecoratingRpcPreprocessorFunction decorator) {
+        preprocessorsBuilder.addRpc(decorator);
+        return this;
+    }
+
+    /**
      * Builds {@link ClientOptions} with the given options and the
      * {@linkplain ClientOptions#of() default options}.
      */
@@ -538,6 +581,7 @@ public class AbstractClientOptionsBuilder {
                 ImmutableList.builder();
         additionalValues.addAll(optVals);
         additionalValues.add(ClientOptions.DECORATION.newValue(decoration.build()));
+        additionalValues.add(ClientOptions.PREPROCESSORS.newValue(preprocessorsBuilder.build()));
         additionalValues.add(ClientOptions.HEADERS.newValue(headers.build()));
         additionalValues.add(ClientOptions.CONTEXT_HOOK.newValue(contextHook));
         if (contextCustomizer != null) {
