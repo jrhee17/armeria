@@ -97,7 +97,7 @@ final class DefaultTHttpClient extends UserClient<RpcRequest, RpcResponse> imple
                 .attr(PreprocessorAttributeKeys.ENDPOINT_GROUP_KEY, endpointGroup())
                 .build();
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                scheme().sessionProtocol(), httpReq, call, reqTarget,
+                scheme().sessionProtocol(), httpReq, call, reqTarget, endpointGroup(),
                 reqOptions, options());
         return options().clientPreprocessors().rpcDecorate(rpcPreprocessor)
                 .execute(ctx, call, reqOptions);

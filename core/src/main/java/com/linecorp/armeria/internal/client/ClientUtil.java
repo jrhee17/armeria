@@ -15,7 +15,6 @@
  */
 package com.linecorp.armeria.internal.client;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.util.Objects.requireNonNull;
 
 import java.net.URI;
@@ -54,21 +53,19 @@ public final class ClientUtil {
     O initContextAndExecuteWithFallback(
             U delegate,
             ClientRequestContextExtension ctx,
-            EndpointGroup endpointGroup,
             Function<CompletableFuture<O>, O> futureConverter,
             BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory,
             I req) {
 
         requireNonNull(delegate, "delegate");
         requireNonNull(ctx, "ctx");
-        requireNonNull(endpointGroup, "endpointGroup");
         requireNonNull(futureConverter, "futureConverter");
         requireNonNull(errorResponseFactory, "errorResponseFactory");
 
         boolean initialized = false;
         boolean success = false;
         try {
-            final CompletableFuture<Boolean> initFuture = ctx.init(endpointGroup);
+            final CompletableFuture<Boolean> initFuture = ctx.init();
             initialized = initFuture.isDone();
             if (initialized) {
                 // Initialization has been done immediately.

@@ -311,17 +311,15 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
         }
 
         final HttpResponse response;
-        final EndpointGroup endpointGroup = derivedCtx.endpointGroup();
         final ClientRequestContextExtension ctxExtension = derivedCtx.as(ClientRequestContextExtension.class);
-        if (!initialAttempt && ctxExtension != null &&
-            endpointGroup != null && derivedCtx.endpoint() == null) {
+        if (!initialAttempt && ctxExtension != null && derivedCtx.endpoint() == null) {
             // clear the pending throwable to retry endpoint selection
             ClientPendingThrowableUtil.removePendingThrowable(derivedCtx);
             // if the endpoint hasn't been selected, try to initialize the ctx with a new endpoint/event loop
             final HttpRequest ctxReq = ctxExtension.request();
             assert ctxReq != null;
             response = initContextAndExecuteWithFallback(
-                    unwrap(), ctxExtension, endpointGroup, HttpResponse::of,
+                    unwrap(), ctxExtension, HttpResponse::of,
                     (context, cause) -> HttpResponse.ofFailure(cause), ctxReq);
         } else {
             final HttpRequest ctxReq = derivedCtx.request();

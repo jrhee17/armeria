@@ -273,6 +273,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
                 options().requestIdGenerator().get(),
                 method,
                 reqTarget,
+                endpointGroup(),
                 options(),
                 req,
                 null,

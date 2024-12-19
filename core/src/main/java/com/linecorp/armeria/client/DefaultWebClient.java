@@ -122,8 +122,7 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
                 .attr(PreprocessorAttributeKeys.ENDPOINT_GROUP_KEY, endpointGroup)
                 .build();
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                protocol, newReq, null, reqTarget,
-                reqOptions, options());
+                protocol, newReq, null, reqTarget, endpointGroup, reqOptions, options());
         return options().clientPreprocessors().decorate(TailClientPreprocessor.of(unwrap()))
                         .execute(ctx, newReq, reqOptions);
     }

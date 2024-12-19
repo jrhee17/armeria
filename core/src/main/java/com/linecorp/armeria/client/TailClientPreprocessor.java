@@ -64,7 +64,7 @@ public final class TailClientPreprocessor<I extends Request, O extends Response>
         assert endpointGroup != null;
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
-        return ClientUtil.initContextAndExecuteWithFallback(delegate, ctxExt, endpointGroup,
+        return ClientUtil.initContextAndExecuteWithFallback(delegate, ctxExt,
                                                             futureConverter, errorResponseFactory, req);
     }
 }

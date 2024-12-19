@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.PartialClientRequestContext;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.UnprocessedRequestException;
@@ -101,7 +102,7 @@ import io.netty.util.NetUtil;
  */
 public final class DefaultClientRequestContext
         extends NonWrappingRequestContext
-        implements ClientRequestContextExtension {
+        implements ClientRequestContextExtension, PartialClientRequestContext {
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultClientRequestContext.class);
 
@@ -135,8 +136,8 @@ public final class DefaultClientRequestContext
     private boolean initialized;
     @Nullable
     private EventLoop eventLoop;
-    @Nullable
     private EndpointGroup endpointGroup;
+    private SessionProtocol sessionProtocol;
     @Nullable
     private Endpoint endpoint;
     @Nullable
@@ -181,15 +182,16 @@ public final class DefaultClientRequestContext
 
     public DefaultClientRequestContext(SessionProtocol sessionProtocol, HttpRequest httpRequest,
                                        @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
-                                       RequestOptions requestOptions, ClientOptions clientOptions) {
+                                       EndpointGroup endpointGroup, RequestOptions requestOptions,
+                                       ClientOptions clientOptions) {
         this(null, clientOptions.factory().meterRegistry(),
              sessionProtocol, nextRequestId(clientOptions), httpRequest.method(), requestTarget,
-             clientOptions, httpRequest, rpcRequest, requestOptions, serviceRequestContext(),
+             endpointGroup, clientOptions, httpRequest, rpcRequest, requestOptions, serviceRequestContext(),
              null, System.nanoTime(), SystemInfo.currentTimeMicros());
     }
 
     /**
-     * Creates a new instance. Note that {@link #init(EndpointGroup)} method must be invoked to finish
+     * Creates a new instance. Note that {@link #init()} method must be invoked to finish
      * the construction of this context.
      *
      * @param eventLoop the {@link EventLoop} associated with this context
@@ -204,18 +206,18 @@ public final class DefaultClientRequestContext
      */
     public DefaultClientRequestContext(
             @Nullable EventLoop eventLoop, MeterRegistry meterRegistry, SessionProtocol sessionProtocol,
-            RequestId id, HttpMethod method, RequestTarget reqTarget,
+            RequestId id, HttpMethod method, RequestTarget reqTarget, EndpointGroup endpointGroup,
             ClientOptions options, @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
             RequestOptions requestOptions, CancellationScheduler responseCancellationScheduler,
             long requestStartTimeNanos, long requestStartTimeMicros) {
-        this(eventLoop, meterRegistry, sessionProtocol, id, method, reqTarget,
+        this(eventLoop, meterRegistry, sessionProtocol, id, method, reqTarget, endpointGroup,
              options, req, rpcReq, requestOptions, serviceRequestContext(),
              requireNonNull(responseCancellationScheduler, "responseCancellationScheduler"),
              requestStartTimeNanos, requestStartTimeMicros);
     }
 
     /**
-     * Creates a new instance. Note that {@link #init(EndpointGroup)} method must be invoked to finish
+     * Creates a new instance. Note that {@link #init()} method must be invoked to finish
      * the construction of this context.
      *
      * @param sessionProtocol the {@link SessionProtocol} of the invocation
@@ -229,12 +231,12 @@ public final class DefaultClientRequestContext
      */
     public DefaultClientRequestContext(
             MeterRegistry meterRegistry, SessionProtocol sessionProtocol,
-            RequestId id, HttpMethod method, RequestTarget reqTarget,
+            RequestId id, HttpMethod method, RequestTarget reqTarget, EndpointGroup endpointGroup,
             ClientOptions options, HttpRequest req, @Nullable RpcRequest rpcReq,
             RequestOptions requestOptions,
             long requestStartTimeNanos, long requestStartTimeMicros) {
         this(null, meterRegistry, sessionProtocol,
-             id, method, reqTarget, options, req, rpcReq, requestOptions,
+             id, method, reqTarget, endpointGroup, options, req, rpcReq, requestOptions,
              serviceRequestContext(), /* responseCancellationScheduler */ null,
              requestStartTimeNanos, requestStartTimeMicros);
     }
@@ -242,19 +244,21 @@ public final class DefaultClientRequestContext
     private DefaultClientRequestContext(
             @Nullable EventLoop eventLoop, MeterRegistry meterRegistry,
             SessionProtocol sessionProtocol, RequestId id, HttpMethod method,
-            RequestTarget reqTarget, ClientOptions options,
+            RequestTarget reqTarget, EndpointGroup endpointGroup, ClientOptions options,
             @Nullable HttpRequest req, @Nullable RpcRequest rpcReq, RequestOptions requestOptions,
             @Nullable ServiceRequestContext root, @Nullable CancellationScheduler responseCancellationScheduler,
             long requestStartTimeNanos, long requestStartTimeMicros) {
-        super(meterRegistry, desiredSessionProtocol(sessionProtocol, options), id, method, reqTarget,
+        super(meterRegistry, id, method, reqTarget,
               guessExchangeType(requestOptions, req),
               requestAutoAbortDelayMillis(options, requestOptions), req, rpcReq,
               getAttributes(root), options.contextHook());
 
+        this.sessionProtocol = desiredSessionProtocol(sessionProtocol, options);
         this.eventLoop = eventLoop;
         this.options = requireNonNull(options, "options");
         this.root = root;
         this.requestOptions = requestOptions;
+        this.endpointGroup = endpointGroup;
 
         log = RequestLog.builder(this);
         log.startRequest(requestStartTimeNanos, requestStartTimeMicros);
@@ -346,7 +350,7 @@ public final class DefaultClientRequestContext
     }
 
     @Override
-    public CompletableFuture<Boolean> init(EndpointGroup endpointGroup) {
+    public CompletableFuture<Boolean> init() {
         assert endpoint == null : endpoint;
         assert !initialized;
         initialized = true;
@@ -382,7 +386,6 @@ public final class DefaultClientRequestContext
     }
 
     private CompletableFuture<Boolean> initEndpoint(Endpoint endpoint) {
-        endpointGroup = null;
         updateEndpoint(endpoint);
         acquireEventLoop(endpoint);
         return initFuture(true, null);
@@ -536,10 +539,10 @@ public final class DefaultClientRequestContext
                                         RequestId id,
                                         @Nullable HttpRequest req,
                                         @Nullable RpcRequest rpcReq,
-                                        @Nullable Endpoint endpoint, @Nullable EndpointGroup endpointGroup,
+                                        @Nullable Endpoint endpoint, EndpointGroup endpointGroup,
                                         SessionProtocol sessionProtocol, HttpMethod method,
                                         RequestTarget reqTarget) {
-        super(ctx.meterRegistry(), sessionProtocol, id, method, reqTarget, ctx.exchangeType(),
+        super(ctx.meterRegistry(), id, method, reqTarget, ctx.exchangeType(),
               ctx.requestAutoAbortDelayMillis(), req, rpcReq, getAttributes(ctx.root()), ctx.hook());
 
         // The new requests cannot be null if it was previously non-null.
@@ -551,6 +554,7 @@ public final class DefaultClientRequestContext
         // So we don't check the nullness of rpcRequest unlike request.
         // See https://github.com/line/armeria/pull/3251 and https://github.com/line/armeria/issues/3248.
 
+        this.sessionProtocol = requireNonNull(sessionProtocol, "sessionProtocol");
         requestOptions = ctx.requestOptions();
         options = ctx.options();
         root = ctx.root();
@@ -634,6 +638,11 @@ public final class DefaultClientRequestContext
     }
 
     @Override
+    public SessionProtocol sessionProtocol() {
+        return sessionProtocol;
+    }
+
+    @Override
     public ClientRequestContext newDerivedContext(RequestId id,
                                                   @Nullable HttpRequest req,
                                                   @Nullable RpcRequest rpcReq,
@@ -649,7 +658,7 @@ public final class DefaultClientRequestContext
 
                 if (reqTarget.form() != RequestTargetForm.ABSOLUTE) {
                     // Not an absolute URI.
-                    return new DefaultClientRequestContext(this, id, req, rpcReq, endpoint, null,
+                    return new DefaultClientRequestContext(this, id, req, rpcReq, endpoint, endpointGroup(),
                                                            sessionProtocol(), newHeaders.method(), reqTarget);
                 }
 
@@ -664,7 +673,7 @@ public final class DefaultClientRequestContext
                 final HttpRequest newReq = req.withHeaders(req.headers()
                                                               .toBuilder()
                                                               .path(reqTarget.pathAndQuery()));
-                return new DefaultClientRequestContext(this, id, newReq, rpcReq, newEndpoint, null,
+                return new DefaultClientRequestContext(this, id, newReq, rpcReq, newEndpoint, newEndpoint,
                                                        protocol, newHeaders.method(), reqTarget);
             }
         }
@@ -750,7 +759,6 @@ public final class DefaultClientRequestContext
         return options;
     }
 
-    @Nullable
     @Override
     public EndpointGroup endpointGroup() {
         return endpointGroup;
@@ -1117,5 +1125,23 @@ public final class DefaultClientRequestContext
         } else {
             return id;
         }
+    }
+
+    @Override
+    public void endpointGroup(EndpointGroup endpointGroup) {
+        checkState(!initialized, "Cannot update endpointGroup after initialization");
+        this.endpointGroup = requireNonNull(endpointGroup, "endpointGroup");
+    }
+
+    @Override
+    public void sessionProtocol(SessionProtocol sessionProtocol) {
+        checkState(!initialized, "Cannot update sessionProtocol after initialization");
+        this.sessionProtocol = requireNonNull(sessionProtocol, "sessionProtocol");
+    }
+
+    @Override
+    public void eventLoop(EventLoop eventLoop) {
+        checkState(!initialized, "Cannot update eventLoop after initialization");
+        this.eventLoop = requireNonNull(eventLoop, "eventLoop");
     }
 }
