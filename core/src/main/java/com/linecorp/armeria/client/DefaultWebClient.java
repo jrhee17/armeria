@@ -31,6 +31,7 @@ import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 import com.linecorp.armeria.internal.client.PreprocessorAttributeKeys;
+import com.linecorp.armeria.internal.client.TailClientPreprocessor;
 
 import io.micrometer.core.instrument.MeterRegistry;
 

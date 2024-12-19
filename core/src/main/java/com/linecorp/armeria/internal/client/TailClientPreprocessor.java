@@ -14,12 +14,20 @@
  * under the License.
  */
 
-package com.linecorp.armeria.client;
+package com.linecorp.armeria.internal.client;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import com.linecorp.armeria.client.Client;
+import com.linecorp.armeria.client.ClientPreprocessor;
+import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.HttpClient;
+import com.linecorp.armeria.client.HttpPreprocessor;
+import com.linecorp.armeria.client.RequestOptions;
+import com.linecorp.armeria.client.RpcClient;
+import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
@@ -27,11 +35,9 @@ import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
-import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
-import com.linecorp.armeria.internal.client.ClientUtil;
-import com.linecorp.armeria.internal.client.PreprocessorAttributeKeys;
 
-public final class TailClientPreprocessor<I extends Request, O extends Response> implements ClientPreprocessor<I, O> {
+public final class TailClientPreprocessor<I extends Request, O extends Response>
+        implements ClientPreprocessor<I, O> {
 
     private final Client<I, O> delegate;
 

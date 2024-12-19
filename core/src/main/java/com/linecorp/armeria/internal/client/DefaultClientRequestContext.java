@@ -643,6 +643,12 @@ public final class DefaultClientRequestContext
     }
 
     @Override
+    public void sessionProtocol(SessionProtocol sessionProtocol) {
+        checkState(!initialized, "Cannot update sessionProtocol after initialization");
+        this.sessionProtocol = requireNonNull(sessionProtocol, "sessionProtocol");
+    }
+
+    @Override
     public ClientRequestContext newDerivedContext(RequestId id,
                                                   @Nullable HttpRequest req,
                                                   @Nullable RpcRequest rpcReq,
@@ -742,6 +748,12 @@ public final class DefaultClientRequestContext
     }
 
     @Override
+    public void eventLoop(EventLoop eventLoop) {
+        checkState(!initialized, "Cannot update eventLoop after initialization");
+        this.eventLoop = requireNonNull(eventLoop, "eventLoop");
+    }
+
+    @Override
     public ByteBufAllocator alloc() {
         final Channel channel = channel();
         return channel != null ? channel.alloc() : PooledByteBufAllocator.DEFAULT;
@@ -762,6 +774,12 @@ public final class DefaultClientRequestContext
     @Override
     public EndpointGroup endpointGroup() {
         return endpointGroup;
+    }
+
+    @Override
+    public void endpointGroup(EndpointGroup endpointGroup) {
+        checkState(!initialized, "Cannot update endpointGroup after initialization");
+        this.endpointGroup = requireNonNull(endpointGroup, "endpointGroup");
     }
 
     @Nullable
@@ -1101,10 +1119,6 @@ public final class DefaultClientRequestContext
         return responseTimeoutMode;
     }
 
-    public RequestOptions requestOptions() {
-        return requestOptions;
-    }
-
     private static ResponseTimeoutMode responseTimeoutMode(ClientOptions options,
                                                            RequestOptions requestOptions) {
         final ResponseTimeoutMode requestOptionTimeoutMode = requestOptions.responseTimeoutMode();
@@ -1127,21 +1141,7 @@ public final class DefaultClientRequestContext
         }
     }
 
-    @Override
-    public void endpointGroup(EndpointGroup endpointGroup) {
-        checkState(!initialized, "Cannot update endpointGroup after initialization");
-        this.endpointGroup = requireNonNull(endpointGroup, "endpointGroup");
-    }
-
-    @Override
-    public void sessionProtocol(SessionProtocol sessionProtocol) {
-        checkState(!initialized, "Cannot update sessionProtocol after initialization");
-        this.sessionProtocol = requireNonNull(sessionProtocol, "sessionProtocol");
-    }
-
-    @Override
-    public void eventLoop(EventLoop eventLoop) {
-        checkState(!initialized, "Cannot update eventLoop after initialization");
-        this.eventLoop = requireNonNull(eventLoop, "eventLoop");
+    public RequestOptions requestOptions() {
+        return requestOptions;
     }
 }

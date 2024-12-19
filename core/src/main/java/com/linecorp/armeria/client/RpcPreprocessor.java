@@ -19,6 +19,9 @@ package com.linecorp.armeria.client;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 
+/**
+ * TBU.
+ */
 @FunctionalInterface
 public interface RpcPreprocessor extends ClientPreprocessor<RpcRequest, RpcResponse> {
 }

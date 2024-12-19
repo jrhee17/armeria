@@ -18,14 +18,13 @@ package com.linecorp.armeria.client;
 
 import java.util.function.Function;
 
-import com.google.common.collect.ImmutableList;
-
 /**
  * A set of {@link Function}s that transforms a {@link Client} into another.
  */
 public final class ClientPreprocessors {
 
-    private static final ClientPreprocessors NONE = new ClientPreprocessors(Function.identity(), Function.identity());
+    private static final ClientPreprocessors NONE =
+            new ClientPreprocessors(Function.identity(), Function.identity());
 
     /**
      * Returns an empty {@link ClientPreprocessors} which does not decorate a {@link Client}.
@@ -49,7 +48,8 @@ public final class ClientPreprocessors {
      *
      * @param decorator the {@link Function} that transforms an {@link RpcClient} to another
      */
-    public static ClientPreprocessors ofRpc(Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
+    public static ClientPreprocessors ofRpc(
+            Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
         return new ClientPreprocessors(Function.identity(), decorator);
     }
 

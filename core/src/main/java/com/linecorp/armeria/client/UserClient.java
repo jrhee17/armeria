@@ -28,7 +28,6 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
-import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcResponse;
@@ -167,10 +166,16 @@ public abstract class UserClient<I extends Request, O extends Response>
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * TBU.
+     */
     protected Function<CompletableFuture<O>, O> futureConverter() {
         return futureConverter;
     }
 
+    /**
+     * TBU.
+     */
     protected BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory() {
         return errorResponseFactory;
     }

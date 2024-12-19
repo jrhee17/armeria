@@ -25,7 +25,6 @@ import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.RpcClient;
 import com.linecorp.armeria.client.RpcPreprocessor;
-import com.linecorp.armeria.client.TailClientPreprocessor;
 import com.linecorp.armeria.client.UserClient;
 import com.linecorp.armeria.client.thrift.THttpClient;
 import com.linecorp.armeria.common.ExchangeType;
@@ -38,6 +37,7 @@ import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 import com.linecorp.armeria.internal.client.PreprocessorAttributeKeys;
+import com.linecorp.armeria.internal.client.TailClientPreprocessor;
 import com.linecorp.armeria.internal.common.RequestTargetCache;
 
 import io.micrometer.core.instrument.MeterRegistry;

@@ -17,9 +17,7 @@
 package com.linecorp.armeria.internal.client;
 
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
 import com.google.common.collect.ImmutableSet;
 
@@ -32,8 +30,9 @@ public final class PreprocessorAttributeKeys {
 
     public static final AttributeKey<Object> FUTURE_CONVERTER_KEY =
             AttributeKey.valueOf(PreprocessorAttributeKeys.class, "futureConverter");
-    public static final AttributeKey<BiFunction<ClientRequestContext, Throwable, ?>> ERROR_RESPONSE_FACTORY_KEY =
-            AttributeKey.valueOf(PreprocessorAttributeKeys.class, "errorResponseFactory");
+    public static final AttributeKey<BiFunction<ClientRequestContext, Throwable, ?>>
+            ERROR_RESPONSE_FACTORY_KEY = AttributeKey.valueOf(PreprocessorAttributeKeys.class,
+                                                              "errorResponseFactory");
     public static final AttributeKey<EndpointGroup> ENDPOINT_GROUP_KEY =
             AttributeKey.valueOf(PreprocessorAttributeKeys.class, "endpointGroup");
 

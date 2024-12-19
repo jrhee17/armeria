@@ -176,7 +176,6 @@ public final class DefaultServiceRequestContext
               routingContext.requestTarget(), exchangeType, cfg.requestAutoAbortDelayMillis(),
               requireNonNull(req, "req"), null, null, contextHook);
 
-
         this.sessionProtocol = requireNonNull(sessionProtocol, "sessionProtocol");
         this.ch = requireNonNull(ch, "ch");
         this.eventLoop = requireNonNull(eventLoop, "eventLoop");

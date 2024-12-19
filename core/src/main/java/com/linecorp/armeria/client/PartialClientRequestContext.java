@@ -18,14 +18,28 @@ package com.linecorp.armeria.client;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.common.annotation.UnstableApi;
 
 import io.netty.channel.EventLoop;
 
+/**
+ * TBU.
+ */
+@UnstableApi
 public interface PartialClientRequestContext extends ClientRequestContext {
 
+    /**
+     * TBU.
+     */
     void endpointGroup(EndpointGroup endpointGroup);
 
+    /**
+     * TBU.
+     */
     void sessionProtocol(SessionProtocol sessionProtocol);
 
+    /**
+     * TBU.
+     */
     void eventLoop(EventLoop eventLoop);
 }

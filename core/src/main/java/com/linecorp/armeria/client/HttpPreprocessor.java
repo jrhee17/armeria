@@ -19,6 +19,9 @@ package com.linecorp.armeria.client;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 
+/**
+ * TBU.
+ */
 @FunctionalInterface
 public interface HttpPreprocessor extends ClientPreprocessor<HttpRequest, HttpResponse> {
 }
