@@ -36,7 +36,7 @@ import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
-import com.linecorp.armeria.internal.client.TailPreprocessor;
+import com.linecorp.armeria.internal.client.TailClientExecution;
 import com.linecorp.armeria.internal.common.RequestTargetCache;
 
 import io.micrometer.core.instrument.MeterRegistry;
@@ -53,7 +53,7 @@ final class DefaultTHttpClient extends UserClient<RpcRequest, RpcResponse> imple
     DefaultTHttpClient(ClientBuilderParams params, RpcClient delegate, MeterRegistry meterRegistry) {
         super(params, delegate, meterRegistry, RpcResponse::from,
               (ctx, cause) -> RpcResponse.ofFailure(decodeException(cause, null)));
-        rpcPreprocessor = TailPreprocessor.ofRpc(
+        rpcPreprocessor = TailClientExecution.ofRpc(
                 unwrap(), RpcResponse::from,
                 (ctx, cause) -> RpcResponse.ofFailure(decodeException(cause, null)));
     }

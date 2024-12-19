@@ -35,16 +35,16 @@ import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 
-public final class TailPreprocessor<I extends Request, O extends Response>
+public final class TailClientExecution<I extends Request, O extends Response>
         implements ClientExecution<I, O> {
 
     private final Client<I, O> delegate;
     private final Function<CompletableFuture<O>, O> futureConverter;
     private final BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory;
 
-    private TailPreprocessor(Client<I, O> delegate,
-                             Function<CompletableFuture<O>, O> futureConverter,
-                             BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
+    private TailClientExecution(Client<I, O> delegate,
+                                Function<CompletableFuture<O>, O> futureConverter,
+                                BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
         this.delegate = delegate;
         this.futureConverter = futureConverter;
         this.errorResponseFactory = errorResponseFactory;
@@ -54,8 +54,8 @@ public final class TailPreprocessor<I extends Request, O extends Response>
             HttpClient httpClient,
             Function<CompletableFuture<HttpResponse>, HttpResponse> futureConverter,
             BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory) {
-        final TailPreprocessor<HttpRequest, HttpResponse> tail =
-                new TailPreprocessor<>(httpClient, futureConverter, errorResponseFactory);
+        final TailClientExecution<HttpRequest, HttpResponse> tail =
+                new TailClientExecution<>(httpClient, futureConverter, errorResponseFactory);
         return tail::execute;
     }
 
@@ -63,8 +63,8 @@ public final class TailPreprocessor<I extends Request, O extends Response>
             RpcClient rpcClient,
             Function<CompletableFuture<RpcResponse>, RpcResponse> futureConverter,
             BiFunction<ClientRequestContext, Throwable, RpcResponse> errorResponseFactory) {
-        final TailPreprocessor<RpcRequest, RpcResponse> tail =
-                new TailPreprocessor<>(rpcClient, futureConverter, errorResponseFactory);
+        final TailClientExecution<RpcRequest, RpcResponse> tail =
+                new TailClientExecution<>(rpcClient, futureConverter, errorResponseFactory);
         return tail::execute;
     }
 
