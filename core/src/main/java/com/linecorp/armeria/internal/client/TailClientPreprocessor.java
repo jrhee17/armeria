@@ -25,6 +25,7 @@ import com.linecorp.armeria.client.ClientPreprocessor;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.HttpPreprocessor;
+import com.linecorp.armeria.client.PartialClientRequestContext;
 import com.linecorp.armeria.client.RpcClient;
 import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.common.HttpRequest;
@@ -49,24 +50,26 @@ public final class TailClientPreprocessor<I extends Request, O extends Response>
         this.errorResponseFactory = errorResponseFactory;
     }
 
-    public static HttpPreprocessor of(HttpClient httpClient,
-                                      Function<CompletableFuture<HttpResponse>, HttpResponse> futureConverter,
-                                      BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory) {
+    public static HttpPreprocessor of(
+            HttpClient httpClient,
+            Function<CompletableFuture<HttpResponse>, HttpResponse> futureConverter,
+            BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory) {
         final TailClientPreprocessor<HttpRequest, HttpResponse> tail =
                 new TailClientPreprocessor<>(httpClient, futureConverter, errorResponseFactory);
         return tail::execute;
     }
 
-    public static RpcPreprocessor ofRpc(RpcClient rpcClient,
-                                        Function<CompletableFuture<RpcResponse>, RpcResponse> futureConverter,
-                                        BiFunction<ClientRequestContext, Throwable, RpcResponse> errorResponseFactory) {
+    public static RpcPreprocessor ofRpc(
+            RpcClient rpcClient,
+            Function<CompletableFuture<RpcResponse>, RpcResponse> futureConverter,
+            BiFunction<ClientRequestContext, Throwable, RpcResponse> errorResponseFactory) {
         final TailClientPreprocessor<RpcRequest, RpcResponse> tail =
                 new TailClientPreprocessor<>(rpcClient, futureConverter, errorResponseFactory);
         return tail::execute;
     }
 
     @Override
-    public O execute(ClientRequestContext ctx, I req) {
+    public O execute(PartialClientRequestContext ctx, I req) {
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
         return ClientUtil.initContextAndExecuteWithFallback(delegate, ctxExt,

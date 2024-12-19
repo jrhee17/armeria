@@ -28,5 +28,5 @@ public interface ClientPreprocessor<I extends Request, O extends Response> {
     /**
      * TBU.
      */
-    O execute(ClientRequestContext ctx, I req);
+    O execute(PartialClientRequestContext ctx, I req);
 }

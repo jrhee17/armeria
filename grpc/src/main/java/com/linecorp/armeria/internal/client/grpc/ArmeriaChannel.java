@@ -183,7 +183,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
                     return HttpResponse.ofFailure(status.asRuntimeException());
                 };
         final HttpPreprocessor httpPreprocessor =
-                TailClientPreprocessor.of(httpClient, HttpResponse::of, errorResponseFactory);
+                TailClientPreprocessor.of(client, HttpResponse::of, errorResponseFactory);
 
         return new ArmeriaClientCall<>(
                 ctx,
