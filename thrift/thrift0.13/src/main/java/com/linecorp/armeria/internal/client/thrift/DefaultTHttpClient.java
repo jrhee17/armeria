@@ -36,7 +36,6 @@ import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
-import com.linecorp.armeria.internal.client.PreprocessorAttributeKeys;
 import com.linecorp.armeria.internal.client.TailClientPreprocessor;
 import com.linecorp.armeria.internal.common.RequestTargetCache;
 
@@ -54,7 +53,9 @@ final class DefaultTHttpClient extends UserClient<RpcRequest, RpcResponse> imple
     DefaultTHttpClient(ClientBuilderParams params, RpcClient delegate, MeterRegistry meterRegistry) {
         super(params, delegate, meterRegistry, RpcResponse::from,
               (ctx, cause) -> RpcResponse.ofFailure(decodeException(cause, null)));
-        rpcPreprocessor = TailClientPreprocessor.ofRpc(unwrap());
+        rpcPreprocessor = TailClientPreprocessor.ofRpc(
+                unwrap(), RpcResponse::from,
+                (ctx, cause) -> RpcResponse.ofFailure(decodeException(cause, null)));
     }
 
     @Override
@@ -90,17 +91,11 @@ final class DefaultTHttpClient extends UserClient<RpcRequest, RpcResponse> imple
                 RequestHeaders.builder(HttpMethod.POST, reqTarget.path())
                               .contentType(scheme().serializationFormat().mediaType())
                               .build());
-        final RequestOptions reqOptions = UNARY_REQUEST_OPTIONS
-                .toBuilder()
-                .attr(PreprocessorAttributeKeys.FUTURE_CONVERTER_KEY, futureConverter())
-                .attr(PreprocessorAttributeKeys.ERROR_RESPONSE_FACTORY_KEY, errorResponseFactory())
-                .attr(PreprocessorAttributeKeys.ENDPOINT_GROUP_KEY, endpointGroup())
-                .build();
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 scheme().sessionProtocol(), httpReq, call, reqTarget, endpointGroup(),
-                reqOptions, options());
+                UNARY_REQUEST_OPTIONS, options());
         return options().clientPreprocessors().rpcDecorate(rpcPreprocessor)
-                .execute(ctx, call, reqOptions);
+                .execute(ctx, call);
     }
 
     @Override

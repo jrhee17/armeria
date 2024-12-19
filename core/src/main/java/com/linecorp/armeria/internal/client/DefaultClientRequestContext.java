@@ -178,7 +178,6 @@ public final class DefaultClientRequestContext
     private volatile CompletableFuture<Boolean> whenInitialized;
 
     private final ResponseTimeoutMode responseTimeoutMode;
-    private final RequestOptions requestOptions;
 
     public DefaultClientRequestContext(SessionProtocol sessionProtocol, HttpRequest httpRequest,
                                        @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
@@ -257,7 +256,6 @@ public final class DefaultClientRequestContext
         this.eventLoop = eventLoop;
         this.options = requireNonNull(options, "options");
         this.root = root;
-        this.requestOptions = requestOptions;
         this.endpointGroup = endpointGroup;
 
         log = RequestLog.builder(this);
@@ -555,7 +553,6 @@ public final class DefaultClientRequestContext
         // See https://github.com/line/armeria/pull/3251 and https://github.com/line/armeria/issues/3248.
 
         this.sessionProtocol = requireNonNull(sessionProtocol, "sessionProtocol");
-        requestOptions = ctx.requestOptions();
         options = ctx.options();
         root = ctx.root();
 
@@ -1139,9 +1136,5 @@ public final class DefaultClientRequestContext
         } else {
             return id;
         }
-    }
-
-    public RequestOptions requestOptions() {
-        return requestOptions;
     }
 }

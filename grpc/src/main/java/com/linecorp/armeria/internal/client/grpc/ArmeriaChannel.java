@@ -21,9 +21,7 @@ import static com.linecorp.armeria.internal.common.grpc.GrpcExchangeTypeUtil.toE
 import java.net.URI;
 import java.util.EnumMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Maps;
@@ -32,6 +30,7 @@ import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
+import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.grpc.GrpcClientOptions;
@@ -54,7 +53,7 @@ import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.common.util.Unwrappable;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
-import com.linecorp.armeria.internal.client.PreprocessorAttributeKeys;
+import com.linecorp.armeria.internal.client.TailClientPreprocessor;
 import com.linecorp.armeria.internal.common.RequestTargetCache;
 import com.linecorp.armeria.internal.common.grpc.InternalGrpcExceptionHandler;
 import com.linecorp.armeria.internal.common.grpc.StatusAndMetadata;
@@ -174,10 +173,22 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
             client = httpClient;
         }
 
+        final BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory =
+                (unused, cause) -> {
+                    final StatusAndMetadata statusAndMetadata = exceptionHandler.handle(ctx, cause);
+                    Status status = statusAndMetadata.status();
+                    if (status.getDescription() == null) {
+                        status = status.withDescription(cause.getMessage());
+                    }
+                    return HttpResponse.ofFailure(status.asRuntimeException());
+                };
+        final HttpPreprocessor httpPreprocessor =
+                TailClientPreprocessor.of(httpClient, HttpResponse::of, errorResponseFactory);
+
         return new ArmeriaClientCall<>(
                 ctx,
                 params.endpointGroup(),
-                client,
+                httpPreprocessor,
                 req,
                 method,
                 simpleMethodNames,
@@ -250,22 +261,6 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
 
         final RequestOptions requestOptions = REQUEST_OPTIONS_MAP.get(methodDescriptor.getType());
         assert requestOptions != null;
-        final BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory =
-                (ctx, cause) -> {
-                    final StatusAndMetadata statusAndMetadata = exceptionHandler.handle(ctx, cause);
-                    Status status = statusAndMetadata.status();
-                    if (status.getDescription() == null) {
-                        status = status.withDescription(cause.getMessage());
-                    }
-                    return HttpResponse.ofFailure(status.asRuntimeException());
-                };
-        final Function<CompletableFuture<? extends HttpResponse>, HttpResponse> future = HttpResponse::of;
-        final RequestOptions reqOptions = requestOptions
-                .toBuilder()
-                .attr(PreprocessorAttributeKeys.FUTURE_CONVERTER_KEY, future)
-                .attr(PreprocessorAttributeKeys.ERROR_RESPONSE_FACTORY_KEY, errorResponseFactory)
-                .attr(PreprocessorAttributeKeys.ENDPOINT_GROUP_KEY, endpointGroup())
-                .build();
 
         return new DefaultClientRequestContext(
                 meterRegistry,
@@ -277,7 +272,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
                 options(),
                 req,
                 null,
-                reqOptions,
+                requestOptions,
                 System.nanoTime(),
                 SystemInfo.currentTimeMicros());
     }

@@ -25,10 +25,8 @@ import com.linecorp.armeria.client.ClientPreprocessor;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.HttpPreprocessor;
-import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.RpcClient;
 import com.linecorp.armeria.client.RpcPreprocessor;
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
@@ -40,34 +38,35 @@ public final class TailClientPreprocessor<I extends Request, O extends Response>
         implements ClientPreprocessor<I, O> {
 
     private final Client<I, O> delegate;
+    private final Function<CompletableFuture<O>, O> futureConverter;
+    private final BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory;
 
-    private TailClientPreprocessor(Client<I, O> delegate) {
+    private TailClientPreprocessor(Client<I, O> delegate,
+                                   Function<CompletableFuture<O>, O> futureConverter,
+                                   BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
         this.delegate = delegate;
+        this.futureConverter = futureConverter;
+        this.errorResponseFactory = errorResponseFactory;
     }
 
-    public static HttpPreprocessor of(HttpClient httpClient) {
-        final TailClientPreprocessor<HttpRequest, HttpResponse> tail = new TailClientPreprocessor<>(httpClient);
+    public static HttpPreprocessor of(HttpClient httpClient,
+                                      Function<CompletableFuture<HttpResponse>, HttpResponse> futureConverter,
+                                      BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory) {
+        final TailClientPreprocessor<HttpRequest, HttpResponse> tail =
+                new TailClientPreprocessor<>(httpClient, futureConverter, errorResponseFactory);
         return tail::execute;
     }
 
-    public static RpcPreprocessor ofRpc(RpcClient rpcClient) {
-        final TailClientPreprocessor<RpcRequest, RpcResponse> tail = new TailClientPreprocessor<>(rpcClient);
+    public static RpcPreprocessor ofRpc(RpcClient rpcClient,
+                                        Function<CompletableFuture<RpcResponse>, RpcResponse> futureConverter,
+                                        BiFunction<ClientRequestContext, Throwable, RpcResponse> errorResponseFactory) {
+        final TailClientPreprocessor<RpcRequest, RpcResponse> tail =
+                new TailClientPreprocessor<>(rpcClient, futureConverter, errorResponseFactory);
         return tail::execute;
     }
 
     @Override
-    public O execute(ClientRequestContext ctx, I req, RequestOptions requestOptions) {
-        final Function<CompletableFuture<O>, O> futureConverter =
-                (Function<CompletableFuture<O>, O>) requestOptions.attrs().get(
-                        PreprocessorAttributeKeys.FUTURE_CONVERTER_KEY);
-        final BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory =
-                (BiFunction<ClientRequestContext, Throwable, O>) requestOptions.attrs().get(
-                        PreprocessorAttributeKeys.ERROR_RESPONSE_FACTORY_KEY);
-        final EndpointGroup endpointGroup = (EndpointGroup) requestOptions.attrs().get(
-                PreprocessorAttributeKeys.ENDPOINT_GROUP_KEY);
-        assert futureConverter != null;
-        assert errorResponseFactory != null;
-        assert endpointGroup != null;
+    public O execute(ClientRequestContext ctx, I req) {
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
         return ClientUtil.initContextAndExecuteWithFallback(delegate, ctxExt,

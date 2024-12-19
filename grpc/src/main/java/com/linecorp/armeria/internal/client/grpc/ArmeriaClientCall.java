@@ -37,7 +37,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import com.linecorp.armeria.client.ClientPreprocessors;
-import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaders;
@@ -61,7 +60,6 @@ import com.linecorp.armeria.common.stream.SubscriptionOption;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
-import com.linecorp.armeria.internal.client.TailClientPreprocessor;
 import com.linecorp.armeria.internal.client.grpc.protocol.InternalGrpcWebUtil;
 import com.linecorp.armeria.internal.common.grpc.ForwardingCompressor;
 import com.linecorp.armeria.internal.common.grpc.GrpcLogUtil;
@@ -148,7 +146,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
     ArmeriaClientCall(
             DefaultClientRequestContext ctx,
             EndpointGroup endpointGroup,
-            HttpClient httpClient,
+            HttpPreprocessor httpPreprocessor,
             HttpRequestWriter req,
             MethodDescriptor<I, O> method,
             Map<MethodDescriptor<?, ?>, String> simpleMethodNames,
@@ -166,7 +164,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
             ClientPreprocessors clientPreprocessors) {
         this.ctx = ctx;
         this.endpointGroup = endpointGroup;
-        httpPreprocessor = TailClientPreprocessor.of(httpClient);
+        this.httpPreprocessor = httpPreprocessor;
         this.req = req;
         this.method = method;
         this.simpleMethodNames = simpleMethodNames;
@@ -250,7 +248,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
         // Must come after handling deadline.
         final HttpRequest newReq = prepareHeaders(compressor, metadata, remainingNanos);
         final HttpResponse res = clientPreprocessors.decorate(httpPreprocessor)
-                                                    .execute(ctx, newReq, ctx.requestOptions());
+                                                    .execute(ctx, newReq);
 
         final HttpStreamDeframer deframer = new HttpStreamDeframer(
                 decompressorRegistry, ctx, this, exceptionHandler,
