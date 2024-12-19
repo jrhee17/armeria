@@ -28,6 +28,7 @@ import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 
 /**
  * A skeletal builder implementation for {@link WebClient}.
@@ -70,6 +71,12 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
                                        @Nullable String path) {
         this(null, validateSessionProtocol(sessionProtocol),
              requireNonNull(endpointGroup, "endpointGroup"), path);
+    }
+
+    protected AbstractWebClientBuilder(HttpPreprocessor httpPreprocessor, @Nullable String path) {
+        this(null, Scheme.of(SerializationFormat.NONE, SessionProtocol.HTTP),
+             FailingEndpointGroup.of(new RuntimeException("httpPreprocessor should specify a ")), path);
+        preprocessor(httpPreprocessor);
     }
 
     /**
@@ -183,5 +190,11 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     @Override
     public AbstractWebClientBuilder rpcDecorator(DecoratingRpcClientFunction decorator) {
         throw new UnsupportedOperationException("RPC decorator cannot be added to the web client builder.");
+    }
+
+    @Deprecated
+    @Override
+    public AbstractClientOptionsBuilder rpcPreprocessor(RpcPreprocessor decorator) {
+        throw new UnsupportedOperationException("RPC preprocessor cannot be added to the web client builder.");
     }
 }

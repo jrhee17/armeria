@@ -24,7 +24,7 @@ import org.apache.thrift.transport.TTransportException;
 import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.RpcClient;
-import com.linecorp.armeria.client.RpcPreprocessor;
+import com.linecorp.armeria.client.RpcClientExecution;
 import com.linecorp.armeria.client.UserClient;
 import com.linecorp.armeria.client.thrift.THttpClient;
 import com.linecorp.armeria.common.ExchangeType;
@@ -48,7 +48,7 @@ final class DefaultTHttpClient extends UserClient<RpcRequest, RpcResponse> imple
                           .exchangeType(ExchangeType.UNARY)
                           .build();
 
-    private final RpcPreprocessor rpcPreprocessor;
+    private final RpcClientExecution rpcPreprocessor;
 
     DefaultTHttpClient(ClientBuilderParams params, RpcClient delegate, MeterRegistry meterRegistry) {
         super(params, delegate, meterRegistry, RpcResponse::from,

@@ -23,11 +23,11 @@ import java.util.function.Function;
 import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
-import com.linecorp.armeria.client.HttpPreprocessor;
+import com.linecorp.armeria.client.HttpClientExecution;
 import com.linecorp.armeria.client.PartialClientRequestContext;
-import com.linecorp.armeria.client.Preprocessor;
+import com.linecorp.armeria.client.ClientExecution;
 import com.linecorp.armeria.client.RpcClient;
-import com.linecorp.armeria.client.RpcPreprocessor;
+import com.linecorp.armeria.client.RpcClientExecution;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
@@ -36,7 +36,7 @@ import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 
 public final class TailPreprocessor<I extends Request, O extends Response>
-        implements Preprocessor<I, O> {
+        implements ClientExecution<I, O> {
 
     private final Client<I, O> delegate;
     private final Function<CompletableFuture<O>, O> futureConverter;
@@ -50,7 +50,7 @@ public final class TailPreprocessor<I extends Request, O extends Response>
         this.errorResponseFactory = errorResponseFactory;
     }
 
-    public static HttpPreprocessor of(
+    public static HttpClientExecution of(
             HttpClient httpClient,
             Function<CompletableFuture<HttpResponse>, HttpResponse> futureConverter,
             BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory) {
@@ -59,7 +59,7 @@ public final class TailPreprocessor<I extends Request, O extends Response>
         return tail::execute;
     }
 
-    public static RpcPreprocessor ofRpc(
+    public static RpcClientExecution ofRpc(
             RpcClient rpcClient,
             Function<CompletableFuture<RpcResponse>, RpcResponse> futureConverter,
             BiFunction<ClientRequestContext, Throwable, RpcResponse> errorResponseFactory) {

@@ -522,44 +522,22 @@ public class AbstractClientOptionsBuilder {
     }
 
     /**
-     * Adds the specified HTTP-level {@code decorator}.
+     * Adds the specified HTTP-level {@code preprocessor}.
      *
-     * @param decorator the {@link Function} that transforms an {@link HttpClient} to another
+     * @param preprocessor the {@link HttpPreprocessor} that intercepts an invocation
      */
-    public AbstractClientOptionsBuilder preprocessor(
-            Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
-        preprocessorsBuilder.add(decorator);
+    public AbstractClientOptionsBuilder preprocessor(HttpPreprocessor preprocessor) {
+        preprocessorsBuilder.add(preprocessor);
         return this;
     }
 
     /**
-     * Adds the specified HTTP-level {@code decorator}.
+     * Adds the specified RPC-level {@code rpcPreprocessor}.
      *
-     * @param decorator the {@link DecoratingHttpPreprocessorFunction} that intercepts an invocation
+     * @param rpcPreprocessor the {@link RpcPreprocessor} that intercepts an invocation
      */
-    public AbstractClientOptionsBuilder preprocessor(DecoratingHttpPreprocessorFunction decorator) {
-        preprocessorsBuilder.add(decorator);
-        return this;
-    }
-
-    /**
-     * Adds the specified RPC-level {@code decorator}.
-     *
-     * @param decorator the {@link Function} that transforms an {@link RpcPreprocessor} to another
-     */
-    public AbstractClientOptionsBuilder rpcPreprocessor(
-            Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
-        preprocessorsBuilder.addRpc(decorator);
-        return this;
-    }
-
-    /**
-     * Adds the specified RPC-level {@code decorator}.
-     *
-     * @param decorator the {@link DecoratingRpcPreprocessorFunction} that intercepts an invocation
-     */
-    public AbstractClientOptionsBuilder rpcPreprocessor(DecoratingRpcPreprocessorFunction decorator) {
-        preprocessorsBuilder.addRpc(decorator);
+    public AbstractClientOptionsBuilder rpcPreprocessor(RpcPreprocessor rpcPreprocessor) {
+        preprocessorsBuilder.addRpc(rpcPreprocessor);
         return this;
     }
 

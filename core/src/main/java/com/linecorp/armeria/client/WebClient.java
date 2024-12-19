@@ -145,6 +145,14 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
         return builder(protocol, endpointGroup, path).build();
     }
 
+    static WebClient of(HttpPreprocessor httpPreprocessor) {
+        return builder(httpPreprocessor).build();
+    }
+
+    static WebClient of(HttpPreprocessor httpPreprocessor, String path) {
+        return builder(httpPreprocessor, path).build();
+    }
+
     /**
      * Returns a new {@link WebClientBuilder} created without a base {@link URI}.
      */
@@ -228,6 +236,15 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
         requireNonNull(endpointGroup, "endpointGroup");
         requireNonNull(path, "path");
         return new WebClientBuilder(protocol, endpointGroup, path);
+    }
+
+    static WebClientBuilder builder(HttpPreprocessor httpPreprocessor) {
+        return new WebClientBuilder(httpPreprocessor, null);
+    }
+
+    static WebClientBuilder builder(HttpPreprocessor httpPreprocessor, String path) {
+        return new WebClientBuilder(requireNonNull(httpPreprocessor, "httpPreprocessor"),
+                                    requireNonNull(path, "path"));
     }
 
     /**

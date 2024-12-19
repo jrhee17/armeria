@@ -34,6 +34,7 @@ import com.linecorp.armeria.common.auth.AuthToken;
 import com.linecorp.armeria.common.auth.BasicToken;
 import com.linecorp.armeria.common.auth.OAuth1aToken;
 import com.linecorp.armeria.common.auth.OAuth2Token;
+import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 
 /**
  * Creates a new <a href="https://restfulapi.net/">REST</a> client that connects to the specified {@link URI}
@@ -68,6 +69,11 @@ public final class RestClientBuilder extends AbstractWebClientBuilder {
      */
     RestClientBuilder(SessionProtocol sessionProtocol, EndpointGroup endpointGroup, @Nullable String path) {
         super(sessionProtocol, endpointGroup, path);
+    }
+
+    RestClientBuilder(HttpPreprocessor preprocessor, @Nullable String path) {
+        super(SessionProtocol.HTTP, FailingEndpointGroup.of(new RuntimeException("")), path);
+        preprocessor(preprocessor);
     }
 
     /**
@@ -261,24 +267,13 @@ public final class RestClientBuilder extends AbstractWebClientBuilder {
     }
 
     @Override
-    public RestClientBuilder preprocessor(
-            Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
+    public RestClientBuilder preprocessor(HttpPreprocessor decorator) {
         return (RestClientBuilder) super.preprocessor(decorator);
     }
 
     @Override
-    public RestClientBuilder preprocessor(DecoratingHttpPreprocessorFunction decorator) {
-        return (RestClientBuilder) super.preprocessor(decorator);
-    }
-
-    @Override
-    public RestClientBuilder rpcPreprocessor(
-            Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
-        return (RestClientBuilder) super.rpcPreprocessor(decorator);
-    }
-
-    @Override
-    public RestClientBuilder rpcPreprocessor(DecoratingRpcPreprocessorFunction decorator) {
+    @Deprecated
+    public RestClientBuilder rpcPreprocessor(RpcPreprocessor decorator) {
         return (RestClientBuilder) super.rpcPreprocessor(decorator);
     }
 }

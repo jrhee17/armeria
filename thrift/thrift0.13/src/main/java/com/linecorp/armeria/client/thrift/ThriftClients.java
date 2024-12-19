@@ -21,6 +21,8 @@ import static java.util.Objects.requireNonNull;
 import java.net.URI;
 
 import com.linecorp.armeria.client.ClientFactory;
+import com.linecorp.armeria.client.HttpPreprocessor;
+import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
@@ -218,6 +220,17 @@ public final class ThriftClients {
         requireNonNull(scheme, "scheme");
         requireNonNull(endpointGroup, "endpointGroup");
         return new ThriftClientBuilder(scheme, endpointGroup);
+    }
+
+    public static ThriftClientBuilder builder(RpcPreprocessor rpcPreprocessor) {;
+        return new ThriftClientBuilder(SerializationFormat.NONE,
+                                       requireNonNull(rpcPreprocessor, "rpcPreprocessor"));
+    }
+
+    public static ThriftClientBuilder builder(SerializationFormat serializationFormat, RpcPreprocessor rpcPreprocessor) {
+        requireNonNull(serializationFormat, "serializationFormat");
+        requireNonNull(rpcPreprocessor, "rpcPreprocessor");
+        return new ThriftClientBuilder(serializationFormat, rpcPreprocessor);
     }
 
     private ThriftClients() {}

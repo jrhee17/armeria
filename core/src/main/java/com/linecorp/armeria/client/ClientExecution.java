@@ -16,17 +16,17 @@
 
 package com.linecorp.armeria.client;
 
-import com.linecorp.armeria.common.RpcRequest;
-import com.linecorp.armeria.common.RpcResponse;
+import com.linecorp.armeria.common.Request;
+import com.linecorp.armeria.common.Response;
 
 /**
  * TBU.
  */
 @FunctionalInterface
-public interface DecoratingRpcPreprocessorFunction {
+public interface ClientExecution<I extends Request, O extends Response> {
 
     /**
      * TBU.
      */
-    RpcResponse execute(RpcPreprocessor delegate, PartialClientRequestContext ctx, RpcRequest req);
+    O execute(PartialClientRequestContext ctx, I req);
 }

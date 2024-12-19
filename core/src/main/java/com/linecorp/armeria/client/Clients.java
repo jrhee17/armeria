@@ -172,6 +172,14 @@ public final class Clients {
         return builder(protocol, endpointGroup, path).build(clientType);
     }
 
+    public static <T> T newClient(Preprocessors preprocessors, String path, Class<T> clientType) {
+        return builder(preprocessors, path).build(clientType);
+    }
+
+    public static <T> T  newClient(Preprocessors preprocessors, Class<T> clientType) {
+        return builder(preprocessors).build(clientType);
+    }
+
     /**
      * Returns a new {@link ClientBuilder} that builds the client that connects to the specified {@code uri}.
      *
@@ -250,6 +258,17 @@ public final class Clients {
         requireNonNull(endpointGroup, "endpointGroup");
         requireNonNull(path, "path");
         return new ClientBuilder(scheme, endpointGroup, path);
+    }
+
+    public static ClientBuilder builder(Preprocessors preprocessors) {
+        requireNonNull(preprocessors, "preprocessors");
+        return new ClientBuilder(preprocessors, null);
+    }
+
+    public static ClientBuilder builder(Preprocessors preprocessors, String path) {
+        requireNonNull(preprocessors, "preprocessors");
+        requireNonNull(path, "path");
+        return new ClientBuilder(preprocessors, path);
     }
 
     /**

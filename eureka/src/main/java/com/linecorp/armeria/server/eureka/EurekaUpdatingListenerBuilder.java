@@ -38,9 +38,7 @@ import com.linecorp.armeria.client.ClientOptionValue;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
-import com.linecorp.armeria.client.DecoratingHttpPreprocessorFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
-import com.linecorp.armeria.client.DecoratingRpcPreprocessorFunction;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.HttpPreprocessor;
@@ -102,6 +100,11 @@ public final class EurekaUpdatingListenerBuilder extends AbstractWebClientBuilde
     EurekaUpdatingListenerBuilder(SessionProtocol sessionProtocol, EndpointGroup endpointGroup,
                                   @Nullable String path) {
         super(sessionProtocol, endpointGroup, path);
+        instanceInfoBuilder = new InstanceInfoBuilder();
+    }
+
+    EurekaUpdatingListenerBuilder(HttpPreprocessor preprocessor, @Nullable String path) {
+        super(preprocessor, path);
         instanceInfoBuilder = new InstanceInfoBuilder();
     }
 
@@ -563,24 +566,13 @@ public final class EurekaUpdatingListenerBuilder extends AbstractWebClientBuilde
     }
 
     @Override
-    public EurekaUpdatingListenerBuilder preprocessor(
-            Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
+    public EurekaUpdatingListenerBuilder preprocessor(HttpPreprocessor decorator) {
         return (EurekaUpdatingListenerBuilder) super.preprocessor(decorator);
     }
 
     @Override
-    public EurekaUpdatingListenerBuilder preprocessor(DecoratingHttpPreprocessorFunction decorator) {
-        return (EurekaUpdatingListenerBuilder) super.preprocessor(decorator);
-    }
-
-    @Override
-    public EurekaUpdatingListenerBuilder rpcPreprocessor(
-            Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
-        return (EurekaUpdatingListenerBuilder) super.rpcPreprocessor(decorator);
-    }
-
-    @Override
-    public EurekaUpdatingListenerBuilder rpcPreprocessor(DecoratingRpcPreprocessorFunction decorator) {
+    @Deprecated
+    public EurekaUpdatingListenerBuilder rpcPreprocessor(RpcPreprocessor decorator) {
         return (EurekaUpdatingListenerBuilder) super.rpcPreprocessor(decorator);
     }
 }

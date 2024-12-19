@@ -30,7 +30,7 @@ import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
-import com.linecorp.armeria.client.HttpPreprocessor;
+import com.linecorp.armeria.client.HttpClientExecution;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.grpc.GrpcClientOptions;
@@ -182,7 +182,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
                     }
                     return HttpResponse.ofFailure(status.asRuntimeException());
                 };
-        final HttpPreprocessor httpPreprocessor =
+        final HttpClientExecution httpPreprocessor =
                 TailPreprocessor.of(client, HttpResponse::of, errorResponseFactory);
 
         return new ArmeriaClientCall<>(

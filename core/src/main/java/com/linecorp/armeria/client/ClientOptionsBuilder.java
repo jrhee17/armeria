@@ -229,24 +229,12 @@ public final class ClientOptionsBuilder extends AbstractClientOptionsBuilder {
     }
 
     @Override
-    public ClientOptionsBuilder preprocessor(
-            Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
+    public ClientOptionsBuilder preprocessor(HttpPreprocessor decorator) {
         return (ClientOptionsBuilder) super.preprocessor(decorator);
     }
 
     @Override
-    public ClientOptionsBuilder preprocessor(DecoratingHttpPreprocessorFunction decorator) {
-        return (ClientOptionsBuilder) super.preprocessor(decorator);
-    }
-
-    @Override
-    public ClientOptionsBuilder rpcPreprocessor(
-            Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
-        return (ClientOptionsBuilder) super.rpcPreprocessor(decorator);
-    }
-
-    @Override
-    public ClientOptionsBuilder rpcPreprocessor(DecoratingRpcPreprocessorFunction decorator) {
+    public ClientOptionsBuilder rpcPreprocessor(RpcPreprocessor decorator) {
         return (ClientOptionsBuilder) super.rpcPreprocessor(decorator);
     }
 }

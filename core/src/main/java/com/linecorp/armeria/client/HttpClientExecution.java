@@ -23,10 +23,5 @@ import com.linecorp.armeria.common.HttpResponse;
  * TBU.
  */
 @FunctionalInterface
-public interface DecoratingHttpPreprocessorFunction {
-
-    /**
-     * TBU.
-     */
-    HttpResponse preprocess(HttpPreprocessor delegate, PartialClientRequestContext ctx, HttpRequest req);
+public interface HttpClientExecution extends ClientExecution<HttpRequest, HttpResponse> {
 }

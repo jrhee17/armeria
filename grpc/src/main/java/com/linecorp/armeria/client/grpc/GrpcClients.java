@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 import java.net.URI;
 
 import com.linecorp.armeria.client.ClientFactory;
+import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
@@ -120,6 +121,21 @@ public final class GrpcClients {
     }
 
     /**
+     * TBU.
+     */
+    public static <T> T newClient(HttpPreprocessor httpPreprocessor, Class<T> clientType) {
+        return newClient(SerializationFormat.NONE, httpPreprocessor, clientType);
+    }
+
+    /**
+     * TBU.
+     */
+    public static <T> T newClient(SerializationFormat serializationFormat, HttpPreprocessor httpPreprocessor,
+                                  Class<T> clientType) {
+        return builder(serializationFormat, httpPreprocessor).build(clientType);
+    }
+
+    /**
      * Returns a new {@link GrpcClientBuilder} that builds the client that connects to the specified
      * {@code uri}.
      *
@@ -181,6 +197,23 @@ public final class GrpcClients {
         requireNonNull(scheme, "scheme");
         requireNonNull(endpointGroup, "endpointGroup");
         return new GrpcClientBuilder(scheme, endpointGroup);
+    }
+
+    /**
+     * TBU.
+     */
+    public static GrpcClientBuilder builder(HttpPreprocessor httpPreprocessor) {
+        requireNonNull(httpPreprocessor, "httpPreprocessor");
+        return builder(SerializationFormat.NONE, httpPreprocessor);
+    }
+
+    /**
+     * TBU.
+     */
+    public static GrpcClientBuilder builder(SerializationFormat serializationFormat, HttpPreprocessor httpPreprocessor) {
+        requireNonNull(serializationFormat, "serializationFormat");
+        requireNonNull(httpPreprocessor, "httpPreprocessor");
+        return new GrpcClientBuilder(serializationFormat, httpPreprocessor);
     }
 
     private GrpcClients() {}

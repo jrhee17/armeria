@@ -39,9 +39,7 @@ import com.linecorp.armeria.client.ClientOptionValue;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
-import com.linecorp.armeria.client.DecoratingHttpPreprocessorFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
-import com.linecorp.armeria.client.DecoratingRpcPreprocessorFunction;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.HttpPreprocessor;
@@ -107,6 +105,10 @@ public final class EurekaEndpointGroupBuilder extends AbstractWebClientBuilder
     EurekaEndpointGroupBuilder(SessionProtocol sessionProtocol, EndpointGroup endpointGroup,
                                @Nullable String path) {
         super(sessionProtocol, endpointGroup, path);
+    }
+
+    EurekaEndpointGroupBuilder(HttpPreprocessor httpPreprocessor, @Nullable String path) {
+        super(httpPreprocessor, path);
     }
 
     /**
@@ -443,24 +445,13 @@ public final class EurekaEndpointGroupBuilder extends AbstractWebClientBuilder
     }
 
     @Override
-    public EurekaEndpointGroupBuilder preprocessor(
-            Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
+    public EurekaEndpointGroupBuilder preprocessor(HttpPreprocessor decorator) {
         return (EurekaEndpointGroupBuilder) super.preprocessor(decorator);
     }
 
     @Override
-    public EurekaEndpointGroupBuilder preprocessor(DecoratingHttpPreprocessorFunction decorator) {
-        return (EurekaEndpointGroupBuilder) super.preprocessor(decorator);
-    }
-
-    @Override
-    public EurekaEndpointGroupBuilder rpcPreprocessor(
-            Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
-        return (EurekaEndpointGroupBuilder) super.rpcPreprocessor(decorator);
-    }
-
-    @Override
-    public EurekaEndpointGroupBuilder rpcPreprocessor(DecoratingRpcPreprocessorFunction decorator) {
+    @Deprecated
+    public EurekaEndpointGroupBuilder rpcPreprocessor(RpcPreprocessor decorator) {
         return (EurekaEndpointGroupBuilder) super.rpcPreprocessor(decorator);
     }
 

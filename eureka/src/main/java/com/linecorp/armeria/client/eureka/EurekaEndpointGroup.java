@@ -42,6 +42,7 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ClientRequestContextCaptor;
 import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.endpoint.DynamicEndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -124,6 +125,14 @@ public final class EurekaEndpointGroup extends DynamicEndpointGroup {
                 sessionProtocol, endpointGroup, requireNonNull(path, "path")).build();
     }
 
+    public static EurekaEndpointGroup of(HttpPreprocessor preprocessor) {
+        return new EurekaEndpointGroupBuilder(preprocessor, null).build();
+    }
+
+    public static EurekaEndpointGroup of(HttpPreprocessor preprocessor, String path) {
+        return new EurekaEndpointGroupBuilder(preprocessor, requireNonNull(path, "path")).build();
+    }
+
     /**
      * Returns a new {@link EurekaEndpointGroupBuilder} created with the specified {@code eurekaUri}.
      */
@@ -154,6 +163,14 @@ public final class EurekaEndpointGroup extends DynamicEndpointGroup {
     public static EurekaEndpointGroupBuilder builder(
             SessionProtocol sessionProtocol, EndpointGroup endpointGroup, String path) {
         return new EurekaEndpointGroupBuilder(sessionProtocol, endpointGroup, requireNonNull(path, "path"));
+    }
+
+    public static EurekaEndpointGroupBuilder builder(HttpPreprocessor preprocessor) {
+        return new EurekaEndpointGroupBuilder(preprocessor, null);
+    }
+
+    public static EurekaEndpointGroupBuilder builder(HttpPreprocessor preprocessor, String path) {
+        return new EurekaEndpointGroupBuilder(preprocessor, requireNonNull(path, "path"));
     }
 
     private final long registryFetchIntervalMillis;

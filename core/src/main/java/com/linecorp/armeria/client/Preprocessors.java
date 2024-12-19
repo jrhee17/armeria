@@ -22,7 +22,7 @@ import java.util.function.Function;
 import com.google.common.collect.ImmutableList;
 
 /**
- * A set of {@link Function}s that transforms a {@link Client} into another.
+ * A set of {@link Function}s that transforms a {@link HttpPreprocessor} or {@link RpcPreprocessor} into another.
  */
 public final class Preprocessors {
 
@@ -36,95 +36,74 @@ public final class Preprocessors {
     }
 
     /**
-     * Creates a new instance from a single decorator {@link Function}.
+     * Creates a new instance from a single {@link HttpPreprocessor}.
      *
-     * @param decorator the {@link Function} that transforms an {@link HttpPreprocessor} to another
+     * @param preprocessor the {@link HttpPreprocessor} that transforms an
+     *                  {@link HttpClientExecution} to another
      */
-    public static Preprocessors of(Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
-        return builder().add(decorator).build();
+    public static Preprocessors of(HttpPreprocessor preprocessor) {
+        return builder().add(preprocessor).build();
     }
 
     /**
-     * Creates a new instance from a single {@link DecoratingHttpPreprocessorFunction}.
+     * Creates a new instance from a single {@link RpcPreprocessor}.
      *
-     * @param decorator the {@link DecoratingHttpPreprocessorFunction} that transforms an
-     *                  {@link HttpPreprocessor} to another
-     */
-    public static Preprocessors of(DecoratingHttpPreprocessorFunction decorator) {
-        return builder().add(decorator).build();
-    }
-
-    /**
-     * Creates a new instance from a single decorator {@link Function}.
-     *
-     * @param decorator the {@link Function} that transforms an {@link RpcPreprocessor} to another
-     */
-    public static Preprocessors ofRpc(Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
-        return builder().addRpc(decorator).build();
-    }
-
-    /**
-     * Creates a new instance from a single {@link DecoratingRpcPreprocessorFunction}.
-     *
-     * @param decorator the {@link DecoratingRpcPreprocessorFunction} that transforms an {@link RpcPreprocessor}
+     * @param preprocessor the {@link RpcPreprocessor} that transforms an {@link RpcClientExecution}
      *                  to another
      */
-    public static Preprocessors ofRpc(DecoratingRpcPreprocessorFunction decorator) {
-        return builder().addRpc(decorator).build();
+    public static Preprocessors ofRpc(RpcPreprocessor preprocessor) {
+        return builder().addRpc(preprocessor).build();
     }
 
     static PreprocessorsBuilder builder() {
         return new PreprocessorsBuilder();
     }
 
-    private final List<Function<? super HttpPreprocessor, ? extends HttpPreprocessor>> decorators;
-    private final List<Function<? super RpcPreprocessor, ? extends RpcPreprocessor>> rpcDecorators;
+    private final List<HttpPreprocessor> preprocessors;
+    private final List<RpcPreprocessor> rpcPreprocessors;
 
-    Preprocessors(List<Function<? super HttpPreprocessor, ? extends HttpPreprocessor>> decorators,
-                  List<Function<? super RpcPreprocessor, ? extends RpcPreprocessor>> rpcDecorators) {
-        this.decorators = ImmutableList.copyOf(decorators);
-        this.rpcDecorators = ImmutableList.copyOf(rpcDecorators);
+    Preprocessors(List<HttpPreprocessor> preprocessors, List<RpcPreprocessor> rpcPreprocessors) {
+        this.preprocessors = ImmutableList.copyOf(preprocessors);
+        this.rpcPreprocessors = ImmutableList.copyOf(rpcPreprocessors);
     }
 
     /**
      * Returns the HTTP-level decorators.
      */
-    public List<Function<? super HttpPreprocessor, ? extends HttpPreprocessor>> decorators() {
-        return decorators;
+    public List<HttpPreprocessor> preprocessors() {
+        return preprocessors;
     }
 
     /**
      * Returns the RPC-level decorators.
      */
-    public List<Function<? super RpcPreprocessor, ? extends RpcPreprocessor>> rpcDecorators() {
-        return rpcDecorators;
-    }
-
-    boolean isEmpty() {
-        return decorators.isEmpty() && rpcDecorators.isEmpty();
+    public List<RpcPreprocessor> rpcPreprocessors() {
+        return rpcPreprocessors;
     }
 
     /**
-     * Decorates the specified {@link HttpPreprocessor} using the decorator.
+     * Decorates the specified {@link HttpClientExecution} using the decorator.
      *
-     * @param preprocessor the {@link HttpPreprocessor} being decorated
+     * @param execution the {@link HttpClientExecution} being decorated
      */
-    public HttpPreprocessor decorate(HttpPreprocessor preprocessor) {
-        for (Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator : decorators) {
-            preprocessor = decorator.apply(preprocessor);
+    public HttpClientExecution decorate(HttpClientExecution execution) {
+        for (HttpPreprocessor preprocessor : preprocessors) {
+            final HttpClientExecution execution0 = execution;
+            execution = (ctx, req) -> preprocessor.preprocess(execution0, ctx, req);
         }
-        return preprocessor;
+        return execution;
     }
 
     /**
-     * Decorates the specified {@link RpcPreprocessor} using the decorator.
+     * Decorates the specified {@link RpcClientExecution} using the decorator.
      *
-     * @param rpcPreprocessor the {@link RpcPreprocessor} being decorated
+     * @param execution the {@link RpcClientExecution} being decorated
      */
-    public RpcPreprocessor rpcDecorate(RpcPreprocessor rpcPreprocessor) {
-        for (Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator : rpcDecorators) {
-            rpcPreprocessor = decorator.apply(rpcPreprocessor);
+    public RpcClientExecution rpcDecorate(RpcClientExecution execution) {
+        for (RpcPreprocessor rpcPreprocessor : rpcPreprocessors) {
+            final RpcClientExecution execution0 = execution;
+            execution = (ctx, req) -> rpcPreprocessor.execute(execution0, ctx, req);
         }
-        return rpcPreprocessor;
+        return execution;
     }
 }

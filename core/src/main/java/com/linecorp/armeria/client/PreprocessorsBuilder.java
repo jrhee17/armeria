@@ -20,46 +20,33 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
 
 final class PreprocessorsBuilder {
 
-    private final List<Function<? super HttpPreprocessor, ? extends HttpPreprocessor>> decorators =
-            new ArrayList<>();
-    private final List<Function<? super RpcPreprocessor, ? extends RpcPreprocessor>> rpcDecorators =
-            new ArrayList<>();
+    private final List<HttpPreprocessor> preprocessors = new ArrayList<>();
+    private final List<RpcPreprocessor> rpcPreprocessors = new ArrayList<>();
 
-    PreprocessorsBuilder add(Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
-        decorators.add(requireNonNull(decorator, "decorator"));
+    PreprocessorsBuilder add(HttpPreprocessor preprocessor) {
+        preprocessors.add(requireNonNull(preprocessor, "preprocessor"));
         return this;
-    }
-
-    PreprocessorsBuilder add(DecoratingHttpPreprocessorFunction decorator) {
-        requireNonNull(decorator, "decorator");
-        return add(delegate -> (ctx, req) -> decorator.preprocess(delegate, ctx, req));
     }
 
     PreprocessorsBuilder add(Preprocessors preprocessors) {
         requireNonNull(preprocessors, "preprocessors");
-        preprocessors.decorators().forEach(this::add);
-        preprocessors.rpcDecorators().forEach(this::addRpc);
+        preprocessors.preprocessors().forEach(this::add);
+        preprocessors.rpcPreprocessors().forEach(this::addRpc);
         return this;
     }
 
-    PreprocessorsBuilder addRpc(Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
-        rpcDecorators.add(requireNonNull(decorator, "decorator"));
+    PreprocessorsBuilder addRpc(RpcPreprocessor rpcPreprocessor) {
+        rpcPreprocessors.add(requireNonNull(rpcPreprocessor, "rpcPreprocessor"));
         return this;
-    }
-
-    PreprocessorsBuilder addRpc(DecoratingRpcPreprocessorFunction decorator) {
-        requireNonNull(decorator, "decorator");
-        return addRpc(delegate -> (ctx, req) -> decorator.execute(delegate, ctx, req));
     }
 
     /**
      * Returns a newly-created {@link ClientDecoration} based on the decorators added to this builder.
      */
     public Preprocessors build() {
-        return new Preprocessors(decorators, rpcDecorators);
+        return new Preprocessors(preprocessors, rpcPreprocessors);
     }
 }

@@ -66,6 +66,10 @@ public final class WebClientBuilder extends AbstractWebClientBuilder {
         super(sessionProtocol, endpointGroup, path);
     }
 
+    WebClientBuilder(HttpPreprocessor httpPreprocessor, @Nullable String path) {
+        super(httpPreprocessor, path);
+    }
+
     /**
      * Returns a newly-created web client based on the properties of this builder.
      *
@@ -257,24 +261,13 @@ public final class WebClientBuilder extends AbstractWebClientBuilder {
     }
 
     @Override
-    public WebClientBuilder preprocessor(
-            Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
+    public WebClientBuilder preprocessor(HttpPreprocessor decorator) {
         return (WebClientBuilder) super.preprocessor(decorator);
     }
 
     @Override
-    public WebClientBuilder preprocessor(DecoratingHttpPreprocessorFunction decorator) {
-        return (WebClientBuilder) super.preprocessor(decorator);
-    }
-
-    @Override
-    public WebClientBuilder rpcPreprocessor(
-            Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
-        return (WebClientBuilder) super.rpcPreprocessor(decorator);
-    }
-
-    @Override
-    public WebClientBuilder rpcPreprocessor(DecoratingRpcPreprocessorFunction decorator) {
+    @Deprecated
+    public WebClientBuilder rpcPreprocessor(RpcPreprocessor decorator) {
         return (WebClientBuilder) super.rpcPreprocessor(decorator);
     }
 }

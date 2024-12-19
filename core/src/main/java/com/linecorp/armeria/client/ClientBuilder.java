@@ -29,6 +29,8 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.redirect.RedirectConfig;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.Scheme;
+import com.linecorp.armeria.common.SerializationFormat;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.SuccessFunction;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
@@ -36,6 +38,7 @@ import com.linecorp.armeria.common.auth.AuthToken;
 import com.linecorp.armeria.common.auth.BasicToken;
 import com.linecorp.armeria.common.auth.OAuth1aToken;
 import com.linecorp.armeria.common.auth.OAuth2Token;
+import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 
 /**
  * Creates a new client that connects to the specified {@link URI} using the builder pattern. Use the factory
@@ -93,6 +96,15 @@ public final class ClientBuilder extends AbstractClientOptionsBuilder {
         this.endpointGroup = endpointGroup;
         this.path = path;
         this.scheme = scheme;
+    }
+
+    ClientBuilder(Preprocessors preprocessors, @Nullable String path) {
+        uri = null;
+        endpointGroup = FailingEndpointGroup.of(new RuntimeException());
+        this.path = path;
+        scheme = Scheme.of(SerializationFormat.NONE, SessionProtocol.HTTP);
+        preprocessors.preprocessors().forEach(this::preprocessor);
+        preprocessors.rpcPreprocessors().forEach(this::rpcPreprocessor);
     }
 
     /**
@@ -302,24 +314,12 @@ public final class ClientBuilder extends AbstractClientOptionsBuilder {
     }
 
     @Override
-    public ClientBuilder preprocessor(
-            Function<? super HttpPreprocessor, ? extends HttpPreprocessor> decorator) {
+    public ClientBuilder preprocessor(HttpPreprocessor decorator) {
         return (ClientBuilder) super.preprocessor(decorator);
     }
 
     @Override
-    public ClientBuilder preprocessor(DecoratingHttpPreprocessorFunction decorator) {
-        return (ClientBuilder) super.preprocessor(decorator);
-    }
-
-    @Override
-    public ClientBuilder rpcPreprocessor(
-            Function<? super RpcPreprocessor, ? extends RpcPreprocessor> decorator) {
-        return (ClientBuilder) super.rpcPreprocessor(decorator);
-    }
-
-    @Override
-    public ClientBuilder rpcPreprocessor(DecoratingRpcPreprocessorFunction decorator) {
+    public ClientBuilder rpcPreprocessor(RpcPreprocessor decorator) {
         return (ClientBuilder) super.rpcPreprocessor(decorator);
     }
 }

@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.MoreExecutors;
 
-import com.linecorp.armeria.client.HttpPreprocessor;
+import com.linecorp.armeria.client.HttpClientExecution;
 import com.linecorp.armeria.client.Preprocessors;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaders;
@@ -108,7 +108,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
 
     private final DefaultClientRequestContext ctx;
     private final EndpointGroup endpointGroup;
-    private final HttpPreprocessor httpPreprocessor;
+    private final HttpClientExecution httpPreprocessor;
     private final HttpRequestWriter req;
     private final MethodDescriptor<I, O> method;
     private final Map<MethodDescriptor<?, ?>, String> simpleMethodNames;
@@ -146,7 +146,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
     ArmeriaClientCall(
             DefaultClientRequestContext ctx,
             EndpointGroup endpointGroup,
-            HttpPreprocessor httpPreprocessor,
+            HttpClientExecution httpPreprocessor,
             HttpRequestWriter req,
             MethodDescriptor<I, O> method,
             Map<MethodDescriptor<?, ?>, String> simpleMethodNames,
