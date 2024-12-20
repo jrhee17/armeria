@@ -116,7 +116,7 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
         }
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 protocol, newReq, null, reqTarget, endpointGroup, requestOptions, options());
-        return options().preprocessors()
+        return options().clientPreprocessors()
                         .decorate(TailClientExecution.of(unwrap(), futureConverter(),
                                                          errorResponseFactory()))
                         .execute(ctx, newReq);

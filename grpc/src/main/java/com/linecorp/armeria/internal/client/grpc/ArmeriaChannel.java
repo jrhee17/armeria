@@ -203,7 +203,7 @@ final class ArmeriaChannel extends Channel implements ClientBuilderParams, Unwra
                 unsafeWrapResponseBuffers,
                 exceptionHandler,
                 useMethodMarshaller,
-                options().preprocessors());
+                options().clientPreprocessors());
     }
 
     @Override
