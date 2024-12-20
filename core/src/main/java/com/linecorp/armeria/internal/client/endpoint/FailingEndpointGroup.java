@@ -27,6 +27,7 @@ import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.util.UnmodifiableFuture;
 
 public final class FailingEndpointGroup implements EndpointGroup {
 
@@ -34,12 +35,12 @@ public final class FailingEndpointGroup implements EndpointGroup {
         return new FailingEndpointGroup(e);
     }
 
-    private final RuntimeException e;
-    private final CompletableFuture<Endpoint> failedFuture = new CompletableFuture<>();
+    private final RuntimeException exception;
+    private final CompletableFuture<Endpoint> failedFuture;
 
-    private FailingEndpointGroup(RuntimeException e) {
-        this.e = e;
-        failedFuture.completeExceptionally(e);
+    private FailingEndpointGroup(RuntimeException exception) {
+        this.exception = exception;
+        failedFuture = UnmodifiableFuture.exceptionallyCompletedFuture(exception);
     }
 
     @Override
@@ -55,7 +56,7 @@ public final class FailingEndpointGroup implements EndpointGroup {
     @Override
     @Nullable
     public Endpoint selectNow(ClientRequestContext ctx) {
-        throw e;
+        throw exception;
     }
 
     @Override
@@ -71,12 +72,12 @@ public final class FailingEndpointGroup implements EndpointGroup {
 
     @Override
     public CompletableFuture<List<Endpoint>> whenReady() {
-        return CompletableFuture.completedFuture(null);
+        return UnmodifiableFuture.completedFuture(null);
     }
 
     @Override
     public CompletableFuture<?> closeAsync() {
-        return CompletableFuture.completedFuture(null);
+        return UnmodifiableFuture.completedFuture(null);
     }
 
     @Override

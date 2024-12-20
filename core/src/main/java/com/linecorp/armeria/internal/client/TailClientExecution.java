@@ -21,11 +21,11 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import com.linecorp.armeria.client.Client;
+import com.linecorp.armeria.client.ClientExecution;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.HttpClientExecution;
 import com.linecorp.armeria.client.PartialClientRequestContext;
-import com.linecorp.armeria.client.ClientExecution;
 import com.linecorp.armeria.client.RpcClient;
 import com.linecorp.armeria.client.RpcClientExecution;
 import com.linecorp.armeria.common.HttpRequest;

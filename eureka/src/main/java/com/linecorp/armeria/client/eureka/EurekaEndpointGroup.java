@@ -125,10 +125,16 @@ public final class EurekaEndpointGroup extends DynamicEndpointGroup {
                 sessionProtocol, endpointGroup, requireNonNull(path, "path")).build();
     }
 
+    /**
+     * TBU.
+     */
     public static EurekaEndpointGroup of(HttpPreprocessor preprocessor) {
         return new EurekaEndpointGroupBuilder(preprocessor, null).build();
     }
 
+    /**
+     * TBU.
+     */
     public static EurekaEndpointGroup of(HttpPreprocessor preprocessor, String path) {
         return new EurekaEndpointGroupBuilder(preprocessor, requireNonNull(path, "path")).build();
     }
@@ -165,10 +171,16 @@ public final class EurekaEndpointGroup extends DynamicEndpointGroup {
         return new EurekaEndpointGroupBuilder(sessionProtocol, endpointGroup, requireNonNull(path, "path"));
     }
 
+    /**
+     * TBU.
+     */
     public static EurekaEndpointGroupBuilder builder(HttpPreprocessor preprocessor) {
         return new EurekaEndpointGroupBuilder(preprocessor, null);
     }
 
+    /**
+     * TBU.
+     */
     public static EurekaEndpointGroupBuilder builder(HttpPreprocessor preprocessor, String path) {
         return new EurekaEndpointGroupBuilder(preprocessor, requireNonNull(path, "path"));
     }

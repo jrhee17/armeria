@@ -100,10 +100,16 @@ public final class EurekaUpdatingListener extends ServerListenerAdapter {
                 sessionProtocol, endpointGroup, requireNonNull(path, "path")).build();
     }
 
+    /**
+     * TBU.
+     */
     public static EurekaUpdatingListener of(HttpPreprocessor preprocessor) {
         return new EurekaUpdatingListenerBuilder(preprocessor, null).build();
     }
 
+    /**
+     * TBU.
+     */
     public static EurekaUpdatingListener of(HttpPreprocessor preprocessor, String path) {
         return new EurekaUpdatingListenerBuilder(preprocessor, requireNonNull(path, "path"))
                 .build();
@@ -141,14 +147,19 @@ public final class EurekaUpdatingListener extends ServerListenerAdapter {
         return new EurekaUpdatingListenerBuilder(sessionProtocol, endpointGroup, requireNonNull(path, "path"));
     }
 
+    /**
+     * TBU.
+     */
     public static EurekaUpdatingListenerBuilder builder(HttpPreprocessor preprocessor) {
         return new EurekaUpdatingListenerBuilder(preprocessor, null);
     }
 
+    /**
+     * TBU.
+     */
     public static EurekaUpdatingListenerBuilder builder(HttpPreprocessor preprocessor, String path) {
         return new EurekaUpdatingListenerBuilder(preprocessor, requireNonNull(path, "path"));
     }
-
 
     private final EurekaWebClient client;
     private final InstanceInfo initialInstanceInfo;

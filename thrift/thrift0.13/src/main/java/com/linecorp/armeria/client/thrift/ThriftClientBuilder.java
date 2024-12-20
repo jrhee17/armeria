@@ -96,7 +96,7 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
         this.endpointGroup = endpointGroup;
     }
 
-    public ThriftClientBuilder(SerializationFormat serializationFormat, RpcPreprocessor rpcPreprocessor) {
+    ThriftClientBuilder(SerializationFormat serializationFormat, RpcPreprocessor rpcPreprocessor) {
         requireNonNull(serializationFormat, "serializationFormat");
         requireNonNull(rpcPreprocessor, "rpcPreprocessor");
         uri = null;

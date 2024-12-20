@@ -105,6 +105,20 @@ public final class ArmeriaRetrofit {
     }
 
     /**
+     * TBU.
+     */
+    public static Retrofit of(HttpPreprocessor preprocessor) {
+        return builder(preprocessor).build();
+    }
+
+    /**
+     * TBU.
+     */
+    public static Retrofit of(HttpPreprocessor preprocessor, String path) {
+        return builder(preprocessor, path).build();
+    }
+
+    /**
      * Returns a new {@link Retrofit} which sends requests using the specified {@link WebClient}.
      */
     public static Retrofit of(WebClient baseWebClient) {
@@ -190,10 +204,16 @@ public final class ArmeriaRetrofit {
         return builder(WebClient.of(protocol, endpointGroup, path));
     }
 
+    /**
+     * TBU.
+     */
     public static ArmeriaRetrofitBuilder builder(HttpPreprocessor httpPreprocessor) {
         return builder(WebClient.of(httpPreprocessor));
     }
 
+    /**
+     * TBU.
+     */
     public static ArmeriaRetrofitBuilder builder(HttpPreprocessor httpPreprocessor, String path) {
         return builder(WebClient.of(httpPreprocessor, path));
     }

@@ -144,10 +144,16 @@ public interface RestClient extends ClientBuilderParams, Unwrappable {
         return builder(protocol, endpointGroup, path).build();
     }
 
+    /**
+     * TBU.
+     */
     static RestClient of(HttpPreprocessor httpPreprocessor) {
         return builder(httpPreprocessor).build();
     }
 
+    /**
+     * TBU.
+     */
     static RestClient of(HttpPreprocessor httpPreprocessor, String path) {
         return builder(httpPreprocessor, path).build();
     }
@@ -237,10 +243,16 @@ public interface RestClient extends ClientBuilderParams, Unwrappable {
         return new RestClientBuilder(protocol, endpointGroup, path);
     }
 
+    /**
+     * TBU.
+     */
     static RestClientBuilder builder(HttpPreprocessor httpPreprocessor) {
         return new RestClientBuilder(httpPreprocessor, null);
     }
 
+    /**
+     * TBU.
+     */
     static RestClientBuilder builder(HttpPreprocessor httpPreprocessor, String path) {
         requireNonNull(httpPreprocessor, "httpPreprocessor");
         requireNonNull(path, "path");

@@ -21,7 +21,6 @@ import static java.util.Objects.requireNonNull;
 import java.net.URI;
 
 import com.linecorp.armeria.client.ClientFactory;
-import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
@@ -159,6 +158,21 @@ public final class ThriftClients {
     }
 
     /**
+     * TBU.
+     */
+    public static <T> T newClient(RpcPreprocessor rpcPreprocessor, Class<T> clientType) {
+        return builder(rpcPreprocessor).build(clientType);
+    }
+
+    /**
+     * TBU.
+     */
+    public static <T> T newClient(SerializationFormat serializationFormat,
+                                  RpcPreprocessor rpcPreprocessor, Class<T> clientType) {
+        return builder(serializationFormat, rpcPreprocessor).build(clientType);
+    }
+
+    /**
      * Returns a new {@link ThriftClientBuilder} that builds the client that connects to the specified
      * {@code uri}.
      *
@@ -222,12 +236,19 @@ public final class ThriftClients {
         return new ThriftClientBuilder(scheme, endpointGroup);
     }
 
-    public static ThriftClientBuilder builder(RpcPreprocessor rpcPreprocessor) {;
+    /**
+     * TBU.
+     */
+    public static ThriftClientBuilder builder(RpcPreprocessor rpcPreprocessor) {
         return new ThriftClientBuilder(SerializationFormat.NONE,
                                        requireNonNull(rpcPreprocessor, "rpcPreprocessor"));
     }
 
-    public static ThriftClientBuilder builder(SerializationFormat serializationFormat, RpcPreprocessor rpcPreprocessor) {
+    /**
+     * TBU.
+     */
+    public static ThriftClientBuilder builder(SerializationFormat serializationFormat,
+                                              RpcPreprocessor rpcPreprocessor) {
         requireNonNull(serializationFormat, "serializationFormat");
         requireNonNull(rpcPreprocessor, "rpcPreprocessor");
         return new ThriftClientBuilder(serializationFormat, rpcPreprocessor);

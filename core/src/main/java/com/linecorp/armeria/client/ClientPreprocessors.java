@@ -22,11 +22,13 @@ import java.util.function.Function;
 import com.google.common.collect.ImmutableList;
 
 /**
- * A set of {@link Function}s that transforms a {@link HttpPreprocessor} or {@link RpcPreprocessor} into another.
+ * A set of {@link Function}s that transforms a {@link HttpPreprocessor} or
+ * {@link RpcPreprocessor} into another.
  */
 public final class ClientPreprocessors {
 
-    private static final ClientPreprocessors NONE = new ClientPreprocessors(ImmutableList.of(), ImmutableList.of());
+    private static final ClientPreprocessors NONE =
+            new ClientPreprocessors(ImmutableList.of(), ImmutableList.of());
 
     /**
      * Returns an empty {@link ClientDecoration} which does not decorate a {@link Client}.
@@ -89,7 +91,7 @@ public final class ClientPreprocessors {
     public HttpClientExecution decorate(HttpClientExecution execution) {
         for (HttpPreprocessor preprocessor : preprocessors) {
             final HttpClientExecution execution0 = execution;
-            execution = (ctx, req) -> preprocessor.preprocess(execution0, ctx, req);
+            execution = (ctx, req) -> preprocessor.execute(execution0, ctx, req);
         }
         return execution;
     }

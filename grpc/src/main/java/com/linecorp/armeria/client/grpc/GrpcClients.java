@@ -210,7 +210,8 @@ public final class GrpcClients {
     /**
      * TBU.
      */
-    public static GrpcClientBuilder builder(SerializationFormat serializationFormat, HttpPreprocessor httpPreprocessor) {
+    public static GrpcClientBuilder builder(SerializationFormat serializationFormat,
+                                            HttpPreprocessor httpPreprocessor) {
         requireNonNull(serializationFormat, "serializationFormat");
         requireNonNull(httpPreprocessor, "httpPreprocessor");
         return new GrpcClientBuilder(serializationFormat, httpPreprocessor);

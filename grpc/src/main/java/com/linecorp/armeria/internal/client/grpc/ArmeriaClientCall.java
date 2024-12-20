@@ -36,8 +36,8 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.MoreExecutors;
 
-import com.linecorp.armeria.client.HttpClientExecution;
 import com.linecorp.armeria.client.ClientPreprocessors;
+import com.linecorp.armeria.client.HttpClientExecution;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.HttpRequest;

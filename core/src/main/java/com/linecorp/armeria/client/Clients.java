@@ -172,10 +172,16 @@ public final class Clients {
         return builder(protocol, endpointGroup, path).build(clientType);
     }
 
+    /**
+     * TBU.
+     */
     public static <T> T newClient(ClientPreprocessors preprocessors, String path, Class<T> clientType) {
         return builder(preprocessors, path).build(clientType);
     }
 
+    /**
+     * TBU.
+     */
     public static <T> T  newClient(ClientPreprocessors preprocessors, Class<T> clientType) {
         return builder(preprocessors).build(clientType);
     }
@@ -260,11 +266,17 @@ public final class Clients {
         return new ClientBuilder(scheme, endpointGroup, path);
     }
 
+    /**
+     * TBU.
+     */
     public static ClientBuilder builder(ClientPreprocessors preprocessors) {
         requireNonNull(preprocessors, "preprocessors");
         return new ClientBuilder(preprocessors, null);
     }
 
+    /**
+     * TBU.
+     */
     public static ClientBuilder builder(ClientPreprocessors preprocessors, String path) {
         requireNonNull(preprocessors, "preprocessors");
         requireNonNull(path, "path");

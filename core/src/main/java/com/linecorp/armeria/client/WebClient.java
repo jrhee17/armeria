@@ -145,10 +145,16 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
         return builder(protocol, endpointGroup, path).build();
     }
 
+    /**
+     * TBU.
+     */
     static WebClient of(HttpPreprocessor httpPreprocessor) {
         return builder(httpPreprocessor).build();
     }
 
+    /**
+     * TBU.
+     */
     static WebClient of(HttpPreprocessor httpPreprocessor, String path) {
         return builder(httpPreprocessor, path).build();
     }
@@ -238,10 +244,16 @@ public interface WebClient extends ClientBuilderParams, Unwrappable {
         return new WebClientBuilder(protocol, endpointGroup, path);
     }
 
+    /**
+     * TBU.
+     */
     static WebClientBuilder builder(HttpPreprocessor httpPreprocessor) {
         return new WebClientBuilder(httpPreprocessor, null);
     }
 
+    /**
+     * TBU.
+     */
     static WebClientBuilder builder(HttpPreprocessor httpPreprocessor, String path) {
         return new WebClientBuilder(requireNonNull(httpPreprocessor, "httpPreprocessor"),
                                     requireNonNull(path, "path"));

@@ -73,6 +73,9 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
              requireNonNull(endpointGroup, "endpointGroup"), path);
     }
 
+    /**
+     * TBU.
+     */
     protected AbstractWebClientBuilder(HttpPreprocessor httpPreprocessor, @Nullable String path) {
         this(null, Scheme.of(SerializationFormat.NONE, SessionProtocol.HTTP),
              FailingEndpointGroup.of(new RuntimeException("httpPreprocessor should specify a ")), path);

@@ -23,10 +23,5 @@ import com.linecorp.armeria.common.RpcResponse;
  * TBU.
  */
 @FunctionalInterface
-public interface RpcPreprocessor {
-
-    /**
-     * TBU.
-     */
-    RpcResponse execute(RpcClientExecution delegate, PartialClientRequestContext ctx, RpcRequest req);
+public interface RpcPreprocessor extends Preprocessor<RpcRequest, RpcResponse> {
 }
