@@ -21,30 +21,42 @@ import static java.util.Objects.requireNonNull;
 import java.util.ArrayList;
 import java.util.List;
 
-final class PreprocessorsBuilder {
+/**
+ * TBU.
+ */
+public final class ClientPreprocessorsBuilder {
 
     private final List<HttpPreprocessor> preprocessors = new ArrayList<>();
     private final List<RpcPreprocessor> rpcPreprocessors = new ArrayList<>();
 
-    PreprocessorsBuilder add(HttpPreprocessor preprocessor) {
+    /**
+     * TBU.
+     */
+    public ClientPreprocessorsBuilder add(HttpPreprocessor preprocessor) {
         preprocessors.add(requireNonNull(preprocessor, "preprocessor"));
         return this;
     }
 
-    PreprocessorsBuilder add(ClientPreprocessors preprocessors) {
+    /**
+     * TBU.
+     */
+    public ClientPreprocessorsBuilder add(ClientPreprocessors preprocessors) {
         requireNonNull(preprocessors, "preprocessors");
         preprocessors.preprocessors().forEach(this::add);
         preprocessors.rpcPreprocessors().forEach(this::addRpc);
         return this;
     }
 
-    PreprocessorsBuilder addRpc(RpcPreprocessor rpcPreprocessor) {
+    /**
+     * TBU.
+     */
+    public ClientPreprocessorsBuilder addRpc(RpcPreprocessor rpcPreprocessor) {
         rpcPreprocessors.add(requireNonNull(rpcPreprocessor, "rpcPreprocessor"));
         return this;
     }
 
     /**
-     * Returns a newly-created {@link ClientDecoration} based on the decorators added to this builder.
+     * Returns a newly-created {@link ClientPreprocessors} based on the decorators added to this builder.
      */
     public ClientPreprocessors build() {
         return new ClientPreprocessors(preprocessors, rpcPreprocessors);

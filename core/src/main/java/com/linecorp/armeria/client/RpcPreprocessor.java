@@ -16,12 +16,34 @@
 
 package com.linecorp.armeria.client;
 
+import static java.util.Objects.requireNonNull;
+
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
+import com.linecorp.armeria.common.SessionProtocol;
+
+import io.netty.channel.EventLoop;
 
 /**
  * TBU.
  */
 @FunctionalInterface
 public interface RpcPreprocessor extends Preprocessor<RpcRequest, RpcResponse> {
+
+    /**
+     * TBU.
+     */
+    static RpcPreprocessor of(SessionProtocol sessionProtocol, EndpointGroup endpointGroup,
+                              EventLoop eventLoop) {
+        requireNonNull(sessionProtocol, "sessionProtocol");
+        requireNonNull(endpointGroup, "endpointGroup");
+        requireNonNull(eventLoop, "eventLoop");
+        return (delegate, ctx, req) -> {
+            ctx.sessionProtocol(sessionProtocol);
+            ctx.endpointGroup(endpointGroup);
+            ctx.eventLoop(eventLoop);
+            return delegate.execute(ctx, req);
+        };
+    }
 }

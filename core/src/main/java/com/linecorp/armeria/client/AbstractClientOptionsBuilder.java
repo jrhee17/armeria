@@ -57,7 +57,7 @@ public class AbstractClientOptionsBuilder {
 
     private final Map<ClientOption<?>, ClientOptionValue<?>> options = new LinkedHashMap<>();
     private final ClientDecorationBuilder decoration = ClientDecoration.builder();
-    private final PreprocessorsBuilder preprocessorsBuilder = new PreprocessorsBuilder();
+    private final ClientPreprocessorsBuilder clientPreprocessorsBuilder = new ClientPreprocessorsBuilder();
     private final HttpHeadersBuilder headers = HttpHeaders.builder();
 
     @Nullable
@@ -527,7 +527,7 @@ public class AbstractClientOptionsBuilder {
      * @param preprocessor the {@link HttpPreprocessor} that intercepts an invocation
      */
     public AbstractClientOptionsBuilder preprocessor(HttpPreprocessor preprocessor) {
-        preprocessorsBuilder.add(preprocessor);
+        clientPreprocessorsBuilder.add(preprocessor);
         return this;
     }
 
@@ -537,7 +537,7 @@ public class AbstractClientOptionsBuilder {
      * @param rpcPreprocessor the {@link RpcPreprocessor} that intercepts an invocation
      */
     public AbstractClientOptionsBuilder rpcPreprocessor(RpcPreprocessor rpcPreprocessor) {
-        preprocessorsBuilder.addRpc(rpcPreprocessor);
+        clientPreprocessorsBuilder.addRpc(rpcPreprocessor);
         return this;
     }
 
@@ -559,7 +559,7 @@ public class AbstractClientOptionsBuilder {
                 ImmutableList.builder();
         additionalValues.addAll(optVals);
         additionalValues.add(ClientOptions.DECORATION.newValue(decoration.build()));
-        additionalValues.add(ClientOptions.PREPROCESSORS.newValue(preprocessorsBuilder.build()));
+        additionalValues.add(ClientOptions.PREPROCESSORS.newValue(clientPreprocessorsBuilder.build()));
         additionalValues.add(ClientOptions.HEADERS.newValue(headers.build()));
         additionalValues.add(ClientOptions.CONTEXT_HOOK.newValue(contextHook));
         if (contextCustomizer != null) {

@@ -57,8 +57,8 @@ public final class ClientPreprocessors {
         return builder().addRpc(preprocessor).build();
     }
 
-    static PreprocessorsBuilder builder() {
-        return new PreprocessorsBuilder();
+    static ClientPreprocessorsBuilder builder() {
+        return new ClientPreprocessorsBuilder();
     }
 
     private final List<HttpPreprocessor> preprocessors;
