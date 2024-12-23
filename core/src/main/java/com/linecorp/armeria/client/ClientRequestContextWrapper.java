@@ -29,6 +29,7 @@ import com.linecorp.armeria.common.HttpHeadersBuilder;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.RequestContextWrapper;
 import com.linecorp.armeria.common.RequestId;
+import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.TimeoutMode;
@@ -79,6 +80,11 @@ public class ClientRequestContextWrapper
     @Override
     public String host() {
         return unwrap().host();
+    }
+
+    @Override
+    public RequestTarget requestTarget() {
+        return unwrap().requestTarget();
     }
 
     @Override

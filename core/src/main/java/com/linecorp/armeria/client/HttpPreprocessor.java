@@ -46,4 +46,17 @@ public interface HttpPreprocessor extends Preprocessor<HttpRequest, HttpResponse
             return delegate.execute(ctx, req);
         };
     }
+
+    /**
+     * TBU.
+     */
+    static HttpPreprocessor of(SessionProtocol sessionProtocol, EndpointGroup endpointGroup) {
+        requireNonNull(sessionProtocol, "sessionProtocol");
+        requireNonNull(endpointGroup, "endpointGroup");
+        return (delegate, ctx, req) -> {
+            ctx.sessionProtocol(sessionProtocol);
+            ctx.endpointGroup(endpointGroup);
+            return delegate.execute(ctx, req);
+        };
+    }
 }

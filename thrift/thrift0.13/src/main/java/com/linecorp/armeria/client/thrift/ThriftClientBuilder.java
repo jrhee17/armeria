@@ -100,7 +100,7 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
         requireNonNull(serializationFormat, "serializationFormat");
         requireNonNull(rpcPreprocessor, "rpcPreprocessor");
         uri = null;
-        scheme = Scheme.of(serializationFormat, SessionProtocol.HTTP);
+        scheme = Scheme.of(serializationFormat, SessionProtocol.UNDEFINED);
         validateOrSetSerializationFormat();
         endpointGroup = FailingEndpointGroup.of(new RuntimeException());
         rpcPreprocessor(rpcPreprocessor);

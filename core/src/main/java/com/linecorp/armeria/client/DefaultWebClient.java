@@ -26,7 +26,6 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RequestTargetForm;
-import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
@@ -68,44 +67,14 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
 
         final EndpointGroup endpointGroup;
         final SessionProtocol protocol;
-
-        if (Clients.isUndefinedUri(uri())) {
-            final String scheme;
-            final String authority;
-            if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
-                scheme = reqTarget.scheme();
-                authority = reqTarget.authority();
-                assert scheme != null;
-                assert authority != null;
-            } else {
-                scheme = req.scheme();
-                authority = req.authority();
-
-                if (scheme == null || authority == null) {
-                    return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
-                            "Scheme and authority must be specified in \":path\" or " +
-                            "in \":scheme\" and \":authority\". :path=" +
-                            originalPath + ", :scheme=" + req.scheme() + ", :authority=" + req.authority()));
-                }
-            }
-
-            endpointGroup = Endpoint.parse(authority);
-            try {
-                protocol = Scheme.parse(scheme).sessionProtocol();
-            } catch (Exception e) {
-                return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
-                        "Failed to parse a scheme: " + reqTarget.scheme(), e));
-            }
-        } else {
-            if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
-                return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
-                        "Cannot send a request with a \":path\" header that contains an authority, " +
-                        "because the client was created with a base URI. path: " + originalPath));
-            }
-
-            endpointGroup = endpointGroup();
-            protocol = scheme().sessionProtocol();
+        if (!Clients.isUndefinedUri(uri()) && reqTarget.form() == RequestTargetForm.ABSOLUTE) {
+            return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
+                    "Cannot send a request with a \":path\" header that contains an authority, " +
+                    "because the client was created with a base URI. path: " + originalPath));
         }
+
+        endpointGroup = endpointGroup();
+        protocol = scheme().sessionProtocol();
 
         final String newPath = reqTarget.pathAndQuery();
         final HttpRequest newReq;
@@ -122,7 +91,7 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
                         .execute(ctx, newReq);
     }
 
-    private static HttpResponse abortRequestAndReturnFailureResponse(
+    static HttpResponse abortRequestAndReturnFailureResponse(
             HttpRequest req, IllegalArgumentException cause) {
         req.abort(cause);
         return HttpResponse.ofFailure(cause);

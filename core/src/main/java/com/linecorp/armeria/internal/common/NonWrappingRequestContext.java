@@ -171,7 +171,8 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
         return reqTarget.path();
     }
 
-    protected final RequestTarget requestTarget() {
+    @Override
+    public final RequestTarget requestTarget() {
         return reqTarget;
     }
 

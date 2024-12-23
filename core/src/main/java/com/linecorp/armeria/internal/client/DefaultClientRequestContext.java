@@ -642,7 +642,8 @@ public final class DefaultClientRequestContext
     @Override
     public void sessionProtocol(SessionProtocol sessionProtocol) {
         checkState(!initialized, "Cannot update sessionProtocol after initialization");
-        this.sessionProtocol = requireNonNull(sessionProtocol, "sessionProtocol");
+        this.sessionProtocol = desiredSessionProtocol(requireNonNull(sessionProtocol, "sessionProtocol"),
+                                                      options);
     }
 
     @Override
@@ -747,6 +748,7 @@ public final class DefaultClientRequestContext
     @Override
     public void eventLoop(EventLoop eventLoop) {
         checkState(!initialized, "Cannot update eventLoop after initialization");
+        checkState(this.eventLoop == null, "eventLoop can be updated only once");
         this.eventLoop = requireNonNull(eventLoop, "eventLoop");
     }
 

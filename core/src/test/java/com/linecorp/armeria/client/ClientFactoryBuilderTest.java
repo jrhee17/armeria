@@ -35,10 +35,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import com.linecorp.armeria.common.Flags;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.util.TransportType;
 import com.linecorp.armeria.internal.common.util.MinifiedBouncyCastleProvider;
+import com.linecorp.armeria.internal.testing.ImmediateEventLoop;
 
 import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoop;
 import io.netty.resolver.DefaultAddressResolverGroup;
 
 class ClientFactoryBuilderTest {
@@ -298,5 +301,16 @@ class ClientFactoryBuilderTest {
         try (ClientFactory factory = ClientFactory.builder().idleTimeoutMillis(1000, true).build()) {
             assertThat(factory.options().keepAliveOnPing()).isTrue();
         }
+    }
+
+    @Test
+    void rpcProcessorValidation() {
+        final Endpoint endpoint = Endpoint.of("127.0.0.1");
+        final SessionProtocol protocol = SessionProtocol.HTTP;
+        final EventLoop eventLoop = ImmediateEventLoop.INSTANCE;
+        final ClientPreprocessors preprocessors =
+                ClientPreprocessors.ofRpc(RpcPreprocessor.of(protocol, endpoint, eventLoop));
+        assertThatThrownBy(() -> Clients.newClient(preprocessors, WebClient.class))
+                .isInstanceOf(IllegalStateException.class);
     }
 }

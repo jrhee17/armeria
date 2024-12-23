@@ -55,7 +55,6 @@ import com.linecorp.armeria.common.util.ReleasableHolder;
 import com.linecorp.armeria.common.util.ShutdownHooks;
 import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.common.util.TransportType;
-import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 import com.linecorp.armeria.internal.common.RequestTargetCache;
 import com.linecorp.armeria.internal.common.SslContextFactory;
 import com.linecorp.armeria.internal.common.util.ChannelUtil;
@@ -383,7 +382,6 @@ final class HttpClientFactory implements ClientFactory {
     @Override
     public Object newClient(ClientBuilderParams params) {
         validateParams(params);
-        validatePreprocessor(params);
 
         final Class<?> clientType = params.clientType();
         validateClientType(clientType);
@@ -431,12 +429,13 @@ final class HttpClientFactory implements ClientFactory {
         return clientType;
     }
 
-    private static void validatePreprocessor(ClientBuilderParams params) {
-        final EndpointGroup endpointGroup = params.endpointGroup();
-        if (params.options().clientPreprocessors().preprocessors().isEmpty() &&
-            (endpointGroup instanceof FailingEndpointGroup)) {
+    @Override
+    public ClientBuilderParams validateParams(ClientBuilderParams params) {
+        if (params.scheme().sessionProtocol() == SessionProtocol.UNDEFINED &&
+            params.options().clientPreprocessors().preprocessors().isEmpty()) {
             throw new IllegalStateException();
         }
+        return ClientFactory.super.validateParams(params);
     }
 
     @Override

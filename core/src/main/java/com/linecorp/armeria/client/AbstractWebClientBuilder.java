@@ -77,7 +77,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      * TBU.
      */
     protected AbstractWebClientBuilder(HttpPreprocessor httpPreprocessor, @Nullable String path) {
-        this(null, Scheme.of(SerializationFormat.NONE, SessionProtocol.HTTP),
+        this(null, Scheme.of(SerializationFormat.NONE, SessionProtocol.UNDEFINED),
              FailingEndpointGroup.of(new RuntimeException("httpPreprocessor should specify a ")), path);
         preprocessor(httpPreprocessor);
     }
@@ -93,6 +93,10 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
         this.scheme = scheme;
         this.endpointGroup = endpointGroup;
         this.path = validatePath(path);
+
+        if (uri != null && Clients.isUndefinedUri(uri)) {
+            preprocessor(DefaultWebClientPreprocessor.INSTANCE);
+        }
     }
 
     private static URI validateUri(URI uri) {

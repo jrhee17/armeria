@@ -19,6 +19,7 @@ package com.linecorp.armeria.client;
 import java.util.List;
 import java.util.function.Function;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -84,6 +85,13 @@ public final class ClientPreprocessors {
     }
 
     /**
+     * TBU.
+     */
+    public boolean isEmpty() {
+        return preprocessors.isEmpty() && rpcPreprocessors.isEmpty();
+    }
+
+    /**
      * Decorates the specified {@link HttpClientExecution} using the decorator.
      *
      * @param execution the {@link HttpClientExecution} being decorated
@@ -107,5 +115,13 @@ public final class ClientPreprocessors {
             execution = (ctx, req) -> rpcPreprocessor.execute(execution0, ctx, req);
         }
         return execution;
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("preprocessors", preprocessors)
+                          .add("rpcPreprocessors", rpcPreprocessors)
+                          .toString();
     }
 }

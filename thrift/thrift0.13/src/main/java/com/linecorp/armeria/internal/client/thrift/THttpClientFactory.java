@@ -26,13 +26,11 @@ import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.DecoratingClientFactory;
 import com.linecorp.armeria.client.RpcClient;
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.thrift.THttpClient;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.thrift.ThriftSerializationFormats;
-import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 
 /**
  * A {@link DecoratingClientFactory} that creates a Thrift-over-HTTP client.
@@ -68,7 +66,6 @@ final class THttpClientFactory extends DecoratingClientFactory {
     @Override
     public Object newClient(ClientBuilderParams params) {
         validateParams(params);
-        validatePreprocessor(params);
 
         final Class<?> clientType = params.clientType();
         final ClientOptions options = params.options();
@@ -95,11 +92,12 @@ final class THttpClientFactory extends DecoratingClientFactory {
                 new THttpClientInvocationHandler(params, thriftClient));
     }
 
-    private static void validatePreprocessor(ClientBuilderParams params) {
-        final EndpointGroup endpointGroup = params.endpointGroup();
-        if (params.options().clientPreprocessors().rpcPreprocessors().isEmpty() &&
-            (endpointGroup instanceof FailingEndpointGroup)) {
+    @Override
+    public ClientBuilderParams validateParams(ClientBuilderParams params) {
+        if (params.scheme().sessionProtocol() == SessionProtocol.UNDEFINED &&
+            params.options().clientPreprocessors().rpcPreprocessors().isEmpty()) {
             throw new IllegalStateException();
         }
+        return super.validateParams(params);
     }
 }

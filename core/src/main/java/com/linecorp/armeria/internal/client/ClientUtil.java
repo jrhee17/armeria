@@ -49,7 +49,7 @@ public final class ClientUtil {
     /**
      * An undefined {@link URI} to create {@link WebClient} without specifying {@link URI}.
      */
-    public static final URI UNDEFINED_URI = URI.create("http://undefined");
+    public static final URI UNDEFINED_URI = URI.create("undefined://undefined");
 
     public static <I extends Request, O extends Response, U extends Client<I, O>>
     O initContextAndExecuteWithFallback(

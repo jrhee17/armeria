@@ -28,12 +28,14 @@ import com.linecorp.armeria.client.HttpClientExecution;
 import com.linecorp.armeria.client.PartialClientRequestContext;
 import com.linecorp.armeria.client.RpcClient;
 import com.linecorp.armeria.client.RpcClientExecution;
+import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
+import com.linecorp.armeria.common.SessionProtocol;
 
 public final class TailClientExecution<I extends Request, O extends Response>
         implements ClientExecution<I, O> {
@@ -70,6 +72,13 @@ public final class TailClientExecution<I extends Request, O extends Response>
 
     @Override
     public O execute(PartialClientRequestContext ctx, I req) {
+        if (ctx.sessionProtocol() == SessionProtocol.UNDEFINED) {
+            final UnprocessedRequestException e = UnprocessedRequestException.of(
+                    new IllegalStateException(
+                            "ctx.sessionProtocol() must be specified either when building " +
+                            "a client, or dynamically via a 'HttpPreprocessor' or 'RpcPreprocessor'."));
+            return errorResponseFactory.apply(ctx, e);
+        }
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
         return ClientUtil.initContextAndExecuteWithFallback(delegate, ctxExt,

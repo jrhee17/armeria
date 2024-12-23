@@ -99,10 +99,12 @@ public final class ClientBuilder extends AbstractClientOptionsBuilder {
     }
 
     ClientBuilder(ClientPreprocessors preprocessors, @Nullable String path) {
+        checkArgument(!preprocessors.isEmpty(),
+                      "At least one preprocessor must be set in ClientPreprocessors.");
         uri = null;
         endpointGroup = FailingEndpointGroup.of(new RuntimeException());
         this.path = path;
-        scheme = Scheme.of(SerializationFormat.NONE, SessionProtocol.HTTP);
+        scheme = Scheme.of(SerializationFormat.NONE, SessionProtocol.UNDEFINED);
         preprocessors.preprocessors().forEach(this::preprocessor);
         preprocessors.rpcPreprocessors().forEach(this::rpcPreprocessor);
     }
