@@ -17,6 +17,7 @@
 package com.linecorp.armeria.client;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
@@ -42,4 +43,9 @@ public interface PartialClientRequestContext extends ClientRequestContext {
      * TBU.
      */
     void eventLoop(EventLoop eventLoop);
+
+    /**
+     * TBU.
+     */
+    void method(HttpMethod method);
 }

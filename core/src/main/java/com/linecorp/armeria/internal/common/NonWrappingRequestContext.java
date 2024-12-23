@@ -60,7 +60,7 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
     private final MeterRegistry meterRegistry;
     private final ConcurrentAttributes attrs;
     private final RequestId id;
-    private final HttpMethod method;
+    private HttpMethod method;
     private RequestTarget reqTarget;
     private final ExchangeType exchangeType;
     private long requestAutoAbortDelayMillis;
@@ -121,6 +121,7 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
     public final void updateRequest(HttpRequest req) {
         requireNonNull(req, "req");
         final RequestHeaders headers = req.headers();
+        final RequestTarget prevReqTarget = reqTarget;
         final RequestTarget reqTarget = validateHeaders(headers);
 
         if (reqTarget == null) {
@@ -130,9 +131,17 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
             throw new IllegalArgumentException("invalid path: " + headers.path() +
                                                " (must not contain scheme or authority)");
         }
+        if (prevReqTarget.form() == RequestTargetForm.ABSOLUTE) {
+            this.reqTarget = DefaultRequestTarget.createWithoutValidation(
+                    RequestTargetForm.ABSOLUTE, prevReqTarget.scheme(), prevReqTarget.authority(),
+                    prevReqTarget.host(), prevReqTarget.port(), reqTarget.path(),
+                    reqTarget.maybePathWithMatrixVariables(),
+                    reqTarget.rawPath(), reqTarget.query(), reqTarget.fragment());
+        } else {
+            this.reqTarget = reqTarget;
+        }
 
         this.req = req;
-        this.reqTarget = reqTarget;
         decodedPath = null;
     }
 
@@ -164,6 +173,10 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
     @Override
     public final HttpMethod method() {
         return method;
+    }
+
+    public void method(HttpMethod method) {
+        this.method = requireNonNull(method, "method");
     }
 
     @Override

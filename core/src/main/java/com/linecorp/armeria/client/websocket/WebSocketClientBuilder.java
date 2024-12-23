@@ -57,6 +57,7 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.SuccessFunction;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
@@ -65,6 +66,7 @@ import com.linecorp.armeria.common.auth.BasicToken;
 import com.linecorp.armeria.common.auth.OAuth1aToken;
 import com.linecorp.armeria.common.auth.OAuth2Token;
 import com.linecorp.armeria.common.websocket.WebSocketFrameType;
+import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 
 /**
  * Builds a {@link WebSocketClient}.
@@ -94,6 +96,13 @@ public final class WebSocketClientBuilder extends AbstractWebClientBuilder {
     WebSocketClientBuilder(Scheme scheme, EndpointGroup endpointGroup, @Nullable String path) {
         super(null, validateScheme(requireNonNull(scheme, "scheme")), endpointGroup, path);
         setWebSocketDefaultOption();
+    }
+
+    WebSocketClientBuilder(HttpPreprocessor preprocessor, @Nullable String path) {
+        super(null, validateScheme(Scheme.of(SerializationFormat.WS, SessionProtocol.UNDEFINED)),
+              FailingEndpointGroup.of(new RuntimeException("httpPreprocessor should specify a ")), path);
+        setWebSocketDefaultOption();
+        preprocessor(preprocessor);
     }
 
     private static URI validateUri(URI uri) {
@@ -215,6 +224,7 @@ public final class WebSocketClientBuilder extends AbstractWebClientBuilder {
      * Returns a newly-created {@link WebSocketClient} based on the properties of this builder.
      */
     public WebSocketClient build() {
+        preprocessor(new DefaultWebSocketPreprocessor(subprotocols));
         final WebClient webClient = buildWebClient();
         return new DefaultWebSocketClient(webClient, maxFramePayloadLength, allowMaskMismatch, subprotocols,
                                           aggregateContinuation);
