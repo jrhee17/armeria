@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointSelectionStrategy;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -31,15 +32,22 @@ import com.linecorp.armeria.common.util.UnmodifiableFuture;
 
 public final class FailingEndpointGroup implements EndpointGroup {
 
-    public static FailingEndpointGroup of(RuntimeException e) {
-        return new FailingEndpointGroup(e);
+    private static final FailingEndpointGroup INSTANCE =
+            new FailingEndpointGroup(new IllegalStateException(
+                    "An endpointGroup has not been specified. Specify an endpointGroup by " +
+                    "1) building a client with a URI or EndpointGroup e.g. 'WebClient.of(uri)', " +
+                    "2) sending a request with the authority 'client.execute(requestWithAuthority)', or " +
+                    "3) setting the endpointGroup directly inside a Preprocessor via 'ctx.endpointGroup()'."));
+
+    public static FailingEndpointGroup of() {
+        return INSTANCE;
     }
 
     private final RuntimeException exception;
     private final CompletableFuture<Endpoint> failedFuture;
 
-    private FailingEndpointGroup(RuntimeException exception) {
-        this.exception = exception;
+    private FailingEndpointGroup(Throwable throwable) {
+        exception = UnprocessedRequestException.of(throwable);
         failedFuture = UnmodifiableFuture.exceptionallyCompletedFuture(exception);
     }
 

@@ -26,9 +26,7 @@ import com.google.common.base.Strings;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
-import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
 
 /**
@@ -96,27 +94,6 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
                              ":1" + normalizedAbsolutePathRef);
         }
 
-        this.uri = factory.validateUri(uri);
-        this.absolutePathRef = normalizedAbsolutePathRef;
-    }
-
-    DefaultClientBuilderParams(SerializationFormat serializationFormat,
-                               @Nullable String absolutePathRef,
-                               Class<?> type, ClientOptions options) {
-        final ClientFactory factory = requireNonNull(options, "options").factory();
-        scheme = factory.validateScheme(Scheme.of(serializationFormat, SessionProtocol.UNDEFINED));
-        endpointGroup = FailingEndpointGroup.of(new RuntimeException());
-        this.type = requireNonNull(type, "type");
-        this.options = options;
-
-        final String schemeStr;
-        if (scheme.serializationFormat() == SerializationFormat.NONE) {
-            schemeStr = scheme.sessionProtocol().uriText();
-        } else {
-            schemeStr = scheme.uriText();
-        }
-        final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
-        final URI uri = URI.create(schemeStr + "://armeria-group" + ":1" + normalizedAbsolutePathRef);
         this.uri = factory.validateUri(uri);
         this.absolutePathRef = normalizedAbsolutePathRef;
     }

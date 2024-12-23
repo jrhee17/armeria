@@ -15,17 +15,30 @@
  */
 package com.linecorp.armeria.client;
 
+import static com.linecorp.armeria.common.SessionProtocol.HTTP;
 import static com.linecorp.armeria.internal.client.ClientUtil.UNDEFINED_URI;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.QueryParams;
 import com.linecorp.armeria.common.RequestHeaders;
+import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.internal.testing.ImmediateEventLoop;
+
+import io.netty.channel.EventLoop;
 
 class DefaultWebClientTest {
 
@@ -129,5 +142,52 @@ class DefaultWebClientTest {
             client.post(path, queryParams, "").aggregate();
             assertThat(captor.get().request().path()).isEqualTo("/helloWorld/test?q1=foo");
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "/, HTTP",
+            "/, UNDEFINED",
+            "/prefix, HTTP",
+            "/prefix, UNDEFINED",
+    })
+    void preprocessor(String prefix, SessionProtocol protocol) {
+        final Endpoint endpoint = Endpoint.of("127.0.0.1");
+        final EventLoop eventLoop = ImmediateEventLoop.INSTANCE;
+        final WebClient client =
+                WebClient.builder(HttpPreprocessor.of(protocol, endpoint, eventLoop), prefix)
+                         .decorator((delegate, ctx, req) -> {
+                             if ("/".equals(prefix)) {
+                                 assertThat(req.path()).isEqualTo("/hello");
+                             } else {
+                                 assertThat(req.path()).isEqualTo("/prefix/hello");
+                             }
+                             assertThat(ctx.sessionProtocol()).isEqualTo(protocol);
+                             assertThat(ctx.endpointGroup()).isEqualTo(endpoint);
+                             assertThat(ctx.eventLoop().withoutContext()).isEqualTo(eventLoop);
+                             return HttpResponse.of(200);
+                         })
+                         .build();
+        final CompletableFuture<AggregatedHttpResponse> cf = client.get("/hello").aggregate();
+        if (SessionProtocol.httpAndHttpsValues().contains(protocol)) {
+            final AggregatedHttpResponse res = cf.join();
+            assertThat(res.status().code()).isEqualTo(200);
+        } else {
+            assertThatThrownBy(cf::join)
+                    .isInstanceOf(CompletionException.class)
+                    .cause()
+                    .isInstanceOf(UnprocessedRequestException.class)
+                    .cause()
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("ctx.sessionProtocol() must be specified");
+        }
+    }
+
+    @Test
+    void rpcPreprocessorNotAllowed() {
+        assertThatThrownBy(() -> WebClient.builder().rpcPreprocessor(
+                RpcPreprocessor.of(HTTP, Endpoint.of("127.0.0.1"))))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("RPC preprocessor cannot be added");
     }
 }

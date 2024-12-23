@@ -100,7 +100,7 @@ public final class WebSocketClientBuilder extends AbstractWebClientBuilder {
 
     WebSocketClientBuilder(HttpPreprocessor preprocessor, @Nullable String path) {
         super(null, validateScheme(Scheme.of(SerializationFormat.WS, SessionProtocol.UNDEFINED)),
-              FailingEndpointGroup.of(new RuntimeException("httpPreprocessor should specify a ")), path);
+              FailingEndpointGroup.of(), path);
         setWebSocketDefaultOption();
         preprocessor(preprocessor);
     }

@@ -91,7 +91,7 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
                         .execute(ctx, newReq);
     }
 
-    static HttpResponse abortRequestAndReturnFailureResponse(
+    private static HttpResponse abortRequestAndReturnFailureResponse(
             HttpRequest req, IllegalArgumentException cause) {
         req.abort(cause);
         return HttpResponse.ofFailure(cause);

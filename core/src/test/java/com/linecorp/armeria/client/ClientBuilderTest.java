@@ -20,13 +20,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-import com.linecorp.armeria.common.AggregatedHttpResponse;
-import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 import com.linecorp.armeria.internal.testing.ImmediateEventLoop;
-
-import io.netty.channel.EventLoop;
 
 /**
  * Test for {@link ClientBuilder}.
@@ -62,20 +58,12 @@ class ClientBuilderTest {
     @Test
     void preprocessor() {
         final Endpoint endpoint = Endpoint.of("127.0.0.1");
-        final SessionProtocol protocol = SessionProtocol.HTTP;
-        final EventLoop eventLoop = ImmediateEventLoop.INSTANCE;
+        final HttpPreprocessor preprocessor =
+                HttpPreprocessor.of(SessionProtocol.HTTP, endpoint, ImmediateEventLoop.INSTANCE);
         final ClientPreprocessors preprocessors =
-                ClientPreprocessors.of(HttpPreprocessor.of(protocol, endpoint, eventLoop));
-        final WebClient client = Clients.builder(preprocessors)
-                                        .decorator((delegate, ctx, req) -> {
-                                            assertThat(ctx.sessionProtocol()).isEqualTo(protocol);
-                                            assertThat(ctx.endpointGroup()).isEqualTo(endpoint);
-                                            assertThat(ctx.eventLoop().withoutContext()).isEqualTo(eventLoop);
-                                            return HttpResponse.of(200);
-                                        })
-                                        .build(WebClient.class);
+                ClientPreprocessors.of(preprocessor);
+        final WebClient client = Clients.newClient(preprocessors, WebClient.class);
         assertThat(client.endpointGroup()).isInstanceOf(FailingEndpointGroup.class);
-        final AggregatedHttpResponse res = client.get("/").aggregate().join();
-        assertThat(res.status().code()).isEqualTo(200);
+        assertThat(client.scheme().sessionProtocol()).isEqualTo(SessionProtocol.UNDEFINED);
     }
 }

@@ -72,7 +72,7 @@ public final class RestClientBuilder extends AbstractWebClientBuilder {
     }
 
     RestClientBuilder(HttpPreprocessor preprocessor, @Nullable String path) {
-        super(SessionProtocol.UNDEFINED, FailingEndpointGroup.of(new RuntimeException("")), path);
+        super(SessionProtocol.UNDEFINED, FailingEndpointGroup.of(), path);
         preprocessor(preprocessor);
     }
 

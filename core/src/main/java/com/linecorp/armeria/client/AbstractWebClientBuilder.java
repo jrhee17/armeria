@@ -78,7 +78,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      */
     protected AbstractWebClientBuilder(HttpPreprocessor httpPreprocessor, @Nullable String path) {
         this(null, Scheme.of(SerializationFormat.NONE, SessionProtocol.UNDEFINED),
-             FailingEndpointGroup.of(new RuntimeException("httpPreprocessor should specify a ")), path);
+             FailingEndpointGroup.of(), path);
         preprocessor(httpPreprocessor);
     }
 

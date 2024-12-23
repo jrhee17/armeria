@@ -132,8 +132,7 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
         requireNonNull(serializationFormat, "serializationFormat");
         requireNonNull(httpPreprocessor, "httpPreprocessor");
         uri = null;
-        endpointGroup = FailingEndpointGroup.of(
-                new IllegalStateException("Set a valid EndpointGroup using HttpProcessor"));
+        endpointGroup = FailingEndpointGroup.of();
         scheme = Scheme.of(serializationFormat, SessionProtocol.UNDEFINED);
         validateOrSetSerializationFormat();
         preprocessor(httpPreprocessor);

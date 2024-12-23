@@ -128,6 +128,8 @@ public class AbstractClientOptionsBuilder {
         } else if (opt == ClientOptions.HEADERS) {
             final HttpHeaders h = (HttpHeaders) optionValue.value();
             setHeaders(h);
+        } else if (opt == ClientOptions.PREPROCESSORS) {
+            clientPreprocessorsBuilder.add((ClientPreprocessors) optionValue.value());
         } else {
             options.put(opt, optionValue);
         }
@@ -524,7 +526,7 @@ public class AbstractClientOptionsBuilder {
     /**
      * Adds the specified HTTP-level {@code preprocessor}.
      *
-     * @param preprocessor the {@link HttpPreprocessor} that intercepts an invocation
+     * @param preprocessor the {@link HttpPreprocessor} that preprocesses an invocation
      */
     public AbstractClientOptionsBuilder preprocessor(HttpPreprocessor preprocessor) {
         clientPreprocessorsBuilder.add(preprocessor);
@@ -534,7 +536,7 @@ public class AbstractClientOptionsBuilder {
     /**
      * Adds the specified RPC-level {@code rpcPreprocessor}.
      *
-     * @param rpcPreprocessor the {@link RpcPreprocessor} that intercepts an invocation
+     * @param rpcPreprocessor the {@link RpcPreprocessor} that preprocesses an invocation
      */
     public AbstractClientOptionsBuilder rpcPreprocessor(RpcPreprocessor rpcPreprocessor) {
         clientPreprocessorsBuilder.addRpc(rpcPreprocessor);

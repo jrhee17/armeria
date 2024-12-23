@@ -16,8 +16,6 @@
 
 package com.linecorp.armeria.client;
 
-import static com.linecorp.armeria.client.DefaultWebClient.abortRequestAndReturnFailureResponse;
-
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RequestTarget;
@@ -47,7 +45,7 @@ final class DefaultWebClientPreprocessor implements HttpPreprocessor {
                 return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
                         "Scheme and authority must be specified in \":path\" or " +
                         "in \":scheme\" and \":authority\". :path=" +
-                        req.path() + ", :scheme=" + req.scheme() + ", :authority=" + req.authority()));
+                        req.path() + ", :scheme=" + req.scheme() + ", :authority=" + req.authority()), ctx);
             }
         }
 
@@ -56,8 +54,15 @@ final class DefaultWebClientPreprocessor implements HttpPreprocessor {
             ctx.sessionProtocol(Scheme.parse(scheme).sessionProtocol());
         } catch (Exception e) {
             return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
-                    "Failed to parse a scheme: " + reqTarget.scheme(), e));
+                    "Failed to parse a scheme: " + reqTarget.scheme(), e), ctx);
         }
         return delegate.execute(ctx, req);
+    }
+
+    static HttpResponse abortRequestAndReturnFailureResponse(
+            HttpRequest req, IllegalArgumentException cause, ClientRequestContext ctx) {
+        req.abort(cause);
+        ctx.cancel(cause);
+        return HttpResponse.ofFailure(cause);
     }
 }
