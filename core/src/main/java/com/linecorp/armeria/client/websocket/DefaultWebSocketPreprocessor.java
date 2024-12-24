@@ -52,7 +52,7 @@ final class DefaultWebSocketPreprocessor implements HttpPreprocessor {
 
     @Override
     public HttpResponse execute(ClientExecution<HttpRequest, HttpResponse> delegate,
-                                PartialClientRequestContext ctx, HttpRequest req) {
+                                PartialClientRequestContext ctx, HttpRequest req) throws Exception {
         final HttpRequest newReq = req.mapHeaders(
                 headers -> webSocketHeaders(ctx, req.path(), headers));
         ctx.updateRequest(newReq);

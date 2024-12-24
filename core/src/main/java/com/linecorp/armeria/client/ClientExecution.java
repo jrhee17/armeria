@@ -28,5 +28,5 @@ public interface ClientExecution<I extends Request, O extends Response> {
     /**
      * TBU.
      */
-    O execute(PartialClientRequestContext ctx, I req);
+    O execute(PartialClientRequestContext ctx, I req) throws Exception;
 }

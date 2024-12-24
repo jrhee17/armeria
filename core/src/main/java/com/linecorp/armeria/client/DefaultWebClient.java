@@ -28,6 +28,7 @@ import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RequestTargetForm;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.ClientUtil;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 import com.linecorp.armeria.internal.client.TailClientExecution;
 
@@ -46,10 +47,12 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
     private BlockingWebClient blockingWebClient;
     @Nullable
     private RestClient restClient;
+    private final HttpClientExecution tailClientExecution;
 
     DefaultWebClient(ClientBuilderParams params, HttpClient delegate, MeterRegistry meterRegistry) {
         super(params, delegate, meterRegistry,
               HttpResponse::of, (ctx, cause) -> HttpResponse.ofFailure(cause));
+        tailClientExecution = TailClientExecution.of(unwrap(), futureConverter(), errorResponseFactory());
     }
 
     @Override
@@ -65,16 +68,14 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
                     req, new IllegalArgumentException("Invalid request target: " + originalPath));
         }
 
-        final EndpointGroup endpointGroup;
-        final SessionProtocol protocol;
         if (!Clients.isUndefinedUri(uri()) && reqTarget.form() == RequestTargetForm.ABSOLUTE) {
             return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
                     "Cannot send a request with a \":path\" header that contains an authority, " +
                     "because the client was created with a base URI. path: " + originalPath));
         }
 
-        endpointGroup = endpointGroup();
-        protocol = scheme().sessionProtocol();
+        final EndpointGroup endpointGroup = endpointGroup();
+        final SessionProtocol protocol = scheme().sessionProtocol();
 
         final String newPath = reqTarget.pathAndQuery();
         final HttpRequest newReq;
@@ -85,10 +86,8 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
         }
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 protocol, newReq, null, reqTarget, endpointGroup, requestOptions, options());
-        return options().clientPreprocessors()
-                        .decorate(TailClientExecution.of(unwrap(), futureConverter(),
-                                                         errorResponseFactory()))
-                        .execute(ctx, newReq);
+        final HttpClientExecution execution = options().clientPreprocessors().decorate(tailClientExecution);
+        return ClientUtil.executeWithFallback(execution, ctx, newReq, errorResponseFactory());
     }
 
     private static HttpResponse abortRequestAndReturnFailureResponse(

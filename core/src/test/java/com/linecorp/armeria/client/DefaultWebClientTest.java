@@ -224,4 +224,16 @@ class DefaultWebClientTest {
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessageContaining("RPC preprocessor cannot be added");
     }
+
+    @Test
+    void exceptionsAreHandled() {
+        final RuntimeException exception = new RuntimeException();
+        final WebClient webClient = WebClient.of((delegate, ctx, req) -> {
+            throw exception;
+        });
+        final CompletableFuture<AggregatedHttpResponse> cf = webClient.get("/hello").aggregate();
+        assertThatThrownBy(cf::join).isInstanceOf(CompletionException.class)
+                                    .cause()
+                                    .isSameAs(exception);
+    }
 }

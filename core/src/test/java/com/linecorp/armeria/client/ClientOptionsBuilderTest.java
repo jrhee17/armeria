@@ -202,7 +202,7 @@ class ClientOptionsBuilderTest {
     }
 
     @Test
-    void testPreprocessors() {
+    void testPreprocessors() throws Exception {
         final ClientOptionsBuilder b = ClientOptions.builder();
         final List<String> processorsList = new ArrayList<>();
         final HttpPreprocessor http1 = new RunnableHttpPreprocessor(() -> processorsList.add("http1"));
@@ -251,7 +251,7 @@ class ClientOptionsBuilderTest {
 
         @Override
         public HttpResponse execute(ClientExecution<HttpRequest, HttpResponse> delegate,
-                                    PartialClientRequestContext ctx, HttpRequest req) {
+                                    PartialClientRequestContext ctx, HttpRequest req) throws Exception {
             runnable.run();
             return delegate.execute(ctx, req);
         }
@@ -267,7 +267,7 @@ class ClientOptionsBuilderTest {
 
         @Override
         public RpcResponse execute(ClientExecution<RpcRequest, RpcResponse> delegate,
-                                   PartialClientRequestContext ctx, RpcRequest req) {
+                                   PartialClientRequestContext ctx, RpcRequest req) throws Exception {
             runnable.run();
             return delegate.execute(ctx, req);
         }

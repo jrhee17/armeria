@@ -300,7 +300,5 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
         return contextHook;
     }
 
-    public boolean initialized() {
-        return true;
-    }
+    public abstract boolean initialized();
 }

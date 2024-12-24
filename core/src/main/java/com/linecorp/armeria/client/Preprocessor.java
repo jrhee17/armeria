@@ -21,5 +21,5 @@ import com.linecorp.armeria.common.Response;
 
 interface Preprocessor<I extends Request, O extends Response> {
 
-    O execute(ClientExecution<I, O> delegate, PartialClientRequestContext ctx, I req);
+    O execute(ClientExecution<I, O> delegate, PartialClientRequestContext ctx, I req) throws Exception;
 }

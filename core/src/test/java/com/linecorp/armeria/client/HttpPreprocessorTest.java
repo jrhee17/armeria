@@ -122,7 +122,7 @@ class HttpPreprocessorTest {
 
         @Override
         public HttpResponse execute(ClientExecution<HttpRequest, HttpResponse> delegate,
-                                    PartialClientRequestContext ctx, HttpRequest req) {
+                                    PartialClientRequestContext ctx, HttpRequest req) throws Exception {
             runnable.run();
             return delegate.execute(ctx, req);
         }

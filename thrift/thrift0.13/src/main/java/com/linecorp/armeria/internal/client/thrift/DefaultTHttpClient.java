@@ -35,6 +35,7 @@ import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.ClientUtil;
 import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 import com.linecorp.armeria.internal.client.TailClientExecution;
 import com.linecorp.armeria.internal.common.RequestTargetCache;
@@ -94,8 +95,8 @@ final class DefaultTHttpClient extends UserClient<RpcRequest, RpcResponse> imple
         final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
                 scheme().sessionProtocol(), httpReq, call, reqTarget, endpointGroup(),
                 UNARY_REQUEST_OPTIONS, options());
-        return options().clientPreprocessors().rpcDecorate(rpcPreprocessor)
-                .execute(ctx, call);
+        final RpcClientExecution execution = options().clientPreprocessors().rpcDecorate(rpcPreprocessor);
+        return ClientUtil.executeWithFallback(execution, ctx, call, errorResponseFactory());
     }
 
     @Override

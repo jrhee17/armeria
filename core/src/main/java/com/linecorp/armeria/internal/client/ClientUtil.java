@@ -23,8 +23,10 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import com.linecorp.armeria.client.Client;
+import com.linecorp.armeria.client.ClientExecution;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.PartialClientRequestContext;
 import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -50,20 +52,6 @@ public final class ClientUtil {
      * An undefined {@link URI} to create {@link WebClient} without specifying {@link URI}.
      */
     public static final URI UNDEFINED_URI = URI.create("undefined:/");
-
-    public static <I extends Request, O extends Response, U extends Client<I, O>>
-    O initContextAndExecuteWithFallback(
-            U delegate,
-            ClientRequestContextExtension ctx,
-            I req,
-            BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
-        try {
-            return initContextAndExecuteWithFallback(delegate, ctx, futureConverter(req),
-                                                     errorResponseFactory, req);
-        } catch (Exception e) {
-            return errorResponseFactory.apply(ctx, e);
-        }
-    }
 
     public static <I extends Request, O extends Response, U extends Client<I, O>>
     O initContextAndExecuteWithFallback(
@@ -164,6 +152,18 @@ public final class ClientUtil {
         } catch (Throwable cause) {
             fail(ctx, cause);
             return errorResponseFactory.apply(ctx, cause);
+        }
+    }
+
+    public static <I extends Request, O extends Response, U extends ClientExecution<I, O>>
+    O executeWithFallback(U execution,
+                          PartialClientRequestContext ctx, I req,
+                          BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
+        try {
+            return execution.execute(ctx, req);
+        } catch (Exception e) {
+            fail(ctx, e);
+            return errorResponseFactory.apply(ctx, e);
         }
     }
 

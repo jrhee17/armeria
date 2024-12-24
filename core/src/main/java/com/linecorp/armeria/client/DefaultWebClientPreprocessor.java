@@ -29,7 +29,7 @@ final class DefaultWebClientPreprocessor implements HttpPreprocessor {
 
     @Override
     public HttpResponse execute(ClientExecution<HttpRequest, HttpResponse> delegate,
-                                PartialClientRequestContext ctx, HttpRequest req) {
+                                PartialClientRequestContext ctx, HttpRequest req) throws Exception {
         if (ctx.sessionProtocol() != SessionProtocol.UNDEFINED && ctx.endpointGroup() != null) {
             // values are all already set, so no need to fill in values from the request/context
             return delegate.execute(ctx, req);
