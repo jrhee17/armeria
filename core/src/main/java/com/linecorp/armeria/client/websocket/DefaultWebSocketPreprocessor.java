@@ -67,13 +67,11 @@ final class DefaultWebSocketPreprocessor implements HttpPreprocessor {
         }
 
         if (ctx.sessionProtocol().isExplicitHttp2()) {
-            ctx.method(HttpMethod.CONNECT);
             builder.method(HttpMethod.CONNECT)
                    .path(path)
                    .set(HttpHeaderNames.PROTOCOL, HttpHeaderValues.WEBSOCKET.toString());
         } else {
             final String secWebSocketKey = generateSecWebSocketKey();
-            ctx.method(HttpMethod.GET);
             builder.method(HttpMethod.GET)
                    .path(path)
                    .set(HttpHeaderNames.CONNECTION, HttpHeaderValues.UPGRADE.toString())

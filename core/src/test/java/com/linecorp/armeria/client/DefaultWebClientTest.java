@@ -179,8 +179,32 @@ class DefaultWebClientTest {
                     .isInstanceOf(UnprocessedRequestException.class)
                     .cause()
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("ctx.sessionProtocol() must be specified");
+                    .hasMessageContaining("ctx.sessionProtocol() cannot be 'undefined");
         }
+    }
+
+    @Test
+    void ctorPreprocessorDoesntAddDefault() {
+        final HttpPreprocessor http1 = HttpPreprocessor.of(HTTP, Endpoint.of("127.0.0.1", 8080));
+        final HttpPreprocessor http2 = HttpPreprocessor.of(HTTP, Endpoint.of("127.0.0.1", 8081));
+
+        ClientPreprocessors clientPreprocessors = WebClient.of().options().clientPreprocessors();
+        assertThat(clientPreprocessors.preprocessors()).containsExactly(DefaultWebClientPreprocessor.INSTANCE);
+        assertThat(clientPreprocessors.rpcPreprocessors()).isEmpty();
+
+        clientPreprocessors = WebClient.builder().preprocessor(http1).build().options().clientPreprocessors();
+        assertThat(clientPreprocessors.preprocessors()).containsExactly(DefaultWebClientPreprocessor.INSTANCE,
+                                                                        http1);
+        assertThat(clientPreprocessors.rpcPreprocessors()).isEmpty();
+
+        clientPreprocessors = WebClient.of(http1).options().clientPreprocessors();
+        assertThat(clientPreprocessors.preprocessors()).containsExactly(http1);
+        assertThat(clientPreprocessors.rpcPreprocessors()).isEmpty();
+
+        clientPreprocessors = WebClient.builder(http1).preprocessor(http2).build()
+                                       .options().clientPreprocessors();
+        assertThat(clientPreprocessors.preprocessors()).containsExactly(http1, http2);
+        assertThat(clientPreprocessors.rpcPreprocessors()).isEmpty();
     }
 
     @Test

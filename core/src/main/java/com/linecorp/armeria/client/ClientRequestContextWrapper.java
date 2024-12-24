@@ -54,6 +54,7 @@ public class ClientRequestContextWrapper
     }
 
     @Override
+    @Nullable
     public EndpointGroup endpointGroup() {
         return unwrap().endpointGroup();
     }

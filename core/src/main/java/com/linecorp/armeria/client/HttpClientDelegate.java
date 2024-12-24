@@ -74,16 +74,14 @@ final class HttpClientDelegate implements HttpClient {
         }
         if (ctx.sessionProtocol() == SessionProtocol.UNDEFINED) {
             return earlyFailedResponse(
-                    new IllegalStateException("ctx.sessionProtocol() must be specified either by" +
-                                              "specifying it when build a client, or setting it dynamically " +
-                                              "inside a Preprocessor."),
-                    ctx);
+                    new IllegalStateException(
+                            "ctx.sessionProtocol() cannot be '" + ctx.sessionProtocol() + "'. " +
+                            "It must be one of '" + SessionProtocol.httpAndHttpsValues() + "'."), ctx);
         }
         if (ctx.method() == HttpMethod.UNKNOWN) {
             return earlyFailedResponse(
-                    new IllegalStateException("ctx.method() must be specified either by" +
-                                              "specifying it when build a client, or setting the header " +
-                                              "in HttpRequest."),
+                    new IllegalStateException("ctx.method() cannot be '" + ctx.method() +
+                                              "'. It must be one of '" + HttpMethod.knownMethods() + "'."),
                     ctx);
         }
 

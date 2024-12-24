@@ -141,6 +141,10 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
             this.reqTarget = reqTarget;
         }
 
+        if (!initialized()) {
+            method = req.method();
+        }
+
         this.req = req;
         decodedPath = null;
     }
@@ -173,10 +177,6 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
     @Override
     public final HttpMethod method() {
         return method;
-    }
-
-    public void method(HttpMethod method) {
-        this.method = requireNonNull(method, "method");
     }
 
     @Override
@@ -298,5 +298,9 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
     @Override
     public Supplier<AutoCloseable> hook() {
         return contextHook;
+    }
+
+    public boolean initialized() {
+        return true;
     }
 }

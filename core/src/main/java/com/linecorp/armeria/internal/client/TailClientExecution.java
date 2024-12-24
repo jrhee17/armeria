@@ -29,6 +29,7 @@ import com.linecorp.armeria.client.PartialClientRequestContext;
 import com.linecorp.armeria.client.RpcClient;
 import com.linecorp.armeria.client.RpcClientExecution;
 import com.linecorp.armeria.client.UnprocessedRequestException;
+import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
@@ -75,8 +76,14 @@ public final class TailClientExecution<I extends Request, O extends Response>
         if (ctx.sessionProtocol() == SessionProtocol.UNDEFINED) {
             final UnprocessedRequestException e = UnprocessedRequestException.of(
                     new IllegalStateException(
-                            "ctx.sessionProtocol() must be specified either when building " +
-                            "a client, or dynamically via a 'HttpPreprocessor' or 'RpcPreprocessor'."));
+                            "ctx.sessionProtocol() cannot be '" + ctx.sessionProtocol() + "'. " +
+                            "It must be one of '" + SessionProtocol.httpAndHttpsValues() + "'."));
+            return errorResponseFactory.apply(ctx, e);
+        }
+        if (ctx.method() == HttpMethod.UNKNOWN) {
+            final UnprocessedRequestException e = UnprocessedRequestException.of(
+                    new IllegalStateException("ctx.method() cannot be '" + ctx.method() +
+                                              "'. It must be one of '" + HttpMethod.knownMethods() + "'."));
             return errorResponseFactory.apply(ctx, e);
         }
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);

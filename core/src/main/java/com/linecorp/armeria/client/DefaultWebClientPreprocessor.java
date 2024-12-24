@@ -21,6 +21,7 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RequestTargetForm;
 import com.linecorp.armeria.common.Scheme;
+import com.linecorp.armeria.common.SessionProtocol;
 
 final class DefaultWebClientPreprocessor implements HttpPreprocessor {
 
@@ -49,12 +50,16 @@ final class DefaultWebClientPreprocessor implements HttpPreprocessor {
             }
         }
 
-        ctx.endpointGroup(Endpoint.parse(authority));
-        try {
-            ctx.sessionProtocol(Scheme.parse(scheme).sessionProtocol());
-        } catch (Exception e) {
-            return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
-                    "Failed to parse a scheme: " + reqTarget.scheme(), e), ctx);
+        if (ctx.endpointGroup() == null) {
+            ctx.endpointGroup(Endpoint.parse(authority));
+        }
+        if (ctx.sessionProtocol() == SessionProtocol.UNDEFINED) {
+            try {
+                ctx.sessionProtocol(Scheme.parse(scheme).sessionProtocol());
+            } catch (Exception e) {
+                return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
+                        "Failed to parse a scheme: " + reqTarget.scheme(), e), ctx);
+            }
         }
         return delegate.execute(ctx, req);
     }

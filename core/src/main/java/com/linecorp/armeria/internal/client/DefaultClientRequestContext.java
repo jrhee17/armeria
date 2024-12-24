@@ -76,6 +76,7 @@ import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.common.util.TextFormatter;
 import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.common.util.UnmodifiableFuture;
+import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 import com.linecorp.armeria.internal.common.CancellationScheduler;
 import com.linecorp.armeria.internal.common.CancellationScheduler.CancellationTask;
 import com.linecorp.armeria.internal.common.HeaderOverridingHttpRequest;
@@ -464,6 +465,11 @@ public final class DefaultClientRequestContext
         }
     }
 
+    @Override
+    public boolean initialized() {
+        return initialized;
+    }
+
     private void updateEndpoint(@Nullable Endpoint endpoint) {
         this.endpoint = endpoint;
         autoFillSchemeAuthorityAndOrigin();
@@ -662,7 +668,7 @@ public final class DefaultClientRequestContext
 
                 if (reqTarget.form() != RequestTargetForm.ABSOLUTE) {
                     // Not an absolute URI.
-                    return new DefaultClientRequestContext(this, id, req, rpcReq, endpoint, endpointGroup(),
+                    return new DefaultClientRequestContext(this, id, req, rpcReq, endpoint, endpointGroup,
                                                            sessionProtocol(), newHeaders.method(), reqTarget);
                 }
 
@@ -681,7 +687,7 @@ public final class DefaultClientRequestContext
                                                        protocol, newHeaders.method(), reqTarget);
             }
         }
-        return new DefaultClientRequestContext(this, id, req, rpcReq, endpoint, endpointGroup(),
+        return new DefaultClientRequestContext(this, id, req, rpcReq, endpoint, endpointGroup,
                                                sessionProtocol(), method(), requestTarget());
     }
 
@@ -771,7 +777,11 @@ public final class DefaultClientRequestContext
     }
 
     @Override
+    @Nullable
     public EndpointGroup endpointGroup() {
+        if (endpointGroup instanceof FailingEndpointGroup) {
+            return null;
+        }
         return endpointGroup;
     }
 
