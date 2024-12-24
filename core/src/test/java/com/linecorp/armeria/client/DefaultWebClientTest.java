@@ -146,28 +146,38 @@ class DefaultWebClientTest {
 
     @ParameterizedTest
     @CsvSource({
-            "/, HTTP",
-            "/, UNDEFINED",
-            "/prefix, HTTP",
-            "/prefix, UNDEFINED",
+            "/, HTTP, false",
+            "/, UNDEFINED, false",
+            "/prefix, HTTP, false",
+            "/prefix, UNDEFINED, false",
+            "/, HTTP, true",
     })
-    void preprocessor(String prefix, SessionProtocol protocol) {
+    void preprocessorBuilder(String prefix, SessionProtocol protocol, boolean isDefault) {
         final Endpoint endpoint = Endpoint.of("127.0.0.1");
         final EventLoop eventLoop = ImmediateEventLoop.INSTANCE;
+        final WebClientBuilder builder;
+        final HttpPreprocessor preprocessor = HttpPreprocessor.of(protocol, endpoint, eventLoop);
+        if (isDefault) {
+            builder = WebClient.builder().preprocessor(preprocessor);
+        } else if ("/".equals(prefix)) {
+            builder = WebClient.builder(preprocessor);
+        } else {
+            builder = WebClient.builder(preprocessor, prefix);
+        }
+
         final WebClient client =
-                WebClient.builder(HttpPreprocessor.of(protocol, endpoint, eventLoop), prefix)
-                         .decorator((delegate, ctx, req) -> {
-                             if ("/".equals(prefix)) {
-                                 assertThat(req.path()).isEqualTo("/hello");
-                             } else {
-                                 assertThat(req.path()).isEqualTo("/prefix/hello");
-                             }
-                             assertThat(ctx.sessionProtocol()).isEqualTo(protocol);
-                             assertThat(ctx.endpointGroup()).isEqualTo(endpoint);
-                             assertThat(ctx.eventLoop().withoutContext()).isEqualTo(eventLoop);
-                             return HttpResponse.of(200);
-                         })
-                         .build();
+                builder.decorator((delegate, ctx, req) -> {
+                           if ("/".equals(prefix)) {
+                               assertThat(req.path()).isEqualTo("/hello");
+                           } else {
+                               assertThat(req.path()).isEqualTo("/prefix/hello");
+                           }
+                           assertThat(ctx.sessionProtocol()).isEqualTo(protocol);
+                           assertThat(ctx.endpointGroup()).isEqualTo(endpoint);
+                           assertThat(ctx.eventLoop().withoutContext()).isEqualTo(eventLoop);
+                           return HttpResponse.of(200);
+                       })
+                       .build();
         final CompletableFuture<AggregatedHttpResponse> cf = client.get("/hello").aggregate();
         if (SessionProtocol.httpAndHttpsValues().contains(protocol)) {
             final AggregatedHttpResponse res = cf.join();

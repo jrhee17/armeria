@@ -34,7 +34,6 @@ import com.linecorp.armeria.common.auth.AuthToken;
 import com.linecorp.armeria.common.auth.BasicToken;
 import com.linecorp.armeria.common.auth.OAuth1aToken;
 import com.linecorp.armeria.common.auth.OAuth2Token;
-import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 
 /**
  * Creates a new <a href="https://restfulapi.net/">REST</a> client that connects to the specified {@link URI}
@@ -72,8 +71,7 @@ public final class RestClientBuilder extends AbstractWebClientBuilder {
     }
 
     RestClientBuilder(HttpPreprocessor preprocessor, @Nullable String path) {
-        super(SessionProtocol.UNDEFINED, FailingEndpointGroup.of(), path);
-        preprocessor(preprocessor);
+        super(preprocessor, path);
     }
 
     /**

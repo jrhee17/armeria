@@ -38,10 +38,8 @@ import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.util.TransportType;
 import com.linecorp.armeria.internal.common.util.MinifiedBouncyCastleProvider;
-import com.linecorp.armeria.internal.testing.ImmediateEventLoop;
 
 import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoop;
 import io.netty.resolver.DefaultAddressResolverGroup;
 
 class ClientFactoryBuilderTest {
@@ -304,13 +302,19 @@ class ClientFactoryBuilderTest {
     }
 
     @Test
-    void rpcProcessorValidation() {
-        final Endpoint endpoint = Endpoint.of("127.0.0.1");
-        final SessionProtocol protocol = SessionProtocol.HTTP;
-        final EventLoop eventLoop = ImmediateEventLoop.INSTANCE;
-        final ClientPreprocessors preprocessors =
-                ClientPreprocessors.ofRpc(RpcPreprocessor.of(protocol, endpoint, eventLoop));
+    void emptyProcessorValidation() {
+        final ClientPreprocessors preprocessors = ClientPreprocessors.of();
         assertThatThrownBy(() -> Clients.newClient(preprocessors, WebClient.class))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("At least one preprocessor must be set");
+    }
+
+    @Test
+    void undefinedUriClientNeedsOneHttpPreprocessor() {
+        final ClientPreprocessors preprocessors =
+                ClientPreprocessors.ofRpc(RpcPreprocessor.of(SessionProtocol.HTTP, Endpoint.of("1.2.3.4")));
+        assertThatThrownBy(() -> Clients.newClient(preprocessors, WebClient.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("At least one preprocessor must be specified for http-based clients");
     }
 }
