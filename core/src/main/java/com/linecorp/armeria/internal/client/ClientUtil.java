@@ -31,12 +31,10 @@ import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpRequest;
-import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcRequest;
-import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.logging.RequestLog;
 import com.linecorp.armeria.common.logging.RequestLogAccess;
@@ -246,19 +244,6 @@ public final class ClientUtil {
         }
         ctx.logBuilder().addChild(derived.log());
         return derived;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <I extends Request, O extends Response> Function<CompletableFuture<O>, O> futureConverter(
-            I req) {
-        final Function<CompletableFuture<O>, O> futureConverter0;
-        if (req instanceof RpcRequest) {
-            futureConverter0 = value -> (O) RpcResponse.from(value);
-        } else {
-            assert req instanceof HttpRequest;
-            futureConverter0 = value -> (O) HttpResponse.of((CompletableFuture<? extends HttpResponse>) value);
-        }
-        return futureConverter0;
     }
 
     private ClientUtil() {}

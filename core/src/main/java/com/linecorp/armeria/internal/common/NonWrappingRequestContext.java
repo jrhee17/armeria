@@ -60,7 +60,7 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
     private final MeterRegistry meterRegistry;
     private final ConcurrentAttributes attrs;
     private final RequestId id;
-    private HttpMethod method;
+    private final HttpMethod method;
     private RequestTarget reqTarget;
     private final ExchangeType exchangeType;
     private long requestAutoAbortDelayMillis;
@@ -139,10 +139,6 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
                     reqTarget.rawPath(), reqTarget.query(), reqTarget.fragment());
         } else {
             this.reqTarget = reqTarget;
-        }
-
-        if (!initialized()) {
-            method = req.method();
         }
 
         this.req = req;

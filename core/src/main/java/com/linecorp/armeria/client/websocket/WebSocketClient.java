@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 
 import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientOptions;
-import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -147,20 +146,6 @@ public interface WebSocketClient extends ClientBuilderParams, Unwrappable {
     }
 
     /**
-     * TBU.
-     */
-    static WebSocketClient of(HttpPreprocessor preprocessor) {
-        return builder(preprocessor).build();
-    }
-
-    /**
-     * TBU.
-     */
-    static WebSocketClient of(HttpPreprocessor preprocessor, String path) {
-        return builder(preprocessor, path).build();
-    }
-
-    /**
      * Returns a new {@link WebSocketClientBuilder} without a base URI.
      */
     static WebSocketClientBuilder builder() {
@@ -235,23 +220,6 @@ public interface WebSocketClient extends ClientBuilderParams, Unwrappable {
     static WebSocketClientBuilder builder(SessionProtocol protocol, EndpointGroup endpointGroup, String path) {
         requireNonNull(protocol, "protocol");
         return builder(Scheme.of(SerializationFormat.WS, protocol), endpointGroup, path);
-    }
-
-    /**
-     * TBU.
-     */
-    static WebSocketClientBuilder builder(HttpPreprocessor preprocessor) {
-        requireNonNull(preprocessor, "preprocessor");
-        return new WebSocketClientBuilder(preprocessor, null);
-    }
-
-    /**
-     * TBU.
-     */
-    static WebSocketClientBuilder builder(HttpPreprocessor preprocessor, String path) {
-        requireNonNull(preprocessor, "preprocessor");
-        requireNonNull(path, "path");
-        return new WebSocketClientBuilder(preprocessor, path);
     }
 
     /**

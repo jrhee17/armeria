@@ -89,9 +89,7 @@ final class DefaultWebSocketClient implements WebSocketClient {
     public CompletableFuture<WebSocketSession> connect(String path, HttpHeaders headers,
                                                        RequestOptions requestOptions) {
         requireNonNull(path, "path");
-        final RequestHeaders requestHeaders = RequestHeaders.builder(HttpMethod.UNKNOWN, path)
-                                                            .add(headers)
-                                                            .build();
+        final RequestHeaders requestHeaders = webSocketHeaders(path, headers);
 
         final CompletableFuture<StreamMessage<HttpData>> outboundFuture = new CompletableFuture<>();
         final HttpRequest request = HttpRequest.of(requestHeaders, StreamMessage.of(outboundFuture));
@@ -117,7 +115,7 @@ final class DefaultWebSocketClient implements WebSocketClient {
                 fail(outboundFuture, split.body(), result, cause);
                 return null;
             }
-            if (!validateResponseHeaders(ctx, responseHeaders, outboundFuture,
+            if (!validateResponseHeaders(ctx, requestHeaders, responseHeaders, outboundFuture,
                                          split.body(), result)) {
                 return null;
             }
@@ -161,11 +159,9 @@ final class DefaultWebSocketClient implements WebSocketClient {
     }
 
     private boolean validateResponseHeaders(
-            ClientRequestContext ctx, ResponseHeaders responseHeaders,
+            ClientRequestContext ctx, RequestHeaders requestHeaders, ResponseHeaders responseHeaders,
             CompletableFuture<StreamMessage<HttpData>> outboundFuture, ByteStreamMessage responseBody,
             CompletableFuture<WebSocketSession> result) {
-        final HttpRequest req = ctx.request();
-        assert req != null;
         if (actualSessionProtocol(ctx).isExplicitHttp2()) {
             final HttpStatus status = responseHeaders.status();
             if (status != HttpStatus.OK) {
@@ -180,7 +176,6 @@ final class DefaultWebSocketClient implements WebSocketClient {
                         "invalid response headers: " + responseHeaders, responseHeaders));
                 return false;
             }
-            final RequestHeaders requestHeaders = req.headers();
             final String secWebSocketKey = requestHeaders.get(HttpHeaderNames.SEC_WEBSOCKET_KEY);
             assert secWebSocketKey != null;
             final String secWebSocketAccept = responseHeaders.get(HttpHeaderNames.SEC_WEBSOCKET_ACCEPT);
