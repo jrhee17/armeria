@@ -572,7 +572,7 @@ public final class EurekaUpdatingListenerBuilder extends AbstractWebClientBuilde
 
     @Override
     @Deprecated
-    public EurekaUpdatingListenerBuilder rpcPreprocessor(RpcPreprocessor decorator) {
-        return (EurekaUpdatingListenerBuilder) super.rpcPreprocessor(decorator);
+    public EurekaUpdatingListenerBuilder rpcPreprocessor(RpcPreprocessor rpcPreprocessor) {
+        return (EurekaUpdatingListenerBuilder) super.rpcPreprocessor(rpcPreprocessor);
     }
 }

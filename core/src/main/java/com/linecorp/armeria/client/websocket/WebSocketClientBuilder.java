@@ -45,8 +45,10 @@ import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpClient;
+import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.RpcClient;
+import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.redirect.RedirectConfig;
@@ -395,5 +397,17 @@ public final class WebSocketClientBuilder extends AbstractWebClientBuilder {
     @Override
     public WebSocketClientBuilder responseTimeoutMode(ResponseTimeoutMode responseTimeoutMode) {
         return (WebSocketClientBuilder) super.responseTimeoutMode(responseTimeoutMode);
+    }
+
+    @Override
+    @UnstableApi
+    public WebSocketClientBuilder preprocessor(HttpPreprocessor preprocessor) {
+        return (WebSocketClientBuilder) super.preprocessor(preprocessor);
+    }
+
+    @Override
+    @Deprecated
+    public WebSocketClientBuilder rpcPreprocessor(RpcPreprocessor rpcPreprocessor) {
+        return (WebSocketClientBuilder) super.rpcPreprocessor(rpcPreprocessor);
     }
 }

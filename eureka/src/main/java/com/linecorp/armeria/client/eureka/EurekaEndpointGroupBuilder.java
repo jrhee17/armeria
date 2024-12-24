@@ -451,8 +451,8 @@ public final class EurekaEndpointGroupBuilder extends AbstractWebClientBuilder
 
     @Override
     @Deprecated
-    public EurekaEndpointGroupBuilder rpcPreprocessor(RpcPreprocessor decorator) {
-        return (EurekaEndpointGroupBuilder) super.rpcPreprocessor(decorator);
+    public EurekaEndpointGroupBuilder rpcPreprocessor(RpcPreprocessor rpcPreprocessor) {
+        return (EurekaEndpointGroupBuilder) super.rpcPreprocessor(rpcPreprocessor);
     }
 
     @Override

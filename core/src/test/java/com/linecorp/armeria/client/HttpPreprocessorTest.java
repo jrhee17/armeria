@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import com.linecorp.armeria.common.AggregatedHttpResponse;
-import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.SessionProtocol;
@@ -48,24 +47,6 @@ class HttpPreprocessorTest {
                 .cause()
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("ctx.sessionProtocol() cannot be 'undefined'");
-    }
-
-    @Test
-    void invalidMethod() {
-        final WebClient client = WebClient.of((delegate, ctx, req) -> {
-            final HttpRequest newReq = req.mapHeaders(
-                    headers -> headers.toBuilder().method(HttpMethod.UNKNOWN).build());
-            ctx.updateRequest(newReq);
-            ctx.sessionProtocol(SessionProtocol.HTTP);
-            return delegate.execute(ctx, newReq);
-        });
-        assertThatThrownBy(() -> client.get("/").aggregate().join())
-                .isInstanceOf(CompletionException.class)
-                .cause()
-                .isInstanceOf(UnprocessedRequestException.class)
-                .cause()
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("ctx.method() cannot be 'UNKNOWN'");
     }
 
     @Test

@@ -33,7 +33,7 @@ import com.linecorp.armeria.common.util.UnmodifiableFuture;
 public final class FailingEndpointGroup implements EndpointGroup {
 
     private static final FailingEndpointGroup INSTANCE =
-            new FailingEndpointGroup(new IllegalStateException(
+            new FailingEndpointGroup(new IllegalArgumentException(
                     "An endpointGroup has not been specified. Specify an endpointGroup by " +
                     "1) building a client with a URI or EndpointGroup e.g. 'WebClient.of(uri)', " +
                     "2) sending a request with the authority 'client.execute(requestWithAuthority)', or " +

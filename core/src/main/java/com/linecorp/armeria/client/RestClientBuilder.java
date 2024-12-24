@@ -271,7 +271,7 @@ public final class RestClientBuilder extends AbstractWebClientBuilder {
 
     @Override
     @Deprecated
-    public RestClientBuilder rpcPreprocessor(RpcPreprocessor decorator) {
-        return (RestClientBuilder) super.rpcPreprocessor(decorator);
+    public RestClientBuilder rpcPreprocessor(RpcPreprocessor rpcPreprocessor) {
+        return (RestClientBuilder) super.rpcPreprocessor(rpcPreprocessor);
     }
 }

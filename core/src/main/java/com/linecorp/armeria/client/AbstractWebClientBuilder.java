@@ -201,7 +201,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
 
     @Deprecated
     @Override
-    public AbstractClientOptionsBuilder rpcPreprocessor(RpcPreprocessor decorator) {
+    public AbstractClientOptionsBuilder rpcPreprocessor(RpcPreprocessor rpcPreprocessor) {
         throw new UnsupportedOperationException("RPC preprocessor cannot be added to the web client builder.");
     }
 }
