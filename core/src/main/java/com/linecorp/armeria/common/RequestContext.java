@@ -387,11 +387,6 @@ public interface RequestContext extends Unwrappable {
     String path();
 
     /**
-     * TBU.
-     */
-    RequestTarget requestTarget();
-
-    /**
      * Returns the absolute path part of the current {@link Request} URI, excluding the query part,
      * decoded in UTF-8.
      */

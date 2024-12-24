@@ -180,7 +180,6 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
         return reqTarget.path();
     }
 
-    @Override
     public final RequestTarget requestTarget() {
         return reqTarget;
     }

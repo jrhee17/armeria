@@ -247,11 +247,6 @@ public abstract class RequestContextWrapper<T extends RequestContext>
     }
 
     @Override
-    public RequestTarget requestTarget() {
-        return unwrap().requestTarget();
-    }
-
-    @Override
     public ExchangeType exchangeType() {
         return unwrap().exchangeType();
     }

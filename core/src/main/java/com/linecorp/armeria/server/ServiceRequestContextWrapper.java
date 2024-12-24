@@ -34,7 +34,6 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.MediaType;
 import com.linecorp.armeria.common.QueryParams;
 import com.linecorp.armeria.common.RequestContextWrapper;
-import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.TimeoutMode;
 
@@ -74,11 +73,6 @@ public class ServiceRequestContextWrapper
     @Override
     public InetSocketAddress localAddress() {
         return unwrap().localAddress();
-    }
-
-    @Override
-    public RequestTarget requestTarget() {
-        return unwrap().requestTarget();
     }
 
     @Override
