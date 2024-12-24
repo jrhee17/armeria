@@ -465,11 +465,6 @@ public final class DefaultClientRequestContext
         }
     }
 
-    @Override
-    public boolean initialized() {
-        return initialized;
-    }
-
     private void updateEndpoint(@Nullable Endpoint endpoint) {
         this.endpoint = endpoint;
         autoFillSchemeAuthorityAndOrigin();

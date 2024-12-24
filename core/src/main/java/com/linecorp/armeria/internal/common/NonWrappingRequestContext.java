@@ -295,6 +295,4 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
     public Supplier<AutoCloseable> hook() {
         return contextHook;
     }
-
-    public abstract boolean initialized();
 }

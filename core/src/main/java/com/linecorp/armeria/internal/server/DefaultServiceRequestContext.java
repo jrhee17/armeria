@@ -597,9 +597,4 @@ public final class DefaultServiceRequestContext
             return strVal = buf.toString();
         }
     }
-
-    @Override
-    public boolean initialized() {
-        return true;
-    }
 }
