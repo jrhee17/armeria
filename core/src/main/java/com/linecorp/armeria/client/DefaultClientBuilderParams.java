@@ -27,6 +27,7 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
 
 /**
@@ -51,7 +52,11 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         this.options = options;
 
         scheme = factory.validateScheme(Scheme.parse(uri.getScheme()));
-        endpointGroup = Endpoint.parse(uri.getRawAuthority());
+        if (uri.getAuthority() != null) {
+            endpointGroup = Endpoint.parse(uri.getRawAuthority());
+        } else {
+            endpointGroup = FailingEndpointGroup.of();
+        }
 
         try (TemporaryThreadLocals tempThreadLocals = TemporaryThreadLocals.acquire()) {
             final StringBuilder buf = tempThreadLocals.stringBuilder();

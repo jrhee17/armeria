@@ -178,7 +178,7 @@ class DefaultWebClientTest {
                     .cause()
                     .isInstanceOf(UnprocessedRequestException.class)
                     .cause()
-                    .isInstanceOf(IllegalStateException.class)
+                    .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("ctx.sessionProtocol() cannot be 'undefined");
         }
     }

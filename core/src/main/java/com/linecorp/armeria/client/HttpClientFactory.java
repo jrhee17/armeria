@@ -433,7 +433,8 @@ final class HttpClientFactory implements ClientFactory {
     public ClientBuilderParams validateParams(ClientBuilderParams params) {
         if (params.scheme().sessionProtocol() == SessionProtocol.UNDEFINED &&
             params.options().clientPreprocessors().preprocessors().isEmpty()) {
-            throw new IllegalStateException();
+            throw new IllegalArgumentException("At least one preprocessor must be specified for '" +
+                                               params.scheme().sessionProtocol() + "'.");
         }
         return ClientFactory.super.validateParams(params);
     }

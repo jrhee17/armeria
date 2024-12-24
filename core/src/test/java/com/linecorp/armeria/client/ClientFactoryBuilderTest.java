@@ -311,6 +311,6 @@ class ClientFactoryBuilderTest {
         final ClientPreprocessors preprocessors =
                 ClientPreprocessors.ofRpc(RpcPreprocessor.of(protocol, endpoint, eventLoop));
         assertThatThrownBy(() -> Clients.newClient(preprocessors, WebClient.class))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

@@ -19,6 +19,8 @@ package com.linecorp.armeria.client;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletionException;
 
 import org.junit.jupiter.api.Test;
@@ -44,7 +46,7 @@ class HttpPreprocessorTest {
                 .cause()
                 .isInstanceOf(UnprocessedRequestException.class)
                 .cause()
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("ctx.sessionProtocol() cannot be 'undefined'");
     }
 
@@ -62,7 +64,7 @@ class HttpPreprocessorTest {
                 .cause()
                 .isInstanceOf(UnprocessedRequestException.class)
                 .cause()
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("ctx.method() cannot be 'UNKNOWN'");
     }
 
@@ -84,5 +86,45 @@ class HttpPreprocessorTest {
         assertThat(ctx.sessionProtocol()).isEqualTo(SessionProtocol.HTTP);
         assertThat(ctx.authority()).isEqualTo("127.0.0.1");
         assertThat(ctx.eventLoop().withoutContext()).isSameAs(eventLoop.get());
+    }
+
+    @Test
+    void preprocessorOrder() {
+        final List<String> list = new ArrayList<>();
+        final HttpPreprocessor p1 = (delegate, ctx, req) -> {
+            list.add("1");
+            return DefaultWebClientPreprocessor.INSTANCE.execute(delegate, ctx, req);
+        };
+        final HttpPreprocessor p2 = RunnablePreprocessor.of(() -> list.add("2"));
+        final HttpPreprocessor p3 = RunnablePreprocessor.of(() -> list.add("3"));
+
+        final WebClient client = WebClient.builder(p1)
+                                          .preprocessor(p2)
+                                          .preprocessor(p3)
+                                          .decorator((delegate, ctx, req) -> HttpResponse.of(200))
+                                          .build();
+        final AggregatedHttpResponse res = client.get("http://127.0.0.1").aggregate().join();
+        assertThat(res.status().code()).isEqualTo(200);
+        assertThat(list).containsExactly("3", "2", "1");
+    }
+
+    private static final class RunnablePreprocessor implements HttpPreprocessor {
+
+        private static HttpPreprocessor of(Runnable runnable) {
+            return new RunnablePreprocessor(runnable);
+        }
+
+        private final Runnable runnable;
+
+        private RunnablePreprocessor(Runnable runnable) {
+            this.runnable = runnable;
+        }
+
+        @Override
+        public HttpResponse execute(ClientExecution<HttpRequest, HttpResponse> delegate,
+                                    PartialClientRequestContext ctx, HttpRequest req) {
+            runnable.run();
+            return delegate.execute(ctx, req);
+        }
     }
 }

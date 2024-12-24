@@ -75,15 +75,15 @@ public final class TailClientExecution<I extends Request, O extends Response>
     public O execute(PartialClientRequestContext ctx, I req) {
         if (ctx.sessionProtocol() == SessionProtocol.UNDEFINED) {
             final UnprocessedRequestException e = UnprocessedRequestException.of(
-                    new IllegalStateException(
+                    new IllegalArgumentException(
                             "ctx.sessionProtocol() cannot be '" + ctx.sessionProtocol() + "'. " +
                             "It must be one of '" + SessionProtocol.httpAndHttpsValues() + "'."));
             return errorResponseFactory.apply(ctx, e);
         }
         if (ctx.method() == HttpMethod.UNKNOWN) {
             final UnprocessedRequestException e = UnprocessedRequestException.of(
-                    new IllegalStateException("ctx.method() cannot be '" + ctx.method() +
-                                              "'. It must be one of '" + HttpMethod.knownMethods() + "'."));
+                    new IllegalArgumentException("ctx.method() cannot be '" + ctx.method() +
+                                                 "'. It must be one of '" + HttpMethod.knownMethods() + "'."));
             return errorResponseFactory.apply(ctx, e);
         }
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
