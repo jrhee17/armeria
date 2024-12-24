@@ -91,4 +91,13 @@ final class THttpClientFactory extends DecoratingClientFactory {
                 new Class<?>[] { clientType },
                 new THttpClientInvocationHandler(params, thriftClient));
     }
+
+    @Override
+    public ClientBuilderParams validateParams(ClientBuilderParams params) {
+        if (params.scheme().sessionProtocol() == SessionProtocol.UNDEFINED &&
+            params.options().clientPreprocessors().rpcPreprocessors().isEmpty()) {
+            throw new IllegalStateException();
+        }
+        return super.validateParams(params);
+    }
 }

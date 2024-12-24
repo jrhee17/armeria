@@ -42,13 +42,16 @@ import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpClient;
+import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.RpcClient;
+import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.redirect.RedirectConfig;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.SuccessFunction;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
@@ -57,6 +60,7 @@ import com.linecorp.armeria.common.auth.BasicToken;
 import com.linecorp.armeria.common.auth.OAuth1aToken;
 import com.linecorp.armeria.common.auth.OAuth2Token;
 import com.linecorp.armeria.common.thrift.ThriftSerializationFormats;
+import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 
 /**
  * Creates a new Thrift client that connects to the specified {@link URI} using the builder pattern.
@@ -90,6 +94,16 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
         this.scheme = scheme;
         validateOrSetSerializationFormat();
         this.endpointGroup = endpointGroup;
+    }
+
+    ThriftClientBuilder(SerializationFormat serializationFormat, RpcPreprocessor rpcPreprocessor) {
+        requireNonNull(serializationFormat, "serializationFormat");
+        requireNonNull(rpcPreprocessor, "rpcPreprocessor");
+        uri = null;
+        scheme = Scheme.of(serializationFormat, SessionProtocol.UNDEFINED);
+        validateOrSetSerializationFormat();
+        endpointGroup = FailingEndpointGroup.of();
+        rpcPreprocessor(rpcPreprocessor);
     }
 
     private void validateOrSetSerializationFormat() {
@@ -378,5 +392,16 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
     @Override
     public ThriftClientBuilder responseTimeoutMode(ResponseTimeoutMode responseTimeoutMode) {
         return (ThriftClientBuilder) super.responseTimeoutMode(responseTimeoutMode);
+    }
+
+    @Override
+    @Deprecated
+    public ThriftClientBuilder preprocessor(HttpPreprocessor decorator) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ThriftClientBuilder rpcPreprocessor(RpcPreprocessor decorator) {
+        return (ThriftClientBuilder) super.rpcPreprocessor(decorator);
     }
 }

@@ -22,6 +22,7 @@ import java.net.URI;
 
 import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.SessionProtocol;
@@ -101,6 +102,20 @@ public final class ArmeriaRetrofit {
      */
     public static Retrofit of(SessionProtocol protocol, EndpointGroup endpointGroup, String path) {
         return builder(protocol, endpointGroup, path).build();
+    }
+
+    /**
+     * TBU.
+     */
+    public static Retrofit of(HttpPreprocessor preprocessor) {
+        return builder(preprocessor).build();
+    }
+
+    /**
+     * TBU.
+     */
+    public static Retrofit of(HttpPreprocessor preprocessor, String path) {
+        return builder(preprocessor, path).build();
     }
 
     /**
@@ -187,6 +202,20 @@ public final class ArmeriaRetrofit {
         requireNonNull(endpointGroup, "endpointGroup");
         requireNonNull(path, "path");
         return builder(WebClient.of(protocol, endpointGroup, path));
+    }
+
+    /**
+     * TBU.
+     */
+    public static ArmeriaRetrofitBuilder builder(HttpPreprocessor httpPreprocessor) {
+        return builder(WebClient.of(httpPreprocessor));
+    }
+
+    /**
+     * TBU.
+     */
+    public static ArmeriaRetrofitBuilder builder(HttpPreprocessor httpPreprocessor, String path) {
+        return builder(WebClient.of(httpPreprocessor, path));
     }
 
     /**

@@ -55,14 +55,17 @@ import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpClient;
+import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
 import com.linecorp.armeria.client.RpcClient;
+import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.redirect.RedirectConfig;
 import com.linecorp.armeria.common.RequestContext;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.SuccessFunction;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
@@ -76,6 +79,7 @@ import com.linecorp.armeria.common.grpc.GrpcJsonMarshallerBuilder;
 import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
 import com.linecorp.armeria.common.grpc.protocol.ArmeriaMessageDeframer;
 import com.linecorp.armeria.common.grpc.protocol.ArmeriaMessageFramer;
+import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 import com.linecorp.armeria.unsafe.grpc.GrpcUnsafeBufferUtil;
 
 import io.grpc.CallCredentials;
@@ -122,6 +126,16 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
         this.scheme = scheme;
         validateOrSetSerializationFormat();
         this.endpointGroup = endpointGroup;
+    }
+
+    GrpcClientBuilder(SerializationFormat serializationFormat, HttpPreprocessor httpPreprocessor) {
+        requireNonNull(serializationFormat, "serializationFormat");
+        requireNonNull(httpPreprocessor, "httpPreprocessor");
+        uri = null;
+        endpointGroup = FailingEndpointGroup.of();
+        scheme = Scheme.of(serializationFormat, SessionProtocol.UNDEFINED);
+        validateOrSetSerializationFormat();
+        preprocessor(httpPreprocessor);
     }
 
     private void validateOrSetSerializationFormat() {
@@ -599,6 +613,18 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
     @Override
     public GrpcClientBuilder responseTimeoutMode(ResponseTimeoutMode responseTimeoutMode) {
         return (GrpcClientBuilder) super.responseTimeoutMode(responseTimeoutMode);
+    }
+
+    @Override
+    public GrpcClientBuilder preprocessor(HttpPreprocessor decorator) {
+        return (GrpcClientBuilder) super.preprocessor(decorator);
+    }
+
+    @Override
+    @Deprecated
+    public GrpcClientBuilder rpcPreprocessor(RpcPreprocessor decorator) {
+        throw new UnsupportedOperationException("rpcPreprocessor() does not support gRPC. " +
+                                                "Use preprocessor() instead.");
     }
 
     /**
