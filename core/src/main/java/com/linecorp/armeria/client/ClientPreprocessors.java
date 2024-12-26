@@ -119,6 +119,19 @@ public final class ClientPreprocessors {
     }
 
     @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+        if (object == null || getClass() != object.getClass()) {
+            return false;
+        }
+        final ClientPreprocessors that = (ClientPreprocessors) object;
+        return Objects.equals(preprocessors, that.preprocessors) &&
+               Objects.equals(rpcPreprocessors, that.rpcPreprocessors);
+    }
+
+    @Override
     public int hashCode() {
         return Objects.hash(preprocessors, rpcPreprocessors);
     }

@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
@@ -104,50 +103,17 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         this.absolutePathRef = normalizedAbsolutePathRef;
     }
 
-    DefaultClientBuilderParams(SerializationFormat serializationFormat, Class<?> type,
-                               ClientOptions options, ClientBuilderParams params) {
-        final ClientFactory factory = requireNonNull(options, "options").factory();
-        scheme = factory.validateScheme(Scheme.of(serializationFormat, params.scheme().sessionProtocol()));
-        endpointGroup = params.endpointGroup();
+    DefaultClientBuilderParams(Scheme scheme, EndpointGroup endpointGroup, String absolutePathRef,
+                               URI uri, Class<?> type, ClientOptions options) {
+        this.scheme = options.factory().validateScheme(scheme);
+        this.endpointGroup = endpointGroup;
+        this.absolutePathRef = absolutePathRef;
+        this.uri = uri;
         this.type = type;
-        absolutePathRef = params.absolutePathRef();
         this.options = options;
-
-        final String schemeStr;
-        if (scheme.serializationFormat() == SerializationFormat.NONE) {
-            schemeStr = scheme.sessionProtocol().uriText();
-        } else {
-            schemeStr = scheme.uriText();
-        }
-        final URI prevUri = params.uri();
-        try {
-            uri = new URI(schemeStr, prevUri.getRawAuthority(),
-                          prevUri.getPath(), prevUri.getRawQuery(),
-                          prevUri.getRawFragment());
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException(e);
-        }
     }
 
-    DefaultClientBuilderParams(String absolutePathRef, ClientOptions options, ClientBuilderParams params) {
-        final ClientFactory factory = requireNonNull(options, "options").factory();
-        scheme = factory.validateScheme(params.scheme());
-        endpointGroup = params.endpointGroup();
-        this.absolutePathRef = params.absolutePathRef();
-        this.options = options;
-        type = params.clientType();
-
-        final URI prevUri = params.uri();
-        try {
-            uri = new URI(prevUri.getScheme(), prevUri.getRawAuthority(),
-                          absolutePathRef, prevUri.getRawQuery(),
-                          prevUri.getRawFragment());
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException(e);
-        }
-    }
-
-    private static String nullOrEmptyToSlash(@Nullable String absolutePathRef) {
+    static String nullOrEmptyToSlash(@Nullable String absolutePathRef) {
         if (Strings.isNullOrEmpty(absolutePathRef)) {
             return "/";
         }

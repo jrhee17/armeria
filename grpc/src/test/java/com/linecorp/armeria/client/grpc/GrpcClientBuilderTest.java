@@ -344,32 +344,31 @@ class GrpcClientBuilderTest {
     @ParameterizedTest
     @MethodSource("preprocessor_args")
     void preprocessor(TestServiceBlockingStub stub) {
-        final ClientRequestContext ctx, derivedCtx;
+        final ClientRequestContext ctx;
         try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
             assertThat(stub.emptyCall(Empty.getDefaultInstance())).isEqualTo(Empty.getDefaultInstance());
             ctx = captor.get();
         }
         final ClientOptionValue<Long> option = ClientOptions.WRITE_TIMEOUT_MILLIS.newValue(Long.MAX_VALUE);
         final TestServiceBlockingStub derivedStub = Clients.newDerivedClient(stub, option);
+        final ClientRequestContext derivedCtx;
         try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
             assertThat(derivedStub.emptyCall(Empty.getDefaultInstance())).isEqualTo(Empty.getDefaultInstance());
             derivedCtx = captor.get();
         }
-        assertThat(ctx.options().clientPreprocessors().preprocessors()).
-                isEqualTo(derivedCtx.options().clientPreprocessors().preprocessors());
+        assertThat(ctx.options().clientPreprocessors().preprocessors())
+                .isEqualTo(derivedCtx.options().clientPreprocessors().preprocessors());
     }
 
     public static Stream<Arguments> preprocessParams_args() {
         return Stream.of(
                 Arguments.of(GrpcClients.newClient(ClientExecution::execute,
-                                                   TestServiceBlockingStub.class).getChannel(),
-                             "/"),
+                                                   TestServiceBlockingStub.class).getChannel(), "/"),
                 Arguments.of(GrpcClients.builder(ClientExecution::execute)
                                         .pathPrefix("/prefix")
-                                        .build(TestServiceBlockingStub.class).getChannel(),
-                             "/prefix/")
+                                        .build(TestServiceBlockingStub.class).getChannel(), "/prefix/")
         );
-    };
+    }
 
     @ParameterizedTest
     @MethodSource("preprocessParams_args")
@@ -389,7 +388,8 @@ class GrpcClientBuilderTest {
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessageContaining("rpcPreprocessor() does not support gRPC");
 
-        final RpcPreprocessor rpcPreprocessor = RpcPreprocessor.of(SessionProtocol.HTTP, Endpoint.of("foo.com"));
+        final RpcPreprocessor rpcPreprocessor =
+                RpcPreprocessor.of(SessionProtocol.HTTP, Endpoint.of("foo.com"));
         assertThatThrownBy(() -> Clients.newClient(ClientPreprocessors.ofRpc(rpcPreprocessor),
                                                    TestServiceBlockingStub.class))
                 .isInstanceOf(IllegalArgumentException.class)

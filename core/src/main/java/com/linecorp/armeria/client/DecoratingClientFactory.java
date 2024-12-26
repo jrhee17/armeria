@@ -50,10 +50,10 @@ public class DecoratingClientFactory extends AbstractUnwrappable<ClientFactory> 
      * {@link SerializationFormat} are always {@code "/"} and {@link SerializationFormat#NONE}.
      */
     protected final HttpClient newHttpClient(ClientBuilderParams params) {
-        final ClientBuilderParams newParams;
         final ClientOptions newOptions = params.options().toBuilder().factory(unwrap()).build();
-        newParams = new DefaultClientBuilderParams(SerializationFormat.NONE, HttpClient.class,
-                                                   newOptions, params);
+        final ClientBuilderParams newParams =
+                params.paramsBuilder().serializationFormat(SerializationFormat.NONE).options(newOptions)
+                      .type(HttpClient.class).build();
         return (HttpClient) unwrap().newClient(newParams);
     }
 
