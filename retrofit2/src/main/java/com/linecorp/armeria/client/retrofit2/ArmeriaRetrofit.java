@@ -15,12 +15,10 @@
  */
 package com.linecorp.armeria.client.retrofit2;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 import java.net.URI;
 
-import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.WebClient;
@@ -224,8 +222,6 @@ public final class ArmeriaRetrofit {
      */
     public static ArmeriaRetrofitBuilder builder(WebClient baseWebClient) {
         requireNonNull(baseWebClient, "baseWebClient");
-        checkArgument(!Clients.isUndefinedUri(baseWebClient.uri()),
-                      "baseWebClient must have base URL.");
         return new ArmeriaRetrofitBuilder(baseWebClient);
     }
 

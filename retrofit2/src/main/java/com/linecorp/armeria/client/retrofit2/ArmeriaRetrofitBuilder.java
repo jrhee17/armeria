@@ -34,11 +34,13 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.Maps;
 
 import com.linecorp.armeria.client.AbstractClientOptionsBuilder;
+import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.ClientOption;
 import com.linecorp.armeria.client.ClientOptionValue;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.Endpoint;
@@ -90,8 +92,14 @@ public final class ArmeriaRetrofitBuilder extends AbstractClientOptionsBuilder {
         final SessionProtocol protocol = webClient.scheme().sessionProtocol();
 
         // Build a baseUrl that will pass Retrofit's validation.
-        final HttpUrl baseUrl = HttpUrl.get((protocol.isTls() ? "https" : "http") +
-                                            uri.toString().substring(protocol.uriText().length()));
+        final HttpUrl baseUrl;
+        if (Clients.isUndefinedUri(uri)) {
+            baseUrl = HttpUrl.get((protocol.isTls() ? "https" : "http") +
+                                  "://undefined:1" + uri.getRawPath());
+        } else {
+            baseUrl = HttpUrl.get((protocol.isTls() ? "https" : "http") +
+                                  uri.toString().substring(protocol.uriText().length()));
+        }
 
         retrofitBuilder = new Retrofit.Builder().baseUrl(baseUrl);
         baseWebClientHost = baseUrl.host();
@@ -218,13 +226,10 @@ public final class ArmeriaRetrofitBuilder extends AbstractClientOptionsBuilder {
      * Returns a newly-created {@link Retrofit} based on the properties of this builder.
      */
     public Retrofit build() {
-        final SessionProtocol protocol = webClient.scheme().sessionProtocol();
-
         final ClientOptions retrofitOptions = buildOptions(webClient.options());
         // Re-create the base client without a path, because Retrofit will always provide a full path.
-        final WebClient baseWebClient = WebClient.builder(protocol, webClient.endpointGroup())
-                                                 .options(retrofitOptions)
-                                                 .build();
+        final WebClient baseWebClient = (WebClient) retrofitOptions
+                .factory().newClient(ClientBuilderParams.of("/", retrofitOptions, webClient));
 
         if (nonBaseClientFactory == null) {
             nonBaseClientFactory =

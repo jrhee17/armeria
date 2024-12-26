@@ -51,6 +51,13 @@ public interface ClientBuilderParams {
         return new DefaultClientBuilderParams(scheme, endpointGroup, absolutePathRef, type, options);
     }
 
+    static ClientBuilderParams of(String absolutePathRef, ClientOptions options, ClientBuilderParams params) {
+        requireNonNull(absolutePathRef, "absolutePathRef");
+        requireNonNull(options, "options");
+        requireNonNull(params, "params");
+        return new DefaultClientBuilderParams(absolutePathRef, options, params);
+    }
+
     /**
      * Returns the {@link Scheme} of the client.
      */

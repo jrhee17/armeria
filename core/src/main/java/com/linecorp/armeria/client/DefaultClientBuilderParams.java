@@ -129,6 +129,24 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         }
     }
 
+    DefaultClientBuilderParams(String absolutePathRef, ClientOptions options, ClientBuilderParams params) {
+        final ClientFactory factory = requireNonNull(options, "options").factory();
+        scheme = factory.validateScheme(params.scheme());
+        endpointGroup = params.endpointGroup();
+        this.absolutePathRef = params.absolutePathRef();
+        this.options = options;
+        type = params.clientType();
+
+        final URI prevUri = params.uri();
+        try {
+            uri = new URI(prevUri.getScheme(), prevUri.getRawAuthority(),
+                          absolutePathRef, prevUri.getRawQuery(),
+                          prevUri.getRawFragment());
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
     private static String nullOrEmptyToSlash(@Nullable String absolutePathRef) {
         if (Strings.isNullOrEmpty(absolutePathRef)) {
             return "/";
