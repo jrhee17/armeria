@@ -63,6 +63,7 @@ class ClientBuilderTest {
         final ClientPreprocessors preprocessors =
                 ClientPreprocessors.of(preprocessor);
         final WebClient client = Clients.newClient(preprocessors, WebClient.class);
+        assertThat(Clients.isUndefinedUri(client.uri())).isTrue();
         assertThat(client.endpointGroup()).isInstanceOf(FailingEndpointGroup.class);
         assertThat(client.scheme().sessionProtocol()).isEqualTo(SessionProtocol.UNDEFINED);
     }

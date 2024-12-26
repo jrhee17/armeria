@@ -17,6 +17,7 @@
 package com.linecorp.armeria.client;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 import com.google.common.base.MoreObjects;
@@ -115,6 +116,11 @@ public final class ClientPreprocessors {
             execution = (ctx, req) -> rpcPreprocessor.execute(execution0, ctx, req);
         }
         return execution;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(preprocessors, rpcPreprocessors);
     }
 
     @Override

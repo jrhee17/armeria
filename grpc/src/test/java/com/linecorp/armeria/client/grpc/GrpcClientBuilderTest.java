@@ -34,15 +34,25 @@ import org.junit.jupiter.params.provider.MethodSource;
 import com.google.protobuf.ByteString;
 
 import com.linecorp.armeria.client.ClientBuilderParams;
+import com.linecorp.armeria.client.ClientExecution;
+import com.linecorp.armeria.client.ClientOptionValue;
+import com.linecorp.armeria.client.ClientOptions;
+import com.linecorp.armeria.client.ClientPreprocessors;
+import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.ClientRequestContextCaptor;
 import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpPreprocessor;
+import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.CommonPools;
 import com.linecorp.armeria.common.ContentTooLargeException;
+import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.grpc.GrpcExceptionHandlerFunction;
 import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
+import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 import com.linecorp.armeria.internal.common.grpc.TestServiceImpl;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
@@ -324,6 +334,9 @@ class GrpcClientBuilderTest {
                                                    preprocessor)
                                         .build(TestServiceBlockingStub.class)),
                 Arguments.of(GrpcClients.builder(preprocessor)
+                                        .build(TestServiceBlockingStub.class)),
+                Arguments.of(GrpcClients.builder(ClientExecution::execute)
+                                        .preprocessor(preprocessor)
                                         .build(TestServiceBlockingStub.class))
         );
     }
@@ -331,6 +344,46 @@ class GrpcClientBuilderTest {
     @ParameterizedTest
     @MethodSource("preprocessor_args")
     void preprocessor(TestServiceBlockingStub stub) {
-        assertThat(stub.emptyCall(Empty.getDefaultInstance())).isEqualTo(Empty.getDefaultInstance());
+        final ClientRequestContext ctx, derivedCtx;
+        try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
+            assertThat(stub.emptyCall(Empty.getDefaultInstance())).isEqualTo(Empty.getDefaultInstance());
+            ctx = captor.get();
+        }
+        final ClientOptionValue<Long> option = ClientOptions.WRITE_TIMEOUT_MILLIS.newValue(Long.MAX_VALUE);
+        final TestServiceBlockingStub derivedStub = Clients.newDerivedClient(stub, option);
+        try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
+            assertThat(derivedStub.emptyCall(Empty.getDefaultInstance())).isEqualTo(Empty.getDefaultInstance());
+            derivedCtx = captor.get();
+        }
+        assertThat(ctx.options().clientPreprocessors().preprocessors()).
+                isEqualTo(derivedCtx.options().clientPreprocessors().preprocessors());
+    }
+
+    @Test
+    void preprocessParams() {
+        final ClientBuilderParams params =
+                (ClientBuilderParams) GrpcClients.newClient(ClientExecution::execute,
+                                                            TestServiceBlockingStub.class)
+                                                 .getChannel();
+        assertThat(Clients.isUndefinedUri(params.uri())).isTrue();
+        assertThat(params.scheme()).isEqualTo(Scheme.of(GrpcSerializationFormats.PROTO,
+                                                        SessionProtocol.UNDEFINED));
+        assertThat(params.endpointGroup()).isInstanceOf(FailingEndpointGroup.class);
+        assertThat(params.absolutePathRef()).isEqualTo("/");
+    }
+
+    @Test
+    void preprocessorThrows() {
+        final GrpcClientBuilder builder = GrpcClients.builder("http://foo.com");
+        assertThatThrownBy(() -> builder.rpcPreprocessor(RpcPreprocessor.of(SessionProtocol.HTTP,
+                                                                            Endpoint.of("foo.com"))))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("rpcPreprocessor() does not support gRPC");
+
+        final RpcPreprocessor rpcPreprocessor = RpcPreprocessor.of(SessionProtocol.HTTP, Endpoint.of("foo.com"));
+        assertThatThrownBy(() -> Clients.newClient(ClientPreprocessors.ofRpc(rpcPreprocessor),
+                                                   TestServiceBlockingStub.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("At least one preprocessor must be specified");
     }
 }
