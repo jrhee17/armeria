@@ -60,7 +60,6 @@ import com.linecorp.armeria.common.auth.BasicToken;
 import com.linecorp.armeria.common.auth.OAuth1aToken;
 import com.linecorp.armeria.common.auth.OAuth2Token;
 import com.linecorp.armeria.common.thrift.ThriftSerializationFormats;
-import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 
 /**
  * Creates a new Thrift client that connects to the specified {@link URI} using the builder pattern.
@@ -99,10 +98,10 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
     ThriftClientBuilder(SerializationFormat serializationFormat, RpcPreprocessor rpcPreprocessor) {
         requireNonNull(serializationFormat, "serializationFormat");
         requireNonNull(rpcPreprocessor, "rpcPreprocessor");
-        uri = null;
         scheme = Scheme.of(serializationFormat, SessionProtocol.UNDEFINED);
         validateOrSetSerializationFormat();
-        endpointGroup = FailingEndpointGroup.of();
+        uri = URI.create(scheme.uriText() + ":/");
+        endpointGroup = null;
         rpcPreprocessor(rpcPreprocessor);
     }
 

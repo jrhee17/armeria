@@ -21,21 +21,26 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static testing.grpc.Messages.PayloadType.COMPRESSABLE;
 
 import java.io.InputStream;
+import java.util.stream.Stream;
 
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import com.google.protobuf.ByteString;
 
 import com.linecorp.armeria.client.ClientBuilderParams;
 import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.CommonPools;
 import com.linecorp.armeria.common.ContentTooLargeException;
 import com.linecorp.armeria.common.SerializationFormat;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.grpc.GrpcExceptionHandlerFunction;
 import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
 import com.linecorp.armeria.internal.common.grpc.TestServiceImpl;
@@ -52,6 +57,7 @@ import io.grpc.MethodDescriptor.PrototypeMarshaller;
 import io.grpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
+import testing.grpc.EmptyProtos.Empty;
 import testing.grpc.Messages.Payload;
 import testing.grpc.Messages.SimpleRequest;
 import testing.grpc.Messages.SimpleResponse;
@@ -306,5 +312,25 @@ class GrpcClientBuilderTest {
                 .extracting(e -> ((StatusRuntimeException) e).getStatus())
                 .extracting(Status::getCode)
                 .isEqualTo(Code.RESOURCE_EXHAUSTED);
+    }
+
+    public static Stream<Arguments> preprocessor_args() {
+        final HttpPreprocessor preprocessor = HttpPreprocessor.of(SessionProtocol.HTTP, server.httpEndpoint());
+        return Stream.of(
+                Arguments.of(GrpcClients.newClient(preprocessor, TestServiceBlockingStub.class)),
+                Arguments.of(GrpcClients.newClient(GrpcSerializationFormats.PROTO,
+                                                   preprocessor, TestServiceBlockingStub.class)),
+                Arguments.of(GrpcClients.builder(GrpcSerializationFormats.PROTO,
+                                                   preprocessor)
+                                        .build(TestServiceBlockingStub.class)),
+                Arguments.of(GrpcClients.builder(preprocessor)
+                                        .build(TestServiceBlockingStub.class))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("preprocessor_args")
+    void preprocessor(TestServiceBlockingStub stub) {
+        assertThat(stub.emptyCall(Empty.getDefaultInstance())).isEqualTo(Empty.getDefaultInstance());
     }
 }

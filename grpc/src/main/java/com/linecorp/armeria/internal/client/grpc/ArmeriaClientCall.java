@@ -111,8 +111,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
             ArmeriaClientCall.class, Runnable.class, "pendingTask");
 
     private final DefaultClientRequestContext ctx;
-    final BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory;
-    private final HttpClientExecution httpPreprocessor;
+    private final HttpClient client;
     private final HttpRequestWriter req;
     private final MethodDescriptor<I, O> method;
     private final Map<MethodDescriptor<?, ?>, String> simpleMethodNames;
@@ -166,6 +165,7 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
             boolean useMethodMarshaller,
             ClientPreprocessors preprocessors) {
         this.ctx = ctx;
+        this.client = client;
         this.req = req;
         this.method = method;
         this.simpleMethodNames = simpleMethodNames;
@@ -196,17 +196,6 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
             // done in vanilla grpc-java.
             executor = MoreExecutors.newSequentialExecutor(callOptions.getExecutor());
         }
-
-        errorResponseFactory =
-                (unused, cause) -> {
-                    final StatusAndMetadata statusAndMetadata = exceptionHandler.handle(ctx, cause);
-                    Status status = statusAndMetadata.status();
-                    if (status.getDescription() == null) {
-                        status = status.withDescription(cause.getMessage());
-                    }
-                    return HttpResponse.ofFailure(status.asRuntimeException());
-                };
-        httpPreprocessor = TailClientExecution.of(client, HttpResponse::of, errorResponseFactory);
 
         req.whenComplete().handle((unused1, unused2) -> {
             if (!ctx.log().isAvailable(RequestLogProperty.REQUEST_CONTENT)) {
@@ -259,7 +248,17 @@ final class ArmeriaClientCall<I, O> extends ClientCall<I, O>
 
         // Must come after handling deadline.
         final HttpRequest newReq = prepareHeaders(compressor, metadata, remainingNanos);
-        final HttpClientExecution execution = preprocessors.decorate(httpPreprocessor);
+        final BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory =
+                (unused, cause) -> {
+                    final StatusAndMetadata statusAndMetadata = exceptionHandler.handle(ctx, cause);
+                    Status status = statusAndMetadata.status();
+                    if (status.getDescription() == null) {
+                        status = status.withDescription(cause.getMessage());
+                    }
+                    return HttpResponse.ofFailure(status.asRuntimeException());
+                };
+        final HttpClientExecution execution =
+                preprocessors.decorate(TailClientExecution.of(client, HttpResponse::of, errorResponseFactory));
         final HttpResponse res = ClientUtil.executeWithFallback(execution, ctx, newReq, errorResponseFactory);
 
         final HttpStreamDeframer deframer = new HttpStreamDeframer(

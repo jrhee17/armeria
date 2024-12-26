@@ -79,7 +79,6 @@ import com.linecorp.armeria.common.grpc.GrpcJsonMarshallerBuilder;
 import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
 import com.linecorp.armeria.common.grpc.protocol.ArmeriaMessageDeframer;
 import com.linecorp.armeria.common.grpc.protocol.ArmeriaMessageFramer;
-import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 import com.linecorp.armeria.unsafe.grpc.GrpcUnsafeBufferUtil;
 
 import io.grpc.CallCredentials;
@@ -131,9 +130,9 @@ public final class GrpcClientBuilder extends AbstractClientOptionsBuilder {
     GrpcClientBuilder(SerializationFormat serializationFormat, HttpPreprocessor httpPreprocessor) {
         requireNonNull(serializationFormat, "serializationFormat");
         requireNonNull(httpPreprocessor, "httpPreprocessor");
-        uri = null;
-        endpointGroup = FailingEndpointGroup.of();
+        endpointGroup = null;
         scheme = Scheme.of(serializationFormat, SessionProtocol.UNDEFINED);
+        uri = URI.create(scheme.uriText() + ":/");
         validateOrSetSerializationFormat();
         preprocessor(httpPreprocessor);
     }

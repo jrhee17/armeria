@@ -28,7 +28,6 @@ import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 
 /**
  * A skeletal builder implementation for {@link WebClient}.
@@ -48,7 +47,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      * Creates a new instance.
      */
     protected AbstractWebClientBuilder() {
-        this(UNDEFINED_URI, null, null, null);
+        this(UNDEFINED_URI, null, null, null, DefaultWebClientPreprocessor.INSTANCE);
     }
 
     /**
@@ -70,16 +69,21 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     protected AbstractWebClientBuilder(SessionProtocol sessionProtocol, EndpointGroup endpointGroup,
                                        @Nullable String path) {
         this(null, validateSessionProtocol(sessionProtocol),
-             requireNonNull(endpointGroup, "endpointGroup"), path);
+             requireNonNull(endpointGroup, "endpointGroup"), path, null);
     }
 
     /**
      * TBU.
      */
     protected AbstractWebClientBuilder(HttpPreprocessor httpPreprocessor, @Nullable String path) {
-        this(null, Scheme.of(SerializationFormat.NONE, SessionProtocol.UNDEFINED),
-             FailingEndpointGroup.of(), path);
-        preprocessor(httpPreprocessor);
+        this(maybeResolvePath(path), null, null, null, httpPreprocessor);
+    }
+
+    static URI maybeResolvePath(@Nullable String path) {
+        if (path == null) {
+            return UNDEFINED_URI;
+        }
+        return UNDEFINED_URI.resolve(path);
     }
 
     /**
@@ -87,6 +91,12 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      */
     protected AbstractWebClientBuilder(@Nullable URI uri, @Nullable Scheme scheme,
                                        @Nullable EndpointGroup endpointGroup, @Nullable String path) {
+        this(uri, scheme, endpointGroup, path, maybePreprocessor(uri));
+    }
+
+    private AbstractWebClientBuilder(@Nullable URI uri, @Nullable Scheme scheme,
+                             @Nullable EndpointGroup endpointGroup, @Nullable String path,
+                             @Nullable HttpPreprocessor httpPreprocessor) {
         assert uri != null || (scheme != null && endpointGroup != null);
         assert path == null || uri == null;
         this.uri = uri;
@@ -94,9 +104,17 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
         this.endpointGroup = endpointGroup;
         this.path = validatePath(path);
 
-        if (uri != null && Clients.isUndefinedUri(uri)) {
-            preprocessor(DefaultWebClientPreprocessor.INSTANCE);
+        if (httpPreprocessor != null) {
+            preprocessor(httpPreprocessor);
         }
+    }
+
+    @Nullable
+    private static HttpPreprocessor maybePreprocessor(@Nullable URI uri) {
+        if (uri != null && Clients.isUndefinedUri(uri)) {
+            return DefaultWebClientPreprocessor.INSTANCE;
+        }
+        return null;
     }
 
     private static URI validateUri(URI uri) {

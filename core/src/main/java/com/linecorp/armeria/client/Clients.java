@@ -655,7 +655,7 @@ public final class Clients {
      * {@code isUndefinedUri(WebClient.of().uri())} will return {@code true}.
      */
     public static boolean isUndefinedUri(URI uri) {
-        return uri.getScheme().endsWith(SessionProtocol.UNDEFINED.uriText());
+        return uri.getAuthority() == null && uri.getScheme().endsWith(SessionProtocol.UNDEFINED.uriText());
     }
 
     private Clients() {}
