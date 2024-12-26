@@ -359,17 +359,26 @@ class GrpcClientBuilderTest {
                 isEqualTo(derivedCtx.options().clientPreprocessors().preprocessors());
     }
 
-    @Test
-    void preprocessParams() {
-        final ClientBuilderParams params =
-                (ClientBuilderParams) GrpcClients.newClient(ClientExecution::execute,
-                                                            TestServiceBlockingStub.class)
-                                                 .getChannel();
+    public static Stream<Arguments> preprocessParams_args() {
+        return Stream.of(
+                Arguments.of(GrpcClients.newClient(ClientExecution::execute,
+                                                   TestServiceBlockingStub.class).getChannel(),
+                             "/"),
+                Arguments.of(GrpcClients.builder(ClientExecution::execute)
+                                        .pathPrefix("/prefix")
+                                        .build(TestServiceBlockingStub.class).getChannel(),
+                             "/prefix/")
+        );
+    };
+
+    @ParameterizedTest
+    @MethodSource("preprocessParams_args")
+    void preprocessParams(ClientBuilderParams params, String expectedPrefix) {
         assertThat(Clients.isUndefinedUri(params.uri())).isTrue();
         assertThat(params.scheme()).isEqualTo(Scheme.of(GrpcSerializationFormats.PROTO,
                                                         SessionProtocol.UNDEFINED));
         assertThat(params.endpointGroup()).isInstanceOf(FailingEndpointGroup.class);
-        assertThat(params.absolutePathRef()).isEqualTo("/");
+        assertThat(params.absolutePathRef()).isEqualTo(expectedPrefix);
     }
 
     @Test
