@@ -65,7 +65,7 @@ public final class ClientBuilderParamsBuilder {
     /**
      * TBU.
      */
-    public ClientBuilderParamsBuilder type(Class<?> type) {
+    public ClientBuilderParamsBuilder clientType(Class<?> type) {
         this.type = type;
         return this;
     }

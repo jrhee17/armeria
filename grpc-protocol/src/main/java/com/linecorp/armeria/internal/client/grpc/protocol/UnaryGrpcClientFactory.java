@@ -65,7 +65,7 @@ final class UnaryGrpcClientFactory extends DecoratingClientFactory {
         final SerializationFormat serializationFormat = scheme.serializationFormat();
         final ClientBuilderParams newParams = params.paramsBuilder()
                                                     .serializationFormat(SerializationFormat.NONE)
-                                                    .type(WebClient.class)
+                                                    .clientType(WebClient.class)
                                                     .build();
         final WebClient webClient = (WebClient) unwrap().newClient(newParams);
         return new UnaryGrpcClient(webClient, serializationFormat);
