@@ -173,6 +173,15 @@ public final class ThriftClients {
     }
 
     /**
+     * TBU.
+     */
+    public static <T> T newClient(SerializationFormat serializationFormat,
+                                  RpcPreprocessor rpcPreprocessor, Class<T> clientType,
+                                  String path) {
+        return builder(serializationFormat, rpcPreprocessor).path(path).build(clientType);
+    }
+
+    /**
      * Returns a new {@link ThriftClientBuilder} that builds the client that connects to the specified
      * {@code uri}.
      *

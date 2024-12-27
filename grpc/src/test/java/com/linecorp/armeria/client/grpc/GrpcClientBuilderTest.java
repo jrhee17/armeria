@@ -379,7 +379,7 @@ class GrpcClientBuilderTest {
         assertThat(params.endpointGroup()).isInstanceOf(FailingEndpointGroup.class);
         assertThat(params.absolutePathRef()).isEqualTo(expectedPrefix);
         assertThat(params.uri().getRawAuthority()).startsWith("armeria-preprocessor");
-        assertThat(params.uri().getScheme()).endsWith("undefined");
+        assertThat(params.uri().getScheme()).isEqualTo("gproto+undefined");
         assertThat(ClientBuilderParamsUtil.isInternalUri(params.uri())).isTrue();
         assertThat(Clients.isUndefinedUri(params.uri())).isFalse();
     }

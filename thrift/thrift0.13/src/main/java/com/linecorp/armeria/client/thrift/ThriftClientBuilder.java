@@ -397,7 +397,8 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
     @Override
     @Deprecated
     public ThriftClientBuilder preprocessor(HttpPreprocessor decorator) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("preprocessor() does not support Thrift. " +
+                                                "Use rpcPreprocessor() instead.");
     }
 
     @Override

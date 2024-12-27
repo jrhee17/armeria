@@ -95,7 +95,9 @@ final class THttpClientFactory extends DecoratingClientFactory {
     public ClientBuilderParams validateParams(ClientBuilderParams params) {
         if (params.scheme().sessionProtocol() == SessionProtocol.UNDEFINED &&
             params.options().clientPreprocessors().rpcPreprocessors().isEmpty()) {
-            throw new IllegalStateException();
+            throw new IllegalArgumentException(
+                    "At least one rpcPreprocessor must be specified for rpc-based clients " +
+                    "with sessionProtocol '" + params.scheme().sessionProtocol() + "'.");
         }
         return super.validateParams(params);
     }

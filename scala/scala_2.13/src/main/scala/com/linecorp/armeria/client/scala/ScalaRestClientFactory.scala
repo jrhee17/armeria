@@ -26,7 +26,8 @@ private[scala] final class ScalaRestClientFactory(delegate: ClientFactory)
     classOf[ScalaRestClient].isAssignableFrom(clientType)
 
   override def newClient(params: ClientBuilderParams): ScalaRestClient = {
-    val newParams = params.paramsBuilder()
+    val newParams = params
+      .paramsBuilder()
       .serializationFormat(SerializationFormat.NONE)
       .clientType(classOf[WebClient])
       .build()
