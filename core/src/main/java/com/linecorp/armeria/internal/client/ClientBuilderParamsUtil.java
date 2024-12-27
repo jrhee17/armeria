@@ -17,11 +17,13 @@
 package com.linecorp.armeria.internal.client;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 import java.net.URI;
 
 import com.google.common.base.Strings;
 
+import com.linecorp.armeria.client.ClientPreprocessors;
 import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.Preprocessor;
 import com.linecorp.armeria.common.Scheme;
@@ -36,8 +38,18 @@ public final class ClientBuilderParamsUtil {
                                  preprocessor, absolutePathRef);
     }
 
+    public static URI preprocessorToUri(Scheme scheme, ClientPreprocessors preprocessors,
+                                        @Nullable String absolutePathRef) {
+        return preprocessorToUri(scheme, generateHashCode(preprocessors), absolutePathRef);
+    }
+
     public static URI preprocessorToUri(Scheme scheme, Preprocessor<?, ?> preprocessor,
                                         @Nullable String absolutePathRef) {
+        return preprocessorToUri(scheme, generateHashCode(preprocessor), absolutePathRef);
+    }
+
+    private static URI preprocessorToUri(Scheme scheme, String hashCode,
+                                         @Nullable String absolutePathRef) {
         final String schemeStr;
         if (scheme.serializationFormat() == SerializationFormat.NONE) {
             schemeStr = scheme.sessionProtocol().uriText();
@@ -46,9 +58,12 @@ public final class ClientBuilderParamsUtil {
         }
 
         final String normalizedAbsolutePathRef = nullOrEmptyToSlash(absolutePathRef);
-        return URI.create(schemeStr + "://armeria-preprocessor-" +
-                          Integer.toHexString(System.identityHashCode(preprocessor)) +
+        return URI.create(schemeStr + "://armeria-preprocessor-" + hashCode +
                           ":1" + normalizedAbsolutePathRef);
+    }
+
+    static String generateHashCode(Object obj) {
+        return Integer.toHexString(System.identityHashCode(requireNonNull(obj, "obj")));
     }
 
     public static String nullOrEmptyToSlash(@Nullable String absolutePathRef) {
@@ -63,7 +78,7 @@ public final class ClientBuilderParamsUtil {
 
     public static boolean isEndpointUri(URI uri) {
         final String authority = uri.getAuthority();
-        return authority != null && authority.startsWith("armeria-group") && uri.getPort() == 1;
+        return authority.startsWith("armeria-group") && uri.getPort() == 1;
     }
 
     /**

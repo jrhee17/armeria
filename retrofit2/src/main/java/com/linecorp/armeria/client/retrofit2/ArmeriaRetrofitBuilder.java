@@ -92,14 +92,8 @@ public final class ArmeriaRetrofitBuilder extends AbstractClientOptionsBuilder {
         final SessionProtocol protocol = webClient.scheme().sessionProtocol();
 
         // Build a baseUrl that will pass Retrofit's validation.
-        final HttpUrl baseUrl;
-        if (Clients.isUndefinedUri(uri)) {
-            baseUrl = HttpUrl.get((protocol.isTls() ? "https" : "http") +
-                                  "://undefined:1" + uri.getRawPath());
-        } else {
-            baseUrl = HttpUrl.get((protocol.isTls() ? "https" : "http") +
-                                  uri.toString().substring(protocol.uriText().length()));
-        }
+        final HttpUrl baseUrl = HttpUrl.get((protocol.isTls() ? "https" : "http") +
+                                            uri.toString().substring(protocol.uriText().length()));
 
         retrofitBuilder = new Retrofit.Builder().baseUrl(baseUrl);
         baseWebClientHost = baseUrl.host();

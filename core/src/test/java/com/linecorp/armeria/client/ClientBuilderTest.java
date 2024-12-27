@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
 import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.internal.client.ClientBuilderParamsUtil;
 import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 import com.linecorp.armeria.internal.testing.ImmediateEventLoop;
 
@@ -63,7 +64,8 @@ class ClientBuilderTest {
         final ClientPreprocessors preprocessors =
                 ClientPreprocessors.of(preprocessor);
         final WebClient client = Clients.newClient(preprocessors, WebClient.class);
-        assertThat(Clients.isUndefinedUri(client.uri())).isTrue();
+        assertThat(Clients.isUndefinedUri(client.uri())).isFalse();
+        assertThat(ClientBuilderParamsUtil.isInternalUri(client.uri())).isTrue();
         assertThat(client.endpointGroup()).isInstanceOf(FailingEndpointGroup.class);
         assertThat(client.scheme().sessionProtocol()).isEqualTo(SessionProtocol.UNDEFINED);
     }

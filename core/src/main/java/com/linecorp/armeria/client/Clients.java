@@ -35,6 +35,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.common.util.Unwrappable;
 import com.linecorp.armeria.internal.client.ClientThreadLocalState;
+import com.linecorp.armeria.internal.client.ClientUtil;
 
 /**
  * Creates a new client that connects to a specified {@link URI}.
@@ -655,7 +656,7 @@ public final class Clients {
      * {@code isUndefinedUri(WebClient.of().uri())} will return {@code true}.
      */
     public static boolean isUndefinedUri(URI uri) {
-        return uri.getAuthority() == null && uri.getScheme().endsWith(SessionProtocol.UNDEFINED.uriText());
+        return uri == ClientUtil.UNDEFINED_URI;
     }
 
     private Clients() {}
