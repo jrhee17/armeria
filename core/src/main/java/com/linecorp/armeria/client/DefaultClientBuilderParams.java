@@ -15,18 +15,18 @@
  */
 package com.linecorp.armeria.client;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.linecorp.armeria.internal.client.ClientBuilderParamsUtil.nullOrEmptyToSlash;
 import static java.util.Objects.requireNonNull;
 
 import java.net.URI;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Strings;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.ClientBuilderParamsUtil;
 import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
 
@@ -52,10 +52,10 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         this.options = options;
 
         scheme = factory.validateScheme(Scheme.parse(uri.getScheme()));
-        if (uri.getAuthority() != null) {
-            endpointGroup = Endpoint.parse(uri.getRawAuthority());
-        } else {
+        if (ClientBuilderParamsUtil.isInternalUri(uri)) {
             endpointGroup = FailingEndpointGroup.of();
+        } else {
+            endpointGroup = Endpoint.parse(uri.getRawAuthority());
         }
 
         try (TemporaryThreadLocals tempThreadLocals = TemporaryThreadLocals.acquire()) {
@@ -111,16 +111,6 @@ final class DefaultClientBuilderParams implements ClientBuilderParams {
         this.uri = uri;
         this.type = type;
         this.options = options;
-    }
-
-    static String nullOrEmptyToSlash(@Nullable String absolutePathRef) {
-        if (Strings.isNullOrEmpty(absolutePathRef)) {
-            return "/";
-        }
-
-        checkArgument(absolutePathRef.charAt(0) == '/',
-                      "absolutePathRef: %s (must start with '/')", absolutePathRef);
-        return absolutePathRef;
     }
 
     @Override

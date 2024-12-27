@@ -19,7 +19,14 @@ package com.linecorp.armeria.client;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 
-interface Preprocessor<I extends Request, O extends Response> {
+/**
+ * TBU.
+ */
+@FunctionalInterface
+public interface Preprocessor<I extends Request, O extends Response> {
 
+    /**
+     * TBU.
+     */
     O execute(ClientExecution<I, O> delegate, PartialClientRequestContext ctx, I req) throws Exception;
 }

@@ -17,7 +17,7 @@
 package com.linecorp.armeria.client;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.linecorp.armeria.client.DefaultClientBuilderParams.nullOrEmptyToSlash;
+import static com.linecorp.armeria.internal.client.ClientBuilderParamsUtil.nullOrEmptyToSlash;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -111,7 +111,7 @@ public final class ClientBuilderParamsBuilder {
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);
         }
-        return new DefaultClientBuilderParams(scheme, params.endpointGroup(), path,
+        return new DefaultClientBuilderParams(scheme, params.endpointGroup(), uri.getRawPath(),
                                               uri, firstNonNull(type, params.clientType()),
                                               firstNonNull(options, params.options()));
     }

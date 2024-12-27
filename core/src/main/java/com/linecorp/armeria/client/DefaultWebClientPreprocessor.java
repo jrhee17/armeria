@@ -34,7 +34,9 @@ final class DefaultWebClientPreprocessor implements HttpPreprocessor {
             // values are all already set, so no need to fill in values from the request/context
             return delegate.execute(ctx, req);
         }
+
         final RequestTarget reqTarget = ctx.requestTarget();
+
         final String scheme;
         final String authority;
         if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {

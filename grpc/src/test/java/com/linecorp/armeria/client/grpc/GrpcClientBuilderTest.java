@@ -52,6 +52,7 @@ import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.grpc.GrpcExceptionHandlerFunction;
 import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
+import com.linecorp.armeria.internal.client.ClientBuilderParamsUtil;
 import com.linecorp.armeria.internal.client.endpoint.FailingEndpointGroup;
 import com.linecorp.armeria.internal.common.grpc.TestServiceImpl;
 import com.linecorp.armeria.server.ServerBuilder;
@@ -373,11 +374,14 @@ class GrpcClientBuilderTest {
     @ParameterizedTest
     @MethodSource("preprocessParams_args")
     void preprocessParams(ClientBuilderParams params, String expectedPrefix) {
-        assertThat(Clients.isUndefinedUri(params.uri())).isTrue();
         assertThat(params.scheme()).isEqualTo(Scheme.of(GrpcSerializationFormats.PROTO,
                                                         SessionProtocol.UNDEFINED));
         assertThat(params.endpointGroup()).isInstanceOf(FailingEndpointGroup.class);
         assertThat(params.absolutePathRef()).isEqualTo(expectedPrefix);
+        assertThat(params.uri().getRawAuthority()).startsWith("armeria-preprocessor");
+        assertThat(params.uri().getScheme()).endsWith("undefined");
+        assertThat(ClientBuilderParamsUtil.isInternalUri(params.uri())).isTrue();
+        assertThat(Clients.isUndefinedUri(params.uri())).isFalse();
     }
 
     @Test

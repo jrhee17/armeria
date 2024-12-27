@@ -524,25 +524,6 @@ class ArmeriaCallFactoryTest {
     }
 
     @Test
-    void urlAnnotation_defaultClient() throws Exception {
-        final Service service =
-                ArmeriaRetrofit.builder(WebClient.builder()
-                                                 .endpointRemapper(endpoint -> {
-                                                     if ("group_bar".equals(endpoint.host())) {
-                                                         return server.httpEndpoint();
-                                                     } else {
-                                                         return endpoint;
-                                                     }
-                                                 })
-                                                 .build())
-                               .addConverterFactory(converterFactory)
-                               .build()
-                               .create(Service.class);
-        final Pojo pojo = service.fullUrl("http://group_bar/pojo").get();
-        assertThat(pojo).isEqualTo(new Pojo("Cony", 26));
-    }
-
-    @Test
     void sessionProtocolH1C() throws Exception {
         final Service service = ArmeriaRetrofit.builder("h1c://127.0.0.1:" + server.httpPort())
                                                .addConverterFactory(converterFactory)

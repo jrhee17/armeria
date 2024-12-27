@@ -19,6 +19,7 @@ package com.linecorp.armeria.client.thrift;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.linecorp.armeria.client.thrift.ThriftClientOptions.MAX_RESPONSE_CONTAINER_LENGTH;
 import static com.linecorp.armeria.client.thrift.ThriftClientOptions.MAX_RESPONSE_STRING_LENGTH;
+import static com.linecorp.armeria.internal.client.ClientBuilderParamsUtil.preprocessorToUri;
 import static java.util.Objects.requireNonNull;
 
 import java.net.URI;
@@ -100,7 +101,7 @@ public final class ThriftClientBuilder extends AbstractClientOptionsBuilder {
         requireNonNull(rpcPreprocessor, "rpcPreprocessor");
         scheme = Scheme.of(serializationFormat, SessionProtocol.UNDEFINED);
         validateOrSetSerializationFormat();
-        uri = URI.create(scheme.uriText() + ":/");
+        uri = preprocessorToUri(scheme, rpcPreprocessor, null);
         endpointGroup = null;
         rpcPreprocessor(rpcPreprocessor);
     }

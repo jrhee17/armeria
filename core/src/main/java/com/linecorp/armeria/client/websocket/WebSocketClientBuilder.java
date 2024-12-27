@@ -40,7 +40,6 @@ import com.linecorp.armeria.client.ClientOption;
 import com.linecorp.armeria.client.ClientOptionValue;
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.Endpoint;
@@ -65,6 +64,7 @@ import com.linecorp.armeria.common.auth.BasicToken;
 import com.linecorp.armeria.common.auth.OAuth1aToken;
 import com.linecorp.armeria.common.auth.OAuth2Token;
 import com.linecorp.armeria.common.websocket.WebSocketFrameType;
+import com.linecorp.armeria.internal.client.ClientBuilderParamsUtil;
 
 /**
  * Builds a {@link WebSocketClient}.
@@ -97,7 +97,7 @@ public final class WebSocketClientBuilder extends AbstractWebClientBuilder {
     }
 
     private static URI validateUri(URI uri) {
-        if (Clients.isUndefinedUri(uri)) {
+        if (ClientBuilderParamsUtil.isInternalUri(uri)) {
             return uri;
         }
         final String givenScheme = requireNonNull(uri, "uri").getScheme();
