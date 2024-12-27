@@ -52,8 +52,11 @@ public class DecoratingClientFactory extends AbstractUnwrappable<ClientFactory> 
     protected final HttpClient newHttpClient(ClientBuilderParams params) {
         final ClientOptions newOptions = params.options().toBuilder().factory(unwrap()).build();
         final ClientBuilderParams newParams =
-                params.paramsBuilder().serializationFormat(SerializationFormat.NONE).options(newOptions)
-                      .clientType(HttpClient.class).build();
+                params.paramsBuilder()
+                      .serializationFormat(SerializationFormat.NONE)
+                      .options(newOptions)
+                      .clientType(HttpClient.class)
+                      .build();
         return (HttpClient) unwrap().newClient(newParams);
     }
 

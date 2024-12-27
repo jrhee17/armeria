@@ -83,6 +83,20 @@ class ThriftClientBuilderTest {
     }
 
     @Test
+    void undefinedProtocol() {
+        assertThatThrownBy(() -> ThriftClients
+                .newClient(Scheme.of(ThriftSerializationFormats.BINARY, SessionProtocol.UNDEFINED),
+                           Endpoint.of("1.2.3.4"), HelloService.Iface.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("At least one rpcPreprocessor must be specified");
+
+        assertThatThrownBy(() -> ThriftClients
+                .newClient("undefined://1.2.3.4", HelloService.Iface.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("At least one rpcPreprocessor must be specified");
+    }
+
+    @Test
     void httpRequestIsAbortedIfDecoratorThrowException() throws Exception {
         final CompletableFuture<HttpRequest> reqCaptor = new CompletableFuture<>();
         final HelloService.Iface client = ThriftClients.builder("https://google.com/")

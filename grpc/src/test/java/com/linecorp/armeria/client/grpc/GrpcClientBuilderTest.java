@@ -325,6 +325,20 @@ class GrpcClientBuilderTest {
                 .isEqualTo(Code.RESOURCE_EXHAUSTED);
     }
 
+    @Test
+    void undefinedProtocol() {
+        assertThatThrownBy(() -> GrpcClients
+                .newClient(Scheme.of(GrpcSerializationFormats.PROTO, SessionProtocol.UNDEFINED),
+                           Endpoint.of("1.2.3.4"), TestServiceBlockingStub.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("At least one preprocessor must be specified");
+
+        assertThatThrownBy(() -> GrpcClients
+                .newClient("undefined://1.2.3.4", TestServiceBlockingStub.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("At least one preprocessor must be specified");
+    }
+
     public static Stream<Arguments> preprocessor_args() {
         final HttpPreprocessor preprocessor = HttpPreprocessor.of(SessionProtocol.HTTP, server.httpEndpoint());
         return Stream.of(
