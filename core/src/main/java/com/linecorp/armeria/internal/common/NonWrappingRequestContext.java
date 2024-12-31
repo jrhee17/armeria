@@ -39,7 +39,6 @@ import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RequestTargetForm;
 import com.linecorp.armeria.common.RpcRequest;
-import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
@@ -60,7 +59,6 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
 
     private final MeterRegistry meterRegistry;
     private final ConcurrentAttributes attrs;
-    private SessionProtocol sessionProtocol;
     private final RequestId id;
     private final HttpMethod method;
     private RequestTarget reqTarget;
@@ -82,9 +80,8 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
      * Creates a new instance.
      */
     protected NonWrappingRequestContext(
-            MeterRegistry meterRegistry, SessionProtocol sessionProtocol,
-            RequestId id, HttpMethod method, RequestTarget reqTarget, ExchangeType exchangeType,
-            long requestAutoAbortDelayMillis,
+            MeterRegistry meterRegistry, RequestId id, HttpMethod method, RequestTarget reqTarget,
+            ExchangeType exchangeType, long requestAutoAbortDelayMillis,
             @Nullable HttpRequest req, @Nullable RpcRequest rpcReq,
             @Nullable AttributesGetters rootAttributeMap, Supplier<? extends AutoCloseable> contextHook) {
         assert req != null || rpcReq != null;
@@ -96,7 +93,6 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
             attrs = ConcurrentAttributes.fromParent(rootAttributeMap);
         }
 
-        this.sessionProtocol = requireNonNull(sessionProtocol, "sessionProtocol");
         this.id = requireNonNull(id, "id");
         this.method = requireNonNull(method, "method");
         this.reqTarget = requireNonNull(reqTarget, "reqTarget");
@@ -125,6 +121,7 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
     public final void updateRequest(HttpRequest req) {
         requireNonNull(req, "req");
         final RequestHeaders headers = req.headers();
+        final RequestTarget prevReqTarget = reqTarget;
         final RequestTarget reqTarget = validateHeaders(headers);
 
         if (reqTarget == null) {
@@ -134,9 +131,17 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
             throw new IllegalArgumentException("invalid path: " + headers.path() +
                                                " (must not contain scheme or authority)");
         }
+        if (prevReqTarget.form() == RequestTargetForm.ABSOLUTE) {
+            this.reqTarget = DefaultRequestTarget.createWithoutValidation(
+                    RequestTargetForm.ABSOLUTE, prevReqTarget.scheme(), prevReqTarget.authority(),
+                    prevReqTarget.host(), prevReqTarget.port(), reqTarget.path(),
+                    reqTarget.maybePathWithMatrixVariables(),
+                    reqTarget.rawPath(), reqTarget.query(), reqTarget.fragment());
+        } else {
+            this.reqTarget = reqTarget;
+        }
 
         this.req = req;
-        this.reqTarget = reqTarget;
         decodedPath = null;
     }
 
@@ -152,11 +157,6 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
      */
     @Nullable
     protected abstract RequestTarget validateHeaders(RequestHeaders headers);
-
-    @Override
-    public final SessionProtocol sessionProtocol() {
-        return sessionProtocol;
-    }
 
     /**
      * Returns the {@link Channel} that is handling this request, or {@code null} if the connection is not
@@ -180,7 +180,7 @@ public abstract class NonWrappingRequestContext implements RequestContextExtensi
         return reqTarget.path();
     }
 
-    protected final RequestTarget requestTarget() {
+    public final RequestTarget requestTarget() {
         return reqTarget;
     }
 

@@ -17,6 +17,7 @@ package com.linecorp.armeria.client;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.linecorp.armeria.common.SessionProtocol.httpAndHttpsValues;
+import static com.linecorp.armeria.internal.client.ClientBuilderParamsUtil.preprocessorToUri;
 import static com.linecorp.armeria.internal.client.ClientUtil.UNDEFINED_URI;
 import static java.util.Objects.requireNonNull;
 
@@ -28,6 +29,7 @@ import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.ClientBuilderParamsUtil;
 
 /**
  * A skeletal builder implementation for {@link WebClient}.
@@ -47,7 +49,7 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      * Creates a new instance.
      */
     protected AbstractWebClientBuilder() {
-        this(UNDEFINED_URI, null, null, null);
+        this(UNDEFINED_URI, null, null, null, DefaultWebClientPreprocessor.INSTANCE);
     }
 
     /**
@@ -69,7 +71,14 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     protected AbstractWebClientBuilder(SessionProtocol sessionProtocol, EndpointGroup endpointGroup,
                                        @Nullable String path) {
         this(null, validateSessionProtocol(sessionProtocol),
-             requireNonNull(endpointGroup, "endpointGroup"), path);
+             requireNonNull(endpointGroup, "endpointGroup"), path, null);
+    }
+
+    /**
+     * TBU.
+     */
+    protected AbstractWebClientBuilder(HttpPreprocessor httpPreprocessor, @Nullable String path) {
+        this(preprocessorToUri(httpPreprocessor, path), null, null, null, httpPreprocessor);
     }
 
     /**
@@ -77,17 +86,27 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
      */
     protected AbstractWebClientBuilder(@Nullable URI uri, @Nullable Scheme scheme,
                                        @Nullable EndpointGroup endpointGroup, @Nullable String path) {
+        this(uri, scheme, endpointGroup, path, maybeDefaultPreprocessor(uri));
+    }
+
+    private AbstractWebClientBuilder(@Nullable URI uri, @Nullable Scheme scheme,
+                                     @Nullable EndpointGroup endpointGroup, @Nullable String path,
+                                     @Nullable HttpPreprocessor httpPreprocessor) {
         assert uri != null || (scheme != null && endpointGroup != null);
         assert path == null || uri == null;
         this.uri = uri;
         this.scheme = scheme;
         this.endpointGroup = endpointGroup;
         this.path = validatePath(path);
+
+        if (httpPreprocessor != null) {
+            preprocessor(httpPreprocessor);
+        }
     }
 
     private static URI validateUri(URI uri) {
         requireNonNull(uri, "uri");
-        if (Clients.isUndefinedUri(uri)) {
+        if (ClientBuilderParamsUtil.isInternalUri(uri)) {
             return uri;
         }
         final String givenScheme = requireNonNull(uri, "uri").getScheme();
@@ -127,6 +146,21 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
                           "path: %s (expected: an absolute path starting with '/')", path);
         }
         return path;
+    }
+
+    @Nullable
+    private static HttpPreprocessor maybeDefaultPreprocessor(@Nullable URI uri) {
+        if (uri != null && Clients.isUndefinedUri(uri)) {
+            return DefaultWebClientPreprocessor.INSTANCE;
+        }
+        return null;
+    }
+
+    private static URI maybeResolvePath(@Nullable String path) {
+        if (path == null) {
+            return UNDEFINED_URI;
+        }
+        return UNDEFINED_URI.resolve(path);
     }
 
     /**
@@ -183,5 +217,11 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     @Override
     public AbstractWebClientBuilder rpcDecorator(DecoratingRpcClientFunction decorator) {
         throw new UnsupportedOperationException("RPC decorator cannot be added to the web client builder.");
+    }
+
+    @Deprecated
+    @Override
+    public AbstractClientOptionsBuilder rpcPreprocessor(RpcPreprocessor rpcPreprocessor) {
+        throw new UnsupportedOperationException("RPC preprocessor cannot be added to the web client builder.");
     }
 }

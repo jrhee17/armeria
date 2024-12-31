@@ -45,6 +45,7 @@ import com.linecorp.armeria.common.util.ListenableAsyncCloseable;
 import com.linecorp.armeria.common.util.ReleasableHolder;
 import com.linecorp.armeria.common.util.ShutdownHooks;
 import com.linecorp.armeria.common.util.Unwrappable;
+import com.linecorp.armeria.internal.client.ClientBuilderParamsUtil;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.channel.EventLoop;
@@ -291,7 +292,7 @@ public interface ClientFactory extends Unwrappable, ListenableAsyncCloseable {
     default URI validateUri(URI uri) {
         requireNonNull(uri, "uri");
 
-        if (Clients.isUndefinedUri(uri)) {
+        if (ClientBuilderParamsUtil.isInternalUri(uri)) {
             // We use a special singleton marker URI for clients that do not explicitly define a
             // host or scheme at construction time.
             // As this isn't created by users, we don't need to normalize it.
