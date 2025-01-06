@@ -20,6 +20,7 @@ import static com.linecorp.armeria.internal.common.util.CollectionUtil.truncate;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
@@ -55,6 +56,7 @@ final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> implements 
     private final LocalCluster localCluster;
     private final EventExecutor eventExecutor;
     private boolean closing;
+    private final FunctionSelector<Endpoint> endpointSelector;
 
     ClusterEntry(EventExecutor eventExecutor, @Nullable LocalCluster localCluster) {
         this.eventExecutor = eventExecutor;
@@ -63,15 +65,23 @@ final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> implements 
         if (localCluster != null) {
             localCluster.clusterEntry().addListener(localClusterEntryListener, true);
         }
+        endpointSelector = new FunctionSelector<>(ctx -> {
+            final XdsLoadBalancer loadBalancer = this.loadBalancer;
+            if (loadBalancer == null) {
+                return null;
+            }
+            return loadBalancer.selectNow(ctx);
+        });
     }
 
     @Nullable
     Endpoint selectNow(ClientRequestContext ctx) {
-        final LoadBalancer loadBalancer = latestValue();
-        if (loadBalancer == null) {
-            return null;
-        }
-        return loadBalancer.selectNow(ctx);
+        return endpointSelector.selectNow(ctx);
+    }
+
+    CompletableFuture<Endpoint> select(ClientRequestContext ctx,
+                                       ScheduledExecutorService executor, long selectionTimeoutMillis) {
+        return endpointSelector.select(ctx, executor, selectionTimeoutMillis);
     }
 
     void updateClusterSnapshot(ClusterSnapshot clusterSnapshot) {
@@ -120,6 +130,7 @@ final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> implements 
         }
         this.loadBalancer = loadBalancer;
         notifyListeners(loadBalancer);
+        endpointSelector.refresh();
     }
 
     @Override

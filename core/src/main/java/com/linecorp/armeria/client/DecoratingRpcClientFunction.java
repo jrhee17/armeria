@@ -36,4 +36,12 @@ public interface DecoratingRpcClientFunction {
      * @return the {@link RpcResponse} to be received
      */
     RpcResponse execute(RpcClient delegate, ClientRequestContext ctx, RpcRequest req) throws Exception;
+
+    /**
+     * TBU.
+     */
+    default DecoratingRpcClientFunction andThen(DecoratingRpcClientFunction other) {
+        return (delegate, ctx, req) -> execute((ctx0, req0) -> other.execute(delegate, ctx0, req0),
+                                               ctx, req);
+    }
 }

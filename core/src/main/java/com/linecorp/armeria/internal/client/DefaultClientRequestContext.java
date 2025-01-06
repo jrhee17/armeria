@@ -41,10 +41,14 @@ import org.slf4j.LoggerFactory;
 
 import com.linecorp.armeria.client.ClientOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.DecoratingHttpClientFunction;
+import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.PartialClientRequestContext;
 import com.linecorp.armeria.client.RequestOptions;
 import com.linecorp.armeria.client.ResponseTimeoutMode;
+import com.linecorp.armeria.client.RpcClient;
 import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.AttributesGetters;
@@ -179,6 +183,8 @@ public final class DefaultClientRequestContext
     private volatile CompletableFuture<Boolean> whenInitialized;
 
     private final ResponseTimeoutMode responseTimeoutMode;
+    private DecoratingHttpClientFunction httpDecorator = HttpClient::execute;
+    private DecoratingRpcClientFunction rpcDecorator = RpcClient::execute;
 
     public DefaultClientRequestContext(SessionProtocol sessionProtocol, HttpRequest httpRequest,
                                        @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
@@ -1130,6 +1136,26 @@ public final class DefaultClientRequestContext
             return requestOptionTimeoutMode;
         }
         return options.responseTimeoutMode();
+    }
+
+    @Override
+    public DecoratingRpcClientFunction rpcDecorator() {
+        return rpcDecorator;
+    }
+
+    @Override
+    public void rpcDecorator(DecoratingRpcClientFunction rpcDecorator) {
+        this.rpcDecorator = rpcDecorator;
+    }
+
+    @Override
+    public DecoratingHttpClientFunction httpDecorator() {
+        return httpDecorator;
+    }
+
+    @Override
+    public void httpDecorator(DecoratingHttpClientFunction httpDecorator) {
+        this.httpDecorator = httpDecorator;
     }
 
     private static RequestId nextRequestId(ClientOptions options) {

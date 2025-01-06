@@ -59,4 +59,12 @@ public interface RpcPreprocessor extends Preprocessor<RpcRequest, RpcResponse> {
             return delegate.execute(ctx, req);
         };
     }
+
+    /**
+     * TBU.
+     */
+    default RpcPreprocessor andThen(RpcPreprocessor preprocessor) {
+        return (delegate, ctx, req) -> execute((ctx0, req0) -> preprocessor.execute(delegate, ctx0, req0),
+                                               ctx, req);
+    }
 }

@@ -154,8 +154,7 @@ public final class ClientUtil {
     }
 
     public static <I extends Request, O extends Response, U extends ClientExecution<I, O>>
-    O executeWithFallback(U execution,
-                          PartialClientRequestContext ctx, I req,
+    O executeWithFallback(U execution, PartialClientRequestContext ctx, I req,
                           BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
         try {
             return execution.execute(ctx, req);

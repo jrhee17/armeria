@@ -36,4 +36,12 @@ public interface DecoratingHttpClientFunction {
      * @return the {@link HttpResponse} to be received
      */
     HttpResponse execute(HttpClient delegate, ClientRequestContext ctx, HttpRequest req) throws Exception;
+
+    /**
+     * TBU.
+     */
+    default DecoratingHttpClientFunction andThen(DecoratingHttpClientFunction other) {
+        return (delegate, ctx, req) -> execute((ctx0, req0) -> other.execute(delegate, ctx0, req0),
+                                               ctx, req);
+    }
 }

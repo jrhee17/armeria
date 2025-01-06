@@ -39,6 +39,11 @@ public final class ListenerSnapshot implements Snapshot<ListenerXdsResource> {
         this.routeSnapshot = routeSnapshot;
     }
 
+    ListenerSnapshot(Listener listener, @Nullable RouteSnapshot routeSnapshot) {
+        listenerXdsResource = new ListenerXdsResource(listener);
+        this.routeSnapshot = routeSnapshot;
+    }
+
     @Override
     public ListenerXdsResource xdsResource() {
         return listenerXdsResource;
