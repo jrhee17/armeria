@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LINE Corporation
+ * Copyright 2025 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -16,17 +16,16 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import com.google.common.annotations.VisibleForTesting;
+import io.netty.util.AttributeKey;
 
-import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.LocalityRoutingState;
+final class XdsFilterAttributeKeys {
 
-interface XdsLoadBalancer extends LoadBalancer {
+    static final AttributeKey<RouteEntry> ROUTE_ENTRY =
+            AttributeKey.valueOf(XdsFilterAttributeKeys.class, "ROUTE_ENTRY");
+    static final AttributeKey<ClusterEntries> CLUSTER_ENTRIES =
+            AttributeKey.valueOf(XdsFilterAttributeKeys.class, "CLUSTER_ENTRIES");
+    static final AttributeKey<RouteConfig> ROUTE_CONFIG =
+            AttributeKey.valueOf(XdsFilterAttributeKeys.class, "ROUTE_CONFIG");
 
-    @Nullable
-    PrioritySet prioritySet();
-
-    @Nullable
-    @VisibleForTesting
-    LocalityRoutingState localityRoutingState();
+    private XdsFilterAttributeKeys() {}
 }

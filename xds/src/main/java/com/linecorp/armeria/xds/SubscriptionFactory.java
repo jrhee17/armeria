@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LINE Corporation
+ * Copyright 2025 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -14,19 +14,15 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.xds;
 
-import com.google.common.annotations.VisibleForTesting;
+interface SubscriptionFactory {
 
-import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.LocalityRoutingState;
+    void subscribe(ResourceNode<?> resourceNode);
 
-interface XdsLoadBalancer extends LoadBalancer {
+    void unsubscribe(ResourceNode<?> resourceNode);
 
-    @Nullable
-    PrioritySet prioritySet();
+    ConfigSourceMapper configSourceMapper();
 
-    @Nullable
-    @VisibleForTesting
-    LocalityRoutingState localityRoutingState();
+    BootstrapClusters bootstrapClusters();
 }

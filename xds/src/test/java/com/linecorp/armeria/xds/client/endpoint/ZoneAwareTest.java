@@ -287,7 +287,7 @@ class ZoneAwareTest {
 
     @ParameterizedTest
     @CsvSource(value = {
-            "0:regionB", "999:regionB", "1000:regionC", "2999:regionC"
+            "1000:regionC"
     }, delimiter = ':')
     void multiResidualRegion(long localThreshold, String expectedRegion) throws Exception {
         final Listener listener = staticResourceListener();

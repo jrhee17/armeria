@@ -83,8 +83,7 @@ public final class RouteXdsResource extends XdsResourceWithPrimer<RouteXdsResour
             return false;
         }
         final RouteXdsResource that = (RouteXdsResource) object;
-        return Objects.equal(routeConfiguration, that.routeConfiguration) &&
-               Objects.equal(primer, that.primer);
+        return Objects.equal(routeConfiguration, that.routeConfiguration);
     }
 
     @Override
@@ -96,7 +95,6 @@ public final class RouteXdsResource extends XdsResourceWithPrimer<RouteXdsResour
     public String toString() {
         return MoreObjects.toStringHelper(this)
                           .add("routeConfiguration", routeConfiguration)
-                          .add("primer", primer)
                           .toString();
     }
 }

@@ -25,16 +25,19 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 
 import com.linecorp.armeria.client.grpc.GrpcClientBuilder;
 import com.linecorp.armeria.common.CommonPools;
+import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.xds.client.endpoint.ClusterManager.LocalCluster;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.core.v3.Node;
 import io.netty.util.concurrent.EventExecutor;
 
-final class XdsBootstrapImpl implements XdsBootstrap {
+final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
     private final Bootstrap bootstrap;
     private final EventExecutor eventLoop;
 
@@ -43,6 +46,8 @@ final class XdsBootstrapImpl implements XdsBootstrap {
     private final BootstrapListeners bootstrapListeners;
     private final ConfigSourceMapper configSourceMapper;
     private final BootstrapClusters bootstrapClusters;
+    @Nullable
+    private final LocalCluster localCluster;
     private final Consumer<GrpcClientBuilder> configClientCustomizer;
     private final Node bootstrapNode;
     private boolean closed;
@@ -65,13 +70,26 @@ final class XdsBootstrapImpl implements XdsBootstrap {
         bootstrapListeners = new BootstrapListeners(bootstrap);
         bootstrapClusters = new BootstrapClusters(bootstrap, this);
         bootstrapNode = bootstrap.hasNode() ? bootstrap.getNode() : Node.getDefaultInstance();
+
+        final String localClusterName = bootstrap.getClusterManager().getLocalClusterName();
+        if (!Strings.isNullOrEmpty(localClusterName) && bootstrap.getNode().hasLocality()) {
+            final ClusterSnapshot localClusterSnapshot = bootstrapClusters.clusterSnapshot(localClusterName);
+            checkArgument(localClusterSnapshot != null && localClusterSnapshot.endpointSnapshot() != null,
+                          "A static cluster with endpoints must be defined for localClusterName '%s'",
+                          localClusterName);
+            localCluster = new LocalCluster(localClusterName, this);
+        } else {
+            localCluster = null;
+        }
     }
 
-    BootstrapClusters bootstrapClusters() {
+    @Override
+    public BootstrapClusters bootstrapClusters() {
         return bootstrapClusters;
     }
 
-    void subscribe(ResourceNode<?> node) {
+    @Override
+    public void subscribe(ResourceNode<?> node) {
         final XdsType type = node.type();
         final String name = node.name();
         final ConfigSource configSource = node.configSource();
@@ -93,7 +111,8 @@ final class XdsBootstrapImpl implements XdsBootstrap {
         client.addSubscriber(type, resourceName, node);
     }
 
-    void unsubscribe(ResourceNode<?> node) {
+    @Override
+    public void unsubscribe(ResourceNode<?> node) {
         if (!eventLoop.inEventLoop()) {
             eventLoop.execute(() -> unsubscribe(node));
             return;
@@ -146,7 +165,13 @@ final class XdsBootstrapImpl implements XdsBootstrap {
         return bootstrap;
     }
 
-    ConfigSourceMapper configSourceMapper() {
+    @Override
+    public ConfigSourceMapper configSourceMapper() {
         return configSourceMapper;
+    }
+
+    @Nullable
+    LocalCluster localCluster() {
+        return localCluster;
     }
 }

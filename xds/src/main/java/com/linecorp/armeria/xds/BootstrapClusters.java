@@ -20,6 +20,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.xds.client.endpoint.ClusterEntry;
+import com.linecorp.armeria.xds.client.endpoint.UpdatableLoadBalancer;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap.StaticResources;
@@ -29,15 +31,20 @@ import io.grpc.Status;
 final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
 
     private final Map<String, ClusterSnapshot> clusterSnapshots = new HashMap<>();
+    private final Map<String, UpdatableLoadBalancer> clusterEntries = new HashMap<>();
     private final Map<String, Cluster> clusters = new HashMap<>();
+    private final InternalClusterManager clusterManager;
 
     BootstrapClusters(Bootstrap bootstrap, XdsBootstrapImpl xdsBootstrap) {
+        clusterManager = new InternalClusterManager(xdsBootstrap.eventLoop(), null);
+
+        final BootstrapContext bootstrapContext = new BootstrapContext(xdsBootstrap, null);
         if (bootstrap.hasStaticResources()) {
             final StaticResources staticResources = bootstrap.getStaticResources();
             for (Cluster cluster : staticResources.getClustersList()) {
                 if (cluster.hasLoadAssignment()) {
                     // no need to clean this cluster up since it is fully static
-                    StaticResourceUtils.staticCluster(xdsBootstrap, cluster.getName(), this, cluster);
+                    StaticResourceUtils.staticCluster(bootstrapContext, cluster.getName(), this, cluster);
                 }
                 clusters.put(cluster.getName(), cluster);
             }
@@ -46,6 +53,9 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
 
     @Override
     public void snapshotUpdated(ClusterSnapshot newSnapshot) {
+        final ClusterEntry clusterEntry = clusterManager.registerEntry(newSnapshot.xdsResource().name());
+        final UpdatableLoadBalancer loadBalancer = clusterEntry.updateClusterSnapshot(newSnapshot);
+        clusterEntries.put(newSnapshot.xdsResource().name(), loadBalancer);
         clusterSnapshots.put(newSnapshot.xdsResource().name(), newSnapshot);
     }
 
@@ -57,6 +67,12 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
     @Nullable
     Cluster cluster(String clusterName) {
         return clusters.get(clusterName);
+    }
+
+    UpdatableLoadBalancer clusterEntry(String clusterName) {
+        final UpdatableLoadBalancer clusterEntry = clusterEntries.get(clusterName);
+        assert clusterEntry != null : "cluster entry not found: " + clusterName;
+        return clusterEntry;
     }
 
     @Override

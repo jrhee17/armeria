@@ -17,7 +17,6 @@
 package com.linecorp.armeria.xds.client.endpoint;
 
 import static com.linecorp.armeria.internal.client.endpoint.EndpointAttributeKeys.CREATED_AT_NANOS_KEY;
-import static com.linecorp.armeria.internal.client.endpoint.EndpointAttributeKeys.createdAtNanos;
 import static com.linecorp.armeria.internal.client.endpoint.EndpointAttributeKeys.hasCreatedAtNanos;
 
 import java.util.List;
@@ -32,9 +31,8 @@ import com.google.common.collect.ImmutableMap;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Attributes;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
-import com.linecorp.armeria.xds.ClusterSnapshot;
-import com.linecorp.armeria.xds.client.endpoint.ClusterEntry.EndpointsState;
 
 import io.netty.util.concurrent.EventExecutor;
 
@@ -49,17 +47,19 @@ final class EndpointsPool implements AsyncCloseable {
         this.eventExecutor = eventExecutor;
     }
 
-    void updateClusterSnapshot(ClusterSnapshot newSnapshot, Consumer<EndpointsState> endpointsListener) {
+    void updateClusterSnapshot(UpdatableLoadBalancer loadBalancer) {
         // it is very important that the listener is removed first so that endpoints aren't deemed
         // unhealthy due to closing a HealthCheckedEndpointGroup
         delegate.removeListener(listener);
         delegate.closeAsync();
 
         // set the new endpoint and listener
-        delegate = XdsEndpointUtil.convertEndpointGroup(newSnapshot);
+        delegate = XdsEndpointUtil.convertEndpointGroup(loadBalancer.clusterSnapshot());
         listener = endpoints -> eventExecutor.execute(
-                () -> endpointsListener.accept(new EndpointsState(newSnapshot,
-                                                                  cacheAttributesAndDelegate(endpoints))));
+                () -> {
+                    final List<Endpoint> pooledEndpoints = cacheAttributesAndDelegate(endpoints);
+                    loadBalancer.updateEndpoints(pooledEndpoints);
+                });
         delegate.addListener(listener, true);
     }
 
@@ -74,21 +74,6 @@ final class EndpointsPool implements AsyncCloseable {
         }
         prevAttrs = prevAttrsBuilder.buildKeepingLast();
         return endpointsBuilder.build();
-    }
-
-    private long computeTimestamp(Endpoint endpoint, long defaultTimestamp) {
-        if (hasCreatedAtNanos(endpoint)) {
-            return createdAtNanos(endpoint);
-        }
-        Long timestamp = null;
-        final Attributes prevAttr = prevAttrs.get(endpoint);
-        if (prevAttr != null) {
-            timestamp = prevAttr.attr(CREATED_AT_NANOS_KEY);
-        }
-        if (timestamp != null) {
-            return timestamp;
-        }
-        return defaultTimestamp;
     }
 
     private Endpoint withTimestamp(Endpoint endpoint, long defaultTimestamp) {

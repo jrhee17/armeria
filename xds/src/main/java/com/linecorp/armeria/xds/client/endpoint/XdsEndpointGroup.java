@@ -28,7 +28,6 @@ import java.util.concurrent.locks.Lock;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.Iterables;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
@@ -41,7 +40,6 @@ import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.XdsBootstrap;
-import com.linecorp.armeria.xds.client.endpoint.ClusterManager.State;
 
 import io.envoyproxy.envoy.config.core.v3.GrpcService;
 import io.envoyproxy.envoy.config.core.v3.SocketAddress;
@@ -60,8 +58,11 @@ import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
  * or locality based load balancing are not supported yet.
  * Note that it is important to shut down the endpoint group to clean up resources
  * for the provided {@link XdsBootstrap}.
+ *
+ * @deprecated use {@link XdsHttpPreprocessor} instead
  */
 @UnstableApi
+@Deprecated
 public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>> implements EndpointGroup {
 
     /**
@@ -95,12 +96,12 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>> i
 
     private final XdsEndpointSelectionStrategy selectionStrategy;
     private final boolean allowEmptyEndpoints;
-    private volatile State state = State.INITIAL_STATE;
+    private volatile List<Endpoint> endpoints = UNINITIALIZED_ENDPOINTS;
     private final Lock stateLock = new ReentrantShortLock();
     private final CompletableFuture<List<Endpoint>> initialEndpointsFuture = new CompletableFuture<>();
 
-    private final ClusterManager clusterManager;
     private final XdsEndpointSelector selector;
+    private final ClusterManager clusterManager;
 
     XdsEndpointGroup(ClusterManager clusterManager, boolean allowEmptyEndpoints) {
         selectionStrategy = new XdsEndpointSelectionStrategy(clusterManager);
@@ -110,22 +111,27 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>> i
         this.clusterManager = clusterManager;
     }
 
-    private void updateState(State state) {
-        if (!allowEmptyEndpoints && Iterables.isEmpty(state.endpoints())) {
+    private void updateState(@Nullable ClusterEntries clusterEntries) {
+        if (clusterEntries == null) {
             return;
         }
+        final List<Endpoint> endpoints = clusterEntries.allEndpoints();
+        if (!allowEmptyEndpoints && endpoints.isEmpty()) {
+            return;
+        }
+
         stateLock.lock();
         try {
             // It is too much work to keep track of the snapshot/endpoints/attributes that determine
             // whether the state is cacheable or not. For now, to prevent bugs we just set the
             // state transparently and don't decide whether to notify an event based on the cache.
-            this.state = state;
+            this.endpoints = endpoints;
         } finally {
             stateLock.unlock();
         }
 
-        maybeCompleteInitialEndpointsFuture(state.endpoints());
-        notifyListeners(state.endpoints());
+        maybeCompleteInitialEndpointsFuture(endpoints);
+        notifyListeners(endpoints);
     }
 
     private void maybeCompleteInitialEndpointsFuture(List<Endpoint> endpoints) {
@@ -137,7 +143,7 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>> i
     @Nullable
     @Override
     protected List<Endpoint> latestValue() {
-        final List<Endpoint> endpoints = state.endpoints();
+        final List<Endpoint> endpoints = endpoints();
         if (endpoints == UNINITIALIZED_ENDPOINTS) {
             return null;
         } else {
@@ -152,7 +158,7 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>> i
 
     @Override
     public List<Endpoint> endpoints() {
-        return state.endpoints();
+        return endpoints;
     }
 
     @Override
@@ -204,7 +210,7 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>> i
                           .add("selectionStrategy", selectionStrategy)
                           .add("allowEmptyEndpoints", allowEmptyEndpoints)
                           .add("initialized", initialEndpointsFuture.isDone())
-                          .add("state", state)
+                          .add("endpoints", endpoints())
                           .add("clusterManager", clusterManager)
                           .toString();
     }

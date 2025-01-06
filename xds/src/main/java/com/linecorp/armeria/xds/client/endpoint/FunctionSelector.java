@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LINE Corporation
+ * Copyright 2025 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -16,17 +16,23 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import com.google.common.annotations.VisibleForTesting;
+import java.util.function.Function;
 
+import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.LocalityRoutingState;
+import com.linecorp.armeria.internal.client.AbstractSelector;
 
-interface XdsLoadBalancer extends LoadBalancer {
+final class FunctionSelector<T> extends AbstractSelector<T> {
 
+    private final Function<ClientRequestContext, @Nullable T> function;
+
+    FunctionSelector(Function<ClientRequestContext, @Nullable T> function) {
+        this.function = function;
+    }
+
+    @Override
     @Nullable
-    PrioritySet prioritySet();
-
-    @Nullable
-    @VisibleForTesting
-    LocalityRoutingState localityRoutingState();
+    public T selectNow(ClientRequestContext ctx) {
+        return function.apply(ctx);
+    }
 }

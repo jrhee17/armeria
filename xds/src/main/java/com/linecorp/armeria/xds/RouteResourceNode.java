@@ -48,9 +48,9 @@ final class RouteResourceNode extends AbstractResourceNodeWithPrimer<RouteXdsRes
     private final SnapshotWatcher<RouteSnapshot> parentWatcher;
 
     RouteResourceNode(@Nullable ConfigSource configSource, String resourceName,
-                      XdsBootstrapImpl xdsBootstrap, @Nullable ListenerXdsResource primer,
+                      BootstrapContext bootstrapContext, @Nullable ListenerXdsResource primer,
                       SnapshotWatcher<RouteSnapshot> parentWatcher, ResourceNodeType resourceNodeType) {
-        super(xdsBootstrap, configSource, ROUTE, resourceName, primer, parentWatcher, resourceNodeType);
+        super(bootstrapContext, configSource, ROUTE, resourceName, primer, parentWatcher, resourceNodeType);
         this.parentWatcher = parentWatcher;
     }
 
@@ -73,20 +73,21 @@ final class RouteResourceNode extends AbstractResourceNodeWithPrimer<RouteXdsRes
                 clusterSnapshotList.add(null);
                 pending.add(index);
 
-                final Cluster cluster = xdsBootstrap().bootstrapClusters().cluster(clusterName);
+                final Cluster cluster = bootstrapContext().xdsBootstrap()
+                                                          .bootstrapClusters().cluster(clusterName);
                 final ClusterResourceNode node;
                 if (cluster != null) {
-                    node = staticCluster(xdsBootstrap(), clusterName, resource, snapshotWatcher, virtualHost,
+                    node = staticCluster(bootstrapContext(), clusterName, resource, snapshotWatcher, virtualHost,
                                          route, index++, cluster);
                     children().add(node);
                 } else {
                     final ConfigSource configSource =
-                            configSourceMapper().cdsConfigSource(null, clusterName);
-                    node = new ClusterResourceNode(configSource, clusterName, xdsBootstrap(),
+                            configSourceMapper().cdsConfigSource(clusterName);
+                    node = new ClusterResourceNode(configSource, clusterName, bootstrapContext(),
                                                    resource, snapshotWatcher, virtualHost, route,
                                                    index++, ResourceNodeType.DYNAMIC);
                     children().add(node);
-                    xdsBootstrap().subscribe(node);
+                    bootstrapContext().xdsBootstrap().subscribe(node);
                 }
             }
         }

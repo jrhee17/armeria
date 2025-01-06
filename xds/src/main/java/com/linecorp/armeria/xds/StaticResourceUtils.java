@@ -28,34 +28,34 @@ final class StaticResourceUtils {
 
     private StaticResourceUtils() {}
 
-    static RouteResourceNode staticRoute(XdsBootstrapImpl xdsBootstrap, String resourceName,
+    static RouteResourceNode staticRoute(BootstrapContext bootstrapContext, String resourceName,
                                          ListenerXdsResource primer,
                                          SnapshotWatcher<RouteSnapshot> parentWatcher,
                                          RouteConfiguration routeConfiguration) {
         final RouteResourceParser resourceParser =
                 (RouteResourceParser) XdsResourceParserUtil.fromType(XdsType.ROUTE);
         final RouteXdsResource parsed = resourceParser.parse(routeConfiguration);
-        final RouteResourceNode node = new RouteResourceNode(null, resourceName, xdsBootstrap, primer,
+        final RouteResourceNode node = new RouteResourceNode(null, resourceName, bootstrapContext, primer,
                                                              parentWatcher, STATIC);
         node.onChanged(parsed);
         return node;
     }
 
-    static ClusterResourceNode staticCluster(XdsBootstrapImpl xdsBootstrap, String resourceName,
+    static ClusterResourceNode staticCluster(BootstrapContext bootstrapContext, String resourceName,
                                              SnapshotWatcher<ClusterSnapshot> parentWatcher,
                                              Cluster cluster) {
-        final ClusterResourceNode node = new ClusterResourceNode(null, resourceName, xdsBootstrap,
+        final ClusterResourceNode node = new ClusterResourceNode(null, resourceName, bootstrapContext,
                                                                  null, parentWatcher, STATIC);
         setClusterXdsResourceToNode(cluster, node);
         return node;
     }
 
-    static ClusterResourceNode staticCluster(XdsBootstrapImpl xdsBootstrap, String resourceName,
+    static ClusterResourceNode staticCluster(BootstrapContext bootstrapContext, String resourceName,
                                              RouteXdsResource primer,
                                              SnapshotWatcher<ClusterSnapshot> parentWatcher,
                                              VirtualHost virtualHost, Route route, int index,
                                              Cluster cluster) {
-        final ClusterResourceNode node = new ClusterResourceNode(null, resourceName, xdsBootstrap,
+        final ClusterResourceNode node = new ClusterResourceNode(null, resourceName, bootstrapContext,
                                                                  primer, parentWatcher, virtualHost, route,
                                                                  index, STATIC);
         setClusterXdsResourceToNode(cluster, node);
@@ -69,14 +69,14 @@ final class StaticResourceUtils {
         node.onChanged(parsed);
     }
 
-    static EndpointResourceNode staticEndpoint(XdsBootstrapImpl xdsBootstrap, String resourceName,
+    static EndpointResourceNode staticEndpoint(BootstrapContext bootstrapContext, String resourceName,
                                                ClusterXdsResource primer,
                                                SnapshotWatcher<EndpointSnapshot> parentWatcher,
                                                ClusterLoadAssignment clusterLoadAssignment) {
         final EndpointResourceParser resourceParser =
                 (EndpointResourceParser) XdsResourceParserUtil.fromType(XdsType.ENDPOINT);
         final EndpointXdsResource parsed = resourceParser.parse(clusterLoadAssignment);
-        final EndpointResourceNode node = new EndpointResourceNode(null, resourceName, xdsBootstrap,
+        final EndpointResourceNode node = new EndpointResourceNode(null, resourceName, bootstrapContext,
                                                                    primer, parentWatcher, STATIC);
         node.onChanged(parsed);
         return node;

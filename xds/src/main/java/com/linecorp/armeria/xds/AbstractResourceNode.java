@@ -28,7 +28,7 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
 
     private final Deque<ResourceNode<?>> children = new ArrayDeque<>();
 
-    private final XdsBootstrapImpl xdsBootstrap;
+    private final BootstrapContext bootstrapContext;
     @Nullable
     private final ConfigSource configSource;
     private final XdsType type;
@@ -38,11 +38,11 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
     @Nullable
     private T current;
 
-    AbstractResourceNode(XdsBootstrapImpl xdsBootstrap, @Nullable ConfigSource configSource,
+    AbstractResourceNode(BootstrapContext bootstrapContext, @Nullable ConfigSource configSource,
                          XdsType type, String resourceName,
                          SnapshotWatcher<? extends Snapshot<T>> parentWatcher,
                          ResourceNodeType resourceNodeType) {
-        this.xdsBootstrap = xdsBootstrap;
+        this.bootstrapContext = bootstrapContext;
         this.configSource = configSource;
         this.type = type;
         this.resourceName = resourceName;
@@ -50,8 +50,8 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
         this.resourceNodeType = resourceNodeType;
     }
 
-    XdsBootstrapImpl xdsBootstrap() {
-        return xdsBootstrap;
+    BootstrapContext bootstrapContext() {
+        return bootstrapContext;
     }
 
     @Nullable
@@ -110,7 +110,7 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
         }
         children.clear();
         if (resourceNodeType == ResourceNodeType.DYNAMIC) {
-            xdsBootstrap.unsubscribe(this);
+            bootstrapContext.xdsBootstrap().unsubscribe(this);
         }
     }
 
@@ -129,6 +129,6 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
     }
 
     ConfigSourceMapper configSourceMapper() {
-        return xdsBootstrap.configSourceMapper().withParentConfigSource(configSource);
+        return bootstrapContext.xdsBootstrap().configSourceMapper().withParentConfigSource(configSource);
     }
 }

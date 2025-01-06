@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LINE Corporation
+ * Copyright 2025 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -16,17 +16,31 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import com.google.common.annotations.VisibleForTesting;
+import java.util.function.Consumer;
 
+import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.LocalityRoutingState;
+import com.linecorp.armeria.common.util.Listenable;
+import com.linecorp.armeria.internal.client.AbstractSelector;
 
-interface XdsLoadBalancer extends LoadBalancer {
-
-    @Nullable
-    PrioritySet prioritySet();
+final class ListenerSelector<T> extends AbstractSelector<T> implements Consumer<T> {
 
     @Nullable
-    @VisibleForTesting
-    LocalityRoutingState localityRoutingState();
+    private volatile T current;
+
+    ListenerSelector(Listenable<T> listenable) {
+        listenable.addListener(this);
+    }
+
+    @Override
+    public void accept(T current) {
+        this.current = current;
+        refresh();
+    }
+
+    @Override
+    @Nullable
+    protected T selectNow(ClientRequestContext ctx) {
+        return current;
+    }
 }

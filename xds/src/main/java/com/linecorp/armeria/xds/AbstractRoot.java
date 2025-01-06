@@ -145,6 +145,10 @@ abstract class AbstractRoot<T extends Snapshot<? extends XdsResource>>
         }
     }
 
+    Set<SnapshotWatcher<? super T>> snapshotWatchers() {
+        return snapshotWatchers;
+    }
+
     @VisibleForTesting
     boolean closed() {
         return closed;

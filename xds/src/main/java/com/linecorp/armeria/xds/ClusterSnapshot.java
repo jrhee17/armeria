@@ -16,11 +16,17 @@
 
 package com.linecorp.armeria.xds;
 
+import static com.linecorp.armeria.xds.FilterUtil.toParsedFilterConfigs;
+
+import java.util.Map;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableMap;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
+import com.linecorp.armeria.xds.client.endpoint.UpdatableLoadBalancer;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.route.v3.Route;
@@ -40,21 +46,30 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
     private final Route route;
     private final int index;
 
-    ClusterSnapshot(ClusterXdsResource clusterXdsResource, EndpointSnapshot endpointSnapshot,
-                    @Nullable VirtualHost virtualHost, @Nullable Route route, int index) {
+    private final Map<String, ParsedFilterConfig> routeFilterConfigs;
+    private final Map<String, ParsedFilterConfig> virtualHostFilterConfigs;
+    @Nullable
+    private final UpdatableLoadBalancer clusterEntry;
+
+    ClusterSnapshot(ClusterXdsResource clusterXdsResource, @Nullable EndpointSnapshot endpointSnapshot,
+                    @Nullable VirtualHost virtualHost, @Nullable Route route, int index,
+                    ThreadLocalCluster threadLocalCluster) {
         this.clusterXdsResource = clusterXdsResource;
         this.endpointSnapshot = endpointSnapshot;
         this.virtualHost = virtualHost;
         this.route = route;
         this.index = index;
+
+        routeFilterConfigs = route != null ? toParsedFilterConfigs(route.getTypedPerFilterConfigMap())
+                                           : ImmutableMap.of();
+        virtualHostFilterConfigs =
+                virtualHost != null ? toParsedFilterConfigs(virtualHost.getTypedPerFilterConfigMap())
+                                    : ImmutableMap.of();
+        clusterEntry = threadLocalCluster.updateSnapshot(this);
     }
 
-    ClusterSnapshot(ClusterXdsResource clusterXdsResource) {
-        this.clusterXdsResource = clusterXdsResource;
-        endpointSnapshot = null;
-        virtualHost = null;
-        route = null;
-        index = -1;
+    ClusterSnapshot(ClusterXdsResource clusterXdsResource, ThreadLocalCluster threadLocalCluster) {
+        this(clusterXdsResource, null, null, null, -1, threadLocalCluster);
     }
 
     @Override
@@ -68,6 +83,11 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
     @Nullable
     public EndpointSnapshot endpointSnapshot() {
         return endpointSnapshot;
+    }
+
+    @Nullable
+    public UpdatableLoadBalancer clusterEntry() {
+        return clusterEntry;
     }
 
     /**
@@ -90,6 +110,24 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
         return index;
     }
 
+    /**
+     * TBU.
+     */
+    @Nullable
+    @UnstableApi
+    public ParsedFilterConfig routeFilterConfig(String name) {
+        return routeFilterConfigs.get(name);
+    }
+
+    /**
+     * TBU.
+     */
+    @Nullable
+    @UnstableApi
+    public ParsedFilterConfig virtualHostFilterConfig(String name) {
+        return virtualHostFilterConfigs.get(name);
+    }
+
     @Override
     public boolean equals(Object object) {
         if (this == object) {
@@ -99,15 +137,13 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
             return false;
         }
         final ClusterSnapshot that = (ClusterSnapshot) object;
-        return index == that.index && Objects.equal(clusterXdsResource, that.clusterXdsResource) &&
-               Objects.equal(endpointSnapshot, that.endpointSnapshot) &&
-               Objects.equal(virtualHost, that.virtualHost) &&
-               Objects.equal(route, that.route);
+        return Objects.equal(clusterXdsResource, that.clusterXdsResource) &&
+               Objects.equal(endpointSnapshot, that.endpointSnapshot);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(clusterXdsResource, endpointSnapshot, virtualHost, route, index);
+        return Objects.hashCode(clusterXdsResource, endpointSnapshot);
     }
 
     @Override
@@ -116,9 +152,6 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
                           .omitNullValues()
                           .add("clusterXdsResource", clusterXdsResource)
                           .add("endpointSnapshot", endpointSnapshot)
-                          .add("virtualHost", virtualHost)
-                          .add("route", route)
-                          .add("index", index)
                           .toString();
     }
 }
