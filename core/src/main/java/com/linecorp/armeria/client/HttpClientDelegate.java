@@ -26,6 +26,7 @@ import com.linecorp.armeria.client.endpoint.EmptyEndpointGroupException;
 import com.linecorp.armeria.client.proxy.HAProxyConfig;
 import com.linecorp.armeria.client.proxy.ProxyConfig;
 import com.linecorp.armeria.client.proxy.ProxyType;
+import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.SerializationFormat;
@@ -69,6 +70,18 @@ final class HttpClientDelegate implements HttpClient {
             return earlyFailedResponse(
                     new IllegalStateException("ctx.request() does not match the actual request; " +
                                               "did you forget to call ctx.updateRequest() in your decorator?"),
+                    ctx);
+        }
+        if (ctx.sessionProtocol() == SessionProtocol.UNDEFINED) {
+            return earlyFailedResponse(
+                    new IllegalArgumentException(
+                            "ctx.sessionProtocol() cannot be '" + ctx.sessionProtocol() + "'. " +
+                            "It must be one of '" + SessionProtocol.httpAndHttpsValues() + "'."), ctx);
+        }
+        if (ctx.method() == HttpMethod.UNKNOWN) {
+            return earlyFailedResponse(
+                    new IllegalArgumentException("ctx.method() cannot be '" + ctx.method() +
+                                                 "'. It must be one of '" + HttpMethod.knownMethods() + "'."),
                     ctx);
         }
 

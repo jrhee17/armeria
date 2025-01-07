@@ -15,8 +15,6 @@
  */
 package com.linecorp.armeria.client;
 
-import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
-
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -28,19 +26,14 @@ import org.slf4j.LoggerFactory;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpMethod;
-import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
-import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.Response;
-import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.util.AbstractUnwrappable;
-import com.linecorp.armeria.common.util.SystemInfo;
-import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
 
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -170,37 +163,20 @@ public abstract class UserClient<I extends Request, O extends Response>
      */
     protected final O execute(SessionProtocol protocol, EndpointGroup endpointGroup, HttpMethod method,
                               RequestTarget reqTarget, I req, RequestOptions requestOptions) {
-
-        final HttpRequest httpReq;
-        final RpcRequest rpcReq;
-        final RequestId id = nextRequestId();
-
-        if (req instanceof HttpRequest) {
-            httpReq = (HttpRequest) req;
-            rpcReq = null;
-        } else {
-            httpReq = null;
-            rpcReq = (RpcRequest) req;
-        }
-
-        final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
-                meterRegistry, protocol, id, method, reqTarget, options(), httpReq, rpcReq,
-                requestOptions, System.nanoTime(), SystemInfo.currentTimeMicros());
-
-        return initContextAndExecuteWithFallback(unwrap(), ctx, endpointGroup,
-                                                 futureConverter, errorResponseFactory);
+        throw new UnsupportedOperationException();
     }
 
-    private RequestId nextRequestId() {
-        final RequestId id = options().requestIdGenerator().get();
-        if (id == null) {
-            if (!warnedNullRequestId) {
-                warnedNullRequestId = true;
-                logger.warn("requestIdGenerator.get() returned null; using RequestId.random()");
-            }
-            return RequestId.random();
-        } else {
-            return id;
-        }
+    /**
+     * TBU.
+     */
+    protected Function<CompletableFuture<O>, O> futureConverter() {
+        return futureConverter;
+    }
+
+    /**
+     * TBU.
+     */
+    protected BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory() {
+        return errorResponseFactory;
     }
 }

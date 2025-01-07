@@ -15,7 +15,6 @@
  */
 package com.linecorp.armeria.client;
 
-import static com.linecorp.armeria.internal.client.ClientUtil.UNDEFINED_URI;
 import static java.util.Objects.requireNonNull;
 
 import java.net.URI;
@@ -36,6 +35,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.common.util.Unwrappable;
 import com.linecorp.armeria.internal.client.ClientThreadLocalState;
+import com.linecorp.armeria.internal.client.ClientUtil;
 
 /**
  * Creates a new client that connects to a specified {@link URI}.
@@ -173,6 +173,29 @@ public final class Clients {
     }
 
     /**
+     * TBU.
+     */
+    public static <T> T  newClient(ClientPreprocessors preprocessors, Class<T> clientType) {
+        return builder(preprocessors).build(clientType);
+    }
+
+    /**
+     * TBU.
+     */
+    public static <T> T newClient(SerializationFormat serializationFormat, ClientPreprocessors preprocessors,
+                                  Class<T> clientType) {
+        return builder(serializationFormat, preprocessors).build(clientType);
+    }
+
+    /**
+     * TBU.
+     */
+    public static <T> T newClient(SerializationFormat serializationFormat, ClientPreprocessors preprocessors,
+                                  Class<T> clientType, String path) {
+        return builder(serializationFormat, preprocessors, path).build(clientType);
+    }
+
+    /**
      * Returns a new {@link ClientBuilder} that builds the client that connects to the specified {@code uri}.
      *
      * @throws IllegalArgumentException if the specified {@code uri} is invalid, or the specified
@@ -250,6 +273,35 @@ public final class Clients {
         requireNonNull(endpointGroup, "endpointGroup");
         requireNonNull(path, "path");
         return new ClientBuilder(scheme, endpointGroup, path);
+    }
+
+    /**
+     * TBU.
+     */
+    public static ClientBuilder builder(ClientPreprocessors preprocessors) {
+        requireNonNull(preprocessors, "preprocessors");
+        return new ClientBuilder(SerializationFormat.NONE, preprocessors, null);
+    }
+
+    /**
+     * TBU.
+     */
+    public static ClientBuilder builder(SerializationFormat serializationFormat,
+                                        ClientPreprocessors preprocessors) {
+        requireNonNull(serializationFormat, "serializationFormat");
+        requireNonNull(preprocessors, "preprocessors");
+        return new ClientBuilder(serializationFormat, preprocessors, null);
+    }
+
+    /**
+     * TBU.
+     */
+    public static ClientBuilder builder(SerializationFormat serializationFormat,
+                                        ClientPreprocessors preprocessors, String path) {
+        requireNonNull(serializationFormat, "serializationFormat");
+        requireNonNull(preprocessors, "preprocessors");
+        requireNonNull(path, "path");
+        return new ClientBuilder(serializationFormat, preprocessors, path);
     }
 
     /**
@@ -604,7 +656,7 @@ public final class Clients {
      * {@code isUndefinedUri(WebClient.of().uri())} will return {@code true}.
      */
     public static boolean isUndefinedUri(URI uri) {
-        return uri == UNDEFINED_URI;
+        return uri == ClientUtil.UNDEFINED_URI;
     }
 
     private Clients() {}

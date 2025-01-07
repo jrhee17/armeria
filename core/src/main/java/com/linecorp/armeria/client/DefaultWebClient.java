@@ -26,9 +26,12 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RequestTargetForm;
-import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.ClientBuilderParamsUtil;
+import com.linecorp.armeria.internal.client.ClientUtil;
+import com.linecorp.armeria.internal.client.DefaultClientRequestContext;
+import com.linecorp.armeria.internal.client.TailClientExecution;
 
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -45,10 +48,12 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
     private BlockingWebClient blockingWebClient;
     @Nullable
     private RestClient restClient;
+    private final HttpClientExecution tailClientExecution;
 
     DefaultWebClient(ClientBuilderParams params, HttpClient delegate, MeterRegistry meterRegistry) {
         super(params, delegate, meterRegistry,
               HttpResponse::of, (ctx, cause) -> HttpResponse.ofFailure(cause));
+        tailClientExecution = TailClientExecution.of(unwrap(), futureConverter(), errorResponseFactory());
     }
 
     @Override
@@ -64,46 +69,15 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
                     req, new IllegalArgumentException("Invalid request target: " + originalPath));
         }
 
-        final EndpointGroup endpointGroup;
-        final SessionProtocol protocol;
-
-        if (Clients.isUndefinedUri(uri())) {
-            final String scheme;
-            final String authority;
-            if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
-                scheme = reqTarget.scheme();
-                authority = reqTarget.authority();
-                assert scheme != null;
-                assert authority != null;
-            } else {
-                scheme = req.scheme();
-                authority = req.authority();
-
-                if (scheme == null || authority == null) {
-                    return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
-                            "Scheme and authority must be specified in \":path\" or " +
-                            "in \":scheme\" and \":authority\". :path=" +
-                            originalPath + ", :scheme=" + req.scheme() + ", :authority=" + req.authority()));
-                }
-            }
-
-            endpointGroup = Endpoint.parse(authority);
-            try {
-                protocol = Scheme.parse(scheme).sessionProtocol();
-            } catch (Exception e) {
-                return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
-                        "Failed to parse a scheme: " + reqTarget.scheme(), e));
-            }
-        } else {
-            if (reqTarget.form() == RequestTargetForm.ABSOLUTE) {
-                return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
-                        "Cannot send a request with a \":path\" header that contains an authority, " +
-                        "because the client was created with a base URI. path: " + originalPath));
-            }
-
-            endpointGroup = endpointGroup();
-            protocol = scheme().sessionProtocol();
+        if ((ClientBuilderParamsUtil.isEndpointUri(uri()) || !ClientBuilderParamsUtil.isInternalUri(uri())) &&
+            reqTarget.form() == RequestTargetForm.ABSOLUTE) {
+            return abortRequestAndReturnFailureResponse(req, new IllegalArgumentException(
+                    "Cannot send a request with a \":path\" header that contains an authority, " +
+                    "because the client was created with a base URI. path: " + originalPath));
         }
+
+        final EndpointGroup endpointGroup = endpointGroup();
+        final SessionProtocol protocol = scheme().sessionProtocol();
 
         final String newPath = reqTarget.pathAndQuery();
         final HttpRequest newReq;
@@ -112,13 +86,10 @@ final class DefaultWebClient extends UserClient<HttpRequest, HttpResponse> imple
         } else {
             newReq = req.withHeaders(req.headers().toBuilder().path(newPath));
         }
-
-        return execute(protocol,
-                       endpointGroup,
-                       newReq.method(),
-                       reqTarget,
-                       newReq,
-                       requestOptions);
+        final DefaultClientRequestContext ctx = new DefaultClientRequestContext(
+                protocol, newReq, null, reqTarget, endpointGroup, requestOptions, options());
+        final HttpClientExecution execution = options().clientPreprocessors().decorate(tailClientExecution);
+        return ClientUtil.executeWithFallback(execution, ctx, newReq, errorResponseFactory());
     }
 
     private static HttpResponse abortRequestAndReturnFailureResponse(

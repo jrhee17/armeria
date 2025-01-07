@@ -77,8 +77,9 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
     static Function<? super HttpClient, RedirectingClient> newDecorator(
             ClientBuilderParams params, RedirectConfig redirectConfig) {
         final boolean undefinedUri = Clients.isUndefinedUri(params.uri());
+        final boolean undefinedScheme = params.scheme().sessionProtocol() == SessionProtocol.UNDEFINED;
         final Set<SessionProtocol> allowedProtocols =
-                allowedProtocols(undefinedUri, redirectConfig.allowedProtocols(),
+                allowedProtocols(undefinedScheme, redirectConfig.allowedProtocols(),
                                  params.scheme().sessionProtocol());
         final BiPredicate<ClientRequestContext, String> domainFilter =
                 domainFilter(undefinedUri, redirectConfig.domainFilter());
@@ -86,10 +87,10 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
                                                  redirectConfig.maxRedirects());
     }
 
-    private static Set<SessionProtocol> allowedProtocols(boolean undefinedUri,
+    private static Set<SessionProtocol> allowedProtocols(boolean undefinedScheme,
                                                          @Nullable Set<SessionProtocol> allowedProtocols,
                                                          SessionProtocol usedProtocol) {
-        if (undefinedUri) {
+        if (undefinedScheme) {
             if (allowedProtocols != null) {
                 return allowedProtocols;
             }
@@ -192,8 +193,11 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
             return;
         }
 
+        final HttpRequest ctxReq = derivedCtx.request();
+        assert ctxReq != null;
         final HttpResponse response = executeWithFallback(unwrap(), derivedCtx,
-                                                          (context, cause) -> HttpResponse.ofFailure(cause));
+                                                          (context, cause) -> HttpResponse.ofFailure(cause),
+                                                          ctxReq);
         derivedCtx.log().whenAvailable(RequestLogProperty.RESPONSE_HEADERS).thenAccept(log -> {
             if (log.isAvailable(RequestLogProperty.RESPONSE_CAUSE)) {
                 final Throwable cause = log.responseCause();

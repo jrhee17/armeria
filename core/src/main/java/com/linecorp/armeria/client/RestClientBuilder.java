@@ -70,6 +70,10 @@ public final class RestClientBuilder extends AbstractWebClientBuilder {
         super(sessionProtocol, endpointGroup, path);
     }
 
+    RestClientBuilder(HttpPreprocessor preprocessor, @Nullable String path) {
+        super(preprocessor, path);
+    }
+
     /**
      * Returns a newly-created web client based on the properties of this builder.
      *
@@ -258,5 +262,16 @@ public final class RestClientBuilder extends AbstractWebClientBuilder {
     @Override
     public RestClientBuilder responseTimeoutMode(ResponseTimeoutMode responseTimeoutMode) {
         return (RestClientBuilder) super.responseTimeoutMode(responseTimeoutMode);
+    }
+
+    @Override
+    public RestClientBuilder preprocessor(HttpPreprocessor decorator) {
+        return (RestClientBuilder) super.preprocessor(decorator);
+    }
+
+    @Override
+    @Deprecated
+    public RestClientBuilder rpcPreprocessor(RpcPreprocessor rpcPreprocessor) {
+        return (RestClientBuilder) super.rpcPreprocessor(rpcPreprocessor);
     }
 }
