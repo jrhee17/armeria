@@ -21,16 +21,16 @@ import static com.linecorp.armeria.xds.XdsTestResources.endpoint;
 import static com.linecorp.armeria.xds.XdsTestResources.localityLbEndpoints;
 import static com.linecorp.armeria.xds.XdsTestResources.staticBootstrap;
 import static com.linecorp.armeria.xds.XdsTestResources.staticResourceListener;
+import static com.linecorp.armeria.xds.XdsTestUtil.pollLoadBalancer;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 import org.junit.jupiter.api.Test;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.xds.ListenerRoot;
 import com.linecorp.armeria.xds.XdsBootstrap;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
@@ -64,15 +64,15 @@ class StrictDnsIntegrationTest {
                 .build();
 
         final Bootstrap bootstrap = staticBootstrap(listener, cluster);
-        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
-             EndpointGroup endpointGroup = XdsEndpointGroup.of("listener", xdsBootstrap)) {
-            await().untilAsserted(() -> assertThat(endpointGroup.whenReady()).isDone());
+        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap) ;
+             ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
+            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
 
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
-            final Endpoint endpoint = endpointGroup.selectNow(ctx);
+            final Endpoint endpoint = loadBalancer.selectNow(ctx);
             assertThat(endpoint)
-                    .withFailMessage("Failed for endpoints: (%s)", endpointGroup.endpoints())
+                    .withFailMessage("Failed for endpoints: (%s)", loadBalancer.endpoints())
                     .isNotNull();
             assertThat(endpoint.weight()).isEqualTo(weight);
         }

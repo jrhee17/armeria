@@ -26,6 +26,7 @@ import java.util.Map;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableMap;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
@@ -43,6 +44,7 @@ public final class RouteSnapshot implements Snapshot<RouteXdsResource> {
 
     private final RouteXdsResource routeXdsResource;
     private final List<ClusterSnapshot> clusterSnapshots;
+    private final Map<String, ClusterSnapshot> clusterSnapshotsByName;
 
     private final Map<VirtualHost, List<ClusterSnapshot>> virtualHostMap;
     private final Map<String, ParsedFilterConfig> filterConfigs;
@@ -52,7 +54,9 @@ public final class RouteSnapshot implements Snapshot<RouteXdsResource> {
         this.clusterSnapshots = clusterSnapshots;
 
         final LinkedHashMap<VirtualHost, List<ClusterSnapshot>> virtualHostMap = new LinkedHashMap<>();
+        final ImmutableMap.Builder<String, ClusterSnapshot> byNameBuilder = ImmutableMap.builder();
         for (ClusterSnapshot clusterSnapshot: clusterSnapshots) {
+            byNameBuilder.put(clusterSnapshot.xdsResource().name(), clusterSnapshot);
             final VirtualHost virtualHost = clusterSnapshot.virtualHost();
             assert virtualHost != null;
             virtualHostMap.computeIfAbsent(virtualHost, ignored -> new ArrayList<>())
@@ -60,6 +64,7 @@ public final class RouteSnapshot implements Snapshot<RouteXdsResource> {
         }
         this.virtualHostMap = Collections.unmodifiableMap(virtualHostMap);
         filterConfigs = toParsedFilterConfigs(routeXdsResource.resource().getTypedPerFilterConfigMap());
+        clusterSnapshotsByName = byNameBuilder.buildKeepingLast();
     }
 
     @Override
@@ -72,6 +77,11 @@ public final class RouteSnapshot implements Snapshot<RouteXdsResource> {
      */
     public List<ClusterSnapshot> clusterSnapshots() {
         return clusterSnapshots;
+    }
+
+    @Nullable
+    public ClusterSnapshot clusterSnapshot(String name) {
+        return clusterSnapshotsByName.get(name);
     }
 
     /**

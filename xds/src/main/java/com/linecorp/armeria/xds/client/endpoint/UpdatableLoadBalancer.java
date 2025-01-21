@@ -28,12 +28,14 @@ import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.endpoint.EndpointSelector;
+import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.client.endpoint.ClusterManager.LocalCluster;
 import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.LocalityRoutingState;
 
-public final class UpdatableLoadBalancer implements XdsLoadBalancer {
+public final class UpdatableLoadBalancer implements XdsLoadBalancer, EndpointSelector {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdatableLoadBalancer.class);
 
@@ -63,7 +65,7 @@ public final class UpdatableLoadBalancer implements XdsLoadBalancer {
                 return null;
             }
             return loadBalancer.selectNow(ctx);
-        });
+        }, ctx -> new TimeoutException("Failed to select an endpoint for ctx: " + ctx));
     }
 
     void updateEndpoints(List<Endpoint> endpoints) {
@@ -141,8 +143,13 @@ public final class UpdatableLoadBalancer implements XdsLoadBalancer {
         return delegate.selectNow(ctx);
     }
 
+    @Override
     public CompletableFuture<Endpoint> select(ClientRequestContext ctx,
                                               ScheduledExecutorService executor, long selectionTimeoutMillis) {
         return endpointSelector.select(ctx, executor, selectionTimeoutMillis);
+    }
+
+    public CompletableFuture<Endpoint> select(ClientRequestContext ctx) {
+        return select(ctx, ctx.eventLoop(), ctx.responseTimeoutMillis());
     }
 }

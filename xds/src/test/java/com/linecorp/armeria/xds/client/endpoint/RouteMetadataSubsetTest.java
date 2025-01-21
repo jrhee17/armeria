@@ -24,10 +24,10 @@ import static com.linecorp.armeria.xds.XdsTestResources.localityLbEndpoints;
 import static com.linecorp.armeria.xds.XdsTestResources.staticBootstrap;
 import static com.linecorp.armeria.xds.XdsTestResources.staticResourceListener;
 import static com.linecorp.armeria.xds.XdsTestResources.stringValue;
+import static com.linecorp.armeria.xds.XdsTestUtil.pollLoadBalancer;
 import static com.linecorp.armeria.xds.client.endpoint.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
 import static com.linecorp.armeria.xds.client.endpoint.XdsConverterUtilTest.sampleClusterLoadAssignment;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 import java.util.List;
 
@@ -41,12 +41,12 @@ import com.google.protobuf.Struct;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
+import com.linecorp.armeria.xds.ListenerRoot;
 import com.linecorp.armeria.xds.XdsBootstrap;
 import com.linecorp.armeria.xds.XdsTestResources;
 import com.linecorp.armeria.xds.client.endpoint.XdsRandom.RandomHint;
@@ -71,11 +71,13 @@ import io.envoyproxy.envoy.config.listener.v3.Listener;
 
 class RouteMetadataSubsetTest {
 
+    private static final String GROUP_KEY = "key";
+    static final SimpleCache<String> cache = new SimpleCache<>(node -> GROUP_KEY);
+
     @RegisterExtension
     static final ServerExtension server = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) {
-            final SimpleCache<String> cache = new SimpleCache<>(node -> "key");
             setupCache(cache);
             final V3DiscoveryServer v3DiscoveryServer = new V3DiscoveryServer(cache);
             sb.service(GrpcService.builder()
@@ -155,12 +157,12 @@ class RouteMetadataSubsetTest {
                 configSource, staticResourceListener(routeMetadataMatch1, clusterName),
                 bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
-             EndpointGroup endpointGroup = XdsEndpointGroup.of("listener", xdsBootstrap)) {
-
-            await().untilAsserted(() -> assertThat(endpointGroup.whenReady()).isDone());
+             ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
+            final Cluster expected = cache.getSnapshot(GROUP_KEY).clusters().resources().get(clusterName);
+            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, clusterName, expected);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
-            assertThat(endpointGroup.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8082));
-            assertThat(endpointGroup.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8082));
+            assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8082));
+            assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8082));
         }
 
         // No Route metadata so use all endpoints.
@@ -170,13 +172,13 @@ class RouteMetadataSubsetTest {
                                                staticResourceListener(routeMetadataMatch2, clusterName),
                                                bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
-             EndpointGroup endpointGroup = XdsEndpointGroup.of("listener", xdsBootstrap)) {
-
-            await().untilAsserted(() -> assertThat(endpointGroup.whenReady()).isDone());
+             ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
+            final Cluster expected = cache.getSnapshot(GROUP_KEY).clusters().resources().get(clusterName);
+            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, clusterName, expected);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
-            assertThat(endpointGroup.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8080));
-            assertThat(endpointGroup.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8081));
-            assertThat(endpointGroup.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8082));
+            assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8080));
+            assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8081));
+            assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8082));
         }
 
         final Metadata routeMetadataMatch3 = Metadata.newBuilder().putFilterMetadata(
@@ -187,16 +189,16 @@ class RouteMetadataSubsetTest {
                                                staticResourceListener(routeMetadataMatch3, clusterName),
                                                bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
-             EndpointGroup endpointGroup = XdsEndpointGroup.of("listener", xdsBootstrap)) {
-
-            await().untilAsserted(() -> assertThat(endpointGroup.whenReady()).isDone());
+             ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
+            final Cluster expected = cache.getSnapshot(GROUP_KEY).clusters().resources().get(clusterName);
+            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, clusterName, expected);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             if (noFallback) {
-                assertThat(endpointGroup.selectNow(ctx)).isNull();
+                assertThat(loadBalancer.selectNow(ctx)).isNull();
             } else {
-                assertThat(endpointGroup.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8080));
-                assertThat(endpointGroup.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8081));
-                assertThat(endpointGroup.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8082));
+                assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8080));
+                assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8081));
+                assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8082));
             }
         }
     }
@@ -236,8 +238,8 @@ class RouteMetadataSubsetTest {
 
         final Bootstrap bootstrap = staticBootstrap(listener, cluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
-             EndpointGroup endpointGroup = XdsEndpointGroup.of("listener", xdsBootstrap)) {
-            await().untilAsserted(() -> assertThat(endpointGroup.whenReady()).isDone());
+             ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
+            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
 
@@ -246,15 +248,15 @@ class RouteMetadataSubsetTest {
             // default overprovisioning factor (140) * 0.5 = 70 will be routed
             // to healthy endpoints for priority 0
             random.fixNextInt(RandomHint.SELECT_PRIORITY, 0);
-            assertThat(endpointGroup.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8080));
+            assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8080));
             random.fixNextInt(RandomHint.SELECT_PRIORITY, 68);
-            assertThat(endpointGroup.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8080));
+            assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8080));
 
             // 100 - 70 (priority 0) = 30 will be routed to healthy endpoints for priority 1
             random.fixNextInt(RandomHint.SELECT_PRIORITY, 70);
-            assertThat(endpointGroup.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8082));
+            assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8082));
             random.fixNextInt(RandomHint.SELECT_PRIORITY, 99);
-            assertThat(endpointGroup.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8082));
+            assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8082));
         }
     }
 }

@@ -46,6 +46,10 @@ public abstract class AbstractSelector<T> {
     @Nullable
     protected abstract T selectNow(ClientRequestContext ctx);
 
+    protected Exception timeoutException(ClientRequestContext ctx) {
+        return new TimeoutException();
+    }
+
     public final CompletableFuture<T> select(ClientRequestContext ctx,
                                              ScheduledExecutorService executor,
                                              long selectionTimeoutMillis) {
@@ -70,7 +74,7 @@ public abstract class AbstractSelector<T> {
         // Schedule the timeout task.
         if (selectionTimeoutMillis < Long.MAX_VALUE) {
             final ScheduledFuture<?> timeoutFuture = executor.schedule(() -> {
-                listeningFuture.completeExceptionally(new TimeoutException());
+                listeningFuture.completeExceptionally(timeoutException(ctx));
             }, selectionTimeoutMillis, TimeUnit.MILLISECONDS);
             listeningFuture.timeoutFuture = timeoutFuture;
 

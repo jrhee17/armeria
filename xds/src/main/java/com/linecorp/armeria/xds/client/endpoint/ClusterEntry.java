@@ -45,7 +45,6 @@ public final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> impl
     @Nullable
     private final LocalCluster localCluster;
     private final EventExecutor eventExecutor;
-    private final FunctionSelector<XdsLoadBalancer> lbSelector = new FunctionSelector<>(ctx -> loadBalancer);
     private int refCnt;
 
     public ClusterEntry(EventExecutor eventExecutor, @Nullable LocalCluster localCluster) {
@@ -67,7 +66,6 @@ public final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> impl
                                           this::notifyListeners);
         loadBalancer = updatableLoadBalancer;
         endpointsPool.updateClusterSnapshot(updatableLoadBalancer);
-        lbSelector.refresh();
         return updatableLoadBalancer;
     }
 
@@ -82,7 +80,6 @@ public final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> impl
             loadBalancer.updateLocalLoadBalancer(localLoadBalancer);
             notifyListeners(loadBalancer);
         }
-        lbSelector.refresh();
     }
 
     @Override

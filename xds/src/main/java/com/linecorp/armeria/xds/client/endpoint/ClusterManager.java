@@ -78,13 +78,6 @@ public final class ClusterManager implements AsyncCloseable, Listenable<ClusterE
     private final List<Consumer<? super ClusterEntries>> listeners = new ArrayList<>();
     private final ReentrantShortLock listenersLock = new ReentrantShortLock();
 
-    public ClusterManager() {
-        eventLoop = CommonPools.workerGroup().next();
-        listenerRoot = null;
-        localCluster = null;
-        clusterEntries = null;
-    }
-
     ClusterManager(String listenerName, XdsBootstrap xdsBootstrap) {
         requireNonNull(xdsBootstrap, "xdsBootstrap");
         eventLoop = xdsBootstrap.eventLoop();
