@@ -19,7 +19,6 @@ package com.linecorp.armeria.xds.client.endpoint;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,11 +30,12 @@ import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointSelector;
 import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
-import com.linecorp.armeria.xds.client.endpoint.ClusterManager.LocalCluster;
 import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.LocalityRoutingState;
 
-public final class UpdatableLoadBalancer implements XdsLoadBalancer, EndpointSelector {
+public final class UpdatableLoadBalancer extends AbstractListenable<XdsLoadBalancer>
+        implements XdsLoadBalancer, EndpointSelector {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdatableLoadBalancer.class);
 
@@ -49,15 +49,13 @@ public final class UpdatableLoadBalancer implements XdsLoadBalancer, EndpointSel
     private List<Endpoint> endpoints;
     @Nullable
     private XdsLoadBalancer localLoadBalancer;
-    private final Consumer<XdsLoadBalancer> refreshFn;
     private final FunctionSelector<Endpoint> endpointSelector;
 
     UpdatableLoadBalancer(ClusterSnapshot clusterSnapshot, @Nullable LocalCluster localCluster,
-                          @Nullable XdsLoadBalancer localLoadBalancer, Consumer<XdsLoadBalancer> refreshFn) {
+                          @Nullable XdsLoadBalancer localLoadBalancer) {
         this.clusterSnapshot = clusterSnapshot;
         this.localCluster = localCluster;
         this.localLoadBalancer = localLoadBalancer;
-        this.refreshFn = refreshFn;
 
         endpointSelector = new FunctionSelector<>(ctx -> {
             final XdsLoadBalancer loadBalancer = delegate;
@@ -101,8 +99,8 @@ public final class UpdatableLoadBalancer implements XdsLoadBalancer, EndpointSel
             loadBalancer = new SubsetLoadBalancer(prioritySet, loadBalancer);
         }
         delegate = loadBalancer;
-        refreshFn.accept(loadBalancer);
         endpointSelector.refresh();
+        notifyListeners(loadBalancer);
     }
 
     List<Endpoint> endpoints() {

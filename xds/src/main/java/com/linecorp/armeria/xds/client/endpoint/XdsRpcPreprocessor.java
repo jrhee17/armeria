@@ -42,12 +42,10 @@ public final class XdsRpcPreprocessor implements RpcPreprocessor, AutoCloseable 
         return new XdsRpcPreprocessor(listenerName, xdsBootstrap);
     }
 
-    private final ClusterManager clusterManager;
     private final ListenerRoot listenerRoot;
     private final SnapshotWatcherSelector snapshotWatcherSelector;
 
     private XdsRpcPreprocessor(String listenerName, XdsBootstrap xdsBootstrap) {
-        clusterManager = new ClusterManager(xdsBootstrap);
         listenerRoot = xdsBootstrap.listenerRoot(listenerName);
         snapshotWatcherSelector = new SnapshotWatcherSelector(listenerRoot);
     }
@@ -82,6 +80,6 @@ public final class XdsRpcPreprocessor implements RpcPreprocessor, AutoCloseable 
 
     @Override
     public void close() {
-        clusterManager.close();
+        listenerRoot.close();
     }
 }

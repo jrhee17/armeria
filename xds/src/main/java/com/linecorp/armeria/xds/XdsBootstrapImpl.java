@@ -30,7 +30,7 @@ import com.google.common.base.Strings;
 import com.linecorp.armeria.client.grpc.GrpcClientBuilder;
 import com.linecorp.armeria.common.CommonPools;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.ClusterManager.LocalCluster;
+import com.linecorp.armeria.xds.client.endpoint.LocalCluster;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;

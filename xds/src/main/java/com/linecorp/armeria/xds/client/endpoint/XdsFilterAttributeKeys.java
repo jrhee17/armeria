@@ -20,10 +20,6 @@ import io.netty.util.AttributeKey;
 
 final class XdsFilterAttributeKeys {
 
-    static final AttributeKey<RouteEntry> ROUTE_ENTRY =
-            AttributeKey.valueOf(XdsFilterAttributeKeys.class, "ROUTE_ENTRY");
-    static final AttributeKey<ClusterEntries> CLUSTER_ENTRIES =
-            AttributeKey.valueOf(XdsFilterAttributeKeys.class, "CLUSTER_ENTRIES");
     static final AttributeKey<RouteConfig> ROUTE_CONFIG =
             AttributeKey.valueOf(XdsFilterAttributeKeys.class, "ROUTE_CONFIG");
 

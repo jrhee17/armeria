@@ -29,13 +29,13 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
-import com.linecorp.armeria.xds.client.endpoint.ClusterManager.LocalCluster;
 
 import io.netty.util.concurrent.EventExecutor;
 
 public final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> implements AsyncCloseable {
 
     private final Consumer<XdsLoadBalancer> localClusterEntryListener = this::updateLocalLoadBalancer;
+    private final Consumer<XdsLoadBalancer> notifyListeners = this::notifyListeners;
 
     @Nullable
     private volatile UpdatableLoadBalancer loadBalancer;
@@ -61,9 +61,12 @@ public final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> impl
         if (prevLoadBalancer != null && Objects.equals(clusterSnapshot, prevLoadBalancer.clusterSnapshot())) {
             return prevLoadBalancer;
         }
+        if (prevLoadBalancer != null) {
+            prevLoadBalancer.removeListener(notifyListeners);
+        }
         final UpdatableLoadBalancer updatableLoadBalancer =
-                new UpdatableLoadBalancer(clusterSnapshot, localCluster, localLoadBalancer,
-                                          this::notifyListeners);
+                new UpdatableLoadBalancer(clusterSnapshot, localCluster, localLoadBalancer);
+        updatableLoadBalancer.addListener(notifyListeners);
         loadBalancer = updatableLoadBalancer;
         endpointsPool.updateClusterSnapshot(updatableLoadBalancer);
         return updatableLoadBalancer;

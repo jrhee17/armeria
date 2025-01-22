@@ -42,12 +42,10 @@ public final class XdsHttpPreprocessor implements HttpPreprocessor, AutoCloseabl
         return new XdsHttpPreprocessor(listenerName, xdsBootstrap);
     }
 
-    private final ClusterManager clusterManager;
     private final ListenerRoot listenerRoot;
     private final SnapshotWatcherSelector snapshotWatcherSelector;
 
     private XdsHttpPreprocessor(String listenerName, XdsBootstrap xdsBootstrap) {
-        clusterManager = new ClusterManager(xdsBootstrap);
         listenerRoot = xdsBootstrap.listenerRoot(listenerName);
         snapshotWatcherSelector = new SnapshotWatcherSelector(listenerRoot);
     }
@@ -83,6 +81,5 @@ public final class XdsHttpPreprocessor implements HttpPreprocessor, AutoCloseabl
     @Override
     public void close() {
         listenerRoot.close();
-        clusterManager.close();
     }
 }

@@ -17,7 +17,7 @@
 package com.linecorp.armeria.xds;
 
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.ClusterManager.LocalCluster;
+import com.linecorp.armeria.xds.client.endpoint.LocalCluster;
 
 final class BootstrapContext {
     private final XdsBootstrapImpl xdsBootstrap;
