@@ -23,21 +23,14 @@ import java.util.function.Consumer;
 import com.google.common.base.MoreObjects;
 
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 
 import io.netty.util.concurrent.EventExecutor;
 
-public final class ClusterEntry extends AbstractListenable<UpdatableLoadBalancer> implements AsyncCloseable {
+public final class ClusterEntry implements AsyncCloseable {
 
     private final Consumer<DefaultPrioritySet> localClusterEntryListener = this::updateLocalLoadBalancer;
-    private final Consumer<PrioritySet> notifyListeners = ignored -> {
-        final UpdatableLoadBalancer loadBalancer = latestValue();
-        if (loadBalancer != null) {
-            notifyListeners(loadBalancer);
-        }
-    };
 
     @Nullable
     private volatile UpdatableLoadBalancer loadBalancer;
@@ -63,12 +56,8 @@ public final class ClusterEntry extends AbstractListenable<UpdatableLoadBalancer
         if (prevLoadBalancer != null && Objects.equals(clusterSnapshot, prevLoadBalancer.clusterSnapshot())) {
             return prevLoadBalancer;
         }
-        if (prevLoadBalancer != null) {
-            prevLoadBalancer.removeListener(notifyListeners);
-        }
         final UpdatableLoadBalancer updatableLoadBalancer =
                 new UpdatableLoadBalancer(clusterSnapshot, localCluster, localPrioritySet);
-        updatableLoadBalancer.addListener(notifyListeners, true);
         loadBalancer = updatableLoadBalancer;
         endpointsPool.updateClusterSnapshot(updatableLoadBalancer);
         return updatableLoadBalancer;
@@ -83,14 +72,7 @@ public final class ClusterEntry extends AbstractListenable<UpdatableLoadBalancer
         final UpdatableLoadBalancer loadBalancer = this.loadBalancer;
         if (loadBalancer != null) {
             loadBalancer.updateLocalLoadBalancer(localPrioritySet);
-            notifyListeners(loadBalancer);
         }
-    }
-
-    @Override
-    @Nullable
-    protected UpdatableLoadBalancer latestValue() {
-        return loadBalancer;
     }
 
     @Override
