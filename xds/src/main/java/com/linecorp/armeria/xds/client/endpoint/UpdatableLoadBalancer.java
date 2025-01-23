@@ -32,7 +32,6 @@ import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
-import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.LocalityRoutingState;
 
 public final class UpdatableLoadBalancer extends AbstractListenable<XdsLoadBalancer>
         implements XdsLoadBalancer, EndpointSelector {
@@ -86,17 +85,15 @@ public final class UpdatableLoadBalancer extends AbstractListenable<XdsLoadBalan
             logger.trace("XdsEndpointGroup is using a new PrioritySet({})", prioritySet);
         }
 
-        LocalityRoutingState localityRoutingState = null;
+        PrioritySet localPrioritySet = null;
         if (localLoadBalancer != null) {
             assert localCluster != null;
-            final PrioritySet localPrioritySet = localLoadBalancer.prioritySet();
+            localPrioritySet = localLoadBalancer.prioritySet();
             assert localPrioritySet != null;
-            localityRoutingState = localCluster.stateFactory().create(prioritySet, localPrioritySet);
-            logger.trace("Local routing is enabled with LocalityRoutingState({})", localityRoutingState);
         }
-        XdsLoadBalancer loadBalancer = new DefaultLoadBalancer(prioritySet, localityRoutingState);
+        XdsLoadBalancer loadBalancer = new DefaultLoadBalancer(prioritySet, localCluster, localPrioritySet);
         if (clusterSnapshot.xdsResource().resource().hasLbSubsetConfig()) {
-            loadBalancer = new SubsetLoadBalancer(prioritySet, loadBalancer);
+            loadBalancer = new SubsetLoadBalancer(prioritySet, loadBalancer, localCluster, localPrioritySet);
         }
         delegate = loadBalancer;
         endpointSelector.refresh();
@@ -121,15 +118,6 @@ public final class UpdatableLoadBalancer extends AbstractListenable<XdsLoadBalan
 
     ClusterSnapshot clusterSnapshot() {
         return clusterSnapshot;
-    }
-
-    @Nullable
-    @Override
-    public LocalityRoutingStateFactory.LocalityRoutingState localityRoutingState() {
-        if (delegate == null) {
-            return null;
-        }
-        return delegate.localityRoutingState();
     }
 
     @Nullable

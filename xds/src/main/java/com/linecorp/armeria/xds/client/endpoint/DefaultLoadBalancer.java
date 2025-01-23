@@ -41,10 +41,15 @@ final class DefaultLoadBalancer implements XdsLoadBalancer {
     @Nullable
     private final LocalityRoutingState localityRoutingState;
 
-    DefaultLoadBalancer(PrioritySet prioritySet, @Nullable LocalityRoutingState localityRoutingState) {
+    DefaultLoadBalancer(PrioritySet prioritySet, @Nullable LocalCluster localCluster,
+                        @Nullable PrioritySet localPrioritySet) {
         lbState = DefaultLbStateFactory.newInstance(prioritySet);
         this.prioritySet = prioritySet;
-        this.localityRoutingState = localityRoutingState;
+        if (localCluster != null && localPrioritySet != null) {
+            localityRoutingState = localCluster.stateFactory().create(prioritySet, localPrioritySet);
+        } else {
+            localityRoutingState = null;
+        }
     }
 
     @Override
@@ -183,12 +188,6 @@ final class DefaultLoadBalancer implements XdsLoadBalancer {
     @Override
     public PrioritySet prioritySet() {
         return prioritySet;
-    }
-
-    @Override
-    @Nullable
-    public LocalityRoutingState localityRoutingState() {
-        return localityRoutingState;
     }
 
     static class PriorityAndAvailability {

@@ -66,7 +66,7 @@ public final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> impl
         }
         final UpdatableLoadBalancer updatableLoadBalancer =
                 new UpdatableLoadBalancer(clusterSnapshot, localCluster, localLoadBalancer);
-        updatableLoadBalancer.addListener(notifyListeners);
+        updatableLoadBalancer.addListener(notifyListeners, true);
         loadBalancer = updatableLoadBalancer;
         endpointsPool.updateClusterSnapshot(updatableLoadBalancer);
         return updatableLoadBalancer;
@@ -89,14 +89,6 @@ public final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> impl
     @Nullable
     protected UpdatableLoadBalancer latestValue() {
         return loadBalancer;
-    }
-
-    List<Endpoint> allEndpoints() {
-        final UpdatableLoadBalancer loadBalancer = this.loadBalancer;
-        if (loadBalancer == null) {
-            return ImmutableList.of();
-        }
-        return loadBalancer.endpoints();
     }
 
     @Override

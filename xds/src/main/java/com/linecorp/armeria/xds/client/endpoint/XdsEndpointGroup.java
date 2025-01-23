@@ -247,13 +247,13 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
 
         @Override
         public EndpointSelector newSelector(EndpointGroup endpointGroup) {
-            return new XdsEndpointSelector(endpointGroup);
+            return new XdsEndpointGroupSelector(endpointGroup);
         }
     }
 
-    private final class XdsEndpointSelector extends AbstractEndpointSelector {
+    private final class XdsEndpointGroupSelector extends AbstractEndpointSelector {
 
-        XdsEndpointSelector(EndpointGroup endpointGroup) {
+        XdsEndpointGroupSelector(EndpointGroup endpointGroup) {
             super(endpointGroup);
             initialize();
         }

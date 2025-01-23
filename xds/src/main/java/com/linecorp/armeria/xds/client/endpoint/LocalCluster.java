@@ -18,13 +18,14 @@ package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.concurrent.CompletableFuture;
 
+import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.xds.ClusterRoot;
 import com.linecorp.armeria.xds.XdsBootstrap;
 
 import io.envoyproxy.envoy.config.core.v3.Node;
 
-public final class LocalCluster implements AsyncCloseable {
+public final class LocalCluster extends AbstractListenable<Void> implements AsyncCloseable {
     private final ClusterEntry clusterEntry;
     private final ClusterRoot localClusterRoot;
     private final LocalityRoutingStateFactory localityRoutingStateFactory;

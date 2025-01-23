@@ -32,7 +32,6 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
-import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.LocalityRoutingState;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig;
@@ -45,12 +44,16 @@ final class SubsetLoadBalancer implements XdsLoadBalancer {
     private final LoadBalancer loadBalancer;
     private final PrioritySet prioritySet;
     @Nullable
-    private final LocalityRoutingState localityRoutingState;
+    private final LocalCluster localCluster;
+    @Nullable
+    private final PrioritySet localPrioritySet;
 
-    SubsetLoadBalancer(PrioritySet prioritySet, XdsLoadBalancer allEndpointsLoadBalancer) {
+    SubsetLoadBalancer(PrioritySet prioritySet, XdsLoadBalancer allEndpointsLoadBalancer,
+                       @Nullable LocalCluster localCluster, @Nullable PrioritySet localPrioritySet) {
+        this.localCluster = localCluster;
+        this.localPrioritySet = localPrioritySet;
         loadBalancer = createSubsetLoadBalancer(prioritySet, allEndpointsLoadBalancer);
         this.prioritySet = prioritySet;
-        localityRoutingState = allEndpointsLoadBalancer.localityRoutingState();
     }
 
     @Override
@@ -102,7 +105,7 @@ final class SubsetLoadBalancer implements XdsLoadBalancer {
     private LoadBalancer createSubsetLoadBalancer(List<Endpoint> endpoints,
                                                   ClusterSnapshot clusterSnapshot) {
         final PrioritySet subsetPrioritySet = new PriorityStateManager(clusterSnapshot, endpoints).build();
-        return new DefaultLoadBalancer(subsetPrioritySet, localityRoutingState);
+        return new DefaultLoadBalancer(subsetPrioritySet, localCluster, localPrioritySet);
     }
 
     @Override
@@ -115,11 +118,5 @@ final class SubsetLoadBalancer implements XdsLoadBalancer {
     @Override
     public PrioritySet prioritySet() {
         return prioritySet;
-    }
-
-    @Override
-    @Nullable
-    public LocalityRoutingState localityRoutingState() {
-        return localityRoutingState;
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LINE Corporation
+ * Copyright 2025 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -16,10 +16,8 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.client.endpoint.EndpointSelector;
 
-interface XdsLoadBalancer extends LoadBalancer {
+public interface XdsEndpointSelector extends EndpointSelector {
 
-    @Nullable
-    PrioritySet prioritySet();
 }
