@@ -16,15 +16,12 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
 
-import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
@@ -32,15 +29,20 @@ import com.linecorp.armeria.xds.ClusterSnapshot;
 
 import io.netty.util.concurrent.EventExecutor;
 
-public final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> implements AsyncCloseable {
+public final class ClusterEntry extends AbstractListenable<UpdatableLoadBalancer> implements AsyncCloseable {
 
-    private final Consumer<XdsLoadBalancer> localClusterEntryListener = this::updateLocalLoadBalancer;
-    private final Consumer<XdsLoadBalancer> notifyListeners = this::notifyListeners;
+    private final Consumer<DefaultPrioritySet> localClusterEntryListener = this::updateLocalLoadBalancer;
+    private final Consumer<PrioritySet> notifyListeners = ignored -> {
+        final UpdatableLoadBalancer loadBalancer = latestValue();
+        if (loadBalancer != null) {
+            notifyListeners(loadBalancer);
+        }
+    };
 
     @Nullable
     private volatile UpdatableLoadBalancer loadBalancer;
     @Nullable
-    private XdsLoadBalancer localLoadBalancer;
+    private DefaultPrioritySet localPrioritySet;
     private final EndpointsPool endpointsPool;
     @Nullable
     private final LocalCluster localCluster;
@@ -52,11 +54,11 @@ public final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> impl
         endpointsPool = new EndpointsPool(eventExecutor);
         this.localCluster = localCluster;
         if (localCluster != null) {
-            localCluster.clusterEntry().addListener(localClusterEntryListener, true);
+            localCluster.addListener(localClusterEntryListener, true);
         }
     }
 
-    public UpdatableLoadBalancer updateClusterSnapshot(ClusterSnapshot clusterSnapshot) {
+    public XdsEndpointSelector updateClusterSnapshot(ClusterSnapshot clusterSnapshot) {
         final UpdatableLoadBalancer prevLoadBalancer = loadBalancer;
         if (prevLoadBalancer != null && Objects.equals(clusterSnapshot, prevLoadBalancer.clusterSnapshot())) {
             return prevLoadBalancer;
@@ -65,22 +67,22 @@ public final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> impl
             prevLoadBalancer.removeListener(notifyListeners);
         }
         final UpdatableLoadBalancer updatableLoadBalancer =
-                new UpdatableLoadBalancer(clusterSnapshot, localCluster, localLoadBalancer);
+                new UpdatableLoadBalancer(clusterSnapshot, localCluster, localPrioritySet);
         updatableLoadBalancer.addListener(notifyListeners, true);
         loadBalancer = updatableLoadBalancer;
         endpointsPool.updateClusterSnapshot(updatableLoadBalancer);
         return updatableLoadBalancer;
     }
 
-    private void updateLocalLoadBalancer(XdsLoadBalancer localLoadBalancer) {
+    private void updateLocalLoadBalancer(DefaultPrioritySet localPrioritySet) {
         if (!eventExecutor.inEventLoop()) {
-            eventExecutor.execute(() -> updateLocalLoadBalancer(localLoadBalancer));
+            eventExecutor.execute(() -> updateLocalLoadBalancer(localPrioritySet));
             return;
         }
-        this.localLoadBalancer = localLoadBalancer;
+        this.localPrioritySet = localPrioritySet;
         final UpdatableLoadBalancer loadBalancer = this.loadBalancer;
         if (loadBalancer != null) {
-            loadBalancer.updateLocalLoadBalancer(localLoadBalancer);
+            loadBalancer.updateLocalLoadBalancer(localPrioritySet);
             notifyListeners(loadBalancer);
         }
     }
@@ -94,7 +96,7 @@ public final class ClusterEntry extends AbstractListenable<XdsLoadBalancer> impl
     @Override
     public CompletableFuture<?> closeAsync() {
         if (localCluster != null) {
-            localCluster.clusterEntry().removeListener(localClusterEntryListener);
+            localCluster.removeListener(localClusterEntryListener);
         }
         return endpointsPool.closeAsync();
     }

@@ -14,10 +14,9 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds;
+package com.linecorp.armeria.xds.client.endpoint;
 
-import com.linecorp.armeria.xds.client.endpoint.ClusterEntry;
-import com.linecorp.armeria.xds.client.endpoint.UpdatableLoadBalancer;
+import com.linecorp.armeria.xds.ClusterSnapshot;
 
 public class ThreadLocalCluster implements AutoCloseable {
 
@@ -32,7 +31,7 @@ public class ThreadLocalCluster implements AutoCloseable {
         clusterEntry = internalClusterManager.registerEntry(name);
     }
 
-    public UpdatableLoadBalancer updateSnapshot(ClusterSnapshot clusterSnapshot) {
+    public XdsEndpointSelector updateSnapshot(ClusterSnapshot clusterSnapshot) {
         assert !closed;
         return clusterEntry.updateClusterSnapshot(clusterSnapshot);
     }

@@ -23,18 +23,15 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableList;
-
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.client.endpoint.EndpointSelector;
 import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 
-public final class UpdatableLoadBalancer extends AbstractListenable<XdsLoadBalancer>
-        implements XdsLoadBalancer, EndpointSelector {
+final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
+        implements XdsLoadBalancer, XdsEndpointSelector {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdatableLoadBalancer.class);
 
@@ -47,14 +44,14 @@ public final class UpdatableLoadBalancer extends AbstractListenable<XdsLoadBalan
     @Nullable
     private List<Endpoint> endpoints;
     @Nullable
-    private XdsLoadBalancer localLoadBalancer;
+    private DefaultPrioritySet localPrioritySet;
     private final FunctionSelector<Endpoint> endpointSelector;
 
     UpdatableLoadBalancer(ClusterSnapshot clusterSnapshot, @Nullable LocalCluster localCluster,
-                          @Nullable XdsLoadBalancer localLoadBalancer) {
+                          @Nullable DefaultPrioritySet localPrioritySet) {
         this.clusterSnapshot = clusterSnapshot;
         this.localCluster = localCluster;
-        this.localLoadBalancer = localLoadBalancer;
+        this.localPrioritySet = localPrioritySet;
 
         endpointSelector = new FunctionSelector<>(ctx -> {
             final XdsLoadBalancer loadBalancer = delegate;
@@ -70,8 +67,8 @@ public final class UpdatableLoadBalancer extends AbstractListenable<XdsLoadBalan
         tryRefresh();
     }
 
-    void updateLocalLoadBalancer(XdsLoadBalancer localLoadBalancer) {
-        this.localLoadBalancer = localLoadBalancer;
+    void updateLocalLoadBalancer(DefaultPrioritySet localPrioritySet) {
+        this.localPrioritySet = localPrioritySet;
         tryRefresh();
     }
 
@@ -80,36 +77,24 @@ public final class UpdatableLoadBalancer extends AbstractListenable<XdsLoadBalan
             return;
         }
 
-        final PrioritySet prioritySet = new PriorityStateManager(clusterSnapshot, endpoints).build();
+        final DefaultPrioritySet prioritySet = new PriorityStateManager(clusterSnapshot, endpoints).build();
         if (logger.isTraceEnabled()) {
             logger.trace("XdsEndpointGroup is using a new PrioritySet({})", prioritySet);
         }
 
-        PrioritySet localPrioritySet = null;
-        if (localLoadBalancer != null) {
-            assert localCluster != null;
-            localPrioritySet = localLoadBalancer.prioritySet();
-            assert localPrioritySet != null;
-        }
+        final DefaultPrioritySet localPrioritySet = this.localPrioritySet;
         XdsLoadBalancer loadBalancer = new DefaultLoadBalancer(prioritySet, localCluster, localPrioritySet);
         if (clusterSnapshot.xdsResource().resource().hasLbSubsetConfig()) {
             loadBalancer = new SubsetLoadBalancer(prioritySet, loadBalancer, localCluster, localPrioritySet);
         }
         delegate = loadBalancer;
         endpointSelector.refresh();
-        notifyListeners(loadBalancer);
-    }
-
-    List<Endpoint> endpoints() {
-        if (endpoints == null) {
-            return ImmutableList.of();
-        }
-        return endpoints;
+        notifyListeners(prioritySet);
     }
 
     @Nullable
     @Override
-    public PrioritySet prioritySet() {
+    public DefaultPrioritySet prioritySet() {
         if (delegate == null) {
             return null;
         }

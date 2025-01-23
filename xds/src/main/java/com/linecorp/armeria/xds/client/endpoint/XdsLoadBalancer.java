@@ -21,5 +21,5 @@ import com.linecorp.armeria.common.annotation.Nullable;
 interface XdsLoadBalancer extends LoadBalancer {
 
     @Nullable
-    PrioritySet prioritySet();
+    DefaultPrioritySet prioritySet();
 }

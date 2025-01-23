@@ -66,13 +66,13 @@ class StrictDnsIntegrationTest {
         final Bootstrap bootstrap = staticBootstrap(listener, cluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap) ;
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
 
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final Endpoint endpoint = loadBalancer.selectNow(ctx);
             assertThat(endpoint)
-                    .withFailMessage("Failed for endpoints: (%s)", loadBalancer.endpoints())
+                    .withFailMessage("Failed for endpoints: (%s)", loadBalancer.prioritySet().endpoints())
                     .isNotNull();
             assertThat(endpoint.weight()).isEqualTo(weight);
         }

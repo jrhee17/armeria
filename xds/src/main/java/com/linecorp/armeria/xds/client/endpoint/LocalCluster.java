@@ -17,29 +17,31 @@
 package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.xds.ClusterRoot;
+import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.XdsBootstrap;
 
 import io.envoyproxy.envoy.config.core.v3.Node;
 
-public final class LocalCluster extends AbstractListenable<Void> implements AsyncCloseable {
+public final class LocalCluster extends AbstractListenable<DefaultPrioritySet>
+        implements AsyncCloseable, Consumer<PrioritySet> {
     private final ClusterEntry clusterEntry;
     private final ClusterRoot localClusterRoot;
     private final LocalityRoutingStateFactory localityRoutingStateFactory;
+    private final XdsEndpointSelector loadBalancer;
 
     public LocalCluster(String localClusterName, XdsBootstrap xdsBootstrap) {
         final Node node = xdsBootstrap.bootstrap().getNode();
         localityRoutingStateFactory = new LocalityRoutingStateFactory(node.getLocality());
         clusterEntry = new ClusterEntry(xdsBootstrap.eventLoop(), null);
         localClusterRoot = xdsBootstrap.clusterRoot(localClusterName);
-        localClusterRoot.addSnapshotWatcher(clusterEntry::updateClusterSnapshot);
-    }
-
-    public ClusterEntry clusterEntry() {
-        return clusterEntry;
+        final ClusterSnapshot clusterSnapshot = localClusterRoot.initialFuture().join();
+        loadBalancer = clusterEntry.updateClusterSnapshot(clusterSnapshot);
+        loadBalancer.addListener(this);
     }
 
     LocalityRoutingStateFactory stateFactory() {
@@ -55,5 +57,11 @@ public final class LocalCluster extends AbstractListenable<Void> implements Asyn
     @Override
     public void close() {
         closeAsync().join();
+    }
+
+    @Override
+    public void accept(PrioritySet prioritySet) {
+        assert prioritySet instanceof DefaultPrioritySet;
+        notifyListeners((DefaultPrioritySet) prioritySet);
     }
 }

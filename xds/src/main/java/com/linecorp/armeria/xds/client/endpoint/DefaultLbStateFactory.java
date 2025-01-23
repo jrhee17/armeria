@@ -44,7 +44,7 @@ final class DefaultLbStateFactory {
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultLbStateFactory.class);
 
-    static DefaultLbState newInstance(PrioritySet prioritySet) {
+    static DefaultLbState newInstance(DefaultPrioritySet prioritySet) {
         PerPriorityLoad perPriorityLoad = calculatePerPriorityLoad(prioritySet);
         final PerPriorityPanic perPriorityPanic =
                 recalculatePerPriorityPanic(prioritySet,
@@ -62,7 +62,7 @@ final class DefaultLbStateFactory {
         return new DefaultLbState(prioritySet, perPriorityLoad, perPriorityPanic);
     }
 
-    private static PerPriorityLoad calculatePerPriorityLoad(PrioritySet prioritySet) {
+    private static PerPriorityLoad calculatePerPriorityLoad(DefaultPrioritySet prioritySet) {
         final Int2IntMap perPriorityHealth = new Int2IntOpenHashMap(prioritySet.priorities().size());
         final Int2IntMap perPriorityDegraded = new Int2IntOpenHashMap(prioritySet.priorities().size());
         for (int priority: prioritySet.priorities()) {
@@ -77,7 +77,7 @@ final class DefaultLbStateFactory {
     }
 
     private static HealthAndDegraded recalculatePerPriorityState(
-            int priority, PrioritySet prioritySet) {
+            int priority, DefaultPrioritySet prioritySet) {
         final HostSet hostSet = prioritySet.hostSets().get(priority);
         assert hostSet != null;
         final int hostCount = hostSet.hosts().size();
@@ -111,7 +111,7 @@ final class DefaultLbStateFactory {
         return new HealthAndDegraded(health, degraded);
     }
 
-    private static PerPriorityLoad buildLoads(PrioritySet prioritySet,
+    private static PerPriorityLoad buildLoads(DefaultPrioritySet prioritySet,
                                               Map<Integer, Integer> perPriorityHealth,
                                               Map<Integer, Integer> perPriorityDegraded) {
         final int normalizedTotalAvailability =
@@ -177,7 +177,7 @@ final class DefaultLbStateFactory {
         return new DistributeLoadState(totalLoad, firstAvailablePriority);
     }
 
-    private static PerPriorityPanic recalculatePerPriorityPanic(PrioritySet prioritySet,
+    private static PerPriorityPanic recalculatePerPriorityPanic(DefaultPrioritySet prioritySet,
                                                                 int normalizedTotalAvailability) {
         final int panicThreshold = prioritySet.panicThreshold();
         if (normalizedTotalAvailability == 0 && panicThreshold == 0) {
@@ -198,7 +198,7 @@ final class DefaultLbStateFactory {
         return new PerPriorityPanic(perPriorityPanicBuilder.build(), totalPanic);
     }
 
-    private static PerPriorityLoad recalculateLoadInTotalPanic(PrioritySet prioritySet) {
+    private static PerPriorityLoad recalculateLoadInTotalPanic(DefaultPrioritySet prioritySet) {
         final int totalHostsCount = prioritySet.hostSets().values().stream()
                                                .map(hostSet -> hostSet.hosts().size())
                                                .reduce(0, IntMath::saturatedAdd)
@@ -334,11 +334,11 @@ final class DefaultLbStateFactory {
     }
 
     static class DefaultLbState {
-        private final PrioritySet prioritySet;
+        private final DefaultPrioritySet prioritySet;
         private final PerPriorityLoad perPriorityLoad;
         private final PerPriorityPanic perPriorityPanic;
 
-        DefaultLbState(PrioritySet prioritySet,
+        DefaultLbState(DefaultPrioritySet prioritySet,
                        PerPriorityLoad perPriorityLoad, PerPriorityPanic perPriorityPanic) {
             this.prioritySet = prioritySet;
             this.perPriorityLoad = perPriorityLoad;
@@ -349,7 +349,7 @@ final class DefaultLbStateFactory {
             return perPriorityPanic;
         }
 
-        PrioritySet prioritySet() {
+        DefaultPrioritySet prioritySet() {
             return prioritySet;
         }
 

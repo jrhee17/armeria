@@ -37,12 +37,12 @@ import io.envoyproxy.envoy.config.core.v3.Locality;
 final class DefaultLoadBalancer implements XdsLoadBalancer {
 
     private final DefaultLbStateFactory.DefaultLbState lbState;
-    private final PrioritySet prioritySet;
+    private final DefaultPrioritySet prioritySet;
     @Nullable
     private final LocalityRoutingState localityRoutingState;
 
-    DefaultLoadBalancer(PrioritySet prioritySet, @Nullable LocalCluster localCluster,
-                        @Nullable PrioritySet localPrioritySet) {
+    DefaultLoadBalancer(DefaultPrioritySet prioritySet, @Nullable LocalCluster localCluster,
+                        @Nullable DefaultPrioritySet localPrioritySet) {
         lbState = DefaultLbStateFactory.newInstance(prioritySet);
         this.prioritySet = prioritySet;
         if (localCluster != null && localPrioritySet != null) {
@@ -55,7 +55,7 @@ final class DefaultLoadBalancer implements XdsLoadBalancer {
     @Override
     @Nullable
     public Endpoint selectNow(ClientRequestContext ctx) {
-        final PrioritySet prioritySet = lbState.prioritySet();
+        final DefaultPrioritySet prioritySet = lbState.prioritySet();
         if (prioritySet.priorities().isEmpty()) {
             return null;
         }
@@ -110,7 +110,7 @@ final class DefaultLoadBalancer implements XdsLoadBalancer {
         if (priorityAndAvailability == null) {
             return null;
         }
-        final PrioritySet prioritySet = lbState.prioritySet();
+        final DefaultPrioritySet prioritySet = lbState.prioritySet();
         final int priority = priorityAndAvailability.priority;
         final HostSet hostSet = prioritySet.hostSets().get(priority);
         assert hostSet != null;
@@ -186,7 +186,7 @@ final class DefaultLoadBalancer implements XdsLoadBalancer {
     }
 
     @Override
-    public PrioritySet prioritySet() {
+    public DefaultPrioritySet prioritySet() {
         return prioritySet;
     }
 

@@ -19,14 +19,15 @@ package com.linecorp.armeria.xds;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import com.linecorp.armeria.xds.client.endpoint.UpdatableLoadBalancer;
+import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
+import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 
 public final class XdsTestUtil {
 
-    public static UpdatableLoadBalancer pollLoadBalancer(
+    public static XdsEndpointSelector pollLoadBalancer(
             ListenerRoot root, String clusterName, Cluster expected) {
         root.initialFuture().join();
         await().untilAsserted(() -> {
@@ -37,7 +38,7 @@ public final class XdsTestUtil {
         return root.current().routeSnapshot().clusterSnapshot(clusterName).clusterEntry();
     }
 
-    public static UpdatableLoadBalancer pollLoadBalancer(
+    public static XdsEndpointSelector pollLoadBalancer(
             ListenerRoot root, String clusterName, ClusterLoadAssignment expected) {
         root.initialFuture().join();
         await().untilAsserted(() -> {

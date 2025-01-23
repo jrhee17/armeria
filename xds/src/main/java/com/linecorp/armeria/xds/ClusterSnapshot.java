@@ -26,7 +26,8 @@ import com.google.common.collect.ImmutableMap;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
-import com.linecorp.armeria.xds.client.endpoint.UpdatableLoadBalancer;
+import com.linecorp.armeria.xds.client.endpoint.ThreadLocalCluster;
+import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.route.v3.Route;
@@ -49,7 +50,7 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
     private final Map<String, ParsedFilterConfig> routeFilterConfigs;
     private final Map<String, ParsedFilterConfig> virtualHostFilterConfigs;
     @Nullable
-    private final UpdatableLoadBalancer clusterEntry;
+    private final XdsEndpointSelector clusterEntry;
 
     ClusterSnapshot(ClusterXdsResource clusterXdsResource, @Nullable EndpointSnapshot endpointSnapshot,
                     @Nullable VirtualHost virtualHost, @Nullable Route route, int index,
@@ -86,7 +87,7 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
     }
 
     @Nullable
-    public UpdatableLoadBalancer clusterEntry() {
+    public XdsEndpointSelector clusterEntry() {
         return clusterEntry;
     }
 

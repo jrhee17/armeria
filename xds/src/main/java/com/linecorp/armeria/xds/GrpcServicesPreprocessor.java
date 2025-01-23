@@ -29,7 +29,7 @@ import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.SessionProtocol;
-import com.linecorp.armeria.xds.client.endpoint.UpdatableLoadBalancer;
+import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
 
 import io.envoyproxy.envoy.config.core.v3.GrpcService;
 import io.envoyproxy.envoy.config.core.v3.GrpcService.EnvoyGrpc;
@@ -74,7 +74,7 @@ public class GrpcServicesPreprocessor implements HttpPreprocessor {
             ctx.setSessionProtocol(SessionProtocol.HTTP);
         }
 
-        final UpdatableLoadBalancer loadBalancer = bootstrapClusters.clusterEntry(clusterName);
+        final XdsEndpointSelector loadBalancer = bootstrapClusters.clusterEntry(clusterName);
         final Endpoint endpoint = loadBalancer.selectNow(ctx);
         if (endpoint != null) {
             ctx.setEndpointGroup(endpoint);

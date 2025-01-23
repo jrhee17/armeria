@@ -159,7 +159,7 @@ class RouteMetadataSubsetTest {
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
             final Cluster expected = cache.getSnapshot(GROUP_KEY).clusters().resources().get(clusterName);
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, clusterName, expected);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, clusterName, expected);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8082));
             assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8082));
@@ -174,7 +174,7 @@ class RouteMetadataSubsetTest {
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
             final Cluster expected = cache.getSnapshot(GROUP_KEY).clusters().resources().get(clusterName);
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, clusterName, expected);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, clusterName, expected);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8080));
             assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8081));
@@ -191,7 +191,7 @@ class RouteMetadataSubsetTest {
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
             final Cluster expected = cache.getSnapshot(GROUP_KEY).clusters().resources().get(clusterName);
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, clusterName, expected);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, clusterName, expected);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             if (noFallback) {
                 assertThat(loadBalancer.selectNow(ctx)).isNull();
@@ -239,7 +239,7 @@ class RouteMetadataSubsetTest {
         final Bootstrap bootstrap = staticBootstrap(listener, cluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
 

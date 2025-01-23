@@ -16,16 +16,15 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import java.util.function.Consumer;
+import java.util.List;
 
-import com.linecorp.armeria.client.endpoint.EndpointSelector;
-import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.common.util.Listenable;
+import com.google.common.collect.ImmutableList;
 
-public interface XdsEndpointSelector extends EndpointSelector, Listenable<PrioritySet> {
+import com.linecorp.armeria.client.Endpoint;
 
-    void addListener(Consumer<? super PrioritySet> listener, boolean notifyLatestValue);
+public interface PrioritySet {
 
-    @Nullable
-    PrioritySet prioritySet();
+    PrioritySet NOOP = ImmutableList::of;
+
+    List<Endpoint> endpoints();
 }

@@ -21,7 +21,8 @@ import java.util.Map;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.client.endpoint.ClusterEntry;
-import com.linecorp.armeria.xds.client.endpoint.UpdatableLoadBalancer;
+import com.linecorp.armeria.xds.client.endpoint.InternalClusterManager;
+import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap.StaticResources;
@@ -31,7 +32,7 @@ import io.grpc.Status;
 final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
 
     private final Map<String, ClusterSnapshot> clusterSnapshots = new HashMap<>();
-    private final Map<String, UpdatableLoadBalancer> clusterEntries = new HashMap<>();
+    private final Map<String, XdsEndpointSelector> clusterEntries = new HashMap<>();
     private final Map<String, Cluster> clusters = new HashMap<>();
     private final InternalClusterManager clusterManager;
 
@@ -54,7 +55,7 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
     @Override
     public void snapshotUpdated(ClusterSnapshot newSnapshot) {
         final ClusterEntry clusterEntry = clusterManager.registerEntry(newSnapshot.xdsResource().name());
-        final UpdatableLoadBalancer loadBalancer = clusterEntry.updateClusterSnapshot(newSnapshot);
+        final XdsEndpointSelector loadBalancer = clusterEntry.updateClusterSnapshot(newSnapshot);
         clusterEntries.put(newSnapshot.xdsResource().name(), loadBalancer);
         clusterSnapshots.put(newSnapshot.xdsResource().name(), newSnapshot);
     }
@@ -69,8 +70,8 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
         return clusters.get(clusterName);
     }
 
-    UpdatableLoadBalancer clusterEntry(String clusterName) {
-        final UpdatableLoadBalancer clusterEntry = clusterEntries.get(clusterName);
+    XdsEndpointSelector clusterEntry(String clusterName) {
+        final XdsEndpointSelector clusterEntry = clusterEntries.get(clusterName);
         assert clusterEntry != null : "cluster entry not found: " + clusterName;
         return clusterEntry;
     }

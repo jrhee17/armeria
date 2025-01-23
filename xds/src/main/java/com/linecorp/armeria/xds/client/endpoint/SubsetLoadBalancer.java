@@ -42,14 +42,14 @@ final class SubsetLoadBalancer implements XdsLoadBalancer {
     private static final Logger logger = LoggerFactory.getLogger(SubsetLoadBalancer.class);
 
     private final LoadBalancer loadBalancer;
-    private final PrioritySet prioritySet;
+    private final DefaultPrioritySet prioritySet;
     @Nullable
     private final LocalCluster localCluster;
     @Nullable
-    private final PrioritySet localPrioritySet;
+    private final DefaultPrioritySet localPrioritySet;
 
-    SubsetLoadBalancer(PrioritySet prioritySet, XdsLoadBalancer allEndpointsLoadBalancer,
-                       @Nullable LocalCluster localCluster, @Nullable PrioritySet localPrioritySet) {
+    SubsetLoadBalancer(DefaultPrioritySet prioritySet, XdsLoadBalancer allEndpointsLoadBalancer,
+                       @Nullable LocalCluster localCluster, @Nullable DefaultPrioritySet localPrioritySet) {
         this.localCluster = localCluster;
         this.localPrioritySet = localPrioritySet;
         loadBalancer = createSubsetLoadBalancer(prioritySet, allEndpointsLoadBalancer);
@@ -62,7 +62,7 @@ final class SubsetLoadBalancer implements XdsLoadBalancer {
         return loadBalancer.selectNow(ctx);
     }
 
-    private LoadBalancer createSubsetLoadBalancer(PrioritySet prioritySet,
+    private LoadBalancer createSubsetLoadBalancer(DefaultPrioritySet prioritySet,
                                                   LoadBalancer allEndpointsLoadBalancer) {
         final ClusterSnapshot clusterSnapshot = prioritySet.clusterSnapshot();
         final Struct filterMetadata = filterMetadata(clusterSnapshot);
@@ -104,7 +104,7 @@ final class SubsetLoadBalancer implements XdsLoadBalancer {
 
     private LoadBalancer createSubsetLoadBalancer(List<Endpoint> endpoints,
                                                   ClusterSnapshot clusterSnapshot) {
-        final PrioritySet subsetPrioritySet = new PriorityStateManager(clusterSnapshot, endpoints).build();
+        final DefaultPrioritySet subsetPrioritySet = new PriorityStateManager(clusterSnapshot, endpoints).build();
         return new DefaultLoadBalancer(subsetPrioritySet, localCluster, localPrioritySet);
     }
 
@@ -116,7 +116,7 @@ final class SubsetLoadBalancer implements XdsLoadBalancer {
     }
 
     @Override
-    public PrioritySet prioritySet() {
+    public DefaultPrioritySet prioritySet() {
         return prioritySet;
     }
 }

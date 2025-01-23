@@ -34,7 +34,7 @@ import io.envoyproxy.envoy.config.cluster.v3.Cluster.CommonLbConfig;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.CommonLbConfig.ZoneAwareLbConfig;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 
-final class PrioritySet {
+final class DefaultPrioritySet implements PrioritySet {
     private final Map<Integer, HostSet> hostSets;
     private final SortedSet<Integer> priorities;
     private final List<Endpoint> origEndpoints;
@@ -42,7 +42,7 @@ final class PrioritySet {
     private final Cluster cluster;
     private final int panicThreshold;
 
-    PrioritySet(ClusterSnapshot clusterSnapshot, Map<Integer, HostSet> hostSets, List<Endpoint> origEndpoints) {
+    DefaultPrioritySet(ClusterSnapshot clusterSnapshot, Map<Integer, HostSet> hostSets, List<Endpoint> origEndpoints) {
         this.clusterSnapshot = clusterSnapshot;
         cluster = clusterSnapshot.xdsResource().resource();
         panicThreshold = EndpointUtil.panicThreshold(cluster);
@@ -119,7 +119,8 @@ final class PrioritySet {
      * {@link SubsetLoadBalancer}. It will be removed once {@link SubsetLoadBalancer}
      * is fully implemented.
      */
-    List<Endpoint> endpoints() {
+    @Override
+    public List<Endpoint> endpoints() {
         return origEndpoints;
     }
 
@@ -159,8 +160,8 @@ final class PrioritySet {
             hostSetsBuilder.put(priority, hostSet);
         }
 
-        PrioritySet build() {
-            return new PrioritySet(clusterSnapshot, hostSetsBuilder.build(), origEndpoints);
+        DefaultPrioritySet build() {
+            return new DefaultPrioritySet(clusterSnapshot, hostSetsBuilder.build(), origEndpoints);
         }
     }
 }

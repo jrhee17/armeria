@@ -14,14 +14,12 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.ClusterEntry;
-import com.linecorp.armeria.xds.client.endpoint.LocalCluster;
 
 import io.netty.util.concurrent.EventExecutor;
 

@@ -78,7 +78,7 @@ class LocalityTest {
         final Map<Endpoint, Integer> countsMap = new HashMap<>();
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             // Regardless of the endpoint weight, the locality weight will be used
             // to determine which endpoint group to use
             final ClientRequestContext ctx =
@@ -114,7 +114,7 @@ class LocalityTest {
         final Bootstrap bootstrap = staticBootstrap(listener, cluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             // regionA won't be selected at all since it is empty
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
@@ -148,7 +148,7 @@ class LocalityTest {
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
 
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
 
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));

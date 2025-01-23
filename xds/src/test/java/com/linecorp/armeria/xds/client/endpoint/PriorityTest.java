@@ -78,7 +78,7 @@ class PriorityTest {
         final Bootstrap bootstrap = staticBootstrap(listener, cluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8080));
             assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8081));
@@ -105,7 +105,7 @@ class PriorityTest {
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
 
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8080));
             assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8081));
@@ -135,7 +135,7 @@ class PriorityTest {
         final Bootstrap bootstrap = staticBootstrap(listener, cluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
@@ -186,7 +186,7 @@ class PriorityTest {
         final Bootstrap bootstrap = staticBootstrap(listener, cluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
@@ -225,7 +225,7 @@ class PriorityTest {
         final Bootstrap bootstrap = staticBootstrap(listener, cluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
 
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
@@ -260,7 +260,7 @@ class PriorityTest {
         final Bootstrap bootstrap = staticBootstrap(listener, cluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
 
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
@@ -298,7 +298,7 @@ class PriorityTest {
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
             // When in panic mode, all endpoints are selected regardless of health status
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8080));
             assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8081));
@@ -328,7 +328,7 @@ class PriorityTest {
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
             // When in panic mode, all endpoints are selected regardless of health status
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             assertThat(loadBalancer.selectNow(ctx)).isNull();
             assertThat(loadBalancer.selectNow(ctx)).isNull();
@@ -371,7 +371,7 @@ class PriorityTest {
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
             // When in panic mode, all endpoints are selected regardless of health status
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             assertThat(loadBalancer.selectNow(ctx)).isEqualTo(endpoint1);
             assertThat(loadBalancer.selectNow(ctx)).isEqualTo(endpoint2);

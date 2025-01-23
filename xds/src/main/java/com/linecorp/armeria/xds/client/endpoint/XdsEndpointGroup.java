@@ -27,7 +27,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
@@ -71,7 +70,7 @@ import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 @UnstableApi
 @Deprecated
 public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
-        implements EndpointGroup, SnapshotWatcher<ListenerSnapshot>, Consumer<XdsLoadBalancer> {
+        implements EndpointGroup, SnapshotWatcher<ListenerSnapshot>, Consumer<PrioritySet> {
 
     /**
      * Creates a {@link XdsEndpointGroup} which listens to the specified listener.
@@ -109,8 +108,9 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
 
     private final EndpointSelector selector;
     @Nullable
-    private volatile UpdatableLoadBalancer loadBalancer;
+    private volatile XdsEndpointSelector loadBalancer;
     private final ListenerRoot listenerRoot;
+    private List<Endpoint> endpoints = UNINITIALIZED_ENDPOINTS;
 
     XdsEndpointGroup(String listenerName, XdsBootstrap xdsBootstrap, boolean allowEmptyEndpoints) {
         this.allowEmptyEndpoints = allowEmptyEndpoints;
@@ -131,7 +131,7 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
             return;
         }
         final ClusterSnapshot clusterSnapshot = clusterSnapshots.get(0);
-        final UpdatableLoadBalancer loadBalancer = clusterSnapshot.clusterEntry();
+        final XdsEndpointSelector loadBalancer = clusterSnapshot.clusterEntry();
         if (loadBalancer == null) {
             return;
         }
@@ -141,7 +141,7 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
             // It is too much work to keep track of the snapshot/endpoints/attributes that determine
             // whether the state is cacheable or not. For now, to prevent bugs we just set the
             // state transparently and don't decide whether to notify an event based on the cache.
-            final UpdatableLoadBalancer prevLoadBalancer = this.loadBalancer;
+            final XdsEndpointSelector prevLoadBalancer = this.loadBalancer;
             if (prevLoadBalancer != null) {
                 prevLoadBalancer.removeListener(this);
             }
@@ -150,9 +150,6 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
         } finally {
             stateLock.unlock();
         }
-
-        maybeCompleteInitialEndpointsFuture(loadBalancer.endpoints());
-        notifyListeners(loadBalancer.endpoints());
     }
 
     private void maybeCompleteInitialEndpointsFuture(List<Endpoint> endpoints) {
@@ -174,11 +171,7 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
 
     @Override
     public List<Endpoint> endpoints() {
-        final UpdatableLoadBalancer loadBalancer = this.loadBalancer;
-        if (loadBalancer == null) {
-            return ImmutableList.of();
-        }
-        return loadBalancer.endpoints();
+        return endpoints;
     }
 
     @Override
@@ -236,11 +229,10 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
     }
 
     @Override
-    public void accept(XdsLoadBalancer xdsLoadBalancer) {
-        final UpdatableLoadBalancer loadBalancer = this.loadBalancer;
-        if (loadBalancer != null) {
-            notifyListeners(loadBalancer.endpoints());
-        }
+    public void accept(PrioritySet prioritySet) {
+        endpoints = prioritySet.endpoints();
+        notifyListeners(prioritySet.endpoints());
+        maybeCompleteInitialEndpointsFuture(prioritySet.endpoints());
     }
 
     private class XdsEndpointSelectionStrategy implements EndpointSelectionStrategy {
@@ -261,7 +253,7 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
         @Override
         @Nullable
         public Endpoint selectNow(ClientRequestContext ctx) {
-            final UpdatableLoadBalancer loadBalancer = XdsEndpointGroup.this.loadBalancer;
+            final XdsEndpointSelector loadBalancer = XdsEndpointGroup.this.loadBalancer;
             if (loadBalancer == null) {
                 return null;
             }

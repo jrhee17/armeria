@@ -96,7 +96,7 @@ class ZoneAwareTest {
                 .build();
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
             ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
@@ -147,7 +147,7 @@ class ZoneAwareTest {
                 .build();
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
             ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
@@ -198,7 +198,7 @@ class ZoneAwareTest {
                 .build();
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
             ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
@@ -246,7 +246,7 @@ class ZoneAwareTest {
                 .build();
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
             ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
@@ -296,7 +296,7 @@ class ZoneAwareTest {
                 .build();
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
             ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
@@ -350,7 +350,7 @@ class ZoneAwareTest {
                 .build();
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
             ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
@@ -404,7 +404,7 @@ class ZoneAwareTest {
                 .build();
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
             ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
@@ -463,7 +463,7 @@ class ZoneAwareTest {
         final Set<String> selectedRegions = new HashSet<>();
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final UpdatableLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
             ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
