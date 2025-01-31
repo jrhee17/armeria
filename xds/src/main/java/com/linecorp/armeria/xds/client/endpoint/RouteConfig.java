@@ -33,7 +33,6 @@ import com.linecorp.armeria.xds.RouteSnapshot;
 import com.linecorp.armeria.xds.client.endpoint.FilterUtils.XdsFilter;
 
 import io.envoyproxy.envoy.config.route.v3.Route;
-import io.envoyproxy.envoy.config.route.v3.RouteAction;
 
 final class RouteConfig {
     private final ListenerSnapshot listenerSnapshot;

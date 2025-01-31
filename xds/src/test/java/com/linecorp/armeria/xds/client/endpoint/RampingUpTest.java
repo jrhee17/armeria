@@ -128,7 +128,7 @@ class RampingUpTest {
         final Cluster bootstrapCluster =
                 XdsTestResources.createStaticCluster(BOOTSTRAP_CLUSTER_NAME, bootstrapLoadAssignment);
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
-        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap) ;
+        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot(listenerName)) {
             final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             await().untilAsserted(() -> assertThat(loadBalancer.prioritySet().endpoints())

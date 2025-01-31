@@ -22,21 +22,15 @@ import com.linecorp.armeria.common.util.AbstractListenable;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
 
-public final class LocalCluster extends AbstractListenable<DefaultPrioritySet>
+final class LocalCluster extends AbstractListenable<DefaultPrioritySet>
         implements AutoCloseable, Consumer<PrioritySet> {
     private final LocalityRoutingStateFactory localityRoutingStateFactory;
-    private final String name;
     private final XdsEndpointSelector loadBalancer;
 
-    public LocalCluster(Locality locality, String name, XdsEndpointSelector localEndpointSelector) {
+    LocalCluster(Locality locality, String name, XdsEndpointSelector localEndpointSelector) {
         localityRoutingStateFactory = new LocalityRoutingStateFactory(locality);
-        this.name = name;
         loadBalancer = localEndpointSelector;
         localEndpointSelector.addListener(this);
-    }
-
-    public String name() {
-        return name;
     }
 
     LocalityRoutingStateFactory stateFactory() {

@@ -37,7 +37,7 @@ import io.envoyproxy.envoy.config.core.v3.HeaderValue;
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
 import io.netty.channel.EventLoop;
 
-public class GrpcServicesPreprocessor implements HttpPreprocessor {
+final class GrpcServicesPreprocessor implements HttpPreprocessor {
 
     private final List<GrpcService> services;
     private final BootstrapClusters bootstrapClusters;

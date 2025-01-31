@@ -35,7 +35,7 @@ public final class ListenerRoot extends AbstractRoot<ListenerSnapshot> {
     ListenerRoot(XdsBootstrapImpl xdsBootstrap, ConfigSourceMapper configSourceMapper,
                  String resourceName, BootstrapListeners bootstrapListeners) {
         super(xdsBootstrap.eventLoop());
-        bootstrapContext = new DefaultBootstrapContext(xdsBootstrap, xdsBootstrap.localCluster());
+        bootstrapContext = new DefaultBootstrapContext(xdsBootstrap);
         final ListenerXdsResource listenerXdsResource = bootstrapListeners.staticListeners().get(resourceName);
         if (listenerXdsResource != null) {
             node = new ListenerResourceNode(null, resourceName, bootstrapContext,

@@ -16,24 +16,19 @@
 
 package com.linecorp.armeria.xds;
 
-import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.InternalClusterManager;
-import com.linecorp.armeria.xds.client.endpoint.LocalCluster;
+import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
 
 import io.netty.util.concurrent.EventExecutor;
 
 final class DefaultBootstrapContext implements BootstrapContext {
     private final XdsBootstrapImpl xdsBootstrap;
-    @Nullable
-    private final LocalCluster localCluster;
 
-    DefaultBootstrapContext(XdsBootstrapImpl xdsBootstrap, @Nullable LocalCluster localCluster) {
+    DefaultBootstrapContext(XdsBootstrapImpl xdsBootstrap) {
         this.xdsBootstrap = xdsBootstrap;
-        this.localCluster = localCluster;
     }
 
     @Override
-    public InternalClusterManager clusterManager() {
+    public ClusterManager clusterManager() {
         return xdsBootstrap.clusterManager();
     }
 
@@ -60,11 +55,5 @@ final class DefaultBootstrapContext implements BootstrapContext {
     @Override
     public ConfigSourceMapper configSourceMapper() {
         return xdsBootstrap.configSourceMapper();
-    }
-
-    @Nullable
-    @Override
-    public LocalCluster localCluster() {
-        return localCluster;
     }
 }

@@ -39,7 +39,8 @@ public final class ClusterRoot extends AbstractRoot<ClusterSnapshot> {
         if (cluster != null) {
             node = staticCluster(bootstrapContext, resourceName, this, cluster);
         } else {
-            final ConfigSource configSource = bootstrapContext.configSourceMapper().cdsConfigSource(resourceName);
+            final ConfigSource configSource =
+                    bootstrapContext.configSourceMapper().cdsConfigSource(resourceName);
             node = new ClusterResourceNode(configSource, resourceName, bootstrapContext,
                                            null, this, ResourceNodeType.DYNAMIC);
             bootstrapContext.subscribe(node);

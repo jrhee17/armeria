@@ -23,7 +23,6 @@ import static java.util.Objects.requireNonNull;
 import java.util.Objects;
 
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.ThreadLocalCluster;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.EdsClusterConfig;
@@ -54,8 +53,7 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
         virtualHost = null;
         route = null;
         index = -1;
-        threadLocalCluster = new ThreadLocalCluster(bootstrapContext.clusterManager(), resourceName,
-                                                    bootstrapContext.localCluster());
+        threadLocalCluster = new ThreadLocalCluster(bootstrapContext.clusterManager(), resourceName);
     }
 
     ClusterResourceNode(@Nullable ConfigSource configSource,
@@ -67,8 +65,7 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
         this.virtualHost = requireNonNull(virtualHost, "virtualHost");
         this.route = requireNonNull(route, "route");
         this.index = index;
-        threadLocalCluster = new ThreadLocalCluster(bootstrapContext.clusterManager(), resourceName,
-                                                    bootstrapContext.localCluster());
+        threadLocalCluster = new ThreadLocalCluster(bootstrapContext.clusterManager(), resourceName);
     }
 
     @Override

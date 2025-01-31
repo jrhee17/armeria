@@ -42,7 +42,8 @@ final class DefaultPrioritySet implements PrioritySet {
     private final Cluster cluster;
     private final int panicThreshold;
 
-    DefaultPrioritySet(ClusterSnapshot clusterSnapshot, Map<Integer, HostSet> hostSets, List<Endpoint> origEndpoints) {
+    DefaultPrioritySet(ClusterSnapshot clusterSnapshot, Map<Integer, HostSet> hostSets,
+                       List<Endpoint> origEndpoints) {
         this.clusterSnapshot = clusterSnapshot;
         cluster = clusterSnapshot.xdsResource().resource();
         panicThreshold = EndpointUtil.panicThreshold(cluster);

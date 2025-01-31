@@ -14,36 +14,35 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.xds;
 
-import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.ClusterSnapshot;
+import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
+import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
 
-public class ThreadLocalCluster implements AutoCloseable {
+final class ThreadLocalCluster implements AutoCloseable {
 
-    private final InternalClusterManager internalClusterManager;
+    private final ClusterManager clusterManager;
     private final String name;
     private boolean closed;
 
-    public ThreadLocalCluster(InternalClusterManager internalClusterManager, String name,
-                              @Nullable LocalCluster localCluster) {
-        this.internalClusterManager = internalClusterManager;
+    ThreadLocalCluster(ClusterManager clusterManager, String name) {
+        this.clusterManager = clusterManager;
         this.name = name;
-        internalClusterManager.registerEntry(name, localCluster);
+        clusterManager.registerEntry(name);
     }
 
-    public XdsEndpointSelector updateSnapshot(ClusterSnapshot clusterSnapshot) {
+    XdsEndpointSelector updateSnapshot(ClusterSnapshot clusterSnapshot) {
         assert !closed;
-        return internalClusterManager.updateSnapshot(name, clusterSnapshot);
+        return clusterManager.updateSnapshot(name, clusterSnapshot);
     }
 
-    public boolean closed() {
+    boolean closed() {
         return closed;
     }
 
     @Override
     public void close() {
         closed = true;
-        internalClusterManager.removeSnapshot(name);
+        clusterManager.removeSnapshot(name);
     }
 }

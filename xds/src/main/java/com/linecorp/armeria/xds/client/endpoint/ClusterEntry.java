@@ -28,7 +28,7 @@ import com.linecorp.armeria.xds.ClusterSnapshot;
 
 import io.netty.util.concurrent.EventExecutor;
 
-public final class ClusterEntry implements AsyncCloseable {
+final class ClusterEntry implements AsyncCloseable {
 
     private final Consumer<DefaultPrioritySet> localClusterEntryListener = this::updateLocalLoadBalancer;
 
@@ -42,7 +42,7 @@ public final class ClusterEntry implements AsyncCloseable {
     private final EventExecutor eventExecutor;
     private int refCnt;
 
-    public ClusterEntry(EventExecutor eventExecutor, @Nullable LocalCluster localCluster) {
+    ClusterEntry(EventExecutor eventExecutor, @Nullable LocalCluster localCluster) {
         this.eventExecutor = eventExecutor;
         endpointsPool = new EndpointsPool(eventExecutor);
         this.localCluster = localCluster;

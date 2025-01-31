@@ -25,8 +25,7 @@ import java.util.Map;
 import com.google.common.base.Strings;
 
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.InternalClusterManager;
-import com.linecorp.armeria.xds.client.endpoint.LocalCluster;
+import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
 import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
@@ -39,16 +38,13 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
     private final Map<String, ClusterSnapshot> clusterSnapshots = new HashMap<>();
     private final Map<String, XdsEndpointSelector> clusterEntries = new HashMap<>();
     private final Map<String, Cluster> clusters = new HashMap<>();
-    private final InternalClusterManager clusterManager;
-    @Nullable
-    private XdsEndpointSelector localEndpointSelector;
+    private final ClusterManager clusterManager;
     private final String localClusterName;
-    @Nullable
-    private final LocalCluster localCluster;
 
     BootstrapClusters(Bootstrap bootstrap, XdsBootstrapImpl xdsBootstrap,
-                      InternalClusterManager clusterManager) {
+                      ClusterManager clusterManager) {
         this.clusterManager = clusterManager;
+        final DefaultBootstrapContext bootstrapContext = new DefaultBootstrapContext(xdsBootstrap);
 
         localClusterName = bootstrap.getClusterManager().getLocalClusterName();
         if (!Strings.isNullOrEmpty(localClusterName) && bootstrap.getNode().hasLocality()) {
@@ -56,17 +52,9 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
             checkArgument(bootstrapLocalCluster != null,
                           "A static cluster must be defined for localClusterName '%s'",
                           localClusterName);
-            final DefaultBootstrapContext bootstrapContext = new DefaultBootstrapContext(xdsBootstrap, null);
             StaticResourceUtils.staticCluster(bootstrapContext, localClusterName, this, bootstrapLocalCluster);
-            checkState(clusterEntries.containsKey(localClusterName),
-                       "Bootstrap cluster (%s) hasn't been loaded.", localClusterName);
-            assert localEndpointSelector != null;
-            localCluster = new LocalCluster(bootstrap.getNode().getLocality(), localClusterName, localEndpointSelector);
-        } else {
-            localCluster = null;
         }
 
-        final DefaultBootstrapContext bootstrapContext = new DefaultBootstrapContext(xdsBootstrap, localCluster);
         if (bootstrap.hasStaticResources()) {
             final StaticResources staticResources = bootstrap.getStaticResources();
             for (Cluster cluster : staticResources.getClustersList()) {
@@ -97,17 +85,11 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
     @Override
     public void snapshotUpdated(ClusterSnapshot newSnapshot) {
         final String name = newSnapshot.xdsResource().name();
-        clusterManager.registerEntry(name, localCluster);
-        final XdsEndpointSelector loadBalancer = clusterManager.updateSnapshot(name, newSnapshot);
+        clusterManager.registerEntry(name);
+        final XdsEndpointSelector loadBalancer = clusterManager.getSelector(name);
+        assert loadBalancer != null;
         clusterEntries.put(name, loadBalancer);
         clusterSnapshots.put(name, newSnapshot);
-
-        if (name.equals(localClusterName)) {
-            checkArgument(newSnapshot.endpointSnapshot() != null,
-                          "A static cluster with endpoints must be defined for localClusterName '%s'",
-                          localClusterName);
-            localEndpointSelector = loadBalancer;
-        }
     }
 
     @Nullable
@@ -124,11 +106,6 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
         final XdsEndpointSelector clusterEntry = clusterEntries.get(clusterName);
         assert clusterEntry != null : "cluster entry not found: " + clusterName;
         return clusterEntry;
-    }
-
-    @Nullable
-    LocalCluster localCluster() {
-        return localCluster;
     }
 
     @Override

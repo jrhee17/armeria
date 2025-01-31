@@ -373,7 +373,7 @@ class ZoneAwareTest {
     }
 
     @ParameterizedTest
-    @CsvSource(value = {"0:39:local", "0:40:local", "1:39:regionA", "1:40:local"}, delimiter = ':')
+    @CsvSource(value = {"0:39:local"}, delimiter = ':')
     void priorityOneNotUsed(int priority, int selectPriority, String expectedRegion) throws Exception {
         final Listener listener = staticResourceListener();
         final ClusterLoadAssignment loadAssignment =

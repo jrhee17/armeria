@@ -28,9 +28,7 @@ import com.google.common.annotations.VisibleForTesting;
 
 import com.linecorp.armeria.client.grpc.GrpcClientBuilder;
 import com.linecorp.armeria.common.CommonPools;
-import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.InternalClusterManager;
-import com.linecorp.armeria.xds.client.endpoint.LocalCluster;
+import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
@@ -49,7 +47,7 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
     private final Consumer<GrpcClientBuilder> configClientCustomizer;
     private final Node bootstrapNode;
     private boolean closed;
-    private final InternalClusterManager clusterManager;
+    private final ClusterManager clusterManager;
 
     XdsBootstrapImpl(Bootstrap bootstrap) {
         this(bootstrap, CommonPools.workerGroup().next(), ignored -> {});
@@ -68,7 +66,7 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
         configSourceMapper = new ConfigSourceMapper(bootstrap);
 
         bootstrapNode = bootstrap.hasNode() ? bootstrap.getNode() : Node.getDefaultInstance();
-        clusterManager = new InternalClusterManager(eventLoop);
+        clusterManager = new ClusterManager(eventLoop, bootstrap);
         bootstrapClusters = new BootstrapClusters(bootstrap, this, clusterManager);
 
         bootstrapListeners = new BootstrapListeners(bootstrap);
@@ -127,8 +125,7 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
     @Override
     public ClusterRoot clusterRoot(String resourceName) {
         requireNonNull(resourceName, "resourceName");
-        final BootstrapContext bootstrapContext =
-                new DefaultBootstrapContext(this, bootstrapClusters.localCluster());
+        final BootstrapContext bootstrapContext = new DefaultBootstrapContext(this);
         return new ClusterRoot(bootstrapContext, resourceName);
     }
 
@@ -163,12 +160,7 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
         return configSourceMapper;
     }
 
-    @Nullable
-    LocalCluster localCluster() {
-        return bootstrapClusters.localCluster();
-    }
-
-    public InternalClusterManager clusterManager() {
+    public ClusterManager clusterManager() {
         return clusterManager;
     }
 }

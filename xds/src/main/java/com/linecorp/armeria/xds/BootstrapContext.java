@@ -16,15 +16,13 @@
 
 package com.linecorp.armeria.xds;
 
-import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.InternalClusterManager;
-import com.linecorp.armeria.xds.client.endpoint.LocalCluster;
+import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
 
 import io.netty.util.concurrent.EventExecutor;
 
 interface BootstrapContext {
 
-    InternalClusterManager clusterManager();
+    ClusterManager clusterManager();
 
     EventExecutor eventLoop();
 
@@ -35,7 +33,4 @@ interface BootstrapContext {
     BootstrapClusters bootstrapClusters();
 
     ConfigSourceMapper configSourceMapper();
-
-    @Nullable
-    LocalCluster localCluster();
 }

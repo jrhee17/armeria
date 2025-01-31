@@ -76,8 +76,8 @@ final class RouteResourceNode extends AbstractResourceNodeWithPrimer<RouteXdsRes
                 final Cluster cluster = bootstrapContext().bootstrapClusters().cluster(clusterName);
                 final ClusterResourceNode node;
                 if (cluster != null) {
-                    node = staticCluster(bootstrapContext(), clusterName, resource, snapshotWatcher, virtualHost,
-                                         route, index++, cluster);
+                    node = staticCluster(bootstrapContext(), clusterName, resource, snapshotWatcher,
+                                         virtualHost, route, index++, cluster);
                     children().add(node);
                 } else {
                     final ConfigSource configSource =

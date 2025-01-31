@@ -20,7 +20,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
-import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
@@ -48,4 +47,6 @@ public final class XdsTestUtil {
         });
         return root.current().routeSnapshot().clusterSnapshot(clusterName).clusterEntry();
     }
+
+    private XdsTestUtil() {}
 }
