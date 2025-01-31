@@ -73,8 +73,7 @@ final class RouteResourceNode extends AbstractResourceNodeWithPrimer<RouteXdsRes
                 clusterSnapshotList.add(null);
                 pending.add(index);
 
-                final Cluster cluster = bootstrapContext().xdsBootstrap()
-                                                          .bootstrapClusters().cluster(clusterName);
+                final Cluster cluster = bootstrapContext().bootstrapClusters().cluster(clusterName);
                 final ClusterResourceNode node;
                 if (cluster != null) {
                     node = staticCluster(bootstrapContext(), clusterName, resource, snapshotWatcher, virtualHost,
@@ -87,7 +86,7 @@ final class RouteResourceNode extends AbstractResourceNodeWithPrimer<RouteXdsRes
                                                    resource, snapshotWatcher, virtualHost, route,
                                                    index++, ResourceNodeType.DYNAMIC);
                     children().add(node);
-                    bootstrapContext().xdsBootstrap().subscribe(node);
+                    bootstrapContext().subscribe(node);
                 }
             }
         }

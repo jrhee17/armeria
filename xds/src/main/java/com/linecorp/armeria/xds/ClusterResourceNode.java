@@ -54,7 +54,8 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
         virtualHost = null;
         route = null;
         index = -1;
-        threadLocalCluster = new ThreadLocalCluster(bootstrapContext.clusterManager(), resourceName);
+        threadLocalCluster = new ThreadLocalCluster(bootstrapContext.clusterManager(), resourceName,
+                                                    bootstrapContext.localCluster());
     }
 
     ClusterResourceNode(@Nullable ConfigSource configSource,
@@ -66,7 +67,8 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
         this.virtualHost = requireNonNull(virtualHost, "virtualHost");
         this.route = requireNonNull(route, "route");
         this.index = index;
-        threadLocalCluster = new ThreadLocalCluster(bootstrapContext.clusterManager(), resourceName);
+        threadLocalCluster = new ThreadLocalCluster(bootstrapContext.clusterManager(), resourceName,
+                                                    bootstrapContext.localCluster());
     }
 
     @Override
@@ -88,7 +90,7 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
                     new EndpointResourceNode(configSource, clusterName, bootstrapContext(), resource,
                                              snapshotWatcher, ResourceNodeType.DYNAMIC);
             children().add(node);
-            bootstrapContext().xdsBootstrap().subscribe(node);
+            bootstrapContext().subscribe(node);
         } else {
             final ClusterSnapshot clusterSnapshot = new ClusterSnapshot(resource, threadLocalCluster);
             parentWatcher.snapshotUpdated(clusterSnapshot);

@@ -33,17 +33,16 @@ public final class ClusterRoot extends AbstractRoot<ClusterSnapshot> {
 
     private final ClusterResourceNode node;
 
-    ClusterRoot(XdsBootstrapImpl xdsBootstrap, ConfigSourceMapper configSourceMapper, String resourceName) {
-        super(xdsBootstrap.eventLoop());
-        final Cluster cluster = xdsBootstrap.bootstrapClusters().cluster(resourceName);
-        final BootstrapContext bootstrapContext = new BootstrapContext(xdsBootstrap, xdsBootstrap.localCluster());
+    ClusterRoot(BootstrapContext bootstrapContext, String resourceName) {
+        super(bootstrapContext.eventLoop());
+        final Cluster cluster = bootstrapContext.bootstrapClusters().cluster(resourceName);
         if (cluster != null) {
             node = staticCluster(bootstrapContext, resourceName, this, cluster);
         } else {
-            final ConfigSource configSource = configSourceMapper.cdsConfigSource(resourceName);
+            final ConfigSource configSource = bootstrapContext.configSourceMapper().cdsConfigSource(resourceName);
             node = new ClusterResourceNode(configSource, resourceName, bootstrapContext,
                                            null, this, ResourceNodeType.DYNAMIC);
-            xdsBootstrap.subscribe(node);
+            bootstrapContext.subscribe(node);
         }
     }
 

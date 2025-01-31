@@ -17,15 +17,21 @@
 package com.linecorp.armeria.xds.client.endpoint;
 
 import static com.linecorp.armeria.xds.client.endpoint.MetadataUtil.filterMetadata;
-import static com.linecorp.armeria.xds.client.endpoint.MetadataUtil.findMatchedSubsetSelector;
-import static com.linecorp.armeria.xds.client.endpoint.XdsEndpointUtil.convertEndpoints;
+import static com.linecorp.armeria.xds.client.endpoint.XdsConstants.SUBSET_LOAD_BALANCING_FILTER_NAME;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.ProtocolStringList;
 import com.google.protobuf.Struct;
 
 import com.linecorp.armeria.client.ClientRequestContext;
@@ -36,47 +42,40 @@ import com.linecorp.armeria.xds.ClusterSnapshot;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetFallbackPolicy;
+import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetSelector;
+import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 
 final class SubsetLoadBalancer implements XdsLoadBalancer {
 
     private static final Logger logger = LoggerFactory.getLogger(SubsetLoadBalancer.class);
 
-    private final LoadBalancer loadBalancer;
     private final DefaultPrioritySet prioritySet;
+    private final XdsLoadBalancer allEndpointsLoadBalancer;
     @Nullable
     private final LocalCluster localCluster;
     @Nullable
     private final DefaultPrioritySet localPrioritySet;
 
+    private final Map<Struct, XdsLoadBalancer> subsetLoadBalancers;
+    private final LbSubsetConfig lbSubsetConfig;
+    private final LbSubsetFallbackPolicy fallbackPolicy;
+
     SubsetLoadBalancer(DefaultPrioritySet prioritySet, XdsLoadBalancer allEndpointsLoadBalancer,
                        @Nullable LocalCluster localCluster, @Nullable DefaultPrioritySet localPrioritySet) {
+        this.allEndpointsLoadBalancer = allEndpointsLoadBalancer;
         this.localCluster = localCluster;
         this.localPrioritySet = localPrioritySet;
-        loadBalancer = createSubsetLoadBalancer(prioritySet, allEndpointsLoadBalancer);
+
+        final ClusterSnapshot clusterSnapshot = prioritySet.clusterSnapshot();
+        final Cluster cluster = clusterSnapshot.xdsResource().resource();
+        lbSubsetConfig = cluster.getLbSubsetConfig();
+        fallbackPolicy = lbSubsetFallbackPolicy(lbSubsetConfig);
+
+        subsetLoadBalancers = createSubsetLoadBalancers(prioritySet);
         this.prioritySet = prioritySet;
     }
 
-    @Override
-    @Nullable
-    public Endpoint selectNow(ClientRequestContext ctx) {
-        return loadBalancer.selectNow(ctx);
-    }
-
-    private LoadBalancer createSubsetLoadBalancer(DefaultPrioritySet prioritySet,
-                                                  LoadBalancer allEndpointsLoadBalancer) {
-        final ClusterSnapshot clusterSnapshot = prioritySet.clusterSnapshot();
-        final Struct filterMetadata = filterMetadata(clusterSnapshot);
-        if (filterMetadata.getFieldsCount() == 0) {
-            // No metadata. Use the whole endpoints.
-            return allEndpointsLoadBalancer;
-        }
-
-        final Cluster cluster = clusterSnapshot.xdsResource().resource();
-        final LbSubsetConfig lbSubsetConfig = cluster.getLbSubsetConfig();
-        if (lbSubsetConfig == LbSubsetConfig.getDefaultInstance()) {
-            // Route metadata exists but no lbSubsetConfig. Use NO_FALLBACK.
-            return NOOP;
-        }
+    private static LbSubsetFallbackPolicy lbSubsetFallbackPolicy(LbSubsetConfig lbSubsetConfig) {
         LbSubsetFallbackPolicy fallbackPolicy = lbSubsetConfig.getFallbackPolicy();
         if (!(fallbackPolicy == LbSubsetFallbackPolicy.NO_FALLBACK ||
               fallbackPolicy == LbSubsetFallbackPolicy.ANY_ENDPOINT)) {
@@ -84,34 +83,70 @@ final class SubsetLoadBalancer implements XdsLoadBalancer {
                         fallbackPolicy, LbSubsetFallbackPolicy.NO_FALLBACK);
             fallbackPolicy = LbSubsetFallbackPolicy.NO_FALLBACK;
         }
-
-        if (!findMatchedSubsetSelector(lbSubsetConfig, filterMetadata)) {
-            if (fallbackPolicy == LbSubsetFallbackPolicy.NO_FALLBACK) {
-                return NOOP;
-            }
-            return allEndpointsLoadBalancer;
-        }
-        final List<Endpoint> endpoints = convertEndpoints(prioritySet.endpoints(),
-                                                          filterMetadata);
-        if (endpoints.isEmpty()) {
-            if (fallbackPolicy == LbSubsetFallbackPolicy.NO_FALLBACK) {
-                return NOOP;
-            }
-            return allEndpointsLoadBalancer;
-        }
-        return createSubsetLoadBalancer(endpoints, clusterSnapshot);
+        return fallbackPolicy;
     }
 
-    private LoadBalancer createSubsetLoadBalancer(List<Endpoint> endpoints,
-                                                  ClusterSnapshot clusterSnapshot) {
-        final DefaultPrioritySet subsetPrioritySet = new PriorityStateManager(clusterSnapshot, endpoints).build();
-        return new DefaultLoadBalancer(subsetPrioritySet, localCluster, localPrioritySet);
+    @Override
+    @Nullable
+    public Endpoint selectNow(ClientRequestContext ctx) {
+        final Struct filterMetadata = filterMetadata(ctx);
+        final XdsLoadBalancer subsetLoadBalancer = subsetLoadBalancers.get(filterMetadata);
+        if (subsetLoadBalancer != null) {
+            return subsetLoadBalancer.selectNow(ctx);
+        }
+        if (fallbackPolicy == LbSubsetFallbackPolicy.NO_FALLBACK) {
+            return null;
+        }
+        assert fallbackPolicy == LbSubsetFallbackPolicy.ANY_ENDPOINT;
+        return allEndpointsLoadBalancer.selectNow(ctx);
+    }
+
+    private Map<Struct, XdsLoadBalancer> createSubsetLoadBalancers(DefaultPrioritySet prioritySet) {
+        final ClusterSnapshot clusterSnapshot = prioritySet.clusterSnapshot();
+
+        final Map<Struct, List<Endpoint>> endpointsPerFilterStruct = new HashMap<>();
+        for (LbSubsetSelector subsetSelector: lbSubsetConfig.getSubsetSelectorsList()) {
+            final ProtocolStringList keys = subsetSelector.getKeysList();
+            final List<String> sortedKeys = keys.stream().sorted().collect(Collectors.toList());
+            for (Endpoint endpoint : prioritySet.endpoints()) {
+                final LbEndpoint lbEndpoint = endpoint.attr(XdsAttributeKeys.LB_ENDPOINT_KEY);
+                assert lbEndpoint != null;
+                final Struct endpointMetadata = lbEndpoint.getMetadata().getFilterMetadataOrDefault(
+                        SUBSET_LOAD_BALANCING_FILTER_NAME, Struct.getDefaultInstance());
+                final Struct.Builder filteredStructBuilder = Struct.newBuilder();
+                boolean allKeysFound = true;
+                for (String key : sortedKeys) {
+                    if (!endpointMetadata.containsFields(key)) {
+                        allKeysFound = false;
+                        break;
+                    }
+                    filteredStructBuilder.putFields(key, endpointMetadata.getFieldsOrThrow(key));
+                }
+                if (!allKeysFound) {
+                    continue;
+                }
+                final Struct filteredStruct = filteredStructBuilder.build();
+                endpointsPerFilterStruct.computeIfAbsent(filteredStruct, unused -> new ArrayList<>())
+                                        .add(endpoint);
+            }
+        }
+        final ImmutableMap.Builder<Struct, XdsLoadBalancer> builder = ImmutableMap.builder();
+        for (Entry<Struct, List<Endpoint>> entry : endpointsPerFilterStruct.entrySet()) {
+            final DefaultPrioritySet subsetPrioritySet =
+                    new PriorityStateManager(clusterSnapshot, entry.getValue()).build();
+            final DefaultLoadBalancer subsetLoadBalancer =
+                    new DefaultLoadBalancer(subsetPrioritySet, localCluster, localPrioritySet);
+            builder.put(entry.getKey(), subsetLoadBalancer);
+        }
+        return builder.build();
     }
 
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-                          .add("loadBalancer", loadBalancer)
+                          .add("lbSubsetConfig", lbSubsetConfig)
+                          .add("subsetLoadBalancers", subsetLoadBalancers)
+                          .add("allEndpointsLoadBalancer", allEndpointsLoadBalancer)
                           .toString();
     }
 

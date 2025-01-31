@@ -21,16 +21,14 @@ import static com.linecorp.armeria.xds.XdsTestResources.endpoint;
 import static com.linecorp.armeria.xds.XdsTestResources.localityLbEndpoints;
 import static com.linecorp.armeria.xds.XdsTestResources.staticBootstrap;
 import static com.linecorp.armeria.xds.XdsTestResources.staticResourceListener;
-import static com.linecorp.armeria.xds.XdsTestUtil.pollLoadBalancer;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.common.HttpMethod;
-import com.linecorp.armeria.common.HttpRequest;
-import com.linecorp.armeria.xds.ListenerRoot;
+import com.linecorp.armeria.client.BlockingWebClient;
+import com.linecorp.armeria.client.DecoratingHttpClientFunction;
+import com.linecorp.armeria.client.WebClient;
+import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.xds.XdsBootstrap;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
@@ -64,17 +62,15 @@ class StrictDnsIntegrationTest {
                 .build();
 
         final Bootstrap bootstrap = staticBootstrap(listener, cluster);
-        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap) ;
-             ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
-
-            final ClientRequestContext ctx =
-                    ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
-            final Endpoint endpoint = loadBalancer.selectNow(ctx);
-            assertThat(endpoint)
-                    .withFailMessage("Failed for endpoints: (%s)", loadBalancer.prioritySet().endpoints())
-                    .isNotNull();
-            assertThat(endpoint.weight()).isEqualTo(weight);
+        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
+             XdsHttpPreprocessor httpPreprocessor = XdsHttpPreprocessor.of("listener", xdsBootstrap)) {
+            final DecoratingHttpClientFunction decorator =
+                    (delegate, ctx, req) -> HttpResponse.of(String.valueOf(ctx.endpoint().weight()));
+            final BlockingWebClient client = WebClient.builder(httpPreprocessor)
+                                                      .decorator(decorator)
+                                                      .build()
+                                                      .blocking();
+            assertThat(client.get("/").contentUtf8()).isEqualTo(String.valueOf(weight));
         }
     }
 }

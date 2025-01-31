@@ -25,11 +25,11 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 
 import com.linecorp.armeria.client.grpc.GrpcClientBuilder;
 import com.linecorp.armeria.common.CommonPools;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.xds.client.endpoint.InternalClusterManager;
 import com.linecorp.armeria.xds.client.endpoint.LocalCluster;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
@@ -46,11 +46,10 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
     private final BootstrapListeners bootstrapListeners;
     private final ConfigSourceMapper configSourceMapper;
     private final BootstrapClusters bootstrapClusters;
-    @Nullable
-    private final LocalCluster localCluster;
     private final Consumer<GrpcClientBuilder> configClientCustomizer;
     private final Node bootstrapNode;
     private boolean closed;
+    private final InternalClusterManager clusterManager;
 
     XdsBootstrapImpl(Bootstrap bootstrap) {
         this(bootstrap, CommonPools.workerGroup().next(), ignored -> {});
@@ -67,20 +66,12 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
         this.eventLoop = requireNonNull(eventLoop, "eventLoop");
         this.configClientCustomizer = configClientCustomizer;
         configSourceMapper = new ConfigSourceMapper(bootstrap);
-        bootstrapListeners = new BootstrapListeners(bootstrap);
-        bootstrapClusters = new BootstrapClusters(bootstrap, this);
-        bootstrapNode = bootstrap.hasNode() ? bootstrap.getNode() : Node.getDefaultInstance();
 
-        final String localClusterName = bootstrap.getClusterManager().getLocalClusterName();
-        if (!Strings.isNullOrEmpty(localClusterName) && bootstrap.getNode().hasLocality()) {
-            final ClusterSnapshot localClusterSnapshot = bootstrapClusters.clusterSnapshot(localClusterName);
-            checkArgument(localClusterSnapshot != null && localClusterSnapshot.endpointSnapshot() != null,
-                          "A static cluster with endpoints must be defined for localClusterName '%s'",
-                          localClusterName);
-            localCluster = new LocalCluster(localClusterName, this);
-        } else {
-            localCluster = null;
-        }
+        bootstrapNode = bootstrap.hasNode() ? bootstrap.getNode() : Node.getDefaultInstance();
+        clusterManager = new InternalClusterManager(eventLoop);
+        bootstrapClusters = new BootstrapClusters(bootstrap, this, clusterManager);
+
+        bootstrapListeners = new BootstrapListeners(bootstrap);
     }
 
     @Override
@@ -136,7 +127,9 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
     @Override
     public ClusterRoot clusterRoot(String resourceName) {
         requireNonNull(resourceName, "resourceName");
-        return new ClusterRoot(this, configSourceMapper, resourceName);
+        final BootstrapContext bootstrapContext =
+                new DefaultBootstrapContext(this, bootstrapClusters.localCluster());
+        return new ClusterRoot(bootstrapContext, resourceName);
     }
 
     @Override
@@ -172,6 +165,10 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
 
     @Nullable
     LocalCluster localCluster() {
-        return localCluster;
+        return bootstrapClusters.localCluster();
+    }
+
+    public InternalClusterManager clusterManager() {
+        return clusterManager;
     }
 }

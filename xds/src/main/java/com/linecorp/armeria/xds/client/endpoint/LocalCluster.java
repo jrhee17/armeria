@@ -16,32 +16,27 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import com.linecorp.armeria.common.util.AbstractListenable;
-import com.linecorp.armeria.common.util.AsyncCloseable;
-import com.linecorp.armeria.xds.ClusterRoot;
-import com.linecorp.armeria.xds.ClusterSnapshot;
-import com.linecorp.armeria.xds.XdsBootstrap;
 
-import io.envoyproxy.envoy.config.core.v3.Node;
+import io.envoyproxy.envoy.config.core.v3.Locality;
 
 public final class LocalCluster extends AbstractListenable<DefaultPrioritySet>
-        implements AsyncCloseable, Consumer<PrioritySet> {
-    private final ClusterEntry clusterEntry;
-    private final ClusterRoot localClusterRoot;
+        implements AutoCloseable, Consumer<PrioritySet> {
     private final LocalityRoutingStateFactory localityRoutingStateFactory;
+    private final String name;
     private final XdsEndpointSelector loadBalancer;
 
-    public LocalCluster(String localClusterName, XdsBootstrap xdsBootstrap) {
-        final Node node = xdsBootstrap.bootstrap().getNode();
-        localityRoutingStateFactory = new LocalityRoutingStateFactory(node.getLocality());
-        clusterEntry = new ClusterEntry(xdsBootstrap.eventLoop(), null);
-        localClusterRoot = xdsBootstrap.clusterRoot(localClusterName);
-        final ClusterSnapshot clusterSnapshot = localClusterRoot.initialFuture().join();
-        loadBalancer = clusterEntry.updateClusterSnapshot(clusterSnapshot);
-        loadBalancer.addListener(this);
+    public LocalCluster(Locality locality, String name, XdsEndpointSelector localEndpointSelector) {
+        localityRoutingStateFactory = new LocalityRoutingStateFactory(locality);
+        this.name = name;
+        loadBalancer = localEndpointSelector;
+        localEndpointSelector.addListener(this);
+    }
+
+    public String name() {
+        return name;
     }
 
     LocalityRoutingStateFactory stateFactory() {
@@ -49,14 +44,8 @@ public final class LocalCluster extends AbstractListenable<DefaultPrioritySet>
     }
 
     @Override
-    public CompletableFuture<?> closeAsync() {
-        localClusterRoot.close();
-        return clusterEntry.closeAsync();
-    }
-
-    @Override
     public void close() {
-        closeAsync().join();
+        loadBalancer.removeListener(this);
     }
 
     @Override

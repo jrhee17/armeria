@@ -47,7 +47,7 @@ public final class XdsRpcPreprocessor implements RpcPreprocessor, AutoCloseable 
 
     private XdsRpcPreprocessor(String listenerName, XdsBootstrap xdsBootstrap) {
         listenerRoot = xdsBootstrap.listenerRoot(listenerName);
-        snapshotWatcherSelector = new SnapshotWatcherSelector(listenerRoot);
+        snapshotWatcherSelector = new SnapshotWatcherSelector(listenerRoot, listenerName);
     }
 
     @Override

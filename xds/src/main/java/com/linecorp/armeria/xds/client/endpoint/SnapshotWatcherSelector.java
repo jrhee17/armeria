@@ -17,6 +17,7 @@
 package com.linecorp.armeria.xds.client.endpoint;
 
 import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.AbstractSelector;
 import com.linecorp.armeria.xds.ListenerRoot;
@@ -27,9 +28,11 @@ final class SnapshotWatcherSelector extends AbstractSelector<ListenerSnapshot> i
 
     @Nullable
     private volatile ListenerSnapshot listenerSnapshot;
+    private final TimeoutException timeoutException;
 
-    SnapshotWatcherSelector(ListenerRoot listenerRoot) {
+    SnapshotWatcherSelector(ListenerRoot listenerRoot, String listenerName) {
         listenerRoot.addSnapshotWatcher(this);
+        timeoutException = new TimeoutException("Couldn't select a snapshot for listener '" + listenerName + "'.");
     }
 
     @Override
@@ -42,5 +45,10 @@ final class SnapshotWatcherSelector extends AbstractSelector<ListenerSnapshot> i
     public void snapshotUpdated(ListenerSnapshot listenerSnapshot) {
         this.listenerSnapshot = listenerSnapshot;
         refresh();
+    }
+
+    @Override
+    protected Exception timeoutException(ClientRequestContext ctx) {
+        return timeoutException;
     }
 }

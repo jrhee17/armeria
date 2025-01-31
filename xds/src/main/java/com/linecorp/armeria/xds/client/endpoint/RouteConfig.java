@@ -24,12 +24,16 @@ import java.util.function.Function;
 
 import com.google.common.collect.ImmutableMap;
 
+import com.linecorp.armeria.client.PreClientRequestContext;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.RouteSnapshot;
 import com.linecorp.armeria.xds.client.endpoint.FilterUtils.XdsFilter;
+
+import io.envoyproxy.envoy.config.route.v3.Route;
+import io.envoyproxy.envoy.config.route.v3.RouteAction;
 
 final class RouteConfig {
     private final ListenerSnapshot listenerSnapshot;
@@ -55,13 +59,19 @@ final class RouteConfig {
     }
 
     @Nullable
-    RouteEntry routeEntry(HttpRequest req) {
+    RouteEntry routeEntry(HttpRequest req, PreClientRequestContext ctx) {
         final RouteSnapshot routeSnapshot = listenerSnapshot.routeSnapshot();
         if (routeSnapshot == null) {
             return null;
         }
+
         for (ClusterSnapshot clusterSnapshot: routeSnapshot.clusterSnapshots()) {
             if (matches(req, clusterSnapshot)) {
+                final Route route = clusterSnapshot.route();
+                if (route == null) {
+                    continue;
+                }
+                ctx.setAttr(XdsAttributeKeys.ROUTE_METADATA_MATCH, route.getRoute().getMetadataMatch());
                 return routeEntries.get(clusterSnapshot);
             }
         }

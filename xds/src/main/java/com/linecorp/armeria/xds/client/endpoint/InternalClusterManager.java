@@ -16,10 +16,13 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.util.HashMap;
 import java.util.Map;
 
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.xds.ClusterSnapshot;
 
 import io.netty.util.concurrent.EventExecutor;
 
@@ -28,23 +31,28 @@ public class InternalClusterManager {
     private final Map<String, ClusterEntry> clusterEntries = new HashMap<>();
 
     private final EventExecutor eventLoop;
-    @Nullable
-    private final LocalCluster localCluster;
 
-    public InternalClusterManager(EventExecutor eventLoop, @Nullable LocalCluster localCluster) {
+    public InternalClusterManager(EventExecutor eventLoop) {
         this.eventLoop = eventLoop;
-        this.localCluster = localCluster;
     }
 
-    public ClusterEntry registerEntry(String resourceName) {
-        return clusterEntries.computeIfAbsent(resourceName,
-                                              ignored -> new ClusterEntry(eventLoop, localCluster))
-                .retain();
+    public void registerEntry(String name, @Nullable LocalCluster localCluster) {
+        clusterEntries.computeIfAbsent(name, ignored -> new ClusterEntry(eventLoop, localCluster))
+                      .retain();
+    }
+
+    public XdsEndpointSelector updateSnapshot(String name, ClusterSnapshot snapshot) {
+        final ClusterEntry clusterEntry = clusterEntries.get(name);
+        checkArgument(clusterEntry != null,
+                      "Cluster with name '%s' must be registered first via registerEntry.", name);
+        return clusterEntry.updateClusterSnapshot(snapshot);
     }
 
     public void removeSnapshot(String name) {
         final ClusterEntry clusterEntry = clusterEntries.get(name);
-        assert clusterEntry != null;
+        if (clusterEntry == null) {
+            return;
+        }
         if (clusterEntry.release()) {
             clusterEntries.remove(name);
         }

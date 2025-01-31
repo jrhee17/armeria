@@ -110,7 +110,7 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
         }
         children.clear();
         if (resourceNodeType == ResourceNodeType.DYNAMIC) {
-            bootstrapContext.xdsBootstrap().unsubscribe(this);
+            bootstrapContext.unsubscribe(this);
         }
     }
 
@@ -129,6 +129,6 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
     }
 
     ConfigSourceMapper configSourceMapper() {
-        return bootstrapContext.xdsBootstrap().configSourceMapper().withParentConfigSource(configSource);
+        return bootstrapContext.configSourceMapper().withParentConfigSource(configSource);
     }
 }

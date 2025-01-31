@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LINE Corporation
+ * Copyright 2025 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -39,6 +39,12 @@ final class StaticResourceUtils {
                                                              parentWatcher, STATIC);
         node.onChanged(parsed);
         return node;
+    }
+
+    static ClusterSnapshot clusterSnapshot(BootstrapContext bootstrapContext, String resourceName) {
+        try (ClusterRoot clusterRoot = new ClusterRoot(bootstrapContext, resourceName)) {
+            return clusterRoot.initialFuture().join();
+        }
     }
 
     static ClusterResourceNode staticCluster(BootstrapContext bootstrapContext, String resourceName,

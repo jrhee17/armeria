@@ -16,12 +16,17 @@
 
 package com.linecorp.armeria.xds;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 import java.util.HashMap;
 import java.util.Map;
 
+import com.google.common.base.Strings;
+
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.ClusterEntry;
 import com.linecorp.armeria.xds.client.endpoint.InternalClusterManager;
+import com.linecorp.armeria.xds.client.endpoint.LocalCluster;
 import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
@@ -35,29 +40,74 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
     private final Map<String, XdsEndpointSelector> clusterEntries = new HashMap<>();
     private final Map<String, Cluster> clusters = new HashMap<>();
     private final InternalClusterManager clusterManager;
+    @Nullable
+    private XdsEndpointSelector localEndpointSelector;
+    private final String localClusterName;
+    @Nullable
+    private final LocalCluster localCluster;
 
-    BootstrapClusters(Bootstrap bootstrap, XdsBootstrapImpl xdsBootstrap) {
-        clusterManager = new InternalClusterManager(xdsBootstrap.eventLoop(), null);
+    BootstrapClusters(Bootstrap bootstrap, XdsBootstrapImpl xdsBootstrap,
+                      InternalClusterManager clusterManager) {
+        this.clusterManager = clusterManager;
 
-        final BootstrapContext bootstrapContext = new BootstrapContext(xdsBootstrap, null);
+        localClusterName = bootstrap.getClusterManager().getLocalClusterName();
+        if (!Strings.isNullOrEmpty(localClusterName) && bootstrap.getNode().hasLocality()) {
+            final Cluster bootstrapLocalCluster = localCluster(localClusterName, bootstrap);
+            checkArgument(bootstrapLocalCluster != null,
+                          "A static cluster must be defined for localClusterName '%s'",
+                          localClusterName);
+            final DefaultBootstrapContext bootstrapContext = new DefaultBootstrapContext(xdsBootstrap, null);
+            StaticResourceUtils.staticCluster(bootstrapContext, localClusterName, this, bootstrapLocalCluster);
+            checkState(clusterEntries.containsKey(localClusterName),
+                       "Bootstrap cluster (%s) hasn't been loaded.", localClusterName);
+            assert localEndpointSelector != null;
+            localCluster = new LocalCluster(bootstrap.getNode().getLocality(), localClusterName, localEndpointSelector);
+        } else {
+            localCluster = null;
+        }
+
+        final DefaultBootstrapContext bootstrapContext = new DefaultBootstrapContext(xdsBootstrap, localCluster);
         if (bootstrap.hasStaticResources()) {
             final StaticResources staticResources = bootstrap.getStaticResources();
             for (Cluster cluster : staticResources.getClustersList()) {
+                if (cluster.getName().equals(localClusterName)) {
+                    continue;
+                }
                 if (cluster.hasLoadAssignment()) {
                     // no need to clean this cluster up since it is fully static
                     StaticResourceUtils.staticCluster(bootstrapContext, cluster.getName(), this, cluster);
+                    checkState(clusterEntries.containsKey(cluster.getName()),
+                               "Bootstrap cluster (%s) hasn't been loaded.", cluster);
                 }
                 clusters.put(cluster.getName(), cluster);
             }
         }
     }
 
+    @Nullable
+    private static Cluster localCluster(String localClusterName, Bootstrap bootstrap) {
+        for (Cluster cluster: bootstrap.getStaticResources().getClustersList()) {
+            if (localClusterName.equals(cluster.getName())) {
+                return cluster;
+            }
+        }
+        return null;
+    }
+
     @Override
     public void snapshotUpdated(ClusterSnapshot newSnapshot) {
-        final ClusterEntry clusterEntry = clusterManager.registerEntry(newSnapshot.xdsResource().name());
-        final XdsEndpointSelector loadBalancer = clusterEntry.updateClusterSnapshot(newSnapshot);
-        clusterEntries.put(newSnapshot.xdsResource().name(), loadBalancer);
-        clusterSnapshots.put(newSnapshot.xdsResource().name(), newSnapshot);
+        final String name = newSnapshot.xdsResource().name();
+        clusterManager.registerEntry(name, localCluster);
+        final XdsEndpointSelector loadBalancer = clusterManager.updateSnapshot(name, newSnapshot);
+        clusterEntries.put(name, loadBalancer);
+        clusterSnapshots.put(name, newSnapshot);
+
+        if (name.equals(localClusterName)) {
+            checkArgument(newSnapshot.endpointSnapshot() != null,
+                          "A static cluster with endpoints must be defined for localClusterName '%s'",
+                          localClusterName);
+            localEndpointSelector = loadBalancer;
+        }
     }
 
     @Nullable
@@ -74,6 +124,11 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
         final XdsEndpointSelector clusterEntry = clusterEntries.get(clusterName);
         assert clusterEntry != null : "cluster entry not found: " + clusterName;
         return clusterEntry;
+    }
+
+    @Nullable
+    LocalCluster localCluster() {
+        return localCluster;
     }
 
     @Override

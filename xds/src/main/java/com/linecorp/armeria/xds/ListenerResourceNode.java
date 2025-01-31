@@ -60,7 +60,7 @@ final class ListenerResourceNode extends AbstractResourceNode<ListenerXdsResourc
                         new RouteResourceNode(configSource, routeName, bootstrapContext(), resource,
                                               snapshotWatcher, ResourceNodeType.DYNAMIC);
                 children().add(routeResourceNode);
-                bootstrapContext().xdsBootstrap().subscribe(routeResourceNode);
+                bootstrapContext().subscribe(routeResourceNode);
             }
         }
         if (children().isEmpty()) {

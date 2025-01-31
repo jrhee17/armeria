@@ -14,28 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds;
+package com.linecorp.armeria.xds.client.endpoint;
 
-import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.InternalClusterManager;
-import com.linecorp.armeria.xds.client.endpoint.LocalCluster;
-
-import io.netty.util.concurrent.EventExecutor;
-
-interface BootstrapContext {
-
-    InternalClusterManager clusterManager();
-
-    EventExecutor eventLoop();
-
-    void subscribe(ResourceNode<?> node);
-
-    void unsubscribe(ResourceNode<?> node);
-
-    BootstrapClusters bootstrapClusters();
-
-    ConfigSourceMapper configSourceMapper();
-
-    @Nullable
-    LocalCluster localCluster();
+public class ReferenceCountedEndpointGroup {
 }

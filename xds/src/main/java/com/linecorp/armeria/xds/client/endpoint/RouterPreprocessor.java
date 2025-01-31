@@ -41,21 +41,21 @@ final class RouterPreprocessor implements HttpPreprocessor {
         if (routeConfig == null) {
             throw new RuntimeException();
         }
-        final RouteEntry routeEntry = routeConfig.routeEntry(req);
+        final RouteEntry routeEntry = routeConfig.routeEntry(req, ctx);
         if (routeEntry == null) {
             throw new RuntimeException();
         }
-        final XdsEndpointSelector clusterEntry = routeEntry.clusterSnapshot().clusterEntry();
-        if (clusterEntry == null) {
+        final XdsEndpointSelector selector = routeEntry.clusterSnapshot().clusterEntry();
+        if (selector == null) {
             throw new RuntimeException();
         }
-        final Endpoint endpoint = clusterEntry.selectNow(ctx);
+        final Endpoint endpoint = selector.selectNow(ctx);
         if (endpoint != null) {
             return execute0(delegate, ctx, req, routeEntry, endpoint);
         }
         final EventLoop temporaryEventLoop = ctx.options().factory().eventLoopSupplier().get();
         final CompletableFuture<HttpResponse> cf =
-                clusterEntry.select(ctx, temporaryEventLoop, ctx.responseTimeoutMillis())
+                selector.select(ctx, temporaryEventLoop, ctx.responseTimeoutMillis())
                               .thenApply(endpoint0 -> execute0(delegate, ctx, req, routeEntry, endpoint0));
         return HttpResponse.of(cf);
     }

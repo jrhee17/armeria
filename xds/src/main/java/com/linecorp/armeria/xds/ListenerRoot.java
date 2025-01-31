@@ -16,8 +16,6 @@
 
 package com.linecorp.armeria.xds;
 
-import java.util.concurrent.CompletableFuture;
-
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
@@ -37,7 +35,7 @@ public final class ListenerRoot extends AbstractRoot<ListenerSnapshot> {
     ListenerRoot(XdsBootstrapImpl xdsBootstrap, ConfigSourceMapper configSourceMapper,
                  String resourceName, BootstrapListeners bootstrapListeners) {
         super(xdsBootstrap.eventLoop());
-        bootstrapContext = new BootstrapContext(xdsBootstrap, xdsBootstrap.localCluster());
+        bootstrapContext = new DefaultBootstrapContext(xdsBootstrap, xdsBootstrap.localCluster());
         final ListenerXdsResource listenerXdsResource = bootstrapListeners.staticListeners().get(resourceName);
         if (listenerXdsResource != null) {
             node = new ListenerResourceNode(null, resourceName, bootstrapContext,

@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableMap;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.Attributes;
-import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 
 import io.netty.util.concurrent.EventExecutor;

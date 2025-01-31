@@ -44,7 +44,7 @@ final class RouterRpcPreprocessor implements RpcPreprocessor {
         }
         final HttpRequest httpReq = ctx.request();
         assert httpReq != null;
-        final RouteEntry routeEntry = routeConfig.routeEntry(httpReq);
+        final RouteEntry routeEntry = routeConfig.routeEntry(httpReq, ctx);
         if (routeEntry == null) {
             throw new RuntimeException();
         }
