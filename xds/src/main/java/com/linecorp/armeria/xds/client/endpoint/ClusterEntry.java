@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -24,6 +26,7 @@ import com.google.common.base.MoreObjects;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
+import com.linecorp.armeria.common.util.UnmodifiableFuture;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 
 import io.netty.util.concurrent.EventExecutor;
@@ -34,9 +37,9 @@ final class ClusterEntry implements AsyncCloseable {
 
     @Nullable
     private volatile UpdatableLoadBalancer loadBalancer;
+    private boolean closed;
     @Nullable
     private DefaultPrioritySet localPrioritySet;
-    private final EndpointsPool endpointsPool;
     @Nullable
     private final LocalCluster localCluster;
     private final EventExecutor eventExecutor;
@@ -44,22 +47,29 @@ final class ClusterEntry implements AsyncCloseable {
 
     ClusterEntry(EventExecutor eventExecutor, @Nullable LocalCluster localCluster) {
         this.eventExecutor = eventExecutor;
-        endpointsPool = new EndpointsPool(eventExecutor);
         this.localCluster = localCluster;
         if (localCluster != null) {
             localCluster.addListener(localClusterEntryListener, true);
         }
     }
 
-    public XdsEndpointSelector updateClusterSnapshot(ClusterSnapshot clusterSnapshot) {
+    XdsEndpointSelector updateClusterSnapshot(ClusterSnapshot clusterSnapshot) {
+        checkState(!closed, "Cannot update cluster snapshot '%s' after closed", clusterSnapshot);
         final UpdatableLoadBalancer prevLoadBalancer = loadBalancer;
         if (prevLoadBalancer != null && Objects.equals(clusterSnapshot, prevLoadBalancer.clusterSnapshot())) {
             return prevLoadBalancer;
         }
+        AttributesPool prevAttrs = AttributesPool.NOOP;
+        if (prevLoadBalancer != null) {
+            prevAttrs = prevLoadBalancer.attributesPool();
+        }
         final UpdatableLoadBalancer updatableLoadBalancer =
-                new UpdatableLoadBalancer(clusterSnapshot, localCluster, localPrioritySet);
+                new UpdatableLoadBalancer(eventExecutor, clusterSnapshot, localCluster,
+                                          localPrioritySet, prevAttrs);
         loadBalancer = updatableLoadBalancer;
-        endpointsPool.updateClusterSnapshot(updatableLoadBalancer);
+        if (prevLoadBalancer != null) {
+            prevLoadBalancer.close();
+        }
         return updatableLoadBalancer;
     }
 
@@ -77,10 +87,23 @@ final class ClusterEntry implements AsyncCloseable {
 
     @Override
     public CompletableFuture<?> closeAsync() {
+        if (closed) {
+            return UnmodifiableFuture.completedFuture(null);
+        }
+        closed = true;
         if (localCluster != null) {
             localCluster.removeListener(localClusterEntryListener);
         }
-        return endpointsPool.closeAsync();
+        final UpdatableLoadBalancer loadBalancer = this.loadBalancer;
+        if (loadBalancer != null) {
+            loadBalancer.close();
+        }
+        return UnmodifiableFuture.completedFuture(null);
+    }
+
+    @Override
+    public void close() {
+        closeAsync().join();
     }
 
     public ClusterEntry retain() {
@@ -99,14 +122,8 @@ final class ClusterEntry implements AsyncCloseable {
     }
 
     @Override
-    public void close() {
-        endpointsPool.close();
-    }
-
-    @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-                          .add("endpointsPool", endpointsPool)
                           .add("loadBalancer", loadBalancer)
                           .toString();
     }

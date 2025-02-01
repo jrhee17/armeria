@@ -19,24 +19,31 @@ package com.linecorp.armeria.xds.client.endpoint;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 
+import io.netty.util.concurrent.EventExecutor;
+
 final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
-        implements XdsLoadBalancer, XdsEndpointSelector {
+        implements XdsLoadBalancer, XdsEndpointSelector, AutoCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdatableLoadBalancer.class);
+    private final Consumer<List<Endpoint>> updateEndpointsCallback = this::updateEndpoints;
 
     @Nullable
     private XdsLoadBalancer delegate;
+    private final EventExecutor eventLoop;
     private final ClusterSnapshot clusterSnapshot;
     @Nullable
     private final LocalCluster localCluster;
@@ -46,12 +53,19 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
     @Nullable
     private DefaultPrioritySet localPrioritySet;
     private final FunctionSelector<Endpoint> endpointSelector;
+    private final AttributesPool attributesPool;
+    private final EndpointGroup endpointGroup;
+    @Nullable
+    private DefaultPrioritySet prioritySet;
 
-    UpdatableLoadBalancer(ClusterSnapshot clusterSnapshot, @Nullable LocalCluster localCluster,
-                          @Nullable DefaultPrioritySet localPrioritySet) {
+    UpdatableLoadBalancer(EventExecutor eventLoop, ClusterSnapshot clusterSnapshot,
+                          @Nullable LocalCluster localCluster,
+                          @Nullable DefaultPrioritySet localPrioritySet, AttributesPool prevAttrsPool) {
+        this.eventLoop = eventLoop;
         this.clusterSnapshot = clusterSnapshot;
         this.localCluster = localCluster;
         this.localPrioritySet = localPrioritySet;
+        attributesPool = new AttributesPool(prevAttrsPool);
 
         endpointSelector = new FunctionSelector<>(ctx -> {
             final XdsLoadBalancer loadBalancer = delegate;
@@ -60,9 +74,16 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
             }
             return loadBalancer.selectNow(ctx);
         }, ctx -> new TimeoutException("Failed to select an endpoint for ctx: " + ctx));
+
+        endpointGroup = XdsEndpointUtil.convertEndpointGroup(clusterSnapshot);
+        endpointGroup.addListener(updateEndpointsCallback, true);
+        if (localCluster != null) {
+            localCluster.addListener(this::updateLocalLoadBalancer, true);
+        }
     }
 
     void updateEndpoints(List<Endpoint> endpoints) {
+        endpoints = attributesPool.cacheAttributesAndDelegate(endpoints);
         this.endpoints = endpoints;
         tryRefresh();
     }
@@ -89,6 +110,7 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
         }
         delegate = loadBalancer;
         endpointSelector.refresh();
+        this.prioritySet = prioritySet;
         notifyListeners(prioritySet);
     }
 
@@ -120,7 +142,19 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
         return endpointSelector.select(ctx, executor, selectionTimeoutMillis);
     }
 
-    public CompletableFuture<Endpoint> select(ClientRequestContext ctx) {
-        return select(ctx, ctx.eventLoop(), ctx.responseTimeoutMillis());
+    AttributesPool attributesPool() {
+        return attributesPool;
+    }
+
+    @Nullable
+    @Override
+    protected PrioritySet latestValue() {
+        return prioritySet;
+    }
+
+    @Override
+    public void close() {
+        endpointGroup.removeListener(updateEndpointsCallback);
+        eventLoop.schedule(endpointGroup::close, 10, TimeUnit.SECONDS);
     }
 }

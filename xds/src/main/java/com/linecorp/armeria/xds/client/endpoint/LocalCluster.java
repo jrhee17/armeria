@@ -18,6 +18,7 @@ package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.function.Consumer;
 
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractListenable;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
@@ -26,11 +27,19 @@ final class LocalCluster extends AbstractListenable<DefaultPrioritySet>
         implements AutoCloseable, Consumer<PrioritySet> {
     private final LocalityRoutingStateFactory localityRoutingStateFactory;
     private final XdsEndpointSelector loadBalancer;
+    @Nullable
+    private DefaultPrioritySet prioritySet;
 
-    LocalCluster(Locality locality, String name, XdsEndpointSelector localEndpointSelector) {
+    LocalCluster(Locality locality, XdsEndpointSelector localEndpointSelector) {
         localityRoutingStateFactory = new LocalityRoutingStateFactory(locality);
         loadBalancer = localEndpointSelector;
-        localEndpointSelector.addListener(this);
+        localEndpointSelector.addListener(this, true);
+    }
+
+    @Override
+    @Nullable
+    protected DefaultPrioritySet latestValue() {
+        return prioritySet;
     }
 
     LocalityRoutingStateFactory stateFactory() {
@@ -45,6 +54,7 @@ final class LocalCluster extends AbstractListenable<DefaultPrioritySet>
     @Override
     public void accept(PrioritySet prioritySet) {
         assert prioritySet instanceof DefaultPrioritySet;
+        this.prioritySet = (DefaultPrioritySet) prioritySet;
         notifyListeners((DefaultPrioritySet) prioritySet);
     }
 }

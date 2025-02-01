@@ -88,7 +88,7 @@ public final class ClusterManager {
         if (name.equals(localClusterName) && locality != null) {
             checkState(localCluster == null,
                        "localCluster with name '%s' can only be set once", name);
-            localCluster = new LocalCluster(locality, name, selector);
+            localCluster = new LocalCluster(locality, selector);
         }
 
         return selector;

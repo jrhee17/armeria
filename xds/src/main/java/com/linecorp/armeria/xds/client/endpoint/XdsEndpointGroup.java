@@ -145,8 +145,8 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
             if (prevLoadBalancer != null) {
                 prevLoadBalancer.removeListener(this);
             }
-            loadBalancer.addListener(this, true);
             this.loadBalancer = loadBalancer;
+            loadBalancer.addListener(this, true);
         } finally {
             stateLock.unlock();
         }
