@@ -48,11 +48,11 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
 
     private final Map<String, ParsedFilterConfig> routeFilterConfigs;
     private final Map<String, ParsedFilterConfig> virtualHostFilterConfigs;
-    private final XdsEndpointSelector clusterEntry;
+    @Nullable
+    private XdsEndpointSelector selector;
 
     ClusterSnapshot(ClusterXdsResource clusterXdsResource, @Nullable EndpointSnapshot endpointSnapshot,
-                    @Nullable VirtualHost virtualHost, @Nullable Route route, int index,
-                    ThreadLocalCluster threadLocalCluster) {
+                    @Nullable VirtualHost virtualHost, @Nullable Route route, int index) {
         this.clusterXdsResource = clusterXdsResource;
         this.endpointSnapshot = endpointSnapshot;
         this.virtualHost = virtualHost;
@@ -64,11 +64,10 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
         virtualHostFilterConfigs =
                 virtualHost != null ? toParsedFilterConfigs(virtualHost.getTypedPerFilterConfigMap())
                                     : ImmutableMap.of();
-        clusterEntry = threadLocalCluster.updateSnapshot(this);
     }
 
-    ClusterSnapshot(ClusterXdsResource clusterXdsResource, ThreadLocalCluster threadLocalCluster) {
-        this(clusterXdsResource, null, null, null, -1, threadLocalCluster);
+    ClusterSnapshot(ClusterXdsResource clusterXdsResource) {
+        this(clusterXdsResource, null, null, null, -1);
     }
 
     @Override
@@ -84,11 +83,16 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
         return endpointSnapshot;
     }
 
+    void selector(XdsEndpointSelector selector) {
+        this.selector = selector;
+    }
+
     /**
      * TBU.
      */
+    @Nullable
     public XdsEndpointSelector selector() {
-        return clusterEntry;
+        return selector;
     }
 
     /**

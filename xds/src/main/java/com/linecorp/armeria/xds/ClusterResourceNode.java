@@ -41,7 +41,7 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
     private final int index;
     private final EndpointSnapshotWatcher snapshotWatcher = new EndpointSnapshotWatcher();
     private final SnapshotWatcher<ClusterSnapshot> parentWatcher;
-    private final ThreadLocalCluster threadLocalCluster;
+    private final ClusterEntryLifecycle clusterEntryLifecycle;
 
     ClusterResourceNode(@Nullable ConfigSource configSource,
                         String resourceName, BootstrapContext bootstrapContext,
@@ -53,7 +53,7 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
         virtualHost = null;
         route = null;
         index = -1;
-        threadLocalCluster = new ThreadLocalCluster(bootstrapContext.clusterManager(), resourceName);
+        clusterEntryLifecycle = new ClusterEntryLifecycle(bootstrapContext.clusterManager(), resourceName);
     }
 
     ClusterResourceNode(@Nullable ConfigSource configSource,
@@ -65,7 +65,7 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
         this.virtualHost = requireNonNull(virtualHost, "virtualHost");
         this.route = requireNonNull(route, "route");
         this.index = index;
-        threadLocalCluster = new ThreadLocalCluster(bootstrapContext.clusterManager(), resourceName);
+        clusterEntryLifecycle = new ClusterEntryLifecycle(bootstrapContext.clusterManager(), resourceName);
     }
 
     @Override
@@ -89,14 +89,14 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
             children().add(node);
             bootstrapContext().subscribe(node);
         } else {
-            final ClusterSnapshot clusterSnapshot = new ClusterSnapshot(resource, threadLocalCluster);
+            final ClusterSnapshot clusterSnapshot = new ClusterSnapshot(resource);
             parentWatcher.snapshotUpdated(clusterSnapshot);
         }
     }
 
     @Override
     public void close() {
-        threadLocalCluster.close();
+        clusterEntryLifecycle.close();
         super.close();
     }
 
@@ -110,12 +110,12 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
             if (!Objects.equals(newSnapshot.xdsResource().primer(), current)) {
                 return;
             }
-            if (threadLocalCluster.closed()) {
+            if (clusterEntryLifecycle.closed()) {
                 return;
             }
             final ClusterSnapshot clusterSnapshot =
-                    new ClusterSnapshot(current, newSnapshot, virtualHost, route, index,
-                                        threadLocalCluster);
+                    new ClusterSnapshot(current, newSnapshot, virtualHost, route, index);
+            clusterSnapshot.selector(clusterEntryLifecycle.updateSnapshot(clusterSnapshot));
             parentWatcher.snapshotUpdated(clusterSnapshot);
         }
 

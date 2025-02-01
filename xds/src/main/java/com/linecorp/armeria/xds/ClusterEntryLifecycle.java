@@ -19,13 +19,13 @@ package com.linecorp.armeria.xds;
 import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
 import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
 
-final class ThreadLocalCluster implements AutoCloseable {
+final class ClusterEntryLifecycle implements AutoCloseable {
 
     private final ClusterManager clusterManager;
     private final String name;
     private boolean closed;
 
-    ThreadLocalCluster(ClusterManager clusterManager, String name) {
+    ClusterEntryLifecycle(ClusterManager clusterManager, String name) {
         this.clusterManager = clusterManager;
         this.name = name;
         clusterManager.registerEntry(name);

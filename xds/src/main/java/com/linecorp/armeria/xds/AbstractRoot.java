@@ -151,10 +151,12 @@ abstract class AbstractRoot<T extends Snapshot<? extends XdsResource>>
     }
 
     @Nullable
+    @VisibleForTesting
     public T current() {
         return snapshot;
     }
 
+    @VisibleForTesting
     public CompletableFuture<T> initialFuture() {
         return initialFuture;
     }
