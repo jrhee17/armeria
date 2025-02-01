@@ -84,7 +84,10 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
         return endpointSnapshot;
     }
 
-    public XdsEndpointSelector clusterEntry() {
+    /**
+     * TBU.
+     */
+    public XdsEndpointSelector selector() {
         return clusterEntry;
     }
 

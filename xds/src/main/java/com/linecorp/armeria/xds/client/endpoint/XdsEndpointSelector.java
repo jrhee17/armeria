@@ -22,10 +22,19 @@ import com.linecorp.armeria.client.endpoint.EndpointSelector;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Listenable;
 
+/**
+ * TBU.
+ */
 public interface XdsEndpointSelector extends EndpointSelector, Listenable<PrioritySet> {
 
+    /**
+     * TBU.
+     */
     void addListener(Consumer<? super PrioritySet> listener, boolean notifyLatestValue);
 
+    /**
+     * TBU.
+     */
     @Nullable
     PrioritySet prioritySet();
 }

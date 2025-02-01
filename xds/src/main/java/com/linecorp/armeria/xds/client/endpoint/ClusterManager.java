@@ -29,13 +29,15 @@ import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.core.v3.Locality;
 import io.netty.util.concurrent.EventExecutor;
 
-public class ClusterManager {
+/**
+ * TBU.
+ */
+public final class ClusterManager {
 
     private final Map<String, ClusterEntry> clusterEntries = new HashMap<>();
 
     private final EventExecutor eventLoop;
 
-    @Nullable
     private final String localClusterName;
     @Nullable
     private final Locality locality;
@@ -44,27 +46,38 @@ public class ClusterManager {
 
     private final Map<String, XdsEndpointSelector> selectors = new HashMap<>();
 
+    /**
+     * TBU.
+     */
     public ClusterManager(EventExecutor eventLoop, Bootstrap bootstrap) {
         this.eventLoop = eventLoop;
+        localClusterName = bootstrap.getClusterManager().getLocalClusterName();
         if (bootstrap.getNode().hasLocality()) {
             locality = bootstrap.getNode().getLocality();
-            localClusterName = bootstrap.getClusterManager().getLocalClusterName();
         } else {
             locality = null;
-            localClusterName = null;
         }
     }
 
+    /**
+     * TBU.
+     */
     public void registerEntry(String name) {
         clusterEntries.computeIfAbsent(name, ignored -> new ClusterEntry(eventLoop, localCluster))
                       .retain();
     }
 
+    /**
+     * TBU.
+     */
     @Nullable
     public XdsEndpointSelector getSelector(String name) {
         return selectors.get(name);
     }
 
+    /**
+     * TBU.
+     */
     public XdsEndpointSelector updateSnapshot(String name, ClusterSnapshot snapshot) {
         final ClusterEntry clusterEntry = clusterEntries.get(name);
         checkArgument(clusterEntry != null,
@@ -81,11 +94,12 @@ public class ClusterManager {
         return selector;
     }
 
-    public void removeSnapshot(String name) {
+    /**
+     * TBU.
+     */
+    public void removeEntry(String name) {
         final ClusterEntry clusterEntry = clusterEntries.get(name);
-        if (clusterEntry == null) {
-            return;
-        }
+        assert clusterEntry != null;
         if (clusterEntry.release()) {
             selectors.remove(name);
             clusterEntries.remove(name);

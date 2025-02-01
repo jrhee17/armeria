@@ -42,7 +42,10 @@ final class ThreadLocalCluster implements AutoCloseable {
 
     @Override
     public void close() {
+        if (closed) {
+            return;
+        }
         closed = true;
-        clusterManager.removeSnapshot(name);
+        clusterManager.removeEntry(name);
     }
 }

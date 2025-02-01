@@ -34,7 +34,7 @@ public final class XdsTestUtil {
                     root.current().routeSnapshot().clusterSnapshot(clusterName);
             assertThat(clusterSnapshot.xdsResource().resource()).isEqualTo(expected);
         });
-        return root.current().routeSnapshot().clusterSnapshot(clusterName).clusterEntry();
+        return root.current().routeSnapshot().clusterSnapshot(clusterName).selector();
     }
 
     public static XdsEndpointSelector pollLoadBalancer(
@@ -45,7 +45,7 @@ public final class XdsTestUtil {
                     root.current().routeSnapshot().clusterSnapshot(clusterName).endpointSnapshot();
             assertThat(endpointSnapshot.xdsResource().resource()).isEqualTo(expected);
         });
-        return root.current().routeSnapshot().clusterSnapshot(clusterName).clusterEntry();
+        return root.current().routeSnapshot().clusterSnapshot(clusterName).selector();
     }
 
     private XdsTestUtil() {}

@@ -48,7 +48,7 @@ final class RouterRpcPreprocessor implements RpcPreprocessor {
         if (routeEntry == null) {
             throw new RuntimeException();
         }
-        final XdsEndpointSelector clusterEntry = routeEntry.clusterSnapshot().clusterEntry();
+        final XdsEndpointSelector clusterEntry = routeEntry.clusterSnapshot().selector();
         if (clusterEntry == null) {
             throw new RuntimeException();
         }

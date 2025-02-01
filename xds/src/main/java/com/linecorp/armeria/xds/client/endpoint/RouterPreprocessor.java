@@ -45,7 +45,7 @@ final class RouterPreprocessor implements HttpPreprocessor {
         if (routeEntry == null) {
             throw new RuntimeException();
         }
-        final XdsEndpointSelector selector = routeEntry.clusterSnapshot().clusterEntry();
+        final XdsEndpointSelector selector = routeEntry.clusterSnapshot().selector();
         if (selector == null) {
             throw new RuntimeException();
         }

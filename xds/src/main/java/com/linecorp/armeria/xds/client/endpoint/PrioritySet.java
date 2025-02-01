@@ -18,13 +18,15 @@ package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.List;
 
-import com.google.common.collect.ImmutableList;
-
 import com.linecorp.armeria.client.Endpoint;
 
+/**
+ * TBU.
+ */
 public interface PrioritySet {
 
-    PrioritySet NOOP = ImmutableList::of;
-
+    /**
+     * TBU.
+     */
     List<Endpoint> endpoints();
 }

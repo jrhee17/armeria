@@ -80,7 +80,7 @@ public final class RouteSnapshot implements Snapshot<RouteXdsResource> {
     }
 
     @Nullable
-    public ClusterSnapshot clusterSnapshot(String name) {
+    ClusterSnapshot clusterSnapshot(String name) {
         return clusterSnapshotsByName.get(name);
     }
 
