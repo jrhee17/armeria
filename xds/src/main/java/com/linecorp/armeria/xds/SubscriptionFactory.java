@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.xds;
 
+import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
+
 interface SubscriptionFactory {
 
     void subscribe(ResourceNode<?> resourceNode);
@@ -25,4 +27,6 @@ interface SubscriptionFactory {
     ConfigSourceMapper configSourceMapper();
 
     BootstrapClusters bootstrapClusters();
+
+    ClusterManager clusterManager();
 }

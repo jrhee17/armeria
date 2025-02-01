@@ -32,6 +32,7 @@ import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap.StaticResources;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.grpc.Status;
+import io.netty.util.concurrent.EventExecutor;
 
 final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
 
@@ -39,14 +40,12 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
     private final Map<String, XdsEndpointSelector> clusterEntries = new HashMap<>();
     private final Map<String, Cluster> clusters = new HashMap<>();
     private final ClusterManager clusterManager;
-    private final String localClusterName;
 
-    BootstrapClusters(Bootstrap bootstrap, XdsBootstrapImpl xdsBootstrap,
-                      ClusterManager clusterManager) {
+    BootstrapClusters(Bootstrap bootstrap, EventExecutor eventLoop, ClusterManager clusterManager) {
         this.clusterManager = clusterManager;
-        final DefaultBootstrapContext bootstrapContext = new DefaultBootstrapContext(xdsBootstrap);
+        final BootstrapContext bootstrapContext = new StaticBootstrapContext(eventLoop, clusterManager);
 
-        localClusterName = bootstrap.getClusterManager().getLocalClusterName();
+        final String localClusterName = bootstrap.getClusterManager().getLocalClusterName();
         if (!Strings.isNullOrEmpty(localClusterName) && bootstrap.getNode().hasLocality()) {
             final Cluster bootstrapLocalCluster = localCluster(localClusterName, bootstrap);
             checkArgument(bootstrapLocalCluster != null,
@@ -58,7 +57,7 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
         if (bootstrap.hasStaticResources()) {
             final StaticResources staticResources = bootstrap.getStaticResources();
             for (Cluster cluster : staticResources.getClustersList()) {
-                if (cluster.getName().equals(localClusterName)) {
+                if (clusterSnapshots.containsKey(cluster.getName())) {
                     continue;
                 }
                 if (cluster.hasLoadAssignment()) {
@@ -85,7 +84,6 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
     @Override
     public void snapshotUpdated(ClusterSnapshot newSnapshot) {
         final String name = newSnapshot.xdsResource().name();
-        clusterManager.registerEntry(name);
         final XdsEndpointSelector loadBalancer = clusterManager.getSelector(name);
         assert loadBalancer != null;
         clusterEntries.put(name, loadBalancer);
@@ -104,7 +102,7 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
 
     XdsEndpointSelector clusterEntry(String clusterName) {
         final XdsEndpointSelector clusterEntry = clusterEntries.get(clusterName);
-        assert clusterEntry != null : "cluster entry not found: " + clusterName;
+        checkState(clusterEntry != null, "Bootstrap cluster (%s) hasn't been loaded.", clusterName);
         return clusterEntry;
     }
 

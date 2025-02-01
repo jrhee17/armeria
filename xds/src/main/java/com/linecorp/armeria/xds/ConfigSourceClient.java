@@ -53,6 +53,8 @@ final class ConfigSourceClient implements SafeCloseable {
 
         final ApiConfigSource apiConfigSource = configSource.getApiConfigSource();
         final List<GrpcService> grpcServices = apiConfigSource.getGrpcServicesList();
+        checkArgument(!grpcServices.isEmpty(),
+                      "At least one GrpcService should be specified for '%s'", configSource);
         final boolean ads = apiConfigSource.getApiType() == ApiType.AGGREGATED_GRPC;
 
         final GrpcServicesPreprocessor preprocessor =

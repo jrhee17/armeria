@@ -67,8 +67,7 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
 
         bootstrapNode = bootstrap.hasNode() ? bootstrap.getNode() : Node.getDefaultInstance();
         clusterManager = new ClusterManager(eventLoop, bootstrap);
-        bootstrapClusters = new BootstrapClusters(bootstrap, this, clusterManager);
-
+        bootstrapClusters = new BootstrapClusters(bootstrap, eventLoop, clusterManager);
         bootstrapListeners = new BootstrapListeners(bootstrap);
     }
 
@@ -119,7 +118,8 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
     @Override
     public ListenerRoot listenerRoot(String resourceName) {
         requireNonNull(resourceName, "resourceName");
-        return new ListenerRoot(this, configSourceMapper, resourceName, bootstrapListeners);
+        final BootstrapContext bootstrapContext = new DefaultBootstrapContext(this);
+        return new ListenerRoot(bootstrapContext, resourceName, bootstrapListeners);
     }
 
     @Override
@@ -160,6 +160,7 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
         return configSourceMapper;
     }
 
+    @Override
     public ClusterManager clusterManager() {
         return clusterManager;
     }

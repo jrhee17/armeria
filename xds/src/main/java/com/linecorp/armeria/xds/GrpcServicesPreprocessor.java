@@ -19,13 +19,11 @@ package com.linecorp.armeria.xds;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.atomic.AtomicLong;
 
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.PreClient;
 import com.linecorp.armeria.client.PreClientRequestContext;
-import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.SessionProtocol;
@@ -42,8 +40,6 @@ final class GrpcServicesPreprocessor implements HttpPreprocessor {
     private final List<GrpcService> services;
     private final BootstrapClusters bootstrapClusters;
 
-    private final AtomicLong idxCounter = new AtomicLong();
-
     GrpcServicesPreprocessor(List<GrpcService> services, BootstrapClusters bootstrapClusters) {
         this.services = services;
         this.bootstrapClusters = bootstrapClusters;
@@ -52,13 +48,8 @@ final class GrpcServicesPreprocessor implements HttpPreprocessor {
     @Override
     public HttpResponse execute(PreClient<HttpRequest, HttpResponse> delegate, PreClientRequestContext ctx,
                                 HttpRequest req) throws Exception {
-        ctx.log().whenComplete().thenAccept(reqLog -> {
-            final Throwable cause = reqLog.responseCause();
-            if (cause instanceof UnprocessedRequestException) {
-                idxCounter.incrementAndGet();
-            }
-        });
-        final GrpcService grpcService = grpcService();
+        // Just use the first service for now until ctx.attr can be specified for grpc services
+        final GrpcService grpcService = services.get(0);
         for (HeaderValue headerValue: grpcService.getInitialMetadataList()) {
             ctx.addAdditionalRequestHeader(headerValue.getKey(), headerValue.getValue());
         }
@@ -92,10 +83,5 @@ final class GrpcServicesPreprocessor implements HttpPreprocessor {
                                 }
                             });
         return HttpResponse.of(cf);
-    }
-
-    private GrpcService grpcService() {
-        final int index = (int) (idxCounter.get() % services.size());
-        return services.get(index);
     }
 }
