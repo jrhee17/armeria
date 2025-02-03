@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.internal.client;
+package com.linecorp.armeria.client.endpoint;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -28,7 +28,6 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.UnmodifiableFuture;
 import com.linecorp.armeria.internal.common.util.IdentityHashStrategy;
@@ -36,6 +35,9 @@ import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
 
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenCustomHashSet;
 
+/**
+ * TBU.
+ */
 public abstract class AbstractSelector<T> {
 
     private final ReentrantShortLock lock = new ReentrantShortLock();
@@ -43,17 +45,31 @@ public abstract class AbstractSelector<T> {
     private final Set<ListeningFuture> pendingFutures =
             new ObjectLinkedOpenCustomHashSet<>(IdentityHashStrategy.of());
 
+    /**
+     * Creates a new instance.
+     */
+    protected AbstractSelector() {
+    }
+
+    @SuppressWarnings("GuardedBy")
+    @VisibleForTesting
+    final Set<ListeningFuture> pendingFutures() {
+        return pendingFutures;
+    }
+
+    /**
+     * TBU.
+     */
     @Nullable
     protected abstract T selectNow(ClientRequestContext ctx);
 
-    protected Exception timeoutException(ClientRequestContext ctx) {
-        return new TimeoutException();
-    }
-
-    public final CompletableFuture<T> select(ClientRequestContext ctx,
-                                             ScheduledExecutorService executor,
-                                             long selectionTimeoutMillis) {
-        final T selected = selectNow(ctx);
+    /**
+     * TBU.
+     */
+    public CompletableFuture<T> select(ClientRequestContext ctx,
+                                       ScheduledExecutorService executor,
+                                       long selectionTimeoutMillis) {
+        T selected = selectNow(ctx);
         if (selected != null) {
             return UnmodifiableFuture.completedFuture(selected);
         }
@@ -65,16 +81,26 @@ public abstract class AbstractSelector<T> {
         if (listeningFuture.isDone()) {
             return listeningFuture;
         }
+        if (isInitialized()) {
+            selected = selectNow(ctx);
+            if (selected != null) {
+                // The EndpointGroup have just been updated before adding ListeningFuture.
+                listeningFuture.complete(selected);
+                return listeningFuture;
+            }
+        }
 
         if (selectionTimeoutMillis == 0) {
-            // A static EndpointGroup.
             return UnmodifiableFuture.completedFuture(null);
         }
 
         // Schedule the timeout task.
         if (selectionTimeoutMillis < Long.MAX_VALUE) {
             final ScheduledFuture<?> timeoutFuture = executor.schedule(() -> {
-                listeningFuture.completeExceptionally(timeoutException(ctx));
+                onTimeout(ctx, selectionTimeoutMillis);
+                // Don't complete exceptionally so that the throwable
+                // can be handled after executing the attached decorators
+                listeningFuture.complete(null);
             }, selectionTimeoutMillis, TimeUnit.MILLISECONDS);
             listeningFuture.timeoutFuture = timeoutFuture;
 
@@ -92,6 +118,22 @@ public abstract class AbstractSelector<T> {
         return listeningFuture;
     }
 
+    /**
+     * TBU.
+     */
+    protected boolean isInitialized() {
+        return false;
+    }
+
+    /**
+     * TBU.
+     */
+    protected void onTimeout(ClientRequestContext ctx, long selectionTimeoutMillis) {
+    }
+
+    /**
+     * TBU.
+     */
     public void refresh() {
         lock.lock();
         try {

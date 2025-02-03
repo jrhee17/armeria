@@ -24,6 +24,8 @@ import com.linecorp.armeria.client.PreClient;
 import com.linecorp.armeria.client.PreClientRequestContext;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.TimeoutException;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ListenerRoot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.XdsBootstrap;
@@ -44,10 +46,12 @@ public final class XdsHttpPreprocessor implements HttpPreprocessor, AutoCloseabl
 
     private final ListenerRoot listenerRoot;
     private final SnapshotWatcherSelector snapshotWatcherSelector;
+    private final String listenerName;
 
     private XdsHttpPreprocessor(String listenerName, XdsBootstrap xdsBootstrap) {
+        this.listenerName = listenerName;
         listenerRoot = xdsBootstrap.listenerRoot(listenerName);
-        snapshotWatcherSelector = new SnapshotWatcherSelector(listenerRoot, listenerName);
+        snapshotWatcherSelector = new SnapshotWatcherSelector(listenerRoot);
     }
 
     @Override
@@ -70,9 +74,13 @@ public final class XdsHttpPreprocessor implements HttpPreprocessor, AutoCloseabl
         return HttpResponse.of(resFuture);
     }
 
-    private static HttpResponse execute0(PreClient<HttpRequest, HttpResponse> delegate,
-                                         PreClientRequestContext ctx, HttpRequest req,
-                                         ListenerSnapshot listenerSnapshot) throws Exception {
+    private HttpResponse execute0(PreClient<HttpRequest, HttpResponse> delegate,
+                                  PreClientRequestContext ctx, HttpRequest req,
+                                  @Nullable ListenerSnapshot listenerSnapshot) throws Exception {
+        if (listenerSnapshot == null) {
+            throw new TimeoutException("Couldn't select a snapshot for listener '" +
+                                       listenerName + "'.");
+        }
         final RouteConfig routeConfig = new RouteConfig(listenerSnapshot);
         ctx.setAttr(XdsFilterAttributeKeys.ROUTE_CONFIG, routeConfig);
         return routeConfig.downstreamFilters().httpPreprocessor().execute(delegate, ctx, req);

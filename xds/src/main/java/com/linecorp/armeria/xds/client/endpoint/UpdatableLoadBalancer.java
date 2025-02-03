@@ -28,7 +28,6 @@ import org.slf4j.LoggerFactory;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
-import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
@@ -73,7 +72,7 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
                 return null;
             }
             return loadBalancer.selectNow(ctx);
-        }, ctx -> new TimeoutException("Failed to select an endpoint for ctx: " + ctx));
+        });
 
         endpointGroup = XdsEndpointUtil.convertEndpointGroup(clusterSnapshot);
         endpointGroup.addListener(updateEndpointsCallback, true);

@@ -27,6 +27,8 @@ import com.linecorp.armeria.client.PreClientRequestContext;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.common.TimeoutException;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
@@ -56,13 +58,16 @@ final class RouterPreprocessor implements HttpPreprocessor {
         final EventLoop temporaryEventLoop = ctx.options().factory().eventLoopSupplier().get();
         final CompletableFuture<HttpResponse> cf =
                 selector.select(ctx, temporaryEventLoop, ctx.responseTimeoutMillis())
-                              .thenApply(endpoint0 -> execute0(delegate, ctx, req, routeEntry, endpoint0));
+                        .thenApply(endpoint0 -> execute0(delegate, ctx, req, routeEntry, endpoint0));
         return HttpResponse.of(cf);
     }
 
     private static HttpResponse execute0(PreClient<HttpRequest, HttpResponse> delegate,
                                          PreClientRequestContext ctx, HttpRequest req,
-                                         RouteEntry routeEntry, Endpoint endpoint) {
+                                         RouteEntry routeEntry, @Nullable Endpoint endpoint) {
+        if (endpoint == null) {
+            throw new TimeoutException("Failed to select an endpoint for ctx: " + ctx);
+        }
         ctx.setEndpointGroup(endpoint);
         // set upstream filters
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);

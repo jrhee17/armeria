@@ -19,32 +19,15 @@ package com.linecorp.armeria.xds.client.endpoint;
 import java.util.function.Function;
 
 import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.endpoint.AbstractSelector;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.internal.client.AbstractSelector;
 
 final class FunctionSelector<T> extends AbstractSelector<T> {
 
     private final Function<ClientRequestContext, @Nullable T> function;
-    @Nullable
-    private final Function<ClientRequestContext, Exception> exceptionFunction;
 
     FunctionSelector(Function<ClientRequestContext, @Nullable T> function) {
         this.function = function;
-        exceptionFunction = null;
-    }
-
-    FunctionSelector(Function<ClientRequestContext, @Nullable T> function,
-                     Function<ClientRequestContext, Exception> exceptionFunction) {
-        this.function = function;
-        this.exceptionFunction = exceptionFunction;
-    }
-
-    @Override
-    protected Exception timeoutException(ClientRequestContext ctx) {
-        if (exceptionFunction != null) {
-            return exceptionFunction.apply(ctx);
-        }
-        return super.timeoutException(ctx);
     }
 
     @Override

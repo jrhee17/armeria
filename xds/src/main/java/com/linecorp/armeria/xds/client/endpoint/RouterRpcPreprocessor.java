@@ -28,6 +28,8 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.common.TimeoutException;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
@@ -65,7 +67,10 @@ final class RouterRpcPreprocessor implements RpcPreprocessor {
 
     private static RpcResponse execute0(PreClient<RpcRequest, RpcResponse> delegate,
                                         PreClientRequestContext ctx, RpcRequest req,
-                                        RouteEntry routeEntry, Endpoint endpoint) {
+                                        RouteEntry routeEntry, @Nullable Endpoint endpoint) {
+        if (endpoint == null) {
+            throw new TimeoutException("Failed to select an endpoint for ctx: " + ctx);
+        }
         ctx.setEndpointGroup(endpoint);
         // set upstream filters
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
