@@ -18,15 +18,16 @@ package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 
 import com.linecorp.armeria.client.ClientDecoration;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.PreClient;
 import com.linecorp.armeria.client.PreClientRequestContext;
-import com.linecorp.armeria.client.RpcPreprocessor;
+import com.linecorp.armeria.client.Preprocessor;
 import com.linecorp.armeria.common.HttpRequest;
-import com.linecorp.armeria.common.RpcRequest;
-import com.linecorp.armeria.common.RpcResponse;
+import com.linecorp.armeria.common.Request;
+import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -35,39 +36,49 @@ import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
 import io.netty.channel.EventLoop;
 
-final class RouterRpcPreprocessor implements RpcPreprocessor {
+final class RouterFilter<I extends Request, O extends Response> implements Preprocessor<I, O> {
+
+    private final Function<CompletableFuture<O>, O> futureConverter;
+
+    RouterFilter(Function<CompletableFuture<O>, O> futureConverter) {
+        this.futureConverter = futureConverter;
+    }
 
     @Override
-    public RpcResponse execute(PreClient<RpcRequest, RpcResponse> delegate,
-                               PreClientRequestContext ctx, RpcRequest req) throws Exception {
+    public O execute(PreClient<I, O> delegate, PreClientRequestContext ctx, I req) throws Exception {
         final RouteConfig routeConfig = ctx.attr(XdsFilterAttributeKeys.ROUTE_CONFIG);
         if (routeConfig == null) {
             throw new RuntimeException();
         }
         final HttpRequest httpReq = ctx.request();
-        assert httpReq != null;
         final RouteEntry routeEntry = routeConfig.routeEntry(httpReq, ctx);
         if (routeEntry == null) {
             throw new RuntimeException();
         }
-        final XdsEndpointSelector clusterEntry = routeEntry.clusterSnapshot().selector();
-        if (clusterEntry == null) {
+        final XdsEndpointSelector selector = routeEntry.clusterSnapshot().selector();
+        if (selector == null) {
             throw new RuntimeException();
         }
-        final Endpoint endpoint = clusterEntry.selectNow(ctx);
+        final Endpoint endpoint = selector.selectNow(ctx);
         if (endpoint != null) {
             return execute0(delegate, ctx, req, routeEntry, endpoint);
         }
         final EventLoop temporaryEventLoop = ctx.options().factory().eventLoopSupplier().get();
-        final CompletableFuture<RpcResponse> cf =
-                clusterEntry.select(ctx, temporaryEventLoop, ctx.responseTimeoutMillis())
-                            .thenApply(endpoint0 -> execute0(delegate, ctx, req, routeEntry, endpoint0));
-        return RpcResponse.of(cf);
+        final CompletableFuture<O> cf =
+                selector.select(ctx, temporaryEventLoop, ctx.responseTimeoutMillis())
+                        .thenApply(endpoint0 -> {
+                            try {
+                                return execute0(delegate, ctx, req, routeEntry, endpoint0);
+                            } catch (Exception e) {
+                                throw new CompletionException(e);
+                            }
+                        });
+        return futureConverter.apply(cf);
     }
 
-    private static RpcResponse execute0(PreClient<RpcRequest, RpcResponse> delegate,
-                                        PreClientRequestContext ctx, RpcRequest req,
-                                        RouteEntry routeEntry, @Nullable Endpoint endpoint) {
+    private O execute0(PreClient<I, O> delegate,
+                       PreClientRequestContext ctx, I req,
+                       RouteEntry routeEntry, @Nullable Endpoint endpoint) throws Exception {
         if (endpoint == null) {
             throw new TimeoutException("Failed to select an endpoint for ctx: " + ctx);
         }
@@ -78,18 +89,13 @@ final class RouterRpcPreprocessor implements RpcPreprocessor {
             final ClientDecoration decoration = routeEntry.upstreamFilter();
             ctxExt.decoration(decoration);
         }
-        final UpstreamTlsContext tlsContext = routeEntry.clusterSnapshot()
-                                                        .xdsResource().upstreamTlsContext();
+        final UpstreamTlsContext tlsContext = routeEntry.clusterSnapshot().xdsResource().upstreamTlsContext();
         if (tlsContext != null) {
             ctx.setSessionProtocol(SessionProtocol.HTTPS);
         } else {
             ctx.setSessionProtocol(SessionProtocol.HTTP);
         }
 
-        try {
-            return delegate.execute(ctx, req);
-        } catch (Exception e) {
-            throw new CompletionException(e);
-        }
+        return delegate.execute(ctx, req);
     }
 }

@@ -58,7 +58,7 @@ final class RouteConfig {
     }
 
     @Nullable
-    RouteEntry routeEntry(HttpRequest req, PreClientRequestContext ctx) {
+    RouteEntry routeEntry(@Nullable HttpRequest req, PreClientRequestContext ctx) {
         final RouteSnapshot routeSnapshot = listenerSnapshot.routeSnapshot();
         if (routeSnapshot == null) {
             return null;
@@ -77,7 +77,7 @@ final class RouteConfig {
         return null;
     }
 
-    private static boolean matches(HttpRequest req, ClusterSnapshot clusterSnapshot) {
+    private static boolean matches(@Nullable HttpRequest req, ClusterSnapshot clusterSnapshot) {
         return true;
     }
 

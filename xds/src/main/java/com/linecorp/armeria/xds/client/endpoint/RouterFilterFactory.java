@@ -18,6 +18,10 @@ package com.linecorp.armeria.xds.client.endpoint;
 
 import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.RpcPreprocessor;
+import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.RpcRequest;
+import com.linecorp.armeria.common.RpcResponse;
 
 import io.envoyproxy.envoy.extensions.filters.http.router.v3.Router;
 
@@ -31,12 +35,14 @@ public final class RouterFilterFactory implements FilterFactory<Router> {
 
     @Override
     public RpcPreprocessor rpcPreprocessor(Router config) {
-        return new RouterRpcPreprocessor();
+        return (delegate, ctx, req) -> new RouterFilter<RpcRequest, RpcResponse>(RpcResponse::of)
+                .execute(delegate, ctx, req);
     }
 
     @Override
     public HttpPreprocessor httpPreprocessor(Router config) {
-        return new RouterPreprocessor();
+        return (delegate, ctx, req) -> new RouterFilter<HttpRequest, HttpResponse>(HttpResponse::of)
+                .execute(delegate, ctx, req);
     }
 
     @Override
