@@ -23,11 +23,11 @@ import com.linecorp.armeria.xds.ListenerRoot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.SnapshotWatcher;
 
-final class SnapshotWatcherSelector extends AbstractSelector<ListenerSnapshot>
+final class SnapshotWatcherSelector extends AbstractSelector<RouteConfig>
         implements SnapshotWatcher<ListenerSnapshot> {
 
     @Nullable
-    private volatile ListenerSnapshot listenerSnapshot;
+    private volatile RouteConfig routeConfig;
 
     SnapshotWatcherSelector(ListenerRoot listenerRoot) {
         listenerRoot.addSnapshotWatcher(this);
@@ -35,13 +35,13 @@ final class SnapshotWatcherSelector extends AbstractSelector<ListenerSnapshot>
 
     @Override
     @Nullable
-    protected ListenerSnapshot selectNow(ClientRequestContext ctx) {
-        return listenerSnapshot;
+    protected RouteConfig selectNow(ClientRequestContext ctx) {
+        return routeConfig;
     }
 
     @Override
-    public void snapshotUpdated(ListenerSnapshot listenerSnapshot) {
-        this.listenerSnapshot = listenerSnapshot;
+    public void snapshotUpdated(ListenerSnapshot newSnapshot) {
+        routeConfig = new RouteConfig(newSnapshot);
         refresh();
     }
 }

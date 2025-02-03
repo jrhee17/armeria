@@ -16,14 +16,14 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import com.linecorp.armeria.client.ClientDecoration;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.RouteSnapshot;
-import com.linecorp.armeria.xds.client.endpoint.FilterUtils.XdsFilter;
 
 final class RouteEntry implements Snapshots {
 
-    private final XdsFilter upstreamFilter;
+    private final ClientDecoration upstreamFilter;
     private final ListenerSnapshot listenerSnapshot;
     private final RouteSnapshot routeSnapshot;
     private final ClusterSnapshot clusterSnapshot;
@@ -55,7 +55,7 @@ final class RouteEntry implements Snapshots {
         return clusterSnapshot;
     }
 
-    public XdsFilter upstreamFilter() {
+    public ClientDecoration upstreamFilter() {
         return upstreamFilter;
     }
 }

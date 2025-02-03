@@ -21,6 +21,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import com.linecorp.armeria.client.Client;
+import com.linecorp.armeria.client.ClientDecoration;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.HttpPreClient;
@@ -42,13 +43,16 @@ public final class TailPreClient<I extends Request, O extends Response> implemen
     private final Client<I, O> delegate;
     private final Function<CompletableFuture<O>, O> futureConverter;
     private final BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory;
+    private final BiFunction<ClientDecoration, Client<I, O>, Client<I, O>> decoratingFunction;
 
     private TailPreClient(Client<I, O> delegate,
                           Function<CompletableFuture<O>, O> futureConverter,
-                          BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory) {
+                          BiFunction<ClientRequestContext, Throwable, O> errorResponseFactory,
+                          BiFunction<ClientDecoration, Client<I, O>, Client<I, O>> decoratingFunction) {
         this.delegate = delegate;
         this.futureConverter = futureConverter;
         this.errorResponseFactory = errorResponseFactory;
+        this.decoratingFunction = decoratingFunction;
     }
 
     public static HttpPreClient of(
@@ -56,7 +60,8 @@ public final class TailPreClient<I extends Request, O extends Response> implemen
             Function<CompletableFuture<HttpResponse>, HttpResponse> futureConverter,
             BiFunction<ClientRequestContext, Throwable, HttpResponse> errorResponseFactory) {
         final TailPreClient<HttpRequest, HttpResponse> tail =
-                new TailPreClient<>(httpClient, futureConverter, errorResponseFactory);
+                new TailPreClient<>(httpClient, futureConverter, errorResponseFactory,
+                                    (decoration, delegate) -> decoration.decorate(delegate::execute));
         return tail::execute;
     }
 
@@ -65,7 +70,8 @@ public final class TailPreClient<I extends Request, O extends Response> implemen
             Function<CompletableFuture<RpcResponse>, RpcResponse> futureConverter,
             BiFunction<ClientRequestContext, Throwable, RpcResponse> errorResponseFactory) {
         final TailPreClient<RpcRequest, RpcResponse> tail =
-                new TailPreClient<>(rpcClient, futureConverter, errorResponseFactory);
+                new TailPreClient<>(rpcClient, futureConverter, errorResponseFactory,
+                                    (decoration, delegate) -> decoration.rpcDecorate(delegate::execute));
         return tail::execute;
     }
 
@@ -80,7 +86,8 @@ public final class TailPreClient<I extends Request, O extends Response> implemen
         }
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         assert ctxExt != null;
-        return ClientUtil.initContextAndExecuteWithFallback(delegate, ctxExt,
+        final Client<I, O> decorated = decoratingFunction.apply(ctxExt.decoration(), delegate);
+        return ClientUtil.initContextAndExecuteWithFallback(decorated, ctxExt,
                                                             futureConverter, errorResponseFactory, req);
     }
 }

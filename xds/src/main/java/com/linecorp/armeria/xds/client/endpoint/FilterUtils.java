@@ -24,11 +24,13 @@ import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
-import com.linecorp.armeria.client.Client;
+import com.linecorp.armeria.client.ClientDecoration;
+import com.linecorp.armeria.client.ClientDecorationBuilder;
+import com.linecorp.armeria.client.ClientPreprocessors;
+import com.linecorp.armeria.client.ClientPreprocessorsBuilder;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.HttpPreprocessor;
-import com.linecorp.armeria.client.PreClient;
 import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ListenerSnapshot;
@@ -42,43 +44,58 @@ final class FilterUtils {
 
     private FilterUtils() {}
 
-    static XdsFilter buildDownstreamFilter(ListenerSnapshot listenerSnapshot) {
-        final XdsFilter decorator = XdsFilter.NOOP;
+    static ClientPreprocessors buildDownstreamFilter(ListenerSnapshot listenerSnapshot) {
         final HttpConnectionManager connectionManager = listenerSnapshot.xdsResource().connectionManager();
         if (connectionManager == null) {
-            return decorator;
+            return ClientPreprocessors.of();
         }
-        return buildXdsHttpFilters(decorator, connectionManager.getHttpFiltersList(), null);
-    }
-
-    static XdsFilter buildUpstreamFilter(Snapshots snapshots) {
-        final XdsFilter decorator = XdsFilter.NOOP;
-        final ListenerSnapshot listenerSnapshot = snapshots.listenerSnapshot();
-        final Router router = listenerSnapshot.xdsResource().router();
-        if (router == null) {
-            return decorator;
-        }
-        return buildXdsHttpFilters(decorator, router.getUpstreamHttpFiltersList(), snapshots);
-    }
-
-    static XdsFilter buildXdsHttpFilters(XdsFilter decorator, List<HttpFilter> httpFilters,
-                                         @Nullable Snapshots snapshots) {
+        final List<HttpFilter> httpFilters = connectionManager.getHttpFiltersList();
+        final ClientPreprocessorsBuilder builder = ClientPreprocessors.builder();
         for (int i = httpFilters.size() - 1; i >= 0; i--) {
             final HttpFilter httpFilter = httpFilters.get(i);
             if (httpFilter.getDisabled()) {
                 continue;
             }
-            decorator = decorator.andThen(xdsHttpFilter(httpFilter, snapshots));
+            final XdsFilter xdsFilter = xdsHttpFilter(httpFilter, null);
+            if (xdsFilter == null) {
+                continue;
+            }
+            builder.add(xdsFilter.httpPreprocessor());
+            builder.addRpc(xdsFilter.rpcPreprocessor());
         }
-        return decorator;
+        return builder.build();
     }
 
+    static ClientDecoration buildUpstreamFilter(Snapshots snapshots) {
+        final ListenerSnapshot listenerSnapshot = snapshots.listenerSnapshot();
+        final Router router = listenerSnapshot.xdsResource().router();
+        if (router == null) {
+            return ClientDecoration.of();
+        }
+        final List<HttpFilter> httpFilters = router.getUpstreamHttpFiltersList();
+        final ClientDecorationBuilder builder = ClientDecoration.builder();
+        for (int i = httpFilters.size() - 1; i >= 0; i--) {
+            final HttpFilter httpFilter = httpFilters.get(i);
+            if (httpFilter.getDisabled()) {
+                continue;
+            }
+            final XdsFilter xdsFilter = xdsHttpFilter(httpFilter, snapshots);
+            if (xdsFilter == null) {
+                continue;
+            }
+            builder.add(xdsFilter.httpDecorator());
+            builder.addRpc(xdsFilter.rpcDecorator());
+        }
+        return builder.build();
+    }
+
+    @Nullable
     private static XdsFilter xdsHttpFilter(HttpFilter httpFilter, @Nullable Snapshots snapshots) {
         final FilterFactory<?> filterFactory =
                 FilterFactoryRegistry.INSTANCE.filterFactory(httpFilter.getName());
         if (filterFactory == null) {
             if (httpFilter.getIsOptional()) {
-                return XdsFilter.NOOP;
+                return null;
             }
             throw new IllegalArgumentException("Couldn't find filter factory: " + httpFilter.getName());
         }
@@ -90,8 +107,6 @@ final class FilterUtils {
 
     interface XdsFilter {
 
-        XdsFilter NOOP = new NoopXdsFilter();
-
         HttpPreprocessor httpPreprocessor();
 
         RpcPreprocessor rpcPreprocessor();
@@ -99,35 +114,6 @@ final class FilterUtils {
         DecoratingHttpClientFunction httpDecorator();
 
         DecoratingRpcClientFunction rpcDecorator();
-
-        default XdsFilter andThen(XdsFilter other) {
-            if (this == NOOP) {
-                return other;
-            }
-            final XdsFilter this0 = this;
-            return new XdsFilter() {
-
-                @Override
-                public HttpPreprocessor httpPreprocessor() {
-                    return this0.httpPreprocessor().andThen(other.httpPreprocessor());
-                }
-
-                @Override
-                public RpcPreprocessor rpcPreprocessor() {
-                    return this0.rpcPreprocessor().andThen(other.rpcPreprocessor());
-                }
-
-                @Override
-                public DecoratingHttpClientFunction httpDecorator() {
-                    return this0.httpDecorator().andThen(other.httpDecorator());
-                }
-
-                @Override
-                public DecoratingRpcClientFunction rpcDecorator() {
-                    return this0.rpcDecorator().andThen(other.rpcDecorator());
-                }
-            };
-        }
     }
 
     static class DefaultXdsFilter<T extends Message> implements XdsFilter {
@@ -173,29 +159,6 @@ final class FilterUtils {
         @Override
         public DecoratingRpcClientFunction rpcDecorator() {
             return filterFactory.rpcDecorator(config);
-        }
-    }
-
-    static class NoopXdsFilter implements XdsFilter {
-
-        @Override
-        public HttpPreprocessor httpPreprocessor() {
-            return PreClient::execute;
-        }
-
-        @Override
-        public RpcPreprocessor rpcPreprocessor() {
-            return PreClient::execute;
-        }
-
-        @Override
-        public DecoratingHttpClientFunction httpDecorator() {
-            return Client::execute;
-        }
-
-        @Override
-        public DecoratingRpcClientFunction rpcDecorator() {
-            return Client::execute;
         }
     }
 }

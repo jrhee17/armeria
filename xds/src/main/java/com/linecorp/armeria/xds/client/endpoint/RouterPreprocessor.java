@@ -19,7 +19,7 @@ package com.linecorp.armeria.xds.client.endpoint;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
-import com.linecorp.armeria.client.DecoratingHttpClientFunction;
+import com.linecorp.armeria.client.ClientDecoration;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.PreClient;
@@ -72,8 +72,8 @@ final class RouterPreprocessor implements HttpPreprocessor {
         // set upstream filters
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         if (ctxExt != null) {
-            final DecoratingHttpClientFunction decorator = routeEntry.upstreamFilter().httpDecorator();
-            ctxExt.httpDecorator(decorator);
+            final ClientDecoration decoration = routeEntry.upstreamFilter();
+            ctxExt.decoration(decoration);
         }
         final UpstreamTlsContext tlsContext = routeEntry.clusterSnapshot().xdsResource().upstreamTlsContext();
         if (tlsContext != null) {

@@ -21,6 +21,7 @@ import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import com.linecorp.armeria.client.ClientPreprocessors;
 import com.linecorp.armeria.client.PreClient;
 import com.linecorp.armeria.client.PreClientRequestContext;
 import com.linecorp.armeria.client.Preprocessor;
@@ -29,9 +30,7 @@ import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ListenerRoot;
-import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.XdsBootstrap;
-import com.linecorp.armeria.xds.client.endpoint.FilterUtils.XdsFilter;
 
 import io.netty.channel.EventLoop;
 
@@ -42,11 +41,11 @@ class XdsPreprocessor<I extends Request, O extends Response>
     private final SnapshotWatcherSelector snapshotWatcherSelector;
     private final String listenerName;
     private final Function<CompletableFuture<O>, O> futureConverter;
-    private final BiFunction<XdsFilter, PreClient<I, O>, PreClient<I, O>> filterFunction;
+    private final BiFunction<ClientPreprocessors, PreClient<I, O>, PreClient<I, O>> filterFunction;
 
     XdsPreprocessor(String listenerName, XdsBootstrap xdsBootstrap,
                     Function<CompletableFuture<O>, O> futureConverter,
-                    BiFunction<XdsFilter, PreClient<I, O>, PreClient<I, O>> filterFunction) {
+                    BiFunction<ClientPreprocessors, PreClient<I, O>, PreClient<I, O>> filterFunction) {
         this.listenerName = listenerName;
         this.futureConverter = futureConverter;
         this.filterFunction = filterFunction;
@@ -56,9 +55,9 @@ class XdsPreprocessor<I extends Request, O extends Response>
 
     @Override
     public O execute(PreClient<I, O> delegate, PreClientRequestContext ctx, I req) throws Exception {
-        final ListenerSnapshot listenerSnapshot = snapshotWatcherSelector.selectNow(ctx);
-        if (listenerSnapshot != null) {
-            return execute0(delegate, ctx, req, listenerSnapshot);
+        final RouteConfig routeConfig = snapshotWatcherSelector.selectNow(ctx);
+        if (routeConfig != null) {
+            return execute0(delegate, ctx, req, routeConfig);
         }
         final EventLoop temporaryEventLoop = ctx.options().factory().eventLoopSupplier().get();
         final CompletableFuture<O> resFuture =
@@ -75,14 +74,13 @@ class XdsPreprocessor<I extends Request, O extends Response>
 
     private O execute0(PreClient<I, O> delegate,
                        PreClientRequestContext ctx, I req,
-                       @Nullable ListenerSnapshot listenerSnapshot) throws Exception {
-        if (listenerSnapshot == null) {
+                       @Nullable RouteConfig routeConfig) throws Exception {
+        if (routeConfig == null) {
             throw new TimeoutException("Couldn't select a snapshot for listener '" +
                                        listenerName + "'.");
         }
-        final RouteConfig routeConfig = new RouteConfig(listenerSnapshot);
         ctx.setAttr(XdsFilterAttributeKeys.ROUTE_CONFIG, routeConfig);
-        final XdsFilter downstreamFilter = routeConfig.downstreamFilters();
+        final ClientPreprocessors downstreamFilter = routeConfig.downstreamFilters();
         return filterFunction.apply(downstreamFilter, delegate).execute(ctx, req);
     }
 

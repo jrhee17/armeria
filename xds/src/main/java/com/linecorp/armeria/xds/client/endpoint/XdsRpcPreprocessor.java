@@ -36,7 +36,6 @@ public final class XdsRpcPreprocessor extends XdsPreprocessor<RpcRequest, RpcRes
 
     private XdsRpcPreprocessor(String listenerName, XdsBootstrap xdsBootstrap) {
         super(listenerName, xdsBootstrap, RpcResponse::of,
-              (xdsFilter, preClient) -> (ctx, req) -> xdsFilter.rpcPreprocessor()
-                                                               .execute(preClient, ctx, req));
+              (xdsFilter, preClient) -> xdsFilter.rpcDecorate(preClient::execute));
     }
 }

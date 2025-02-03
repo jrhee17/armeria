@@ -20,7 +20,10 @@ import com.google.protobuf.Message;
 
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
+import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.HttpPreprocessor;
+import com.linecorp.armeria.client.PreClient;
+import com.linecorp.armeria.client.RpcClient;
 import com.linecorp.armeria.client.RpcPreprocessor;
 
 /**
@@ -31,22 +34,30 @@ public interface FilterFactory<T extends Message> {
     /**
      * TBU.
      */
-    RpcPreprocessor rpcPreprocessor(T config);
+    default RpcPreprocessor rpcPreprocessor(T config) {
+        return PreClient::execute;
+    }
 
     /**
      * TBU.
      */
-    HttpPreprocessor httpPreprocessor(T config);
+    default HttpPreprocessor httpPreprocessor(T config) {
+        return PreClient::execute;
+    }
 
     /**
      * TBU.
      */
-    DecoratingHttpClientFunction httpDecorator(T config);
+    default DecoratingHttpClientFunction httpDecorator(T config) {
+        return HttpClient::execute;
+    }
 
     /**
      * TBU.
      */
-    DecoratingRpcClientFunction rpcDecorator(T config);
+    default DecoratingRpcClientFunction rpcDecorator(T config) {
+        return RpcClient::execute;
+    }
 
     /**
      * TBU.

@@ -78,12 +78,4 @@ public interface HttpPreprocessor extends Preprocessor<HttpRequest, HttpResponse
             return delegate.execute(ctx, req);
         };
     }
-
-    /**
-     * TBU.
-     */
-    default HttpPreprocessor andThen(HttpPreprocessor preprocessor) {
-        return (delegate, ctx, req) -> execute((ctx0, req0) -> preprocessor.execute(delegate, ctx0, req0),
-                                               ctx, req);
-    }
 }

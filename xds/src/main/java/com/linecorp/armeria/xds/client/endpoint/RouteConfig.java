@@ -24,19 +24,19 @@ import java.util.function.Function;
 
 import com.google.common.collect.ImmutableMap;
 
+import com.linecorp.armeria.client.ClientPreprocessors;
 import com.linecorp.armeria.client.PreClientRequestContext;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.RouteSnapshot;
-import com.linecorp.armeria.xds.client.endpoint.FilterUtils.XdsFilter;
 
 import io.envoyproxy.envoy.config.route.v3.Route;
 
 final class RouteConfig {
     private final ListenerSnapshot listenerSnapshot;
-    private final XdsFilter downstreamFilters;
+    private final ClientPreprocessors downstreamFilters;
     private final Map<ClusterSnapshot, RouteEntry> routeEntries;
 
     RouteConfig(ListenerSnapshot listenerSnapshot) {
@@ -81,7 +81,7 @@ final class RouteConfig {
         return true;
     }
 
-    XdsFilter downstreamFilters() {
+    ClientPreprocessors downstreamFilters() {
         return downstreamFilters;
     }
 }

@@ -18,9 +18,8 @@ package com.linecorp.armeria.internal.client;
 
 import java.util.concurrent.CompletableFuture;
 
+import com.linecorp.armeria.client.ClientDecoration;
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.DecoratingHttpClientFunction;
-import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointSelector;
 import com.linecorp.armeria.common.HttpHeaderNames;
@@ -93,11 +92,7 @@ public interface ClientRequestContextExtension extends ClientRequestContext, Req
      */
     void runContextCustomizer();
 
-    DecoratingHttpClientFunction httpDecorator();
+    ClientDecoration decoration();
 
-    void httpDecorator(DecoratingHttpClientFunction decorator);
-
-    DecoratingRpcClientFunction rpcDecorator();
-
-    void rpcDecorator(DecoratingRpcClientFunction decorator);
+    void decoration(ClientDecoration decoration);
 }

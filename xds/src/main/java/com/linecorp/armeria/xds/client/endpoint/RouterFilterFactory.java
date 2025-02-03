@@ -16,8 +16,6 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import com.linecorp.armeria.client.DecoratingHttpClientFunction;
-import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.RpcPreprocessor;
 
@@ -39,16 +37,6 @@ public final class RouterFilterFactory implements FilterFactory<Router> {
     @Override
     public HttpPreprocessor httpPreprocessor(Router config) {
         return new RouterPreprocessor();
-    }
-
-    @Override
-    public DecoratingHttpClientFunction httpDecorator(Router config) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public DecoratingRpcClientFunction rpcDecorator(Router config) {
-        throw new UnsupportedOperationException();
     }
 
     @Override
