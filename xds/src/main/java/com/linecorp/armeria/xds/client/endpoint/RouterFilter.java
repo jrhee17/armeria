@@ -32,6 +32,7 @@ import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
+import com.linecorp.armeria.xds.ClusterSnapshot;
 
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
 import io.netty.channel.EventLoop;
@@ -51,24 +52,27 @@ final class RouterFilter<I extends Request, O extends Response> implements Prepr
             throw new RuntimeException();
         }
         final HttpRequest httpReq = ctx.request();
-        final RouteEntry routeEntry = routeConfig.routeEntry(httpReq, ctx);
-        if (routeEntry == null) {
+        final Snapshots snapshots = routeConfig.routeEntry(httpReq, ctx);
+        if (snapshots == null) {
             throw new RuntimeException();
         }
-        final XdsEndpointSelector selector = routeEntry.clusterSnapshot().selector();
+        if (snapshots.clusterSnapshot() == null) {
+            throw new RuntimeException();
+        }
+        final XdsEndpointSelector selector = snapshots.clusterSnapshot().selector();
         if (selector == null) {
             throw new RuntimeException();
         }
         final Endpoint endpoint = selector.selectNow(ctx);
         if (endpoint != null) {
-            return execute0(delegate, ctx, req, routeEntry, endpoint);
+            return execute0(delegate, ctx, req, snapshots, endpoint);
         }
         final EventLoop temporaryEventLoop = ctx.options().factory().eventLoopSupplier().get();
         final CompletableFuture<O> cf =
                 selector.select(ctx, temporaryEventLoop, ctx.responseTimeoutMillis())
                         .thenApply(endpoint0 -> {
                             try {
-                                return execute0(delegate, ctx, req, routeEntry, endpoint0);
+                                return execute0(delegate, ctx, req, snapshots, endpoint0);
                             } catch (Exception e) {
                                 throw new CompletionException(e);
                             }
@@ -78,7 +82,7 @@ final class RouterFilter<I extends Request, O extends Response> implements Prepr
 
     private O execute0(PreClient<I, O> delegate,
                        PreClientRequestContext ctx, I req,
-                       RouteEntry routeEntry, @Nullable Endpoint endpoint) throws Exception {
+                       Snapshots routeEntry, @Nullable Endpoint endpoint) throws Exception {
         if (endpoint == null) {
             throw new TimeoutException("Failed to select an endpoint for ctx: " + ctx);
         }
@@ -89,7 +93,9 @@ final class RouterFilter<I extends Request, O extends Response> implements Prepr
             final ClientDecoration decoration = routeEntry.upstreamFilter();
             ctxExt.decoration(decoration);
         }
-        final UpstreamTlsContext tlsContext = routeEntry.clusterSnapshot().xdsResource().upstreamTlsContext();
+        final ClusterSnapshot clusterSnapshot = routeEntry.clusterSnapshot();
+        assert clusterSnapshot != null;
+        final UpstreamTlsContext tlsContext = clusterSnapshot.xdsResource().upstreamTlsContext();
         if (tlsContext != null) {
             ctx.setSessionProtocol(SessionProtocol.HTTPS);
         } else {

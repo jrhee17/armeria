@@ -45,6 +45,7 @@ import com.linecorp.armeria.xds.ListenerRoot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.RouteSnapshot;
 import com.linecorp.armeria.xds.SnapshotWatcher;
+import com.linecorp.armeria.xds.VirtualHostSnapshot;
 import com.linecorp.armeria.xds.XdsBootstrap;
 
 import io.envoyproxy.envoy.config.core.v3.GrpcService;
@@ -126,11 +127,18 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
         if (routeSnapshot == null) {
             return;
         }
-        final List<ClusterSnapshot> clusterSnapshots = routeSnapshot.clusterSnapshots();
-        if (clusterSnapshots.isEmpty()) {
+        final List<VirtualHostSnapshot> virtualHostSnapshots = routeSnapshot.virtualHostSnapshots();
+        if (virtualHostSnapshots.isEmpty()) {
             return;
         }
-        final ClusterSnapshot clusterSnapshot = clusterSnapshots.get(0);
+        final VirtualHostSnapshot virtualHostSnapshot = virtualHostSnapshots.get(0);
+        if (virtualHostSnapshot.routeEntries().isEmpty()) {
+            return;
+        }
+        final ClusterSnapshot clusterSnapshot = virtualHostSnapshot.routeEntries().get(0).clusterSnapshot();
+        if (clusterSnapshot == null) {
+            return;
+        }
         final XdsEndpointSelector loadBalancer = clusterSnapshot.selector();
         if (loadBalancer == null) {
             return;
@@ -138,9 +146,6 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
 
         stateLock.lock();
         try {
-            // It is too much work to keep track of the snapshot/endpoints/attributes that determine
-            // whether the state is cacheable or not. For now, to prevent bugs we just set the
-            // state transparently and don't decide whether to notify an event based on the cache.
             final XdsEndpointSelector prevLoadBalancer = this.loadBalancer;
             if (prevLoadBalancer != null) {
                 prevLoadBalancer.removeListener(this);

@@ -16,11 +16,10 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.linecorp.armeria.xds.client.endpoint.FilterUtils.buildDownstreamFilter;
 
 import java.util.Map;
-import java.util.function.Function;
+import java.util.Objects;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -28,60 +27,102 @@ import com.linecorp.armeria.client.ClientPreprocessors;
 import com.linecorp.armeria.client.PreClientRequestContext;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
+import com.linecorp.armeria.xds.RouteEntry;
 import com.linecorp.armeria.xds.RouteSnapshot;
-
-import io.envoyproxy.envoy.config.route.v3.Route;
+import com.linecorp.armeria.xds.VirtualHostSnapshot;
 
 final class RouteConfig {
     private final ListenerSnapshot listenerSnapshot;
     private final ClientPreprocessors downstreamFilters;
-    private final Map<ClusterSnapshot, RouteEntry> routeEntries;
+    private final Map<IndexPair, Snapshots> snapshots;
 
     RouteConfig(ListenerSnapshot listenerSnapshot) {
         this.listenerSnapshot = listenerSnapshot;
         downstreamFilters = buildDownstreamFilter(listenerSnapshot);
-        routeEntries = routeEntries(listenerSnapshot);
+        snapshots = routeEntries(listenerSnapshot);
     }
 
-    private static Map<ClusterSnapshot, RouteEntry> routeEntries(ListenerSnapshot listenerSnapshot) {
+    private static Map<IndexPair, Snapshots> routeEntries(ListenerSnapshot listenerSnapshot) {
         final RouteSnapshot routeSnapshot = listenerSnapshot.routeSnapshot();
         if (routeSnapshot == null) {
             return ImmutableMap.of();
         }
-        return routeSnapshot
-                .clusterSnapshots().stream()
-                .collect(toImmutableMap(Function.identity(),
-                                        clusterSnapshot -> new RouteEntry(listenerSnapshot, routeSnapshot,
-                                                                          clusterSnapshot)));
+
+        final ImmutableMap.Builder<IndexPair, Snapshots> builder = ImmutableMap.builder();
+        for (int i = 0; i < routeSnapshot.virtualHostSnapshots().size(); i++) {
+            final VirtualHostSnapshot virtualHostSnapshot = routeSnapshot.virtualHostSnapshots().get(i);
+            for (int j = 0; j < virtualHostSnapshot.routeEntries().size(); j++) {
+                final RouteEntry routeEntry = virtualHostSnapshot.routeEntries().get(j);
+                final Snapshots snapshots = new Snapshots(listenerSnapshot, routeSnapshot,
+                                                          virtualHostSnapshot, routeEntry);
+                builder.put(new IndexPair(i, j), snapshots);
+            }
+        }
+        return builder.build();
     }
 
     @Nullable
-    RouteEntry routeEntry(@Nullable HttpRequest req, PreClientRequestContext ctx) {
+    Snapshots routeEntry(@Nullable HttpRequest req, PreClientRequestContext ctx) {
         final RouteSnapshot routeSnapshot = listenerSnapshot.routeSnapshot();
         if (routeSnapshot == null) {
             return null;
         }
 
-        for (ClusterSnapshot clusterSnapshot: routeSnapshot.clusterSnapshots()) {
-            if (matches(req, clusterSnapshot)) {
-                final Route route = clusterSnapshot.route();
-                if (route == null) {
+        for (int i = 0; i < routeSnapshot.virtualHostSnapshots().size(); i++) {
+            final VirtualHostSnapshot virtualHostSnapshot = routeSnapshot.virtualHostSnapshots().get(i);
+            if (!matches(req, virtualHostSnapshot)) {
+                continue;
+            }
+            for (int j = 0; j < virtualHostSnapshot.routeEntries().size(); j++) {
+                final RouteEntry routeEntry = virtualHostSnapshot.routeEntries().get(j);
+                if (!matches(req, routeEntry)) {
                     continue;
                 }
-                ctx.setAttr(XdsAttributeKeys.ROUTE_METADATA_MATCH, route.getRoute().getMetadataMatch());
-                return routeEntries.get(clusterSnapshot);
+                ctx.setAttr(XdsAttributeKeys.ROUTE_METADATA_MATCH,
+                            routeEntry.route().getRoute().getMetadataMatch());
+                return snapshots.get(new IndexPair(i, j));
             }
         }
         return null;
     }
 
-    private static boolean matches(@Nullable HttpRequest req, ClusterSnapshot clusterSnapshot) {
+    private static boolean matches(@Nullable HttpRequest req, RouteEntry routeEntry) {
+        return true;
+    }
+
+    private static boolean matches(@Nullable HttpRequest req, VirtualHostSnapshot virtualHostSnapshot) {
         return true;
     }
 
     ClientPreprocessors downstreamFilters() {
         return downstreamFilters;
+    }
+
+    private static final class IndexPair {
+        private final int virtualHostIndex;
+        private final int clusterIndex;
+
+        private IndexPair(int virtualHostIndex, int clusterIndex) {
+            this.virtualHostIndex = virtualHostIndex;
+            this.clusterIndex = clusterIndex;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final IndexPair indexPair = (IndexPair) o;
+            return virtualHostIndex == indexPair.virtualHostIndex && clusterIndex == indexPair.clusterIndex;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(virtualHostIndex, clusterIndex);
+        }
     }
 }

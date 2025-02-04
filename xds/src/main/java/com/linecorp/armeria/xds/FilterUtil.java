@@ -29,7 +29,7 @@ final class FilterUtil {
         for (Entry<String, Any> e: filterConfigMap.entrySet()) {
             filterConfigsBuilder.put(e.getKey(), new ParsedFilterConfig(e.getKey(), e.getValue()));
         }
-        return filterConfigsBuilder.build();
+        return filterConfigsBuilder.buildKeepingLast();
     }
 
     private FilterUtil() {}

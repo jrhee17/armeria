@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LINE Corporation
+ * Copyright 2025 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -16,36 +16,58 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import com.google.protobuf.Message;
-
+import com.linecorp.armeria.client.ClientDecoration;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
-import com.linecorp.armeria.xds.ParsedFilterConfig;
+import com.linecorp.armeria.xds.RouteEntry;
 import com.linecorp.armeria.xds.RouteSnapshot;
+import com.linecorp.armeria.xds.VirtualHostSnapshot;
 
-interface Snapshots {
+final class Snapshots implements ConfigSupplier {
 
-    @Nullable
-    default <T extends Message> T config(String typeUrl, Class<T> configClazz) {
-        ParsedFilterConfig config = clusterSnapshot().routeFilterConfig(typeUrl);
-        if (config != null) {
-            return config.parsed(configClazz);
-        }
-        config = clusterSnapshot().virtualHostFilterConfig(typeUrl);
-        if (config != null) {
-            return config.parsed(configClazz);
-        }
-        config = routeSnapshot().typedPerFilterConfig(typeUrl);
-        if (config != null) {
-            return config.parsed(configClazz);
-        }
-        return null;
+    private final ClientDecoration upstreamFilter;
+    private final ListenerSnapshot listenerSnapshot;
+    private final RouteSnapshot routeSnapshot;
+    private final VirtualHostSnapshot virtualHostSnapshot;
+    private final RouteEntry routeEntry;
+
+    Snapshots(ListenerSnapshot listenerSnapshot, RouteSnapshot routeSnapshot,
+              VirtualHostSnapshot virtualHostSnapshot, RouteEntry routeEntry) {
+        this.listenerSnapshot = listenerSnapshot;
+        this.routeSnapshot = routeSnapshot;
+        this.virtualHostSnapshot = virtualHostSnapshot;
+        this.routeEntry = routeEntry;
+        upstreamFilter = FilterUtils.buildUpstreamFilter(this);
     }
 
-    ListenerSnapshot listenerSnapshot();
+    @Override
+    public ListenerSnapshot listenerSnapshot() {
+        return listenerSnapshot;
+    }
 
-    RouteSnapshot routeSnapshot();
+    @Override
+    public RouteSnapshot routeSnapshot() {
+        return routeSnapshot;
+    }
 
-    ClusterSnapshot clusterSnapshot();
+    @Override
+    public VirtualHostSnapshot virtualHostSnapshot() {
+        return virtualHostSnapshot;
+    }
+
+    @Nullable
+    @Override
+    public ClusterSnapshot clusterSnapshot() {
+        return routeEntry.clusterSnapshot();
+    }
+
+    public ClientDecoration upstreamFilter() {
+        return upstreamFilter;
+    }
+
+    @Override
+    public RouteEntry routeEntry() {
+        return routeEntry;
+    }
 }

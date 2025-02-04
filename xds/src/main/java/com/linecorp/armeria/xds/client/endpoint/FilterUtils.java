@@ -66,7 +66,7 @@ final class FilterUtils {
         return builder.build();
     }
 
-    static ClientDecoration buildUpstreamFilter(Snapshots snapshots) {
+    static ClientDecoration buildUpstreamFilter(ConfigSupplier snapshots) {
         final ListenerSnapshot listenerSnapshot = snapshots.listenerSnapshot();
         final Router router = listenerSnapshot.xdsResource().router();
         if (router == null) {
@@ -90,7 +90,7 @@ final class FilterUtils {
     }
 
     @Nullable
-    private static XdsFilter xdsHttpFilter(HttpFilter httpFilter, @Nullable Snapshots snapshots) {
+    private static XdsFilter xdsHttpFilter(HttpFilter httpFilter, @Nullable ConfigSupplier snapshots) {
         final FilterFactory<?> filterFactory =
                 FilterFactoryRegistry.INSTANCE.filterFactory(httpFilter.getName());
         if (filterFactory == null) {
@@ -120,13 +120,13 @@ final class FilterUtils {
         private final FilterFactory<T> filterFactory;
         private final T config;
 
-        DefaultXdsFilter(FilterFactory<T> filterFactory, Any anyConfig, @Nullable Snapshots snapshots) {
+        DefaultXdsFilter(FilterFactory<T> filterFactory, Any anyConfig, @Nullable ConfigSupplier snapshots) {
             this.filterFactory = filterFactory;
             config = computeFinalConfig(filterFactory, anyConfig, snapshots);
         }
 
         private T computeFinalConfig(FilterFactory<T> filterFactory, Any anyConfig,
-                                     @Nullable Snapshots snapshots) {
+                                     @Nullable ConfigSupplier snapshots) {
             if (snapshots != null) {
                 @Nullable
                 final T config = snapshots.config(filterFactory.filterName(), filterFactory.configClass());

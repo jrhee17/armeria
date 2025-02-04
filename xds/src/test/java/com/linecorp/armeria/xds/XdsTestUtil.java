@@ -19,6 +19,9 @@ package com.linecorp.armeria.xds;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import java.util.List;
+
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
@@ -30,22 +33,46 @@ public final class XdsTestUtil {
             ListenerRoot root, String clusterName, Cluster expected) {
         root.initialFuture().join();
         await().untilAsserted(() -> {
-            final ClusterSnapshot clusterSnapshot =
-                    root.current().routeSnapshot().clusterSnapshot(clusterName);
+            final ClusterSnapshot clusterSnapshot = findByName(root, clusterName);
+            assertThat(clusterSnapshot).isNotNull();
             assertThat(clusterSnapshot.xdsResource().resource()).isEqualTo(expected);
         });
-        return root.current().routeSnapshot().clusterSnapshot(clusterName).selector();
+        final ClusterSnapshot clusterSnapshot = findByName(root, clusterName);
+        assertThat(clusterSnapshot).isNotNull();
+        final XdsEndpointSelector selector = clusterSnapshot.selector();
+        assertThat(selector).isNotNull();
+        return selector;
     }
 
     public static XdsEndpointSelector pollLoadBalancer(
             ListenerRoot root, String clusterName, ClusterLoadAssignment expected) {
         root.initialFuture().join();
         await().untilAsserted(() -> {
-            final EndpointSnapshot endpointSnapshot =
-                    root.current().routeSnapshot().clusterSnapshot(clusterName).endpointSnapshot();
+            final ClusterSnapshot clusterSnapshot = findByName(root, clusterName);
+            assertThat(clusterSnapshot).isNotNull();
+            final EndpointSnapshot endpointSnapshot = clusterSnapshot.endpointSnapshot();
+            assertThat(endpointSnapshot).isNotNull();
             assertThat(endpointSnapshot.xdsResource().resource()).isEqualTo(expected);
         });
-        return root.current().routeSnapshot().clusterSnapshot(clusterName).selector();
+        final ClusterSnapshot clusterSnapshot = findByName(root, clusterName);
+        assertThat(clusterSnapshot).isNotNull();
+        final XdsEndpointSelector selector = clusterSnapshot.selector();
+        assertThat(selector).isNotNull();
+        return selector;
+    }
+
+    @Nullable
+    private static ClusterSnapshot findByName(ListenerRoot root, String name) {
+        final RouteSnapshot routeSnapshot = root.current().routeSnapshot();
+        for (VirtualHostSnapshot virtualHostSnapshot: routeSnapshot.virtualHostSnapshots()) {
+            final List<RouteEntry> routeEntries = virtualHostSnapshot.routeEntries();
+            for (RouteEntry routeEntry: routeEntries) {
+                if (name.equals(routeEntry.clusterSnapshot().xdsResource().name())) {
+                    return routeEntry.clusterSnapshot();
+                }
+            }
+        }
+        return null;
     }
 
     private XdsTestUtil() {}

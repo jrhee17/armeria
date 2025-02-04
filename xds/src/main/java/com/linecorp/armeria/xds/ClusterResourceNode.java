@@ -18,7 +18,6 @@ package com.linecorp.armeria.xds;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.linecorp.armeria.xds.XdsType.CLUSTER;
-import static java.util.Objects.requireNonNull;
 
 import java.util.Objects;
 
@@ -28,16 +27,10 @@ import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.EdsClusterConfig;
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
-import io.envoyproxy.envoy.config.route.v3.Route;
-import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 import io.grpc.Status;
 
 final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXdsResource> {
 
-    @Nullable
-    private final VirtualHost virtualHost;
-    @Nullable
-    private final Route route;
     private final int index;
     private final EndpointSnapshotWatcher snapshotWatcher = new EndpointSnapshotWatcher();
     private final SnapshotWatcher<ClusterSnapshot> parentWatcher;
@@ -50,20 +43,16 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
                         ResourceNodeType resourceNodeType) {
         super(bootstrapContext, configSource, CLUSTER, resourceName, primer, parentWatcher, resourceNodeType);
         this.parentWatcher = parentWatcher;
-        virtualHost = null;
-        route = null;
         index = -1;
         clusterEntryLifecycle = new ClusterEntryLifecycle(bootstrapContext.clusterManager(), resourceName);
     }
 
     ClusterResourceNode(@Nullable ConfigSource configSource,
                         String resourceName, BootstrapContext bootstrapContext,
-                        @Nullable RouteXdsResource primer, SnapshotWatcher<ClusterSnapshot> parentWatcher,
-                        VirtualHost virtualHost, Route route, int index, ResourceNodeType resourceNodeType) {
+                        @Nullable VirtualHostXdsResource primer, SnapshotWatcher<ClusterSnapshot> parentWatcher,
+                        int index, ResourceNodeType resourceNodeType) {
         super(bootstrapContext, configSource, CLUSTER, resourceName, primer, parentWatcher, resourceNodeType);
         this.parentWatcher = parentWatcher;
-        this.virtualHost = requireNonNull(virtualHost, "virtualHost");
-        this.route = requireNonNull(route, "route");
         this.index = index;
         clusterEntryLifecycle = new ClusterEntryLifecycle(bootstrapContext.clusterManager(), resourceName);
     }
@@ -113,8 +102,7 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
             if (clusterEntryLifecycle.closed()) {
                 return;
             }
-            final ClusterSnapshot clusterSnapshot =
-                    new ClusterSnapshot(current, newSnapshot, virtualHost, route, index);
+            final ClusterSnapshot clusterSnapshot = new ClusterSnapshot(current, newSnapshot, index);
             clusterSnapshot.selector(clusterEntryLifecycle.updateSnapshot(clusterSnapshot));
             parentWatcher.snapshotUpdated(clusterSnapshot);
         }

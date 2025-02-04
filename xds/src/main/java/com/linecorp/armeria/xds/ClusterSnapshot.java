@@ -16,21 +16,14 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.linecorp.armeria.xds.FilterUtil.toParsedFilterConfigs;
-
-import java.util.Map;
-
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableMap;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
-import io.envoyproxy.envoy.config.route.v3.Route;
-import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 
 /**
  * A snapshot of a {@link Cluster} resource.
@@ -40,34 +33,20 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
     private final ClusterXdsResource clusterXdsResource;
     @Nullable
     private final EndpointSnapshot endpointSnapshot;
-    @Nullable
-    private final VirtualHost virtualHost;
-    @Nullable
-    private final Route route;
     private final int index;
 
-    private final Map<String, ParsedFilterConfig> routeFilterConfigs;
-    private final Map<String, ParsedFilterConfig> virtualHostFilterConfigs;
     @Nullable
     private XdsEndpointSelector selector;
 
-    ClusterSnapshot(ClusterXdsResource clusterXdsResource, @Nullable EndpointSnapshot endpointSnapshot,
-                    @Nullable VirtualHost virtualHost, @Nullable Route route, int index) {
+    ClusterSnapshot(ClusterXdsResource clusterXdsResource,
+                    @Nullable EndpointSnapshot endpointSnapshot, int index) {
         this.clusterXdsResource = clusterXdsResource;
         this.endpointSnapshot = endpointSnapshot;
-        this.virtualHost = virtualHost;
-        this.route = route;
         this.index = index;
-
-        routeFilterConfigs = route != null ? toParsedFilterConfigs(route.getTypedPerFilterConfigMap())
-                                           : ImmutableMap.of();
-        virtualHostFilterConfigs =
-                virtualHost != null ? toParsedFilterConfigs(virtualHost.getTypedPerFilterConfigMap())
-                                    : ImmutableMap.of();
     }
 
     ClusterSnapshot(ClusterXdsResource clusterXdsResource) {
-        this(clusterXdsResource, null, null, null, -1);
+        this(clusterXdsResource, null, -1);
     }
 
     @Override
@@ -95,42 +74,8 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
         return selector;
     }
 
-    /**
-     * The {@link VirtualHost} this {@link Cluster} belongs to.
-     */
-    @Nullable
-    public VirtualHost virtualHost() {
-        return virtualHost;
-    }
-
-    /**
-     * The {@link Route} this {@link Cluster} belongs to.
-     */
-    @Nullable
-    public Route route() {
-        return route;
-    }
-
     int index() {
         return index;
-    }
-
-    /**
-     * TBU.
-     */
-    @Nullable
-    @UnstableApi
-    public ParsedFilterConfig routeFilterConfig(String name) {
-        return routeFilterConfigs.get(name);
-    }
-
-    /**
-     * TBU.
-     */
-    @Nullable
-    @UnstableApi
-    public ParsedFilterConfig virtualHostFilterConfig(String name) {
-        return virtualHostFilterConfigs.get(name);
     }
 
     @Override

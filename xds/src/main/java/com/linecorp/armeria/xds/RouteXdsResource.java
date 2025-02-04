@@ -16,13 +16,19 @@
 
 package com.linecorp.armeria.xds;
 
+import static com.linecorp.armeria.xds.FilterUtil.toParsedFilterConfigs;
+
+import java.util.Map;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
+import io.envoyproxy.envoy.config.route.v3.FilterConfig;
 import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
+import io.envoyproxy.envoy.extensions.filters.http.header_to_metadata.v3.Config;
 
 /**
  * A resource object for a {@link RouteConfiguration}.
@@ -34,15 +40,18 @@ public final class RouteXdsResource extends XdsResourceWithPrimer<RouteXdsResour
 
     @Nullable
     private final XdsResource primer;
+    private final Map<String, ParsedFilterConfig> filterConfigs;
 
     RouteXdsResource(RouteConfiguration routeConfiguration) {
         this.routeConfiguration = routeConfiguration;
         primer = null;
+        filterConfigs = toParsedFilterConfigs(routeConfiguration.getTypedPerFilterConfigMap());
     }
 
     RouteXdsResource(RouteConfiguration routeConfiguration, XdsResource primer) {
         this.routeConfiguration = routeConfiguration;
         this.primer = primer;
+        filterConfigs = toParsedFilterConfigs(routeConfiguration.getTypedPerFilterConfigMap());
     }
 
     @Override
@@ -72,6 +81,17 @@ public final class RouteXdsResource extends XdsResourceWithPrimer<RouteXdsResour
     @Nullable
     XdsResource primer() {
         return primer;
+    }
+
+    /**
+     * Returns the unpacked filter configuration contained by this {@link RouteConfiguration}.
+     * For each key, the configuration may either be a configuration specific to a filter like
+     * {@link Config}, or a generic {@link FilterConfig}.
+     */
+    @Nullable
+    @UnstableApi
+    public ParsedFilterConfig filterConfig(String key) {
+        return filterConfigs.get(key);
     }
 
     @Override
