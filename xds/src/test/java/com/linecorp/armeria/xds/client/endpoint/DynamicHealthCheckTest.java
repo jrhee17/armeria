@@ -169,7 +169,6 @@ class DynamicHealthCheckTest {
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
 
-            root.initialFuture().join();
             final XdsLoadBalancer loadBalancer1 = pollLoadBalancer(root, "cluster", cluster);
             assertThat(loadBalancer1).isNotNull();
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));

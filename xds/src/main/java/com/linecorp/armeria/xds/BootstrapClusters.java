@@ -17,7 +17,6 @@
 package com.linecorp.armeria.xds;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -38,7 +37,6 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
 
     private final Map<String, ClusterSnapshot> clusterSnapshots = new HashMap<>();
     private final Map<String, XdsLoadBalancer> loadBalancers = new HashMap<>();
-    private final Map<String, Cluster> clusters = new HashMap<>();
     private final ClusterManager clusterManager;
 
     BootstrapClusters(Bootstrap bootstrap, EventExecutor eventLoop, ClusterManager clusterManager) {
@@ -60,13 +58,7 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
                 if (clusterSnapshots.containsKey(cluster.getName())) {
                     continue;
                 }
-                if (cluster.hasLoadAssignment()) {
-                    // no need to clean this cluster up since it is fully static
-                    StaticResourceUtils.staticCluster(bootstrapContext, cluster.getName(), this, cluster);
-                    checkState(loadBalancers.containsKey(cluster.getName()),
-                               "Bootstrap cluster (%s) hasn't been loaded.", cluster);
-                }
-                clusters.put(cluster.getName(), cluster);
+                StaticResourceUtils.staticCluster(bootstrapContext, cluster.getName(), this, cluster);
             }
         }
     }
@@ -97,13 +89,16 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
 
     @Nullable
     Cluster cluster(String clusterName) {
-        return clusters.get(clusterName);
+        final ClusterSnapshot clusterSnapshot = clusterSnapshots.get(clusterName);
+        if (clusterSnapshot == null) {
+            return null;
+        }
+        return clusterSnapshot.xdsResource().resource();
     }
 
+    @Nullable
     XdsLoadBalancer loadBalancer(String clusterName) {
-        final XdsLoadBalancer loadBalancer = loadBalancers.get(clusterName);
-        checkState(loadBalancer != null, "Bootstrap cluster (%s) hasn't been loaded.", clusterName);
-        return loadBalancer;
+        return loadBalancers.get(clusterName);
     }
 
     @Override

@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.xds;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -48,7 +50,7 @@ final class GrpcServicesPreprocessor implements HttpPreprocessor {
     @Override
     public HttpResponse execute(PreClient<HttpRequest, HttpResponse> delegate, PreClientRequestContext ctx,
                                 HttpRequest req) throws Exception {
-        // Just use the first service for now until ctx.attr can be specified for grpc services
+        // Just use the first service for now until RequestOptions.attr can be specified for grpc services
         final GrpcService grpcService = services.get(0);
         for (HeaderValue headerValue: grpcService.getInitialMetadataList()) {
             ctx.addAdditionalRequestHeader(headerValue.getKey(), headerValue.getValue());
@@ -66,6 +68,8 @@ final class GrpcServicesPreprocessor implements HttpPreprocessor {
         }
 
         final XdsLoadBalancer loadBalancer = bootstrapClusters.loadBalancer(clusterName);
+        checkState(loadBalancer != null,
+                   "Bootstrap static cluster '%s' has not specified endpoints.", clusterName);
         final Endpoint endpoint = loadBalancer.selectNow(ctx);
         if (endpoint != null) {
             ctx.setEndpointGroup(endpoint);

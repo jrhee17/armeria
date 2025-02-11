@@ -52,49 +52,21 @@ final class RouterFilter<I extends Request, O extends Response> implements Prepr
             throw new RuntimeException();
         }
         final HttpRequest httpReq = ctx.request();
-        final Snapshots snapshots = routeConfig.routeEntry(httpReq, ctx);
-        if (snapshots == null) {
+        final SelectedRoute selectedRoute = routeConfig.selectedRoute(httpReq, ctx);
+        if (selectedRoute == null) {
             throw new RuntimeException();
         }
-        if (snapshots.clusterSnapshot() == null) {
+        final ClusterSnapshot clusterSnapshot = selectedRoute.clusterSnapshot();
+        if (clusterSnapshot == null) {
             throw new RuntimeException();
         }
-        final XdsLoadBalancer loadBalancer = snapshots.clusterSnapshot().loadBalancer();
-        if (loadBalancer == null) {
-            throw new RuntimeException();
-        }
-        final Endpoint endpoint = loadBalancer.selectNow(ctx);
-        if (endpoint != null) {
-            return execute0(delegate, ctx, req, snapshots, endpoint);
-        }
-        final EventLoop temporaryEventLoop = ctx.options().factory().eventLoopSupplier().get();
-        final CompletableFuture<O> cf =
-                loadBalancer.select(ctx, temporaryEventLoop, ctx.responseTimeoutMillis())
-                        .thenApply(endpoint0 -> {
-                            try {
-                                return execute0(delegate, ctx, req, snapshots, endpoint0);
-                            } catch (Exception e) {
-                                throw new CompletionException(e);
-                            }
-                        });
-        return futureConverter.apply(cf);
-    }
 
-    private O execute0(PreClient<I, O> delegate,
-                       PreClientRequestContext ctx, I req,
-                       Snapshots routeEntry, @Nullable Endpoint endpoint) throws Exception {
-        if (endpoint == null) {
-            throw new TimeoutException("Failed to select an endpoint for ctx: " + ctx);
-        }
-        ctx.setEndpointGroup(endpoint);
-        // set upstream filters
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         if (ctxExt != null) {
-            final ClientDecoration decoration = routeEntry.upstreamFilter();
+            final ClientDecoration decoration = selectedRoute.upstreamFilter();
             ctxExt.decoration(decoration);
         }
-        final ClusterSnapshot clusterSnapshot = routeEntry.clusterSnapshot();
-        assert clusterSnapshot != null;
+
         final UpstreamTlsContext tlsContext = clusterSnapshot.xdsResource().upstreamTlsContext();
         if (tlsContext != null) {
             ctx.setSessionProtocol(SessionProtocol.HTTPS);
@@ -102,6 +74,34 @@ final class RouterFilter<I extends Request, O extends Response> implements Prepr
             ctx.setSessionProtocol(SessionProtocol.HTTP);
         }
 
+        final XdsLoadBalancer loadBalancer = clusterSnapshot.loadBalancer();
+        if (loadBalancer == null) {
+            throw new RuntimeException();
+        }
+
+        final Endpoint endpoint = loadBalancer.selectNow(ctx);
+        if (endpoint != null) {
+            return execute0(delegate, ctx, req, endpoint);
+        }
+        final EventLoop temporaryEventLoop = ctx.options().factory().eventLoopSupplier().get();
+        final CompletableFuture<O> cf =
+                loadBalancer.select(ctx, temporaryEventLoop, ctx.responseTimeoutMillis())
+                        .thenApply(endpoint0 -> {
+                            try {
+                                return execute0(delegate, ctx, req, endpoint0);
+                            } catch (Exception e) {
+                                throw new CompletionException(e);
+                            }
+                        });
+        return futureConverter.apply(cf);
+    }
+
+    private O execute0(PreClient<I, O> delegate, PreClientRequestContext ctx, I req,
+                       @Nullable Endpoint endpoint) throws Exception {
+        if (endpoint == null) {
+            throw new TimeoutException("Failed to select an endpoint for ctx: " + ctx);
+        }
+        ctx.setEndpointGroup(endpoint);
         return delegate.execute(ctx, req);
     }
 }

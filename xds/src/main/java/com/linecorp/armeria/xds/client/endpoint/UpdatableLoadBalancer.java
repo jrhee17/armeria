@@ -38,6 +38,7 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
         implements XdsLoadBalancer, AutoCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdatableLoadBalancer.class);
+
     private final Consumer<List<Endpoint>> updateEndpointsCallback = this::updateEndpoints;
 
     @Nullable
@@ -108,8 +109,9 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
             loadBalancer = new SubsetLoadBalancer(prioritySet, loadBalancer, localCluster, localPrioritySet);
         }
         delegate = loadBalancer;
-        endpointSelector.refresh();
         this.prioritySet = prioritySet;
+
+        endpointSelector.refresh();
         notifyListeners(prioritySet);
     }
 

@@ -35,35 +35,35 @@ import com.linecorp.armeria.xds.VirtualHostSnapshot;
 final class RouteConfig {
     private final ListenerSnapshot listenerSnapshot;
     private final ClientPreprocessors downstreamFilters;
-    private final Map<IndexPair, Snapshots> snapshots;
+    private final Map<IndexPair, SelectedRoute> selectedRoutes;
 
     RouteConfig(ListenerSnapshot listenerSnapshot) {
         this.listenerSnapshot = listenerSnapshot;
         downstreamFilters = buildDownstreamFilter(listenerSnapshot);
-        snapshots = routeEntries(listenerSnapshot);
+        selectedRoutes = routeEntries(listenerSnapshot);
     }
 
-    private static Map<IndexPair, Snapshots> routeEntries(ListenerSnapshot listenerSnapshot) {
+    private static Map<IndexPair, SelectedRoute> routeEntries(ListenerSnapshot listenerSnapshot) {
         final RouteSnapshot routeSnapshot = listenerSnapshot.routeSnapshot();
         if (routeSnapshot == null) {
             return ImmutableMap.of();
         }
 
-        final ImmutableMap.Builder<IndexPair, Snapshots> builder = ImmutableMap.builder();
+        final ImmutableMap.Builder<IndexPair, SelectedRoute> builder = ImmutableMap.builder();
         for (int i = 0; i < routeSnapshot.virtualHostSnapshots().size(); i++) {
             final VirtualHostSnapshot virtualHostSnapshot = routeSnapshot.virtualHostSnapshots().get(i);
             for (int j = 0; j < virtualHostSnapshot.routeEntries().size(); j++) {
                 final RouteEntry routeEntry = virtualHostSnapshot.routeEntries().get(j);
-                final Snapshots snapshots = new Snapshots(listenerSnapshot, routeSnapshot,
-                                                          virtualHostSnapshot, routeEntry);
-                builder.put(new IndexPair(i, j), snapshots);
+                final SelectedRoute selectedRoute = new SelectedRoute(listenerSnapshot, routeSnapshot,
+                                                                      virtualHostSnapshot, routeEntry);
+                builder.put(new IndexPair(i, j), selectedRoute);
             }
         }
         return builder.build();
     }
 
     @Nullable
-    Snapshots routeEntry(@Nullable HttpRequest req, PreClientRequestContext ctx) {
+    SelectedRoute selectedRoute(@Nullable HttpRequest req, PreClientRequestContext ctx) {
         final RouteSnapshot routeSnapshot = listenerSnapshot.routeSnapshot();
         if (routeSnapshot == null) {
             return null;
@@ -81,7 +81,7 @@ final class RouteConfig {
                 }
                 ctx.setAttr(XdsAttributeKeys.ROUTE_METADATA_MATCH,
                             routeEntry.route().getRoute().getMetadataMatch());
-                return snapshots.get(new IndexPair(i, j));
+                return selectedRoutes.get(new IndexPair(i, j));
             }
         }
         return null;

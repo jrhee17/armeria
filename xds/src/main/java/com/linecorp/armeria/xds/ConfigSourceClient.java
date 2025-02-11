@@ -56,10 +56,8 @@ final class ConfigSourceClient implements SafeCloseable {
         checkArgument(!grpcServices.isEmpty(),
                       "At least one GrpcService should be specified for '%s'", configSource);
         final boolean ads = apiConfigSource.getApiType() == ApiType.AGGREGATED_GRPC;
-
-        final GrpcServicesPreprocessor preprocessor =
-                new GrpcServicesPreprocessor(grpcServices, bootstrapClusters);
-        final GrpcClientBuilder builder = GrpcClients.builder(preprocessor);
+        final GrpcClientBuilder builder =
+                GrpcClients.builder(new GrpcServicesPreprocessor(grpcServices, bootstrapClusters));
         builder.responseTimeout(java.time.Duration.ZERO);
         builder.maxResponseLength(0);
         clientCustomizer.accept(builder);

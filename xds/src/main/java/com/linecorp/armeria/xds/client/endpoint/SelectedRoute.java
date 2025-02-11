@@ -24,7 +24,7 @@ import com.linecorp.armeria.xds.RouteEntry;
 import com.linecorp.armeria.xds.RouteSnapshot;
 import com.linecorp.armeria.xds.VirtualHostSnapshot;
 
-final class Snapshots implements ConfigSupplier {
+final class SelectedRoute implements ConfigSupplier {
 
     private final ClientDecoration upstreamFilter;
     private final ListenerSnapshot listenerSnapshot;
@@ -32,8 +32,8 @@ final class Snapshots implements ConfigSupplier {
     private final VirtualHostSnapshot virtualHostSnapshot;
     private final RouteEntry routeEntry;
 
-    Snapshots(ListenerSnapshot listenerSnapshot, RouteSnapshot routeSnapshot,
-              VirtualHostSnapshot virtualHostSnapshot, RouteEntry routeEntry) {
+    SelectedRoute(ListenerSnapshot listenerSnapshot, RouteSnapshot routeSnapshot,
+                  VirtualHostSnapshot virtualHostSnapshot, RouteEntry routeEntry) {
         this.listenerSnapshot = listenerSnapshot;
         this.routeSnapshot = routeSnapshot;
         this.virtualHostSnapshot = virtualHostSnapshot;

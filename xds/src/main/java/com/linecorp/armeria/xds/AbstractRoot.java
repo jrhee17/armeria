@@ -21,7 +21,6 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
@@ -44,7 +43,6 @@ abstract class AbstractRoot<T extends Snapshot<? extends XdsResource>>
     private T snapshot;
     private final Set<SnapshotWatcher<? super T>> snapshotWatchers = new HashSet<>();
     private boolean closed;
-    private final CompletableFuture<T> initialFuture = new CompletableFuture<>();
 
     AbstractRoot(EventExecutor eventLoop) {
         this.eventLoop = eventLoop;
@@ -110,9 +108,6 @@ abstract class AbstractRoot<T extends Snapshot<? extends XdsResource>>
         }
         snapshot = newSnapshot;
         notifyWatchers("snapshotUpdated", watcher -> watcher.snapshotUpdated(newSnapshot));
-        if (!initialFuture.isDone()) {
-            initialFuture.complete(newSnapshot);
-        }
     }
 
     @Override
@@ -152,13 +147,8 @@ abstract class AbstractRoot<T extends Snapshot<? extends XdsResource>>
 
     @Nullable
     @VisibleForTesting
-    public T current() {
+    T current() {
         return snapshot;
-    }
-
-    @VisibleForTesting
-    public CompletableFuture<T> initialFuture() {
-        return initialFuture;
     }
 
     @VisibleForTesting

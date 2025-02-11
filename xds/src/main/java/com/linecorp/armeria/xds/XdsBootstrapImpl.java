@@ -35,7 +35,7 @@ import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.core.v3.Node;
 import io.netty.util.concurrent.EventExecutor;
 
-final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
+final class XdsBootstrapImpl implements XdsBootstrap {
     private final Bootstrap bootstrap;
     private final EventExecutor eventLoop;
 
@@ -71,13 +71,7 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
         bootstrapListeners = new BootstrapListeners(bootstrap);
     }
 
-    @Override
-    public BootstrapClusters bootstrapClusters() {
-        return bootstrapClusters;
-    }
-
-    @Override
-    public void subscribe(ResourceNode<?> node) {
+    void subscribe(ResourceNode<?> node) {
         final XdsType type = node.type();
         final String name = node.name();
         final ConfigSource configSource = node.configSource();
@@ -93,14 +87,12 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
         }
         checkState(!closed, "Attempting to subscribe to a closed XdsBootstrap");
         final ConfigSourceClient client = clientMap.computeIfAbsent(
-                configSource, ignored -> new ConfigSourceClient(
-                        configSource, eventLoop, bootstrapNode,
-                        configClientCustomizer, bootstrapClusters));
+                configSource, ignored -> new ConfigSourceClient(configSource, eventLoop, bootstrapNode,
+                                                                configClientCustomizer, bootstrapClusters));
         client.addSubscriber(type, resourceName, node);
     }
 
-    @Override
-    public void unsubscribe(ResourceNode<?> node) {
+    void unsubscribe(ResourceNode<?> node) {
         if (!eventLoop.inEventLoop()) {
             eventLoop.execute(() -> unsubscribe(node));
             return;
@@ -155,13 +147,15 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
         return bootstrap;
     }
 
-    @Override
-    public ConfigSourceMapper configSourceMapper() {
+    BootstrapClusters bootstrapClusters() {
+        return bootstrapClusters;
+    }
+
+    ConfigSourceMapper configSourceMapper() {
         return configSourceMapper;
     }
 
-    @Override
-    public ClusterManager clusterManager() {
+    ClusterManager clusterManager() {
         return clusterManager;
     }
 }
