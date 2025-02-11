@@ -21,6 +21,9 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
+
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
@@ -31,17 +34,17 @@ import io.netty.util.concurrent.EventExecutor;
 
 final class DefaultClusterManager implements ClusterManager {
 
+    @GuardedBy("lock")
     private final Map<String, ClusterEntry> clusterEntries = new HashMap<>();
+    private final ReentrantLock lock = new ReentrantLock();
+    private boolean closed;
 
     private final EventExecutor eventLoop;
-
     private final String localClusterName;
     @Nullable
     private final Locality locality;
     @Nullable
     private LocalCluster localCluster;
-
-    private final Map<String, XdsLoadBalancer> loadBalancers = new HashMap<>();
 
     DefaultClusterManager(EventExecutor eventLoop, Bootstrap bootstrap) {
         this.eventLoop = eventLoop;
@@ -55,40 +58,87 @@ final class DefaultClusterManager implements ClusterManager {
 
     @Override
     public void register(String name) {
-        clusterEntries.computeIfAbsent(name, ignored -> new ClusterEntry(eventLoop, localCluster))
-                      .retain();
+        try {
+            lock.lock();
+            if (closed) {
+                return;
+            }
+            clusterEntries.computeIfAbsent(name, ignored -> new ClusterEntry(eventLoop, localCluster))
+                          .retain();
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
     @Nullable
-    public XdsLoadBalancer loadBalancer(String name) {
-        return loadBalancers.get(name);
+    public XdsLoadBalancer get(String name) {
+        try {
+            lock.lock();
+            if (closed) {
+                return null;
+            }
+            final ClusterEntry clusterEntry = clusterEntries.get(name);
+            if (clusterEntry == null) {
+                return null;
+            }
+            return clusterEntry.loadBalancer();
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
     public XdsLoadBalancer update(String name, ClusterSnapshot snapshot) {
-        final ClusterEntry clusterEntry = clusterEntries.get(name);
-        checkArgument(clusterEntry != null,
-                      "Cluster with name '%s' must be registered first via register.", name);
-        final XdsLoadBalancer loadBalancer = clusterEntry.update(snapshot);
-        loadBalancers.put(name, loadBalancer);
+        try {
+            lock.lock();
+            checkState(!closed, "Attempted to update cluster '%s' with snapshot '%s' for a closed ClusterManager.",
+                       name, snapshot);
+            final ClusterEntry clusterEntry = clusterEntries.get(name);
+            checkArgument(clusterEntry != null,
+                          "Cluster with name '%s' must be registered first via register.", name);
+            final XdsLoadBalancer loadBalancer = clusterEntry.update(snapshot);
 
-        if (name.equals(localClusterName) && locality != null) {
-            checkState(localCluster == null,
-                       "localCluster with name '%s' can only be set once", name);
-            localCluster = new LocalCluster(locality, loadBalancer);
+            if (name.equals(localClusterName) && locality != null) {
+                checkState(localCluster == null,
+                           "localCluster with name '%s' can only be set once", name);
+                localCluster = new LocalCluster(locality, loadBalancer);
+            }
+
+            return loadBalancer;
+        } finally {
+            lock.unlock();
         }
-
-        return loadBalancer;
     }
 
     @Override
     public void unregister(String name) {
-        final ClusterEntry clusterEntry = clusterEntries.get(name);
-        assert clusterEntry != null;
-        if (clusterEntry.release()) {
-            loadBalancers.remove(name);
-            clusterEntries.remove(name);
+        try {
+            lock.lock();
+            if (closed) {
+                return;
+            }
+            final ClusterEntry clusterEntry = clusterEntries.get(name);
+            assert clusterEntry != null;
+            if (clusterEntry.release()) {
+                clusterEntries.remove(name);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void close() {
+        try {
+            lock.lock();
+            if (closed) {
+                return;
+            }
+            closed = true;
+            clusterEntries.values().forEach(ClusterEntry::release);
+        } finally {
+            lock.unlock();
         }
     }
 }

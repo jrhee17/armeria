@@ -80,9 +80,10 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
     @Override
     public void snapshotUpdated(ClusterSnapshot newSnapshot) {
         final String name = newSnapshot.xdsResource().name();
-        final XdsLoadBalancer loadBalancer = clusterManager.loadBalancer(name);
-        assert loadBalancer != null;
-        loadBalancers.put(name, loadBalancer);
+        final XdsLoadBalancer loadBalancer = clusterManager.get(name);
+        if (loadBalancer != null) {
+            loadBalancers.put(name, loadBalancer);
+        }
         clusterSnapshots.put(name, newSnapshot);
     }
 

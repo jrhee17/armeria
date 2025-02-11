@@ -85,6 +85,11 @@ final class ClusterEntry implements AsyncCloseable {
         }
     }
 
+    @Nullable
+    UpdatableLoadBalancer loadBalancer() {
+        return loadBalancer;
+    }
+
     ClusterEntry retain() {
         refCnt++;
         return this;

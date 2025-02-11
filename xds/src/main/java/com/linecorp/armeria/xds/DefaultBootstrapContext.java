@@ -21,39 +21,50 @@ import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
 import io.netty.util.concurrent.EventExecutor;
 
 final class DefaultBootstrapContext implements BootstrapContext {
-    private final XdsBootstrapImpl xdsBootstrap;
 
-    DefaultBootstrapContext(XdsBootstrapImpl xdsBootstrap) {
-        this.xdsBootstrap = xdsBootstrap;
+    private final EventExecutor eventLoop;
+    private final ClusterManager clusterManager;
+    private final BootstrapClusters bootstrapClusters;
+    private final ConfigSourceMapper configSourceMapper;
+    private final ConfigSourceManager configSourceManager;
+
+    DefaultBootstrapContext(EventExecutor eventLoop, ClusterManager clusterManager,
+                            BootstrapClusters bootstrapClusters, ConfigSourceMapper configSourceMapper,
+                            ConfigSourceManager configSourceManager) {
+        this.eventLoop = eventLoop;
+        this.clusterManager = clusterManager;
+        this.bootstrapClusters = bootstrapClusters;
+        this.configSourceMapper = configSourceMapper;
+        this.configSourceManager = configSourceManager;
     }
 
     @Override
     public ClusterManager clusterManager() {
-        return xdsBootstrap.clusterManager();
+        return clusterManager;
     }
 
     @Override
     public EventExecutor eventLoop() {
-        return xdsBootstrap.eventLoop();
+        return eventLoop;
     }
 
     @Override
     public void subscribe(ResourceNode<?> node) {
-        xdsBootstrap.subscribe(node);
+        configSourceManager.subscribe(node);
     }
 
     @Override
     public void unsubscribe(ResourceNode<?> node) {
-        xdsBootstrap.unsubscribe(node);
+        configSourceManager.unsubscribe(node);
     }
 
     @Override
     public BootstrapClusters bootstrapClusters() {
-        return xdsBootstrap.bootstrapClusters();
+        return bootstrapClusters;
     }
 
     @Override
     public ConfigSourceMapper configSourceMapper() {
-        return xdsBootstrap.configSourceMapper();
+        return configSourceMapper;
     }
 }

@@ -17,6 +17,7 @@
 package com.linecorp.armeria.xds.client.endpoint;
 
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
@@ -25,7 +26,7 @@ import io.netty.util.concurrent.EventExecutor;
 /**
  * TBU.
  */
-public interface ClusterManager {
+public interface ClusterManager extends SafeCloseable {
 
     /**
      * TBU.
@@ -43,7 +44,7 @@ public interface ClusterManager {
      * TBU.
      */
     @Nullable
-    XdsLoadBalancer loadBalancer(String name);
+    XdsLoadBalancer get(String name);
 
     /**
      * TBU.

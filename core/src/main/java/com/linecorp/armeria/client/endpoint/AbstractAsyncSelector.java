@@ -59,7 +59,7 @@ import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenCustomHashSet;
  *
  * mySelector.refresh(); // pending futures will now try to select again
  * val selected3 = mySelector.selectNow(); // hello
- * </pre>
+ * }</pre>
  */
 @UnstableApi
 public abstract class AbstractAsyncSelector<T> {
