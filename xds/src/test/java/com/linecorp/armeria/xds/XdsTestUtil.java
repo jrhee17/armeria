@@ -29,9 +29,7 @@ import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 
 public final class XdsTestUtil {
 
-    public static XdsLoadBalancer pollLoadBalancer(
-            ListenerRoot root, String clusterName, Cluster expected) {
-        root.initialFuture().join();
+    public static XdsLoadBalancer pollLoadBalancer(ListenerRoot root, String clusterName, Cluster expected) {
         await().untilAsserted(() -> {
             final ClusterSnapshot clusterSnapshot = findByName(root, clusterName);
             assertThat(clusterSnapshot).isNotNull();
@@ -46,7 +44,6 @@ public final class XdsTestUtil {
 
     public static XdsLoadBalancer pollLoadBalancer(
             ListenerRoot root, String clusterName, ClusterLoadAssignment expected) {
-        root.initialFuture().join();
         await().untilAsserted(() -> {
             final ClusterSnapshot clusterSnapshot = findByName(root, clusterName);
             assertThat(clusterSnapshot).isNotNull();
