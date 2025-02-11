@@ -45,22 +45,22 @@ import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetFall
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetSelector;
 import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 
-final class SubsetLoadBalancer implements XdsLoadBalancer {
+final class SubsetLoadBalancer implements LoadBalancer {
 
     private static final Logger logger = LoggerFactory.getLogger(SubsetLoadBalancer.class);
 
     private final DefaultPrioritySet prioritySet;
-    private final XdsLoadBalancer allEndpointsLoadBalancer;
+    private final LoadBalancer allEndpointsLoadBalancer;
     @Nullable
     private final LocalCluster localCluster;
     @Nullable
     private final DefaultPrioritySet localPrioritySet;
 
-    private final Map<Struct, XdsLoadBalancer> subsetLoadBalancers;
+    private final Map<Struct, LoadBalancer> subsetLoadBalancers;
     private final LbSubsetConfig lbSubsetConfig;
     private final LbSubsetFallbackPolicy fallbackPolicy;
 
-    SubsetLoadBalancer(DefaultPrioritySet prioritySet, XdsLoadBalancer allEndpointsLoadBalancer,
+    SubsetLoadBalancer(DefaultPrioritySet prioritySet, LoadBalancer allEndpointsLoadBalancer,
                        @Nullable LocalCluster localCluster, @Nullable DefaultPrioritySet localPrioritySet) {
         this.allEndpointsLoadBalancer = allEndpointsLoadBalancer;
         this.localCluster = localCluster;
@@ -90,7 +90,7 @@ final class SubsetLoadBalancer implements XdsLoadBalancer {
     @Nullable
     public Endpoint selectNow(ClientRequestContext ctx) {
         final Struct filterMetadata = filterMetadata(ctx);
-        final XdsLoadBalancer subsetLoadBalancer = subsetLoadBalancers.get(filterMetadata);
+        final LoadBalancer subsetLoadBalancer = subsetLoadBalancers.get(filterMetadata);
         if (subsetLoadBalancer != null) {
             return subsetLoadBalancer.selectNow(ctx);
         }
@@ -101,7 +101,7 @@ final class SubsetLoadBalancer implements XdsLoadBalancer {
         return allEndpointsLoadBalancer.selectNow(ctx);
     }
 
-    private Map<Struct, XdsLoadBalancer> createSubsetLoadBalancers(DefaultPrioritySet prioritySet) {
+    private Map<Struct, LoadBalancer> createSubsetLoadBalancers(DefaultPrioritySet prioritySet) {
         final ClusterSnapshot clusterSnapshot = prioritySet.clusterSnapshot();
 
         final Map<Struct, List<Endpoint>> endpointsPerFilterStruct = new HashMap<>();
@@ -130,7 +130,7 @@ final class SubsetLoadBalancer implements XdsLoadBalancer {
                                         .add(endpoint);
             }
         }
-        final ImmutableMap.Builder<Struct, XdsLoadBalancer> builder = ImmutableMap.builder();
+        final ImmutableMap.Builder<Struct, LoadBalancer> builder = ImmutableMap.builder();
         for (Entry<Struct, List<Endpoint>> entry : endpointsPerFilterStruct.entrySet()) {
             final DefaultPrioritySet subsetPrioritySet =
                     new PriorityStateManager(clusterSnapshot, entry.getValue()).build();

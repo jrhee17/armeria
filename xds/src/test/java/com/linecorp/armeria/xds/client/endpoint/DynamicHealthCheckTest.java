@@ -170,7 +170,7 @@ class DynamicHealthCheckTest {
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
 
             root.initialFuture().join();
-            final XdsEndpointSelector loadBalancer1 = pollLoadBalancer(root, "cluster", cluster);
+            final XdsLoadBalancer loadBalancer1 = pollLoadBalancer(root, "cluster", cluster);
             assertThat(loadBalancer1).isNotNull();
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final Endpoint endpoint = loadBalancer1.select(ctx, ctx.eventLoop()).join();
@@ -189,7 +189,7 @@ class DynamicHealthCheckTest {
                                                      ImmutableList.of(listener), ImmutableList.of(),
                                                      ImmutableList.of(), "v2"));
 
-            final XdsEndpointSelector loadBalancer2 = pollLoadBalancer(root, "cluster", cluster);
+            final XdsLoadBalancer loadBalancer2 = pollLoadBalancer(root, "cluster", cluster);
             await().untilAsserted(() -> assertThat(loadBalancer2.select(ctx, ctx.eventLoop()).join().port())
                     .isEqualTo(server2.httpPort()));
 
@@ -235,7 +235,7 @@ class DynamicHealthCheckTest {
                                                  ImmutableList.of(), "v3"));
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             // WeightRampingUpStrategy guarantees that all endpoints will be considered, so
             // trying 4 times should be more than enough
@@ -261,7 +261,7 @@ class DynamicHealthCheckTest {
                                                      ImmutableList.of(listener), ImmutableList.of(),
                                                      ImmutableList.of(), "v4"));
 
-            final XdsEndpointSelector loadBalancer2 = pollLoadBalancer(root, "cluster", cluster);
+            final XdsLoadBalancer loadBalancer2 = pollLoadBalancer(root, "cluster", cluster);
             // wait until server 2 is also selected
             await().untilAsserted(() -> {
                 final Endpoint endpoint = loadBalancer2.select(ctx, CommonPools.workerGroup()).get();
@@ -317,7 +317,7 @@ class DynamicHealthCheckTest {
                                                  ImmutableList.of(), "v3"));
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             // WeightRampingUpStrategy guarantees that all endpoints will be considered, so
             // trying 4 times should be more than enough

@@ -26,7 +26,7 @@ import com.google.common.base.Strings;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
-import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
+import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap.StaticResources;
@@ -37,7 +37,7 @@ import io.netty.util.concurrent.EventExecutor;
 final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
 
     private final Map<String, ClusterSnapshot> clusterSnapshots = new HashMap<>();
-    private final Map<String, XdsEndpointSelector> clusterEntries = new HashMap<>();
+    private final Map<String, XdsLoadBalancer> loadBalancers = new HashMap<>();
     private final Map<String, Cluster> clusters = new HashMap<>();
     private final ClusterManager clusterManager;
 
@@ -63,7 +63,7 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
                 if (cluster.hasLoadAssignment()) {
                     // no need to clean this cluster up since it is fully static
                     StaticResourceUtils.staticCluster(bootstrapContext, cluster.getName(), this, cluster);
-                    checkState(clusterEntries.containsKey(cluster.getName()),
+                    checkState(loadBalancers.containsKey(cluster.getName()),
                                "Bootstrap cluster (%s) hasn't been loaded.", cluster);
                 }
                 clusters.put(cluster.getName(), cluster);
@@ -84,9 +84,9 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
     @Override
     public void snapshotUpdated(ClusterSnapshot newSnapshot) {
         final String name = newSnapshot.xdsResource().name();
-        final XdsEndpointSelector loadBalancer = clusterManager.getSelector(name);
+        final XdsLoadBalancer loadBalancer = clusterManager.loadBalancer(name);
         assert loadBalancer != null;
-        clusterEntries.put(name, loadBalancer);
+        loadBalancers.put(name, loadBalancer);
         clusterSnapshots.put(name, newSnapshot);
     }
 
@@ -100,10 +100,10 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
         return clusters.get(clusterName);
     }
 
-    XdsEndpointSelector clusterEntry(String clusterName) {
-        final XdsEndpointSelector clusterEntry = clusterEntries.get(clusterName);
-        checkState(clusterEntry != null, "Bootstrap cluster (%s) hasn't been loaded.", clusterName);
-        return clusterEntry;
+    XdsLoadBalancer loadBalancer(String clusterName) {
+        final XdsLoadBalancer loadBalancer = loadBalancers.get(clusterName);
+        checkState(loadBalancer != null, "Bootstrap cluster (%s) hasn't been loaded.", clusterName);
+        return loadBalancer;
     }
 
     @Override

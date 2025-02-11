@@ -17,7 +17,7 @@
 package com.linecorp.armeria.xds;
 
 import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
-import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
+import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
 
 final class ClusterEntryLifecycle implements AutoCloseable {
 
@@ -28,12 +28,12 @@ final class ClusterEntryLifecycle implements AutoCloseable {
     ClusterEntryLifecycle(ClusterManager clusterManager, String name) {
         this.clusterManager = clusterManager;
         this.name = name;
-        clusterManager.registerEntry(name);
+        clusterManager.register(name);
     }
 
-    XdsEndpointSelector updateSnapshot(ClusterSnapshot clusterSnapshot) {
+    XdsLoadBalancer update(ClusterSnapshot clusterSnapshot) {
         assert !closed;
-        return clusterManager.updateSnapshot(name, clusterSnapshot);
+        return clusterManager.update(name, clusterSnapshot);
     }
 
     boolean closed() {
@@ -46,6 +46,6 @@ final class ClusterEntryLifecycle implements AutoCloseable {
             return;
         }
         closed = true;
-        clusterManager.removeEntry(name);
+        clusterManager.unregister(name);
     }
 }

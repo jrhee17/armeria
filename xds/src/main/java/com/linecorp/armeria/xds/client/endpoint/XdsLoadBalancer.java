@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LINE Corporation
+ * Copyright 2025 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -16,10 +16,26 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import com.linecorp.armeria.common.annotation.Nullable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Consumer;
 
-interface XdsLoadBalancer extends LoadBalancer {
+import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.endpoint.EndpointSelector;
+import com.linecorp.armeria.common.util.Listenable;
 
-    @Nullable
-    DefaultPrioritySet prioritySet();
+/**
+ * TBU.
+ */
+public interface XdsLoadBalancer extends EndpointSelector, Listenable<PrioritySet>, LoadBalancer {
+
+    /**
+     * TBU.
+     */
+    void addListener(Consumer<? super PrioritySet> listener, boolean notifyLatestValue);
+
+    @Override
+    CompletableFuture<Endpoint> select(ClientRequestContext ctx, ScheduledExecutorService executor,
+                                       long timeoutMillis);
 }

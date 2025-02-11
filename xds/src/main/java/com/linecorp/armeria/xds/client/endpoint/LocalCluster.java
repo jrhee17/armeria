@@ -26,14 +26,14 @@ import io.envoyproxy.envoy.config.core.v3.Locality;
 final class LocalCluster extends AbstractListenable<DefaultPrioritySet>
         implements AutoCloseable, Consumer<PrioritySet> {
     private final LocalityRoutingStateFactory localityRoutingStateFactory;
-    private final XdsEndpointSelector loadBalancer;
+    private final XdsLoadBalancer localLoadBalancer;
     @Nullable
     private DefaultPrioritySet prioritySet;
 
-    LocalCluster(Locality locality, XdsEndpointSelector localEndpointSelector) {
+    LocalCluster(Locality locality, XdsLoadBalancer localLoadBalancer) {
         localityRoutingStateFactory = new LocalityRoutingStateFactory(locality);
-        loadBalancer = localEndpointSelector;
-        localEndpointSelector.addListener(this, true);
+        this.localLoadBalancer = localLoadBalancer;
+        localLoadBalancer.addListener(this, true);
     }
 
     @Override
@@ -48,7 +48,7 @@ final class LocalCluster extends AbstractListenable<DefaultPrioritySet>
 
     @Override
     public void close() {
-        loadBalancer.removeListener(this);
+        localLoadBalancer.removeListener(this);
     }
 
     @Override

@@ -103,7 +103,7 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
                 return;
             }
             final ClusterSnapshot clusterSnapshot = new ClusterSnapshot(current, newSnapshot, index);
-            clusterSnapshot.selector(clusterEntryLifecycle.updateSnapshot(clusterSnapshot));
+            clusterSnapshot.loadBalancer(clusterEntryLifecycle.update(clusterSnapshot));
             parentWatcher.snapshotUpdated(clusterSnapshot);
         }
 

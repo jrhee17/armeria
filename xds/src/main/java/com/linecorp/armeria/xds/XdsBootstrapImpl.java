@@ -66,7 +66,7 @@ final class XdsBootstrapImpl implements XdsBootstrap, SubscriptionFactory {
         configSourceMapper = new ConfigSourceMapper(bootstrap);
 
         bootstrapNode = bootstrap.hasNode() ? bootstrap.getNode() : Node.getDefaultInstance();
-        clusterManager = new ClusterManager(eventLoop, bootstrap);
+        clusterManager = ClusterManager.of(eventLoop, bootstrap);
         bootstrapClusters = new BootstrapClusters(bootstrap, eventLoop, clusterManager);
         bootstrapListeners = new BootstrapListeners(bootstrap);
     }

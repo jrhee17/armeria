@@ -34,7 +34,7 @@ import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.Stat
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
 
-final class DefaultLoadBalancer implements XdsLoadBalancer {
+final class DefaultLoadBalancer implements LoadBalancer {
 
     private final DefaultLbStateFactory.DefaultLbState lbState;
     private final DefaultPrioritySet prioritySet;

@@ -109,7 +109,7 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
 
     private final EndpointSelector selector;
     @Nullable
-    private volatile XdsEndpointSelector loadBalancer;
+    private volatile XdsLoadBalancer loadBalancer;
     private final ListenerRoot listenerRoot;
     private List<Endpoint> endpoints = UNINITIALIZED_ENDPOINTS;
 
@@ -139,14 +139,14 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
         if (clusterSnapshot == null) {
             return;
         }
-        final XdsEndpointSelector loadBalancer = clusterSnapshot.selector();
+        final XdsLoadBalancer loadBalancer = clusterSnapshot.loadBalancer();
         if (loadBalancer == null) {
             return;
         }
 
         stateLock.lock();
         try {
-            final XdsEndpointSelector prevLoadBalancer = this.loadBalancer;
+            final XdsLoadBalancer prevLoadBalancer = this.loadBalancer;
             if (prevLoadBalancer != null) {
                 prevLoadBalancer.removeListener(this);
             }
@@ -258,7 +258,7 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
         @Override
         @Nullable
         public Endpoint selectNow(ClientRequestContext ctx) {
-            final XdsEndpointSelector loadBalancer = XdsEndpointGroup.this.loadBalancer;
+            final XdsLoadBalancer loadBalancer = XdsEndpointGroup.this.loadBalancer;
             if (loadBalancer == null) {
                 return null;
             }

@@ -128,7 +128,7 @@ class HealthCheckedTest {
         final Bootstrap bootstrap = staticBootstrap(listener, cluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
 
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
@@ -196,7 +196,7 @@ class HealthCheckedTest {
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              // disable allowEmptyEndpoints since the first update iteration in no available healthy endpoints
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
 
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
@@ -265,7 +265,7 @@ class HealthCheckedTest {
         final Bootstrap bootstrap = staticBootstrap(listener, cluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot("listener")) {
-            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
 
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));

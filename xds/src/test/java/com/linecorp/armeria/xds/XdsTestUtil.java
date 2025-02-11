@@ -22,14 +22,14 @@ import static org.awaitility.Awaitility.await;
 import java.util.List;
 
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.XdsEndpointSelector;
+import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 
 public final class XdsTestUtil {
 
-    public static XdsEndpointSelector pollLoadBalancer(
+    public static XdsLoadBalancer pollLoadBalancer(
             ListenerRoot root, String clusterName, Cluster expected) {
         root.initialFuture().join();
         await().untilAsserted(() -> {
@@ -39,12 +39,12 @@ public final class XdsTestUtil {
         });
         final ClusterSnapshot clusterSnapshot = findByName(root, clusterName);
         assertThat(clusterSnapshot).isNotNull();
-        final XdsEndpointSelector selector = clusterSnapshot.selector();
+        final XdsLoadBalancer selector = clusterSnapshot.loadBalancer();
         assertThat(selector).isNotNull();
         return selector;
     }
 
-    public static XdsEndpointSelector pollLoadBalancer(
+    public static XdsLoadBalancer pollLoadBalancer(
             ListenerRoot root, String clusterName, ClusterLoadAssignment expected) {
         root.initialFuture().join();
         await().untilAsserted(() -> {
@@ -56,7 +56,7 @@ public final class XdsTestUtil {
         });
         final ClusterSnapshot clusterSnapshot = findByName(root, clusterName);
         assertThat(clusterSnapshot).isNotNull();
-        final XdsEndpointSelector selector = clusterSnapshot.selector();
+        final XdsLoadBalancer selector = clusterSnapshot.loadBalancer();
         assertThat(selector).isNotNull();
         return selector;
     }

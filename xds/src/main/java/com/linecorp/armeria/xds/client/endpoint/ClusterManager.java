@@ -16,93 +16,42 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-
-import java.util.HashMap;
-import java.util.Map;
-
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
-import io.envoyproxy.envoy.config.core.v3.Locality;
 import io.netty.util.concurrent.EventExecutor;
 
 /**
  * TBU.
  */
-public final class ClusterManager {
-
-    private final Map<String, ClusterEntry> clusterEntries = new HashMap<>();
-
-    private final EventExecutor eventLoop;
-
-    private final String localClusterName;
-    @Nullable
-    private final Locality locality;
-    @Nullable
-    private LocalCluster localCluster;
-
-    private final Map<String, XdsEndpointSelector> selectors = new HashMap<>();
+public interface ClusterManager {
 
     /**
      * TBU.
      */
-    public ClusterManager(EventExecutor eventLoop, Bootstrap bootstrap) {
-        this.eventLoop = eventLoop;
-        localClusterName = bootstrap.getClusterManager().getLocalClusterName();
-        if (bootstrap.getNode().hasLocality()) {
-            locality = bootstrap.getNode().getLocality();
-        } else {
-            locality = null;
-        }
+    static ClusterManager of(EventExecutor eventLoop, Bootstrap bootstrap) {
+        return new DefaultClusterManager(eventLoop, bootstrap);
     }
 
     /**
      * TBU.
      */
-    public void registerEntry(String name) {
-        clusterEntries.computeIfAbsent(name, ignored -> new ClusterEntry(eventLoop, localCluster))
-                      .retain();
-    }
+    void register(String name);
 
     /**
      * TBU.
      */
     @Nullable
-    public XdsEndpointSelector getSelector(String name) {
-        return selectors.get(name);
-    }
+    XdsLoadBalancer loadBalancer(String name);
 
     /**
      * TBU.
      */
-    public XdsEndpointSelector updateSnapshot(String name, ClusterSnapshot snapshot) {
-        final ClusterEntry clusterEntry = clusterEntries.get(name);
-        checkArgument(clusterEntry != null,
-                      "Cluster with name '%s' must be registered first via registerEntry.", name);
-        final XdsEndpointSelector selector = clusterEntry.updateClusterSnapshot(snapshot);
-        selectors.put(name, selector);
-
-        if (name.equals(localClusterName) && locality != null) {
-            checkState(localCluster == null,
-                       "localCluster with name '%s' can only be set once", name);
-            localCluster = new LocalCluster(locality, selector);
-        }
-
-        return selector;
-    }
+    XdsLoadBalancer update(String name, ClusterSnapshot snapshot);
 
     /**
      * TBU.
      */
-    public void removeEntry(String name) {
-        final ClusterEntry clusterEntry = clusterEntries.get(name);
-        assert clusterEntry != null;
-        if (clusterEntry.release()) {
-            selectors.remove(name);
-            clusterEntries.remove(name);
-        }
-    }
+    void unregister(String name);
 }

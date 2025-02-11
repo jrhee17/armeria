@@ -53,7 +53,7 @@ final class ClusterEntry implements AsyncCloseable {
         }
     }
 
-    XdsEndpointSelector updateClusterSnapshot(ClusterSnapshot clusterSnapshot) {
+    XdsLoadBalancer update(ClusterSnapshot clusterSnapshot) {
         checkState(!closed, "Cannot update cluster snapshot '%s' after closed", clusterSnapshot);
         final UpdatableLoadBalancer prevLoadBalancer = loadBalancer;
         if (prevLoadBalancer != null && Objects.equals(clusterSnapshot, prevLoadBalancer.clusterSnapshot())) {
@@ -85,6 +85,21 @@ final class ClusterEntry implements AsyncCloseable {
         }
     }
 
+    ClusterEntry retain() {
+        refCnt++;
+        return this;
+    }
+
+    boolean release() {
+        refCnt--;
+        assert refCnt >= 0;
+        if (refCnt == 0) {
+            closeAsync();
+            return true;
+        }
+        return false;
+    }
+
     @Override
     public CompletableFuture<?> closeAsync() {
         if (closed) {
@@ -104,21 +119,6 @@ final class ClusterEntry implements AsyncCloseable {
     @Override
     public void close() {
         closeAsync().join();
-    }
-
-    public ClusterEntry retain() {
-        refCnt++;
-        return this;
-    }
-
-    public boolean release() {
-        refCnt--;
-        assert refCnt >= 0;
-        if (refCnt == 0) {
-            closeAsync();
-            return true;
-        }
-        return false;
     }
 
     @Override

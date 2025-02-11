@@ -35,13 +35,13 @@ import com.linecorp.armeria.xds.ClusterSnapshot;
 import io.netty.util.concurrent.EventExecutor;
 
 final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
-        implements XdsLoadBalancer, XdsEndpointSelector, AutoCloseable {
+        implements XdsLoadBalancer, AutoCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdatableLoadBalancer.class);
     private final Consumer<List<Endpoint>> updateEndpointsCallback = this::updateEndpoints;
 
     @Nullable
-    private XdsLoadBalancer delegate;
+    private LoadBalancer delegate;
     private final EventExecutor eventLoop;
     private final ClusterSnapshot clusterSnapshot;
     @Nullable
@@ -67,7 +67,7 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
         attributesPool = new AttributesPool(prevAttrsPool);
 
         endpointSelector = new FunctionSelector<>(ctx -> {
-            final XdsLoadBalancer loadBalancer = delegate;
+            final LoadBalancer loadBalancer = delegate;
             if (loadBalancer == null) {
                 return null;
             }
@@ -103,7 +103,7 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
         }
 
         final DefaultPrioritySet localPrioritySet = this.localPrioritySet;
-        XdsLoadBalancer loadBalancer = new DefaultLoadBalancer(prioritySet, localCluster, localPrioritySet);
+        LoadBalancer loadBalancer = new DefaultLoadBalancer(prioritySet, localCluster, localPrioritySet);
         if (clusterSnapshot.xdsResource().resource().hasLbSubsetConfig()) {
             loadBalancer = new SubsetLoadBalancer(prioritySet, loadBalancer, localCluster, localPrioritySet);
         }

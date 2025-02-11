@@ -130,7 +130,7 @@ class RampingUpTest {
         final Bootstrap bootstrap = XdsTestResources.bootstrap(configSource, bootstrapCluster);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot(listenerName)) {
-            final XdsEndpointSelector loadBalancer = pollLoadBalancer(root, "cluster", cluster);
+            final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             await().untilAsserted(() -> assertThat(loadBalancer.prioritySet().endpoints())
                     .containsExactlyInAnyOrder(Endpoint.of("a.com", 80), Endpoint.of("b.com", 80)));
 
@@ -160,7 +160,7 @@ class RampingUpTest {
                     Snapshot.create(ImmutableList.of(cluster), ImmutableList.of(loadAssignment),
                                     ImmutableList.of(listener), ImmutableList.of(route),
                                     ImmutableList.of(), "3"));
-            final XdsEndpointSelector loadBalancer2 = pollLoadBalancer(root, "cluster", loadAssignment);
+            final XdsLoadBalancer loadBalancer2 = pollLoadBalancer(root, "cluster", loadAssignment);
             await().untilAsserted(() -> assertThat(loadBalancer2.prioritySet().endpoints())
                     .containsExactlyInAnyOrder(Endpoint.of("b.com", 80), Endpoint.of("c.com", 80)));
             selectedEndpoints = selectEndpoints(weight, loadBalancer2);
@@ -176,7 +176,7 @@ class RampingUpTest {
      * WeightedRandomDistributionSelector is random, so we just call selectNow
      * for a full iteration to consume all pending entries.
      */
-    private static Set<Endpoint> selectEndpoints(int weight, XdsEndpointSelector loadBalancer) {
+    private static Set<Endpoint> selectEndpoints(int weight, XdsLoadBalancer loadBalancer) {
         final Set<Endpoint> selectedEndpoints = new HashSet<>();
         for (int i = 0; i < weight * 2; i++) {
             selectedEndpoints.add(loadBalancer.select(ctx(), CommonPools.workerGroup()).join());

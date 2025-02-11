@@ -59,17 +59,17 @@ final class RouterFilter<I extends Request, O extends Response> implements Prepr
         if (snapshots.clusterSnapshot() == null) {
             throw new RuntimeException();
         }
-        final XdsEndpointSelector selector = snapshots.clusterSnapshot().selector();
-        if (selector == null) {
+        final XdsLoadBalancer loadBalancer = snapshots.clusterSnapshot().loadBalancer();
+        if (loadBalancer == null) {
             throw new RuntimeException();
         }
-        final Endpoint endpoint = selector.selectNow(ctx);
+        final Endpoint endpoint = loadBalancer.selectNow(ctx);
         if (endpoint != null) {
             return execute0(delegate, ctx, req, snapshots, endpoint);
         }
         final EventLoop temporaryEventLoop = ctx.options().factory().eventLoopSupplier().get();
         final CompletableFuture<O> cf =
-                selector.select(ctx, temporaryEventLoop, ctx.responseTimeoutMillis())
+                loadBalancer.select(ctx, temporaryEventLoop, ctx.responseTimeoutMillis())
                         .thenApply(endpoint0 -> {
                             try {
                                 return execute0(delegate, ctx, req, snapshots, endpoint0);
