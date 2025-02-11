@@ -19,10 +19,10 @@ package com.linecorp.armeria.xds.client.endpoint;
 import java.util.function.Function;
 
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.endpoint.AbstractSelector;
+import com.linecorp.armeria.client.endpoint.AbstractAsyncSelector;
 import com.linecorp.armeria.common.annotation.Nullable;
 
-final class FunctionSelector<T> extends AbstractSelector<T> {
+final class FunctionSelector<T> extends AbstractAsyncSelector<T> {
 
     private final Function<ClientRequestContext, @Nullable T> function;
 

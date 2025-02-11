@@ -15,6 +15,8 @@
  */
 package com.linecorp.armeria.client.endpoint;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -29,7 +31,7 @@ import com.linecorp.armeria.internal.client.ClientPendingThrowableUtil;
  * {@link #select(ClientRequestContext, ScheduledExecutorService)} method by listening to
  * the change events emitted by {@link EndpointGroup} specified at construction time.
  */
-public abstract class AbstractEndpointSelector extends AbstractSelector<Endpoint>
+public abstract class AbstractEndpointSelector extends AbstractAsyncSelector<Endpoint>
         implements EndpointSelector {
 
     private final EndpointGroup endpointGroup;
@@ -38,7 +40,7 @@ public abstract class AbstractEndpointSelector extends AbstractSelector<Endpoint
      * Creates a new instance that selects an {@link Endpoint} from the specified {@link EndpointGroup}.
      */
     protected AbstractEndpointSelector(EndpointGroup endpointGroup) {
-        this.endpointGroup = endpointGroup;
+        this.endpointGroup = requireNonNull(endpointGroup, "endpointGroup");
     }
 
     /**
@@ -67,11 +69,6 @@ public abstract class AbstractEndpointSelector extends AbstractSelector<Endpoint
         // Allow subclasses to update the endpoints first.
         updateNewEndpoints(endpoints);
         refresh();
-    }
-
-    @Override
-    protected boolean isInitialized() {
-        return endpointGroup.whenReady().isDone();
     }
 
     @Override

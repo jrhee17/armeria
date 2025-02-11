@@ -17,13 +17,13 @@
 package com.linecorp.armeria.xds.client.endpoint;
 
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.endpoint.AbstractSelector;
+import com.linecorp.armeria.client.endpoint.AbstractAsyncSelector;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ListenerRoot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.SnapshotWatcher;
 
-final class SnapshotWatcherSelector extends AbstractSelector<RouteConfig>
+final class SnapshotWatcherSelector extends AbstractAsyncSelector<RouteConfig>
         implements SnapshotWatcher<ListenerSnapshot> {
 
     @Nullable

@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.client.endpoint;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -27,8 +29,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.UnmodifiableFuture;
 import com.linecorp.armeria.internal.common.util.IdentityHashStrategy;
 import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
@@ -36,9 +38,31 @@ import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenCustomHashSet;
 
 /**
- * TBU.
+ * A helper class which allows users to easily implement asynchronous selection of elements of type {@link T}.
+ * Users are expected to implement the synchronous method {@link #selectNow(ClientRequestContext)}.
+ * When {@link #selectNow(ClientRequestContext)} is expected to have changed its value, {@link #refresh()}
+ * must be called to notify pending futures.
+ * <pre>{@code
+ * class MySelector extends AbstractAsyncSelector<String> {
+ *     private String value;
+ *     @Override
+ *     protected String selectNow(ClientRequestContext ctx) {
+ *         return value;
+ *     }
+ * }
+ *
+ * MySelector mySelector = new MySelector();
+ * val selected1 = mySelector.selectNow(); // null
+ *
+ * mySelector.value = "hello";
+ * val selected2 = mySelector.selectNow(); // null
+ *
+ * mySelector.refresh(); // pending futures will now try to select again
+ * val selected3 = mySelector.selectNow(); // hello
+ * </pre>
  */
-public abstract class AbstractSelector<T> {
+@UnstableApi
+public abstract class AbstractAsyncSelector<T> {
 
     private final ReentrantShortLock lock = new ReentrantShortLock();
     @GuardedBy("lock")
@@ -48,7 +72,7 @@ public abstract class AbstractSelector<T> {
     /**
      * Creates a new instance.
      */
-    protected AbstractSelector() {
+    protected AbstractAsyncSelector() {
     }
 
     @SuppressWarnings("GuardedBy")
@@ -58,17 +82,24 @@ public abstract class AbstractSelector<T> {
     }
 
     /**
-     * TBU.
+     * Selects an element based on the provided {@link ClientRequestContext}.
+     * Users may return {@code null} to indicate that it isn't possible to select a value now.
      */
     @Nullable
     protected abstract T selectNow(ClientRequestContext ctx);
 
     /**
-     * TBU.
+     * Select an element asynchronously. If an element is readily available, this method will return
+     * immediately. Otherwise, a future will be queued and wait for the next {@link #refresh()} invocation.
+     * If the specified timeout is passed, the future will complete with {@code null}.
+     *
+     * @param executor the executor which will schedule a timeout
+     * @param selectionTimeoutMillis the amount of time to wait before completing a pending future
      */
-    public CompletableFuture<T> select(ClientRequestContext ctx,
-                                       ScheduledExecutorService executor,
+    public CompletableFuture<T> select(ClientRequestContext ctx, ScheduledExecutorService executor,
                                        long selectionTimeoutMillis) {
+        checkArgument(selectionTimeoutMillis >= 0, "selectionTimeoutMillis: %s (expected: >= 0)",
+                      selectionTimeoutMillis);
         T selected = selectNow(ctx);
         if (selected != null) {
             return UnmodifiableFuture.completedFuture(selected);
@@ -81,13 +112,12 @@ public abstract class AbstractSelector<T> {
         if (listeningFuture.isDone()) {
             return listeningFuture;
         }
-        if (isInitialized()) {
-            selected = selectNow(ctx);
-            if (selected != null) {
-                // The EndpointGroup have just been updated before adding ListeningFuture.
-                listeningFuture.complete(selected);
-                return listeningFuture;
-            }
+
+        selected = selectNow(ctx);
+        if (selected != null) {
+            // The state has just been updated before adding ListeningFuture.
+            listeningFuture.complete(selected);
+            return listeningFuture;
         }
 
         if (selectionTimeoutMillis == 0) {
@@ -119,20 +149,14 @@ public abstract class AbstractSelector<T> {
     }
 
     /**
-     * TBU.
+     * A hook which is executed when a timeout has been triggered.
      */
-    protected boolean isInitialized() {
-        return false;
-    }
-
-    /**
-     * TBU.
-     */
+    @UnstableApi
     protected void onTimeout(ClientRequestContext ctx, long selectionTimeoutMillis) {
     }
 
     /**
-     * TBU.
+     * Triggers pending futures to try and select a value by calling {@link #selectNow(ClientRequestContext)}.
      */
     public void refresh() {
         lock.lock();
@@ -175,10 +199,7 @@ public abstract class AbstractSelector<T> {
             this.executor = executor;
         }
 
-        /**
-         * Returns {@code true} if an {@link Endpoint} has been selected.
-         */
-        public boolean tryComplete() {
+        private boolean tryComplete() {
             if (selected != null || isDone()) {
                 return true;
             }
