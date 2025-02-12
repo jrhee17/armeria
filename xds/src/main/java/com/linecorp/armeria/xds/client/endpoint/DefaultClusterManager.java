@@ -21,11 +21,11 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.locks.ReentrantLock;
 
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
@@ -36,7 +36,7 @@ final class DefaultClusterManager implements ClusterManager {
 
     @GuardedBy("lock")
     private final Map<String, ClusterEntry> clusterEntries = new HashMap<>();
-    private final ReentrantLock lock = new ReentrantLock();
+    private final ReentrantShortLock lock = new ReentrantShortLock();
     private boolean closed;
 
     private final EventExecutor eventLoop;
@@ -92,8 +92,8 @@ final class DefaultClusterManager implements ClusterManager {
     public XdsLoadBalancer update(String name, ClusterSnapshot snapshot) {
         try {
             lock.lock();
-            checkState(!closed, "Attempted to update cluster '%s' with snapshot '%s' for a closed ClusterManager.",
-                       name, snapshot);
+            checkState(!closed, "Attempted to update cluster snapshot '%s' for a closed ClusterManager.",
+                       snapshot);
             final ClusterEntry clusterEntry = clusterEntries.get(name);
             checkArgument(clusterEntry != null,
                           "Cluster with name '%s' must be registered first via register.", name);

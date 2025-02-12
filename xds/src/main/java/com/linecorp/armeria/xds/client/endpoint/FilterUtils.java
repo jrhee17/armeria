@@ -122,7 +122,8 @@ final class FilterUtils {
         private final T config;
         private final ParsedFilterConfig filterConfig;
 
-        DefaultXdsFilter(FilterFactory<T> filterFactory, HttpFilter httpFilter, @Nullable ConfigSupplier snapshots) {
+        DefaultXdsFilter(FilterFactory<T> filterFactory, HttpFilter httpFilter,
+                         @Nullable ConfigSupplier snapshots) {
             this.filterFactory = filterFactory;
             filterConfig = computeFinalConfig(filterFactory, httpFilter, snapshots);
             config = filterConfig.config(filterFactory.configClass(), filterFactory.defaultConfig());
