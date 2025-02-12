@@ -27,7 +27,7 @@ final class FilterUtil {
     static Map<String, ParsedFilterConfig> toParsedFilterConfigs(Map<String, Any> filterConfigMap) {
         final ImmutableMap.Builder<String, ParsedFilterConfig> filterConfigsBuilder = ImmutableMap.builder();
         for (Entry<String, Any> e: filterConfigMap.entrySet()) {
-            filterConfigsBuilder.put(e.getKey(), new ParsedFilterConfig(e.getKey(), e.getValue()));
+            filterConfigsBuilder.put(e.getKey(), ParsedFilterConfig.of(e.getKey(), e.getValue()));
         }
         return filterConfigsBuilder.buildKeepingLast();
     }

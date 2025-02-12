@@ -20,8 +20,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.List;
 
-import com.google.protobuf.Any;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import com.linecorp.armeria.client.ClientDecoration;
@@ -34,6 +32,7 @@ import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ListenerSnapshot;
+import com.linecorp.armeria.xds.ParsedFilterConfig;
 
 import io.envoyproxy.envoy.extensions.filters.http.router.v3.Router;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager;
@@ -53,11 +52,11 @@ final class FilterUtils {
         final ClientPreprocessorsBuilder builder = ClientPreprocessors.builder();
         for (int i = httpFilters.size() - 1; i >= 0; i--) {
             final HttpFilter httpFilter = httpFilters.get(i);
-            if (httpFilter.getDisabled()) {
-                continue;
-            }
             final XdsFilter xdsFilter = xdsHttpFilter(httpFilter, null);
             if (xdsFilter == null) {
+                continue;
+            }
+            if (xdsFilter.filterConfig().disabled()) {
                 continue;
             }
             builder.add(xdsFilter.httpPreprocessor());
@@ -76,11 +75,11 @@ final class FilterUtils {
         final ClientDecorationBuilder builder = ClientDecoration.builder();
         for (int i = httpFilters.size() - 1; i >= 0; i--) {
             final HttpFilter httpFilter = httpFilters.get(i);
-            if (httpFilter.getDisabled()) {
-                continue;
-            }
             final XdsFilter xdsFilter = xdsHttpFilter(httpFilter, snapshots);
             if (xdsFilter == null) {
+                continue;
+            }
+            if (xdsFilter.filterConfig().disabled()) {
                 continue;
             }
             builder.add(xdsFilter.httpDecorator());
@@ -102,10 +101,12 @@ final class FilterUtils {
         checkArgument(httpFilter.getConfigTypeCase() == ConfigTypeCase.TYPED_CONFIG,
                       "Only 'typed_config' is supported, but '%s' was supplied",
                       httpFilter.getConfigTypeCase());
-        return new DefaultXdsFilter<>(filterFactory, httpFilter.getTypedConfig(), snapshots);
+        return new DefaultXdsFilter<>(filterFactory, httpFilter, snapshots);
     }
 
     interface XdsFilter {
+
+        ParsedFilterConfig filterConfig();
 
         HttpPreprocessor httpPreprocessor();
 
@@ -119,26 +120,31 @@ final class FilterUtils {
     static class DefaultXdsFilter<T extends Message> implements XdsFilter {
         private final FilterFactory<T> filterFactory;
         private final T config;
+        private final ParsedFilterConfig filterConfig;
 
-        DefaultXdsFilter(FilterFactory<T> filterFactory, Any anyConfig, @Nullable ConfigSupplier snapshots) {
+        DefaultXdsFilter(FilterFactory<T> filterFactory, HttpFilter httpFilter, @Nullable ConfigSupplier snapshots) {
             this.filterFactory = filterFactory;
-            config = computeFinalConfig(filterFactory, anyConfig, snapshots);
+            filterConfig = computeFinalConfig(filterFactory, httpFilter, snapshots);
+            config = filterConfig.config(filterFactory.configClass(), filterFactory.defaultConfig());
         }
 
-        private T computeFinalConfig(FilterFactory<T> filterFactory, Any anyConfig,
-                                     @Nullable ConfigSupplier snapshots) {
+        private ParsedFilterConfig computeFinalConfig(FilterFactory<T> filterFactory, HttpFilter httpFilter,
+                                                      @Nullable ConfigSupplier snapshots) {
             if (snapshots != null) {
                 @Nullable
-                final T config = snapshots.config(filterFactory.filterName(), filterFactory.configClass());
+                final ParsedFilterConfig config = snapshots.config(filterFactory.filterName());
                 if (config != null) {
                     return config;
                 }
             }
-            try {
-                return anyConfig.unpack(filterFactory.configClass());
-            } catch (InvalidProtocolBufferException e) {
-                throw new RuntimeException(e);
-            }
+
+            return ParsedFilterConfig.of(httpFilter.getName(), httpFilter.getTypedConfig(),
+                                         httpFilter.getIsOptional(), httpFilter.getDisabled());
+        }
+
+        @Override
+        public ParsedFilterConfig filterConfig() {
+            return filterConfig;
         }
 
         @Override

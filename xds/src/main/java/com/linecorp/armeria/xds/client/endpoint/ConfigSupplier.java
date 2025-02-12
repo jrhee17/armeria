@@ -16,8 +16,6 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import com.google.protobuf.Message;
-
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
@@ -29,20 +27,17 @@ import com.linecorp.armeria.xds.VirtualHostSnapshot;
 interface ConfigSupplier {
 
     @Nullable
-    default <T extends Message> T config(String typeUrl, Class<T> configClazz) {
+    default ParsedFilterConfig config(String typeUrl) {
         ParsedFilterConfig config = routeEntry().filterConfig(typeUrl);
         if (config != null) {
-            return config.parsed(configClazz);
+            return config;
         }
         config = virtualHostSnapshot().xdsResource().filterConfig(typeUrl);
         if (config != null) {
-            return config.parsed(configClazz);
+            return config;
         }
         config = routeSnapshot().xdsResource().filterConfig(typeUrl);
-        if (config != null) {
-            return config.parsed(configClazz);
-        }
-        return null;
+        return config;
     }
 
     ListenerSnapshot listenerSnapshot();

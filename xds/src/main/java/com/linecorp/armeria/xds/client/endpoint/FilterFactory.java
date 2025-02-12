@@ -67,5 +67,10 @@ public interface FilterFactory<T extends Message> {
     /**
      * TBU.
      */
+    T defaultConfig();
+
+    /**
+     * TBU.
+     */
     String filterName();
 }

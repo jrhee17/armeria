@@ -51,6 +51,11 @@ public final class RouterFilterFactory implements FilterFactory<Router> {
     }
 
     @Override
+    public Router defaultConfig() {
+        return Router.getDefaultInstance();
+    }
+
+    @Override
     public String filterName() {
         return NAME;
     }
