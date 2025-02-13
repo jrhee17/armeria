@@ -26,9 +26,11 @@ import com.google.common.base.MoreObjects;
 import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.envoyproxy.envoy.config.route.v3.Route;
+import io.envoyproxy.envoy.config.route.v3.RouteAction;
+import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter;
 
 /**
- * TBU.
+ * Represents a {@link Route}.
  */
 public final class RouteEntry {
 
@@ -44,14 +46,15 @@ public final class RouteEntry {
     }
 
     /**
-     * TBU.
+     * The {@link Route}.
      */
     public Route route() {
         return route;
     }
 
     /**
-     * TBU.
+     * The {@link ClusterSnapshot} that is represented by {@link RouteAction#getCluster()}.
+     * If the {@link RouteAction} does not reference a cluster, the returned value may be {@code null}.
      */
     @Nullable
     public ClusterSnapshot clusterSnapshot() {
@@ -59,11 +62,13 @@ public final class RouteEntry {
     }
 
     /**
-     * TBU.
+     * Returns the parsed {@link Route#getTypedPerFilterConfigMap()}.
+     *
+     * @param filterName the filter name represented by {@link HttpFilter#getName()}
      */
     @Nullable
-    public ParsedFilterConfig filterConfig(String typeUrl) {
-        return filterConfigs.get(typeUrl);
+    public ParsedFilterConfig filterConfig(String filterName) {
+        return filterConfigs.get(filterName);
     }
 
     @Override

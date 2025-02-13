@@ -26,17 +26,17 @@ final class FilterFactoryRegistry {
 
     public static final FilterFactoryRegistry INSTANCE = new FilterFactoryRegistry();
 
-    private final Map<String, FilterFactory<?>> filterFactories;
+    private final Map<String, HttpFilterFactory<?>> filterFactories;
 
     private FilterFactoryRegistry() {
         filterFactories = ImmutableMap
-                .<String, FilterFactory<?>>builder()
+                .<String, HttpFilterFactory<?>>builder()
                 .put(RouterFilterFactory.NAME, RouterFilterFactory.INSTANCE)
                 .build();
     }
 
     @Nullable
-    public FilterFactory<?> filterFactory(String name) {
+    public HttpFilterFactory<?> filterFactory(String name) {
         return filterFactories.get(name);
     }
 }

@@ -14,31 +14,48 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.internal;
+package com.linecorp.armeria.xds.filter;
 
 import java.util.Map;
 
 import com.google.common.collect.ImmutableMap;
 
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.FilterFactory;
+import com.linecorp.armeria.xds.client.endpoint.HttpFilterFactory;
 import com.linecorp.armeria.xds.client.endpoint.RouterFilterFactory;
 
-public final class FilterFactoryRegistry {
+import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter;
 
-    public static final FilterFactoryRegistry INSTANCE = new FilterFactoryRegistry();
+/**
+ * A registry for {@link  HttpFilterFactory} implementations.
+ */
+public final class HttpFilterFactoryRegistry {
 
-    private final Map<String, FilterFactory<?>> filterFactories;
+    private static final HttpFilterFactoryRegistry INSTANCE = new HttpFilterFactoryRegistry();
 
-    private FilterFactoryRegistry() {
+    /**
+     * Returns the singleton {@link HttpFilterFactoryRegistry} instance.
+     */
+    public static HttpFilterFactoryRegistry of() {
+        return INSTANCE;
+    }
+
+    private final Map<String, HttpFilterFactory<?>> filterFactories;
+
+    private HttpFilterFactoryRegistry() {
         filterFactories = ImmutableMap
-                .<String, FilterFactory<?>>builder()
+                .<String, HttpFilterFactory<?>>builder()
                 .put(RouterFilterFactory.NAME, RouterFilterFactory.INSTANCE)
                 .build();
     }
 
+    /**
+     * Returns the registered {@link HttpFilterFactory}.
+     *
+     * @param name the name of the filter represented by {@link HttpFilter#getName()}
+     */
     @Nullable
-    public FilterFactory<?> filterFactory(String name) {
+    public HttpFilterFactory<?> filterFactory(String name) {
         return filterFactories.get(name);
     }
 }

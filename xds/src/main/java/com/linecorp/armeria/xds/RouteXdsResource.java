@@ -26,9 +26,8 @@ import com.google.common.base.Objects;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
-import io.envoyproxy.envoy.config.route.v3.FilterConfig;
 import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
-import io.envoyproxy.envoy.extensions.filters.http.header_to_metadata.v3.Config;
+import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter;
 
 /**
  * A resource object for a {@link RouteConfiguration}.
@@ -84,14 +83,14 @@ public final class RouteXdsResource extends XdsResourceWithPrimer<RouteXdsResour
     }
 
     /**
-     * Returns the unpacked filter configuration contained by this {@link RouteConfiguration}.
-     * For each key, the configuration may either be a configuration specific to a filter like
-     * {@link Config}, or a generic {@link FilterConfig}.
+     * Returns the parsed {@link RouteConfiguration#getTypedPerFilterConfigMap()}.
+     *
+     * @param filterName the filter name represented by {@link HttpFilter#getName()}
      */
     @Nullable
     @UnstableApi
-    public ParsedFilterConfig filterConfig(String key) {
-        return filterConfigs.get(key);
+    public ParsedFilterConfig filterConfig(String filterName) {
+        return filterConfigs.get(filterName);
     }
 
     @Override

@@ -29,7 +29,7 @@ import com.linecorp.armeria.client.RpcPreprocessor;
 /**
  * TBU.
  */
-public interface FilterFactory<T extends Message> {
+public interface HttpFilterFactory<T extends Message> {
 
     /**
      * TBU.

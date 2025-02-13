@@ -45,7 +45,7 @@ public final class RouteSnapshot implements Snapshot<RouteXdsResource> {
     }
 
     /**
-     * TBU.
+     * The virtual hosts represented by {@link RouteConfiguration#getVirtualHostsList()}.
      */
     public List<VirtualHostSnapshot> virtualHostSnapshots() {
         return virtualHostSnapshots;

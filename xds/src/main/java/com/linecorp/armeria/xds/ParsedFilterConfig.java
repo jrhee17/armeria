@@ -25,10 +25,11 @@ import com.google.protobuf.Message;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
-import com.linecorp.armeria.xds.client.endpoint.FilterFactory;
-import com.linecorp.armeria.xds.internal.FilterFactoryRegistry;
+import com.linecorp.armeria.xds.client.endpoint.HttpFilterFactory;
+import com.linecorp.armeria.xds.filter.HttpFilterFactoryRegistry;
 
 import io.envoyproxy.envoy.config.route.v3.FilterConfig;
+import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter;
 
 /**
  * Represents a parsed {@link FilterConfig}.
@@ -39,33 +40,42 @@ public final class ParsedFilterConfig {
     private static final String FILTER_CONFIG_TYPE_URL = "envoy.config.route.v3.FilterConfig";
 
     /**
-     * TBU.
+     * Creates a {@link ParsedFilterConfig} based on the provided {@code config}.
+     * If the config is of type {@link FilterConfig}, then the {@link #disabled()} flag
+     * will be set accordingly.
+     *
+     * @param filterName the name of the {@link HttpFilter}
+     * @param config the config to be parsed
      */
-    public static ParsedFilterConfig of(String name, Any config) {
-        requireNonNull(name, "name");
+    public static ParsedFilterConfig of(String filterName, Any config) {
         requireNonNull(config, "config");
-        if (FILTER_CONFIG_TYPE_URL.equals(name)) {
+        if (FILTER_CONFIG_TYPE_URL.equals(config.getTypeUrl())) {
             final FilterConfig filterConfig;
             try {
                 filterConfig = config.unpack(FilterConfig.class);
             } catch (InvalidProtocolBufferException e) {
                 throw new IllegalArgumentException(
-                        "Unable to unpack filter config for '" + name +
-                        "' to class: '" + FilterFactory.class.getSimpleName() + '\'', e);
+                        "Unable to unpack filter config '" + config +
+                        "' to class: '" + HttpFilterFactory.class.getSimpleName() + '\'', e);
             }
-            return new ParsedFilterConfig(name, filterConfig.getConfig(), filterConfig.getIsOptional(),
+            return new ParsedFilterConfig(filterName, filterConfig.getConfig(), filterConfig.getIsOptional(),
                                           filterConfig.getDisabled());
         }
-        return new ParsedFilterConfig(name, config, false, false);
+        return new ParsedFilterConfig(filterName, config, false, false);
     }
 
     /**
-     * TBU.
+     * Creates a {@link ParsedFilterConfig} based on the provided {@code config} and flags.
+     *
+     * @param filterName the name of the {@link HttpFilter}
+     * @param config the config to be parsed
+     * @param optional true if this config is optional
+     * @param disabled true if the filter corresponding to this config should be disabled
      */
-    public static ParsedFilterConfig of(String name, Any config, boolean optional, boolean disabled) {
-        requireNonNull(name, "name");
+    public static ParsedFilterConfig of(String filterName, Any config, boolean optional, boolean disabled) {
+        requireNonNull(filterName, "name");
         requireNonNull(config, "config");
-        return new ParsedFilterConfig(name, config, optional, disabled);
+        return new ParsedFilterConfig(filterName, config, optional, disabled);
     }
 
     @Nullable
@@ -74,12 +84,12 @@ public final class ParsedFilterConfig {
     private final Class<?> configClass;
     private final boolean disabled;
 
-    ParsedFilterConfig(String name, Any config, boolean optional, boolean disabled) {
-        final FilterFactory<?> filterFactory = FilterFactoryRegistry.INSTANCE.filterFactory(name);
+    private ParsedFilterConfig(String filterName, Any config, boolean optional, boolean disabled) {
+        final HttpFilterFactory<?> filterFactory = HttpFilterFactoryRegistry.of().filterFactory(filterName);
         if (filterFactory == null) {
             if (!optional) {
-                throw new IllegalArgumentException("Filter config with name: '" + name +
-                                                   "' is not registered in FilterFactoryRegistry.");
+                throw new IllegalArgumentException("Filter config for filter: '" + filterName +
+                                                   "' is not registered in HttpFilterFactoryRegistry.");
             }
         }
         if (filterFactory != null) {
@@ -110,14 +120,17 @@ public final class ParsedFilterConfig {
     }
 
     /**
-     * TBU.
+     * Returns {@code true} if the filter corresponding to this config should be disabled.
      */
     public boolean disabled() {
         return disabled;
     }
 
     /**
-     * TBU.
+     * Returns the parsed config.
+     *
+     * @param clazz the {@link HttpFilterFactory#configClass()} corresponding to this config
+     * @param defaultValue the {@link HttpFilterFactory#defaultConfig()} corresponding to this config
      */
     @SuppressWarnings("unchecked")
     public <T extends Message> T config(Class<T> clazz, T defaultValue) {

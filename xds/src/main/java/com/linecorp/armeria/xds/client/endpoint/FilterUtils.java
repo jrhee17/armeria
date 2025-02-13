@@ -90,7 +90,7 @@ final class FilterUtils {
 
     @Nullable
     private static XdsFilter xdsHttpFilter(HttpFilter httpFilter, @Nullable ConfigSupplier snapshots) {
-        final FilterFactory<?> filterFactory =
+        final HttpFilterFactory<?> filterFactory =
                 FilterFactoryRegistry.INSTANCE.filterFactory(httpFilter.getName());
         if (filterFactory == null) {
             if (httpFilter.getIsOptional()) {
@@ -118,18 +118,18 @@ final class FilterUtils {
     }
 
     static class DefaultXdsFilter<T extends Message> implements XdsFilter {
-        private final FilterFactory<T> filterFactory;
+        private final HttpFilterFactory<T> filterFactory;
         private final T config;
         private final ParsedFilterConfig filterConfig;
 
-        DefaultXdsFilter(FilterFactory<T> filterFactory, HttpFilter httpFilter,
+        DefaultXdsFilter(HttpFilterFactory<T> filterFactory, HttpFilter httpFilter,
                          @Nullable ConfigSupplier snapshots) {
             this.filterFactory = filterFactory;
             filterConfig = computeFinalConfig(filterFactory, httpFilter, snapshots);
             config = filterConfig.config(filterFactory.configClass(), filterFactory.defaultConfig());
         }
 
-        private ParsedFilterConfig computeFinalConfig(FilterFactory<T> filterFactory, HttpFilter httpFilter,
+        private ParsedFilterConfig computeFinalConfig(HttpFilterFactory<T> filterFactory, HttpFilter httpFilter,
                                                       @Nullable ConfigSupplier snapshots) {
             if (snapshots != null) {
                 @Nullable

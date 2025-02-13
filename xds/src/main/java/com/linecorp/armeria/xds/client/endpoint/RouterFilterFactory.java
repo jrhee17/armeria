@@ -28,10 +28,10 @@ import io.envoyproxy.envoy.extensions.filters.http.router.v3.Router;
 /**
  * TBU.
  */
-public final class RouterFilterFactory implements FilterFactory<Router> {
+public final class RouterFilterFactory implements HttpFilterFactory<Router> {
 
     public static final String NAME = "envoy.filters.http.router";
-    public static final FilterFactory<Router> INSTANCE = new RouterFilterFactory();
+    public static final HttpFilterFactory<Router> INSTANCE = new RouterFilterFactory();
 
     @Override
     public RpcPreprocessor rpcPreprocessor(Router config) {

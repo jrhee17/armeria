@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LINE Corporation
+ * Copyright 2025 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -19,7 +19,7 @@
  */
 @NonNullByDefault
 @UnstableApi
-package com.linecorp.armeria.xds.internal;
+package com.linecorp.armeria.xds.filter;
 
 import com.linecorp.armeria.common.annotation.NonNullByDefault;
 import com.linecorp.armeria.common.annotation.UnstableApi;
