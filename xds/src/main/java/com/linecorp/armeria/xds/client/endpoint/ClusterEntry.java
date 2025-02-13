@@ -33,13 +33,13 @@ import io.netty.util.concurrent.EventExecutor;
 
 final class ClusterEntry implements AsyncCloseable {
 
-    private final Consumer<DefaultPrioritySet> localClusterEntryListener = this::updateLocalLoadBalancer;
+    private final Consumer<PrioritySet> localClusterEntryListener = this::updateLocalLoadBalancer;
 
     @Nullable
     private volatile UpdatableLoadBalancer loadBalancer;
     private boolean closed;
     @Nullable
-    private DefaultPrioritySet localPrioritySet;
+    private PrioritySet localPrioritySet;
     @Nullable
     private final LocalCluster localCluster;
     private final EventExecutor eventExecutor;
@@ -73,7 +73,7 @@ final class ClusterEntry implements AsyncCloseable {
         return updatableLoadBalancer;
     }
 
-    private void updateLocalLoadBalancer(DefaultPrioritySet localPrioritySet) {
+    private void updateLocalLoadBalancer(PrioritySet localPrioritySet) {
         if (!eventExecutor.inEventLoop()) {
             eventExecutor.execute(() -> updateLocalLoadBalancer(localPrioritySet));
             return;

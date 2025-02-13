@@ -23,22 +23,25 @@ import com.linecorp.armeria.common.util.AbstractListenable;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
 
-final class LocalCluster extends AbstractListenable<DefaultPrioritySet>
+final class LocalCluster extends AbstractListenable<PrioritySet>
         implements AutoCloseable, Consumer<PrioritySet> {
+
     private final LocalityRoutingStateFactory localityRoutingStateFactory;
-    private final XdsLoadBalancer localLoadBalancer;
+    private final UpdatableLoadBalancer localLoadBalancer;
     @Nullable
-    private DefaultPrioritySet prioritySet;
+    private PrioritySet prioritySet;
 
     LocalCluster(Locality locality, XdsLoadBalancer localLoadBalancer) {
         localityRoutingStateFactory = new LocalityRoutingStateFactory(locality);
-        this.localLoadBalancer = localLoadBalancer;
-        localLoadBalancer.addListener(this, true);
+        assert localLoadBalancer instanceof UpdatableLoadBalancer;
+        final UpdatableLoadBalancer updatableLoadBalancer = (UpdatableLoadBalancer) localLoadBalancer;
+        this.localLoadBalancer = updatableLoadBalancer;
+        updatableLoadBalancer.addListener(this, true);
     }
 
     @Override
     @Nullable
-    protected DefaultPrioritySet latestValue() {
+    protected PrioritySet latestValue() {
         return prioritySet;
     }
 
@@ -53,8 +56,7 @@ final class LocalCluster extends AbstractListenable<DefaultPrioritySet>
 
     @Override
     public void accept(PrioritySet prioritySet) {
-        assert prioritySet instanceof DefaultPrioritySet;
-        this.prioritySet = (DefaultPrioritySet) prioritySet;
-        notifyListeners((DefaultPrioritySet) prioritySet);
+        this.prioritySet = prioritySet;
+        notifyListeners(prioritySet);
     }
 }

@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
@@ -23,19 +24,29 @@ import java.util.function.Consumer;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointSelector;
-import com.linecorp.armeria.common.util.Listenable;
 
 /**
  * TBU.
  */
-public interface XdsLoadBalancer extends EndpointSelector, Listenable<PrioritySet>, LoadBalancer {
-
-    /**
-     * TBU.
-     */
-    void addListener(Consumer<? super PrioritySet> listener, boolean notifyLatestValue);
+public interface XdsLoadBalancer extends EndpointSelector, LoadBalancer {
 
     @Override
     CompletableFuture<Endpoint> select(ClientRequestContext ctx, ScheduledExecutorService executor,
                                        long timeoutMillis);
+
+    /**
+     * Adds a listener which is notified of the list of endpoints when there is a change.
+     *
+     * @deprecated do not use.
+     */
+    @Deprecated
+    void addEndpointsListener(Consumer<? super List<Endpoint>> listener);
+
+    /**
+     * Removes a listener.
+     *
+     * @deprecated do not use.
+     */
+    @Deprecated
+    void removeEndpointsListener(Consumer<? super List<Endpoint>> listener);
 }

@@ -49,19 +49,19 @@ final class SubsetLoadBalancer implements LoadBalancer {
 
     private static final Logger logger = LoggerFactory.getLogger(SubsetLoadBalancer.class);
 
-    private final DefaultPrioritySet prioritySet;
+    private final PrioritySet prioritySet;
     private final LoadBalancer allEndpointsLoadBalancer;
     @Nullable
     private final LocalCluster localCluster;
     @Nullable
-    private final DefaultPrioritySet localPrioritySet;
+    private final PrioritySet localPrioritySet;
 
     private final Map<Struct, LoadBalancer> subsetLoadBalancers;
     private final LbSubsetConfig lbSubsetConfig;
     private final LbSubsetFallbackPolicy fallbackPolicy;
 
-    SubsetLoadBalancer(DefaultPrioritySet prioritySet, LoadBalancer allEndpointsLoadBalancer,
-                       @Nullable LocalCluster localCluster, @Nullable DefaultPrioritySet localPrioritySet) {
+    SubsetLoadBalancer(PrioritySet prioritySet, LoadBalancer allEndpointsLoadBalancer,
+                       @Nullable LocalCluster localCluster, @Nullable PrioritySet localPrioritySet) {
         this.allEndpointsLoadBalancer = allEndpointsLoadBalancer;
         this.localCluster = localCluster;
         this.localPrioritySet = localPrioritySet;
@@ -101,7 +101,7 @@ final class SubsetLoadBalancer implements LoadBalancer {
         return allEndpointsLoadBalancer.selectNow(ctx);
     }
 
-    private Map<Struct, LoadBalancer> createSubsetLoadBalancers(DefaultPrioritySet prioritySet) {
+    private Map<Struct, LoadBalancer> createSubsetLoadBalancers(PrioritySet prioritySet) {
         final ClusterSnapshot clusterSnapshot = prioritySet.clusterSnapshot();
 
         final Map<Struct, List<Endpoint>> endpointsPerFilterStruct = new HashMap<>();
@@ -132,7 +132,7 @@ final class SubsetLoadBalancer implements LoadBalancer {
         }
         final ImmutableMap.Builder<Struct, LoadBalancer> builder = ImmutableMap.builder();
         for (Entry<Struct, List<Endpoint>> entry : endpointsPerFilterStruct.entrySet()) {
-            final DefaultPrioritySet subsetPrioritySet =
+            final PrioritySet subsetPrioritySet =
                     new PriorityStateManager(clusterSnapshot, entry.getValue()).build();
             final DefaultLoadBalancer subsetLoadBalancer =
                     new DefaultLoadBalancer(subsetPrioritySet, localCluster, localPrioritySet);
@@ -151,7 +151,7 @@ final class SubsetLoadBalancer implements LoadBalancer {
     }
 
     @Override
-    public DefaultPrioritySet prioritySet() {
+    public PrioritySet prioritySet() {
         return prioritySet;
     }
 }

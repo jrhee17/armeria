@@ -71,7 +71,7 @@ import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 @UnstableApi
 @Deprecated
 public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
-        implements EndpointGroup, SnapshotWatcher<ListenerSnapshot>, Consumer<PrioritySet> {
+        implements EndpointGroup, SnapshotWatcher<ListenerSnapshot>, Consumer<List<Endpoint>> {
 
     /**
      * Creates a {@link XdsEndpointGroup} which listens to the specified listener.
@@ -148,10 +148,10 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
         try {
             final XdsLoadBalancer prevLoadBalancer = this.loadBalancer;
             if (prevLoadBalancer != null) {
-                prevLoadBalancer.removeListener(this);
+                prevLoadBalancer.removeEndpointsListener(this);
             }
             this.loadBalancer = loadBalancer;
-            loadBalancer.addListener(this, true);
+            loadBalancer.addEndpointsListener(this);
         } finally {
             stateLock.unlock();
         }
@@ -234,10 +234,10 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
     }
 
     @Override
-    public void accept(PrioritySet prioritySet) {
-        endpoints = prioritySet.endpoints();
-        notifyListeners(prioritySet.endpoints());
-        maybeCompleteInitialEndpointsFuture(prioritySet.endpoints());
+    public void accept(List<Endpoint> endpoints) {
+        this.endpoints = endpoints;
+        notifyListeners(endpoints);
+        maybeCompleteInitialEndpointsFuture(endpoints);
     }
 
     private class XdsEndpointSelectionStrategy implements EndpointSelectionStrategy {

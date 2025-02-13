@@ -51,16 +51,17 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
     @Nullable
     private List<Endpoint> endpoints;
     @Nullable
-    private DefaultPrioritySet localPrioritySet;
+    private PrioritySet localPrioritySet;
     private final FunctionSelector<Endpoint> endpointSelector;
     private final AttributesPool attributesPool;
     private final EndpointGroup endpointGroup;
     @Nullable
-    private DefaultPrioritySet prioritySet;
+    private PrioritySet prioritySet;
+    private final EndpointsWatchers endpointsWatchers = new EndpointsWatchers();
 
     UpdatableLoadBalancer(EventExecutor eventLoop, ClusterSnapshot clusterSnapshot,
                           @Nullable LocalCluster localCluster,
-                          @Nullable DefaultPrioritySet localPrioritySet, AttributesPool prevAttrsPool) {
+                          @Nullable PrioritySet localPrioritySet, AttributesPool prevAttrsPool) {
         this.eventLoop = eventLoop;
         this.clusterSnapshot = clusterSnapshot;
         this.localCluster = localCluster;
@@ -88,7 +89,7 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
         tryRefresh();
     }
 
-    void updateLocalLoadBalancer(DefaultPrioritySet localPrioritySet) {
+    void updateLocalLoadBalancer(PrioritySet localPrioritySet) {
         this.localPrioritySet = localPrioritySet;
         tryRefresh();
     }
@@ -98,12 +99,12 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
             return;
         }
 
-        final DefaultPrioritySet prioritySet = new PriorityStateManager(clusterSnapshot, endpoints).build();
+        final PrioritySet prioritySet = new PriorityStateManager(clusterSnapshot, endpoints).build();
         if (logger.isTraceEnabled()) {
             logger.trace("XdsEndpointGroup is using a new PrioritySet({})", prioritySet);
         }
 
-        final DefaultPrioritySet localPrioritySet = this.localPrioritySet;
+        final PrioritySet localPrioritySet = this.localPrioritySet;
         LoadBalancer loadBalancer = new DefaultLoadBalancer(prioritySet, localCluster, localPrioritySet);
         if (clusterSnapshot.xdsResource().resource().hasLbSubsetConfig()) {
             loadBalancer = new SubsetLoadBalancer(prioritySet, loadBalancer, localCluster, localPrioritySet);
@@ -113,11 +114,12 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
 
         endpointSelector.refresh();
         notifyListeners(prioritySet);
+        endpointsWatchers.notifyListeners0(prioritySet.endpoints());
     }
 
     @Nullable
     @Override
-    public DefaultPrioritySet prioritySet() {
+    public PrioritySet prioritySet() {
         if (delegate == null) {
             return null;
         }
@@ -156,6 +158,35 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
     @Override
     public void close() {
         endpointGroup.removeListener(updateEndpointsCallback);
+        //
         eventLoop.schedule(endpointGroup::close, 10, TimeUnit.SECONDS);
+    }
+
+    // TODO: remove once XdsEndpointGroup is removed
+    @Override
+    public void addEndpointsListener(Consumer<? super List<Endpoint>> listener) {
+        endpointsWatchers.addListener(listener, true);
+    }
+
+    @Override
+    public void removeEndpointsListener(Consumer<? super List<Endpoint>> listener) {
+        endpointsWatchers.removeListener(listener);
+    }
+
+    private static class EndpointsWatchers extends AbstractListenable<List<Endpoint>> {
+
+        @Nullable
+        private List<Endpoint> endpoints;
+
+        private void notifyListeners0(List<Endpoint> endpoints) {
+            this.endpoints = endpoints;
+            notifyListeners(endpoints);
+        }
+
+        @Override
+        @Nullable
+        protected List<Endpoint> latestValue() {
+            return endpoints;
+        }
     }
 }
