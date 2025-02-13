@@ -39,7 +39,6 @@ import com.linecorp.armeria.client.endpoint.dns.DnsAddressEndpointGroupBuilder;
 import com.linecorp.armeria.client.retry.Backoff;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.EndpointSnapshot;
-import com.linecorp.armeria.xds.internal.XdsAttributeKeys;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.RefreshRate;
@@ -56,7 +55,7 @@ final class XdsEndpointUtil {
         checkArgument(filterMetadata.getFieldsCount() > 0,
                       "filterMetadata.getFieldsCount(): %s (expected: > 0)", filterMetadata.getFieldsCount());
         final Predicate<Endpoint> lbEndpointPredicate = endpoint -> {
-            final LbEndpoint lbEndpoint = endpoint.attr(XdsAttributeKeys.LB_ENDPOINT_KEY);
+            final LbEndpoint lbEndpoint = endpoint.attr(ClientXdsAttributeKeys.LB_ENDPOINT_KEY);
             assert lbEndpoint != null;
             final Struct endpointMetadata = lbEndpoint.getMetadata().getFilterMetadataOrDefault(
                     SUBSET_LOAD_BALANCING_FILTER_NAME, Struct.getDefaultInstance());
@@ -188,13 +187,13 @@ final class XdsEndpointUtil {
         if (!Strings.isNullOrEmpty(hostname)) {
             endpoint = Endpoint.of(hostname)
                                .withIpAddr(socketAddress.getAddress())
-                               .withAttr(XdsAttributeKeys.LB_ENDPOINT_KEY, lbEndpoint)
-                               .withAttr(XdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints)
+                               .withAttr(ClientXdsAttributeKeys.LB_ENDPOINT_KEY, lbEndpoint)
+                               .withAttr(ClientXdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints)
                                .withWeight(weight);
         } else {
             endpoint = Endpoint.of(socketAddress.getAddress())
-                               .withAttr(XdsAttributeKeys.LB_ENDPOINT_KEY, lbEndpoint)
-                               .withAttr(XdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints)
+                               .withAttr(ClientXdsAttributeKeys.LB_ENDPOINT_KEY, lbEndpoint)
+                               .withAttr(ClientXdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints)
                                .withWeight(weight);
         }
         if (socketAddress.hasPortValue()) {

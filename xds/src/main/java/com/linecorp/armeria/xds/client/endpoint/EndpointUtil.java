@@ -28,7 +28,6 @@ import com.linecorp.armeria.client.endpoint.WeightRampingUpStrategyBuilder;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.endpoint.EndpointAttributeKeys;
-import com.linecorp.armeria.xds.internal.XdsAttributeKeys;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.CommonLbConfig;
@@ -140,14 +139,14 @@ final class EndpointUtil {
     }
 
     static LbEndpoint lbEndpoint(Endpoint endpoint) {
-        final LbEndpoint lbEndpoint = endpoint.attr(XdsAttributeKeys.LB_ENDPOINT_KEY);
+        final LbEndpoint lbEndpoint = endpoint.attr(ClientXdsAttributeKeys.LB_ENDPOINT_KEY);
         assert lbEndpoint != null;
         return lbEndpoint;
     }
 
     private static LocalityLbEndpoints localityLbEndpoints(Endpoint endpoint) {
         final LocalityLbEndpoints localityLbEndpoints = endpoint.attr(
-                XdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY);
+                ClientXdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY);
         assert localityLbEndpoints != null;
         return localityLbEndpoints;
     }

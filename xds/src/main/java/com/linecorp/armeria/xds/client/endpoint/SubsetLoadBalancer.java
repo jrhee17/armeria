@@ -38,7 +38,6 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
-import com.linecorp.armeria.xds.internal.XdsAttributeKeys;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig;
@@ -110,7 +109,7 @@ final class SubsetLoadBalancer implements LoadBalancer {
             final ProtocolStringList keys = subsetSelector.getKeysList();
             final List<String> sortedKeys = keys.stream().sorted().collect(Collectors.toList());
             for (Endpoint endpoint : prioritySet.endpoints()) {
-                final LbEndpoint lbEndpoint = endpoint.attr(XdsAttributeKeys.LB_ENDPOINT_KEY);
+                final LbEndpoint lbEndpoint = endpoint.attr(ClientXdsAttributeKeys.LB_ENDPOINT_KEY);
                 assert lbEndpoint != null;
                 final Struct endpointMetadata = lbEndpoint.getMetadata().getFilterMetadataOrDefault(
                         SUBSET_LOAD_BALANCING_FILTER_NAME, Struct.getDefaultInstance());

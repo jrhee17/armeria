@@ -45,8 +45,7 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ListenerRoot;
 import com.linecorp.armeria.xds.XdsBootstrap;
-import com.linecorp.armeria.xds.internal.XdsAttributeKeys;
-import com.linecorp.armeria.xds.internal.XdsRandom.RandomHint;
+import com.linecorp.armeria.xds.client.endpoint.XdsRandom.RandomHint;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
@@ -140,7 +139,7 @@ class PriorityTest {
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
-            ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
+            ctx.setAttr(ClientXdsAttributeKeys.XDS_RANDOM, random);
 
             // default overprovisioning factor (140) * 0.5 = 70 will be routed
             // to healthy endpoints for priority 0
@@ -191,7 +190,7 @@ class PriorityTest {
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
-            ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
+            ctx.setAttr(ClientXdsAttributeKeys.XDS_RANDOM, random);
 
             // 0 ~ 9 for priority 0 HEALTHY
             random.fixNextInt(RandomHint.SELECT_PRIORITY, 0);
@@ -266,7 +265,7 @@ class PriorityTest {
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
-            ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
+            ctx.setAttr(ClientXdsAttributeKeys.XDS_RANDOM, random);
 
             random.fixNextInt(RandomHint.SELECT_PRIORITY, 0);
             assertThat(loadBalancer.selectNow(ctx)).isEqualTo(Endpoint.of("127.0.0.1", 8083));

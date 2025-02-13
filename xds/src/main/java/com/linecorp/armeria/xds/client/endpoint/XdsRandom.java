@@ -14,11 +14,11 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.internal;
+package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-public interface XdsRandom {
+interface XdsRandom {
 
     XdsRandom DEFAULT = new XdsRandom() {};
 

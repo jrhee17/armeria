@@ -50,8 +50,7 @@ import com.linecorp.armeria.server.healthcheck.HealthCheckService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import com.linecorp.armeria.xds.ListenerRoot;
 import com.linecorp.armeria.xds.XdsBootstrap;
-import com.linecorp.armeria.xds.internal.XdsAttributeKeys;
-import com.linecorp.armeria.xds.internal.XdsRandom.RandomHint;
+import com.linecorp.armeria.xds.client.endpoint.XdsRandom.RandomHint;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
@@ -133,7 +132,7 @@ class HealthCheckedTest {
 
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
-            final Endpoint endpoint = loadBalancer.selectNow(ctx);
+            final Endpoint endpoint = loadBalancer.select(ctx, ctx.eventLoop(), Long.MAX_VALUE).join();
             assertThat(endpoint).isNotNull();
             final Set<Integer> healthyPorts = server.server().activePorts().values().stream()
                                                     .map(port -> port.localAddress().getPort())
@@ -202,7 +201,7 @@ class HealthCheckedTest {
             final ClientRequestContext ctx =
                     ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
-            ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
+            ctx.setAttr(ClientXdsAttributeKeys.XDS_RANDOM, random);
             final Set<Endpoint> selectedEndpoints = new HashSet<>();
             for (int i = 0; i < allEndpoints.size(); i++) {
                 // try to hit all the ranges of the selection hash

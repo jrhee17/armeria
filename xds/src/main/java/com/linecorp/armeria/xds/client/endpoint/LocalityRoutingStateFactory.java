@@ -29,8 +29,7 @@ import com.google.protobuf.AbstractMessage;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.internal.XdsRandom;
-import com.linecorp.armeria.xds.internal.XdsRandom.RandomHint;
+import com.linecorp.armeria.xds.client.endpoint.XdsRandom.RandomHint;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
 

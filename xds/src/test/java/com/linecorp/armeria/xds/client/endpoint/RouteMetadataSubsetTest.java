@@ -53,8 +53,7 @@ import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import com.linecorp.armeria.xds.XdsBootstrap;
 import com.linecorp.armeria.xds.XdsTestResources;
-import com.linecorp.armeria.xds.internal.XdsAttributeKeys;
-import com.linecorp.armeria.xds.internal.XdsRandom.RandomHint;
+import com.linecorp.armeria.xds.client.endpoint.XdsRandom.RandomHint;
 
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
 import io.envoyproxy.controlplane.cache.v3.Snapshot;
@@ -250,24 +249,24 @@ class RouteMetadataSubsetTest {
             // to healthy endpoints for priority 0
             random.fixNextInt(RandomHint.SELECT_PRIORITY, 0);
             RequestOptions reqOptions = RequestOptions.builder()
-                                                      .attr(XdsAttributeKeys.XDS_RANDOM, random)
+                                                      .attr(ClientXdsAttributeKeys.XDS_RANDOM, random)
                                                       .build();
             assertThat(client.execute(req, reqOptions).contentUtf8()).isEqualTo("8080");
             random.fixNextInt(RandomHint.SELECT_PRIORITY, 68);
             reqOptions = RequestOptions.builder()
-                                       .attr(XdsAttributeKeys.XDS_RANDOM, random)
+                                       .attr(ClientXdsAttributeKeys.XDS_RANDOM, random)
                                        .build();
             assertThat(client.execute(req, reqOptions).contentUtf8()).isEqualTo("8080");
 
             // 100 - 70 (priority 0) = 30 will be routed to healthy endpoints for priority 1
             random.fixNextInt(RandomHint.SELECT_PRIORITY, 70);
             reqOptions = RequestOptions.builder()
-                                       .attr(XdsAttributeKeys.XDS_RANDOM, random)
+                                       .attr(ClientXdsAttributeKeys.XDS_RANDOM, random)
                                        .build();
             assertThat(client.execute(req, reqOptions).contentUtf8()).isEqualTo("8082");
             random.fixNextInt(RandomHint.SELECT_PRIORITY, 99);
             reqOptions = RequestOptions.builder()
-                                       .attr(XdsAttributeKeys.XDS_RANDOM, random)
+                                       .attr(ClientXdsAttributeKeys.XDS_RANDOM, random)
                                        .build();
             assertThat(client.execute(req, reqOptions).contentUtf8()).isEqualTo("8082");
         }

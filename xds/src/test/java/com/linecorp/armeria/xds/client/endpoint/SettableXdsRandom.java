@@ -18,8 +18,6 @@ package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.EnumMap;
 
-import com.linecorp.armeria.xds.internal.XdsRandom;
-
 public class SettableXdsRandom implements XdsRandom {
 
     private final EnumMap<RandomHint, Integer> nextIntOverrides = new EnumMap<>(RandomHint.class);

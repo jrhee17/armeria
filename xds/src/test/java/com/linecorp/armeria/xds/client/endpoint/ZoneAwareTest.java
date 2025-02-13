@@ -50,8 +50,7 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.xds.ListenerRoot;
 import com.linecorp.armeria.xds.XdsBootstrap;
 import com.linecorp.armeria.xds.XdsTestResources;
-import com.linecorp.armeria.xds.internal.XdsAttributeKeys;
-import com.linecorp.armeria.xds.internal.XdsRandom.RandomHint;
+import com.linecorp.armeria.xds.client.endpoint.XdsRandom.RandomHint;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.bootstrap.v3.ClusterManager;
@@ -100,14 +99,14 @@ class ZoneAwareTest {
             final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
-            ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
+            ctx.setAttr(ClientXdsAttributeKeys.XDS_RANDOM, random);
             for (int i = 0; i < 10; i++) {
                 random.fixNextInt(RandomHint.SELECT_PRIORITY, i * 10);
                 random.fixNextLong(RandomHint.LOCAL_PERCENTAGE, i * 1000);
 
                 final Endpoint selected = loadBalancer.select(ctx, CommonPools.workerGroup()).get();
                 assertThat(selected).isNotNull();
-                final Locality locality = selected.attr(XdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
+                final Locality locality = selected.attr(ClientXdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
                                                   .getLocality();
                 assertThat(locality.getRegion()).isEqualTo("local");
             }
@@ -151,7 +150,7 @@ class ZoneAwareTest {
             final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
-            ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
+            ctx.setAttr(ClientXdsAttributeKeys.XDS_RANDOM, random);
 
             final Set<String> selectedRegions = new HashSet<>();
             // run 10 times to guarantee WeightedRampingUpStrategy will choose all endpoints at least once
@@ -159,7 +158,7 @@ class ZoneAwareTest {
                 random.fixNextInt(RandomHint.ROUTING_ENABLED, 50);
                 final Endpoint selected = loadBalancer.select(ctx, CommonPools.workerGroup()).get();
                 assertThat(selected).isNotNull();
-                final Locality locality = selected.attr(XdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
+                final Locality locality = selected.attr(ClientXdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
                                                   .getLocality();
                 selectedRegions.add(locality.getRegion());
             }
@@ -202,14 +201,14 @@ class ZoneAwareTest {
             final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
-            ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
+            ctx.setAttr(ClientXdsAttributeKeys.XDS_RANDOM, random);
 
             final Set<String> selectedRegions = new HashSet<>();
             // run 10 times to guarantee WeightedRampingUpStrategy will choose all endpoints at least once
             for (int i = 0; i < 10; i++) {
                 final Endpoint selected = loadBalancer.select(ctx, CommonPools.workerGroup()).get();
                 assertThat(selected).isNotNull();
-                final Locality locality = selected.attr(XdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
+                final Locality locality = selected.attr(ClientXdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
                                                   .getLocality();
                 selectedRegions.add(locality.getRegion());
             }
@@ -250,14 +249,14 @@ class ZoneAwareTest {
             final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
-            ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
+            ctx.setAttr(ClientXdsAttributeKeys.XDS_RANDOM, random);
 
             // local selection boundary will be:
             // 10000 (factor) * 0.8 (upstream healthy %) / 0.2 (local healthy %) = 2500
             random.fixNextLong(RandomHint.LOCAL_PERCENTAGE, localPercentage);
             final Endpoint selected = loadBalancer.select(ctx, CommonPools.workerGroup()).get();
             assertThat(selected).isNotNull();
-            final Locality locality = selected.attr(XdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
+            final Locality locality = selected.attr(ClientXdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
                                               .getLocality();
             assertThat(locality.getRegion()).isEqualTo(expectedRegion);
         }
@@ -300,7 +299,7 @@ class ZoneAwareTest {
             final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
-            ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
+            ctx.setAttr(ClientXdsAttributeKeys.XDS_RANDOM, random);
 
             // local selection boundary will be:
             // LOCAL_PERCENTAGE
@@ -313,7 +312,7 @@ class ZoneAwareTest {
             random.fixNextLong(RandomHint.LOCAL_THRESHOLD, localThreshold);
             final Endpoint selected = loadBalancer.select(ctx, CommonPools.workerGroup()).get();
             assertThat(selected).isNotNull();
-            final Locality locality = selected.attr(XdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
+            final Locality locality = selected.attr(ClientXdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
                                               .getLocality();
             assertThat(locality.getRegion()).isEqualTo(expectedRegion);
         }
@@ -354,7 +353,7 @@ class ZoneAwareTest {
             final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
-            ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
+            ctx.setAttr(ClientXdsAttributeKeys.XDS_RANDOM, random);
 
             // local selection boundary will be:
             // LOCAL_PERCENTAGE
@@ -367,7 +366,7 @@ class ZoneAwareTest {
             random.fixNextLong(RandomHint.LOCAL_THRESHOLD, localThreshold);
             final Endpoint selected = loadBalancer.select(ctx, CommonPools.workerGroup()).get();
             assertThat(selected).isNotNull();
-            final Locality locality = selected.attr(XdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
+            final Locality locality = selected.attr(ClientXdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
                                               .getLocality();
             assertThat(locality.getRegion()).isEqualTo(expectedRegion);
         }
@@ -408,7 +407,7 @@ class ZoneAwareTest {
             final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
-            ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
+            ctx.setAttr(ClientXdsAttributeKeys.XDS_RANDOM, random);
 
             // boundary of priority set is at 40
             // priority 0: 100 (overprovisioning factor) * 2 (healthy) / 5 (total) = 0 ~ 40
@@ -416,7 +415,7 @@ class ZoneAwareTest {
             random.fixNextInt(RandomHint.SELECT_PRIORITY, selectPriority);
             final Endpoint selected = loadBalancer.select(ctx, CommonPools.workerGroup()).get();
             assertThat(selected).isNotNull();
-            final Locality locality = selected.attr(XdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
+            final Locality locality = selected.attr(ClientXdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
                                               .getLocality();
             assertThat(locality.getRegion()).isEqualTo(expectedRegion);
         }
@@ -467,13 +466,13 @@ class ZoneAwareTest {
             final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
             final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
             final SettableXdsRandom random = new SettableXdsRandom();
-            ctx.setAttr(XdsAttributeKeys.XDS_RANDOM, random);
+            ctx.setAttr(ClientXdsAttributeKeys.XDS_RANDOM, random);
 
             for (int i = 0; i < 10; i++) {
                 random.fixNextInt(RandomHint.SELECT_PRIORITY, i * 10);
                 final Endpoint selected = loadBalancer.select(ctx, CommonPools.workerGroup()).get();
                 assertThat(selected).isNotNull();
-                final Locality locality = selected.attr(XdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
+                final Locality locality = selected.attr(ClientXdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY)
                                                   .getLocality();
                 selectedRegions.add(locality.getRegion());
             }
