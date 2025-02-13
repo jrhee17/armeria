@@ -23,9 +23,10 @@ import java.util.Map;
 import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.envoyproxy.envoy.config.route.v3.VirtualHost;
+import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter;
 
 /**
- * TBU.
+ * A resource object for a {@link VirtualHost}.
  */
 public final class VirtualHostXdsResource extends XdsResourceWithPrimer<VirtualHostXdsResource> {
 
@@ -47,11 +48,13 @@ public final class VirtualHostXdsResource extends XdsResourceWithPrimer<VirtualH
     }
 
     /**
-     * TBU.
+     * Returns the parsed {@link VirtualHost#getTypedPerFilterConfigMap()}.
+     *
+     * @param filterName the filter name represented by {@link HttpFilter#getName()}
      */
     @Nullable
-    public ParsedFilterConfig filterConfig(String typeUrl) {
-        return virtualHostFilterConfigs.get(typeUrl);
+    public ParsedFilterConfig filterConfig(String filterName) {
+        return virtualHostFilterConfigs.get(filterName);
     }
 
     @Override

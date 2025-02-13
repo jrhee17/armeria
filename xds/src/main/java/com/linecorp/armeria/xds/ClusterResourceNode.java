@@ -63,7 +63,7 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
         if (cluster.hasLoadAssignment()) {
             final ClusterLoadAssignment loadAssignment = cluster.getLoadAssignment();
             final EndpointResourceNode node =
-                    StaticResourceUtils.staticEndpoint(bootstrapContext(), loadAssignment.getClusterName(),
+                    StaticResourceUtils.staticEndpoint(context(), loadAssignment.getClusterName(),
                                                        resource, snapshotWatcher, loadAssignment);
             children().add(node);
         } else if (cluster.hasEdsClusterConfig()) {
@@ -73,10 +73,10 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
             final ConfigSource configSource = configSourceMapper()
                     .edsConfigSource(cluster.getEdsClusterConfig().getEdsConfig(), clusterName);
             final EndpointResourceNode node =
-                    new EndpointResourceNode(configSource, clusterName, bootstrapContext(), resource,
+                    new EndpointResourceNode(configSource, clusterName, context(), resource,
                                              snapshotWatcher, ResourceNodeType.DYNAMIC);
             children().add(node);
-            bootstrapContext().subscribe(node);
+            context().subscribe(node);
         } else {
             final ClusterSnapshot clusterSnapshot = new ClusterSnapshot(resource);
             parentWatcher.snapshotUpdated(clusterSnapshot);

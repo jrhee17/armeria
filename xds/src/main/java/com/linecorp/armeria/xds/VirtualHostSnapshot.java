@@ -25,9 +25,10 @@ import com.google.common.collect.ImmutableList;
 import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.envoyproxy.envoy.config.route.v3.Route;
+import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 
 /**
- * TBU.
+ * A snapshot of a {@link VirtualHost}.
  */
 public final class VirtualHostSnapshot implements Snapshot<VirtualHostXdsResource> {
 
@@ -56,7 +57,7 @@ public final class VirtualHostSnapshot implements Snapshot<VirtualHostXdsResourc
     }
 
     /**
-     * TBU.
+     * A list of routes corresponding to {@link VirtualHost#getRoutesList()}.
      */
     public List<RouteEntry> routeEntries() {
         return routeEntries;

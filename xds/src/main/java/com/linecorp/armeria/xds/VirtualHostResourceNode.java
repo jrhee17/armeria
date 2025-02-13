@@ -71,19 +71,19 @@ final class VirtualHostResourceNode extends AbstractResourceNodeWithPrimer<Virtu
             final int index = clusterSnapshots.size() - 1;
             pending.add(index);
 
-            final Cluster cluster = bootstrapContext().bootstrapClusters().cluster(clusterName);
+            final Cluster cluster = context().bootstrapClusters().cluster(clusterName);
             final ClusterResourceNode node;
             if (cluster != null) {
-                node = staticCluster(bootstrapContext(), clusterName, resource, snapshotWatcher,
+                node = staticCluster(context(), clusterName, resource, snapshotWatcher,
                                      index, cluster);
                 children().add(node);
             } else {
                 final ConfigSource configSource =
                         configSourceMapper().cdsConfigSource(clusterName);
-                node = new ClusterResourceNode(configSource, clusterName, bootstrapContext(),
+                node = new ClusterResourceNode(configSource, clusterName, context(),
                                                resource, snapshotWatcher, index, ResourceNodeType.DYNAMIC);
                 children().add(node);
-                bootstrapContext().subscribe(node);
+                context().subscribe(node);
             }
         }
     }

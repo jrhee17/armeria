@@ -58,7 +58,7 @@ final class RouteResourceNode extends AbstractResourceNodeWithPrimer<RouteXdsRes
             virtualHostSnapshots.add(null);
             final VirtualHost virtualHost = routeConfiguration.getVirtualHostsList().get(i);
             final VirtualHostResourceNode childNode =
-                    StaticResourceUtils.staticVirtualHost(bootstrapContext(), name(), resource,
+                    StaticResourceUtils.staticVirtualHost(context(), name(), resource,
                                                           snapshotWatcher, i, virtualHost);
             children().add(childNode);
         }

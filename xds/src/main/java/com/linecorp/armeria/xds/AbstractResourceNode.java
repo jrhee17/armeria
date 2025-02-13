@@ -50,7 +50,7 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
         this.resourceNodeType = resourceNodeType;
     }
 
-    SubscriptionContext bootstrapContext() {
+    SubscriptionContext context() {
         return context;
     }
 
