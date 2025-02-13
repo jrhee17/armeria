@@ -16,22 +16,22 @@
 
 package com.linecorp.armeria.xds;
 
-import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
+import com.linecorp.armeria.xds.client.endpoint.XdsClusterManager;
 
 import io.netty.util.concurrent.EventExecutor;
 
 final class StaticSubscriptionContext implements SubscriptionContext {
 
     private final EventExecutor eventLoop;
-    private final ClusterManager clusterManager;
+    private final XdsClusterManager clusterManager;
 
-    StaticSubscriptionContext(EventExecutor eventLoop, ClusterManager clusterManager) {
+    StaticSubscriptionContext(EventExecutor eventLoop, XdsClusterManager clusterManager) {
         this.eventLoop = eventLoop;
         this.clusterManager = clusterManager;
     }
 
     @Override
-    public ClusterManager clusterManager() {
+    public XdsClusterManager clusterManager() {
         return clusterManager;
     }
 

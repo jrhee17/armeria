@@ -16,7 +16,7 @@
 
 package com.linecorp.armeria.xds;
 
-import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
+import com.linecorp.armeria.xds.client.endpoint.XdsClusterManager;
 
 import io.netty.util.concurrent.EventExecutor;
 
@@ -32,5 +32,5 @@ interface SubscriptionContext {
 
     BootstrapClusters bootstrapClusters();
 
-    ClusterManager clusterManager();
+    XdsClusterManager clusterManager();
 }

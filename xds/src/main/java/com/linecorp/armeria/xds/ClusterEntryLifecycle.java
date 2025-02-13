@@ -16,16 +16,16 @@
 
 package com.linecorp.armeria.xds;
 
-import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
+import com.linecorp.armeria.xds.client.endpoint.XdsClusterManager;
 import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
 
 final class ClusterEntryLifecycle implements AutoCloseable {
 
-    private final ClusterManager clusterManager;
+    private final XdsClusterManager clusterManager;
     private final String name;
     private boolean closed;
 
-    ClusterEntryLifecycle(ClusterManager clusterManager, String name) {
+    ClusterEntryLifecycle(XdsClusterManager clusterManager, String name) {
         this.clusterManager = clusterManager;
         this.name = name;
         clusterManager.register(name);

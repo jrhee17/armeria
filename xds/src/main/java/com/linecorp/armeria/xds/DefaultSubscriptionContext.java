@@ -16,19 +16,19 @@
 
 package com.linecorp.armeria.xds;
 
-import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
+import com.linecorp.armeria.xds.client.endpoint.XdsClusterManager;
 
 import io.netty.util.concurrent.EventExecutor;
 
 final class DefaultSubscriptionContext implements SubscriptionContext {
 
     private final EventExecutor eventLoop;
-    private final ClusterManager clusterManager;
+    private final XdsClusterManager clusterManager;
     private final BootstrapClusters bootstrapClusters;
     private final ConfigSourceMapper configSourceMapper;
     private final ConfigSourceManager configSourceManager;
 
-    DefaultSubscriptionContext(EventExecutor eventLoop, ClusterManager clusterManager,
+    DefaultSubscriptionContext(EventExecutor eventLoop, XdsClusterManager clusterManager,
                                BootstrapClusters bootstrapClusters, ConfigSourceMapper configSourceMapper,
                                ConfigSourceManager configSourceManager) {
         this.eventLoop = eventLoop;
@@ -64,7 +64,7 @@ final class DefaultSubscriptionContext implements SubscriptionContext {
     }
 
     @Override
-    public ClusterManager clusterManager() {
+    public XdsClusterManager clusterManager() {
         return clusterManager;
     }
 }

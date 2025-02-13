@@ -16,23 +16,29 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
+import io.envoyproxy.envoy.config.bootstrap.v3.ClusterManager;
+import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.netty.util.concurrent.EventExecutor;
 
 /**
- * TBU.
+ * Represents a {@link ClusterManager}. Manages the currently active {@link Cluster}s
+ * and their corresponding {@link EndpointGroup}s.
  */
-public interface ClusterManager extends SafeCloseable {
+@UnstableApi
+public interface XdsClusterManager extends SafeCloseable {
 
     /**
      * TBU.
      */
-    static ClusterManager of(EventExecutor eventLoop, Bootstrap bootstrap) {
-        return new DefaultClusterManager(eventLoop, bootstrap);
+    static XdsClusterManager of(EventExecutor eventLoop, Bootstrap bootstrap) {
+        return new DefaultXdsClusterManager(eventLoop, bootstrap);
     }
 
     /**

@@ -24,7 +24,7 @@ import java.util.Map;
 import com.google.common.base.Strings;
 
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
+import com.linecorp.armeria.xds.client.endpoint.XdsClusterManager;
 import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
@@ -37,9 +37,9 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
 
     private final Map<String, ClusterSnapshot> clusterSnapshots = new HashMap<>();
     private final Map<String, XdsLoadBalancer> loadBalancers = new HashMap<>();
-    private final ClusterManager clusterManager;
+    private final XdsClusterManager clusterManager;
 
-    BootstrapClusters(Bootstrap bootstrap, EventExecutor eventLoop, ClusterManager clusterManager) {
+    BootstrapClusters(Bootstrap bootstrap, EventExecutor eventLoop, XdsClusterManager clusterManager) {
         this.clusterManager = clusterManager;
         final SubscriptionContext context = new StaticSubscriptionContext(eventLoop, clusterManager);
 

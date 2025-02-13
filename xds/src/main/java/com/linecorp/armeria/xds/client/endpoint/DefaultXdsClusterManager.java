@@ -32,7 +32,7 @@ import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.core.v3.Locality;
 import io.netty.util.concurrent.EventExecutor;
 
-final class DefaultClusterManager implements ClusterManager {
+final class DefaultXdsClusterManager implements XdsClusterManager {
 
     @GuardedBy("lock")
     private final Map<String, ClusterEntry> clusterEntries = new HashMap<>();
@@ -46,7 +46,7 @@ final class DefaultClusterManager implements ClusterManager {
     @Nullable
     private LocalCluster localCluster;
 
-    DefaultClusterManager(EventExecutor eventLoop, Bootstrap bootstrap) {
+    DefaultXdsClusterManager(EventExecutor eventLoop, Bootstrap bootstrap) {
         this.eventLoop = eventLoop;
         localClusterName = bootstrap.getClusterManager().getLocalClusterName();
         if (bootstrap.getNode().hasLocality()) {
