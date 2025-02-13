@@ -44,10 +44,10 @@ final class VirtualHostResourceNode extends AbstractResourceNodeWithPrimer<Virtu
     private final int index;
 
     VirtualHostResourceNode(@Nullable ConfigSource configSource, String resourceName,
-                            BootstrapContext bootstrapContext, @Nullable RouteXdsResource primer,
+                            SubscriptionContext context, @Nullable RouteXdsResource primer,
                             SnapshotWatcher<VirtualHostSnapshot> parentWatcher, int index,
                             ResourceNodeType resourceNodeType) {
-        super(bootstrapContext, configSource, XdsType.VIRTUAL_HOST, resourceName, primer, parentWatcher,
+        super(context, configSource, XdsType.VIRTUAL_HOST, resourceName, primer, parentWatcher,
               resourceNodeType);
         this.parentWatcher = parentWatcher;
         this.index = index;

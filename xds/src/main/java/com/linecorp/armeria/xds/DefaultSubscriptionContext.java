@@ -20,7 +20,7 @@ import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
 
 import io.netty.util.concurrent.EventExecutor;
 
-final class DefaultBootstrapContext implements BootstrapContext {
+final class DefaultSubscriptionContext implements SubscriptionContext {
 
     private final EventExecutor eventLoop;
     private final ClusterManager clusterManager;
@@ -28,19 +28,14 @@ final class DefaultBootstrapContext implements BootstrapContext {
     private final ConfigSourceMapper configSourceMapper;
     private final ConfigSourceManager configSourceManager;
 
-    DefaultBootstrapContext(EventExecutor eventLoop, ClusterManager clusterManager,
-                            BootstrapClusters bootstrapClusters, ConfigSourceMapper configSourceMapper,
-                            ConfigSourceManager configSourceManager) {
+    DefaultSubscriptionContext(EventExecutor eventLoop, ClusterManager clusterManager,
+                               BootstrapClusters bootstrapClusters, ConfigSourceMapper configSourceMapper,
+                               ConfigSourceManager configSourceManager) {
         this.eventLoop = eventLoop;
         this.clusterManager = clusterManager;
         this.bootstrapClusters = bootstrapClusters;
         this.configSourceMapper = configSourceMapper;
         this.configSourceManager = configSourceManager;
-    }
-
-    @Override
-    public ClusterManager clusterManager() {
-        return clusterManager;
     }
 
     @Override
@@ -59,12 +54,17 @@ final class DefaultBootstrapContext implements BootstrapContext {
     }
 
     @Override
+    public ConfigSourceMapper configSourceMapper() {
+        return configSourceMapper;
+    }
+
+    @Override
     public BootstrapClusters bootstrapClusters() {
         return bootstrapClusters;
     }
 
     @Override
-    public ConfigSourceMapper configSourceMapper() {
-        return configSourceMapper;
+    public ClusterManager clusterManager() {
+        return clusterManager;
     }
 }

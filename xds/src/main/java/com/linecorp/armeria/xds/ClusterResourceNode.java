@@ -37,24 +37,24 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
     private final ClusterEntryLifecycle clusterEntryLifecycle;
 
     ClusterResourceNode(@Nullable ConfigSource configSource,
-                        String resourceName, BootstrapContext bootstrapContext,
+                        String resourceName, SubscriptionContext context,
                         @Nullable RouteXdsResource primer,
                         SnapshotWatcher<ClusterSnapshot> parentWatcher,
                         ResourceNodeType resourceNodeType) {
-        super(bootstrapContext, configSource, CLUSTER, resourceName, primer, parentWatcher, resourceNodeType);
+        super(context, configSource, CLUSTER, resourceName, primer, parentWatcher, resourceNodeType);
         this.parentWatcher = parentWatcher;
         index = -1;
-        clusterEntryLifecycle = new ClusterEntryLifecycle(bootstrapContext.clusterManager(), resourceName);
+        clusterEntryLifecycle = new ClusterEntryLifecycle(context.clusterManager(), resourceName);
     }
 
     ClusterResourceNode(@Nullable ConfigSource configSource,
-                        String resourceName, BootstrapContext bootstrapContext,
+                        String resourceName, SubscriptionContext context,
                         @Nullable VirtualHostXdsResource primer, SnapshotWatcher<ClusterSnapshot> parentWatcher,
                         int index, ResourceNodeType resourceNodeType) {
-        super(bootstrapContext, configSource, CLUSTER, resourceName, primer, parentWatcher, resourceNodeType);
+        super(context, configSource, CLUSTER, resourceName, primer, parentWatcher, resourceNodeType);
         this.parentWatcher = parentWatcher;
         this.index = index;
-        clusterEntryLifecycle = new ClusterEntryLifecycle(bootstrapContext.clusterManager(), resourceName);
+        clusterEntryLifecycle = new ClusterEntryLifecycle(context.clusterManager(), resourceName);
     }
 
     @Override

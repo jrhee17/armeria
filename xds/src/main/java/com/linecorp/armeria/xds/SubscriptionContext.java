@@ -20,9 +20,7 @@ import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
 
 import io.netty.util.concurrent.EventExecutor;
 
-interface BootstrapContext {
-
-    ClusterManager clusterManager();
+interface SubscriptionContext {
 
     EventExecutor eventLoop();
 
@@ -30,7 +28,9 @@ interface BootstrapContext {
 
     void unsubscribe(ResourceNode<?> node);
 
+    ConfigSourceMapper configSourceMapper();
+
     BootstrapClusters bootstrapClusters();
 
-    ConfigSourceMapper configSourceMapper();
+    ClusterManager clusterManager();
 }

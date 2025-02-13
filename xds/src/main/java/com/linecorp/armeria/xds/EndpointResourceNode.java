@@ -27,10 +27,10 @@ final class EndpointResourceNode extends AbstractResourceNodeWithPrimer<Endpoint
     private final SnapshotWatcher<EndpointSnapshot> parentWatcher;
 
     EndpointResourceNode(@Nullable ConfigSource configSource,
-                         String resourceName, BootstrapContext bootstrapContext,
+                         String resourceName, SubscriptionContext context,
                          @Nullable ClusterXdsResource primer,
                          SnapshotWatcher<EndpointSnapshot> parentWatcher, ResourceNodeType resourceNodeType) {
-        super(bootstrapContext, configSource, ENDPOINT, resourceName, primer, parentWatcher, resourceNodeType);
+        super(context, configSource, ENDPOINT, resourceName, primer, parentWatcher, resourceNodeType);
         this.parentWatcher = parentWatcher;
     }
 

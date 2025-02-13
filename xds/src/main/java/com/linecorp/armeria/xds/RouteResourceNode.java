@@ -42,9 +42,9 @@ final class RouteResourceNode extends AbstractResourceNodeWithPrimer<RouteXdsRes
     private final VirtualHostSnapshotWatcher snapshotWatcher = new VirtualHostSnapshotWatcher();
 
     RouteResourceNode(@Nullable ConfigSource configSource, String resourceName,
-                      BootstrapContext bootstrapContext, @Nullable ListenerXdsResource primer,
+                      SubscriptionContext context, @Nullable ListenerXdsResource primer,
                       SnapshotWatcher<RouteSnapshot> parentWatcher, ResourceNodeType resourceNodeType) {
-        super(bootstrapContext, configSource, ROUTE, resourceName, primer, parentWatcher, resourceNodeType);
+        super(context, configSource, ROUTE, resourceName, primer, parentWatcher, resourceNodeType);
         this.parentWatcher = parentWatcher;
     }
 

@@ -30,23 +30,23 @@ import io.envoyproxy.envoy.config.listener.v3.Listener;
 public final class ListenerRoot extends AbstractRoot<ListenerSnapshot> {
 
     private final ListenerResourceNode node;
-    final BootstrapContext bootstrapContext;
+    final SubscriptionContext context;
 
-    ListenerRoot(BootstrapContext bootstrapContext,
+    ListenerRoot(SubscriptionContext context,
                  String resourceName, BootstrapListeners bootstrapListeners) {
-        super(bootstrapContext.eventLoop());
-        this.bootstrapContext = bootstrapContext;
+        super(context.eventLoop());
+        this.context = context;
         final ListenerXdsResource listenerXdsResource = bootstrapListeners.staticListeners().get(resourceName);
         if (listenerXdsResource != null) {
-            node = new ListenerResourceNode(null, resourceName, bootstrapContext,
+            node = new ListenerResourceNode(null, resourceName, context,
                                             this, ResourceNodeType.STATIC);
             node.onChanged(listenerXdsResource);
         } else {
-            final ConfigSource configSource = bootstrapContext.configSourceMapper()
-                                                              .ldsConfigSource(resourceName);
-            node = new ListenerResourceNode(configSource, resourceName, bootstrapContext,
+            final ConfigSource configSource = context.configSourceMapper()
+                                                     .ldsConfigSource(resourceName);
+            node = new ListenerResourceNode(configSource, resourceName, context,
                                             this, ResourceNodeType.DYNAMIC);
-            bootstrapContext.subscribe(node);
+            context.subscribe(node);
         }
     }
 

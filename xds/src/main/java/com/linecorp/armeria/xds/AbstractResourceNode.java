@@ -28,7 +28,7 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
 
     private final Deque<ResourceNode<?>> children = new ArrayDeque<>();
 
-    private final BootstrapContext bootstrapContext;
+    private final SubscriptionContext context;
     @Nullable
     private final ConfigSource configSource;
     private final XdsType type;
@@ -38,11 +38,11 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
     @Nullable
     private T current;
 
-    AbstractResourceNode(BootstrapContext bootstrapContext, @Nullable ConfigSource configSource,
+    AbstractResourceNode(SubscriptionContext context, @Nullable ConfigSource configSource,
                          XdsType type, String resourceName,
                          SnapshotWatcher<? extends Snapshot<T>> parentWatcher,
                          ResourceNodeType resourceNodeType) {
-        this.bootstrapContext = bootstrapContext;
+        this.context = context;
         this.configSource = configSource;
         this.type = type;
         this.resourceName = resourceName;
@@ -50,8 +50,8 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
         this.resourceNodeType = resourceNodeType;
     }
 
-    BootstrapContext bootstrapContext() {
-        return bootstrapContext;
+    SubscriptionContext bootstrapContext() {
+        return context;
     }
 
     @Nullable
@@ -110,7 +110,7 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
         }
         children.clear();
         if (resourceNodeType == ResourceNodeType.DYNAMIC) {
-            bootstrapContext.unsubscribe(this);
+            context.unsubscribe(this);
         }
     }
 
@@ -129,6 +129,6 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
     }
 
     ConfigSourceMapper configSourceMapper() {
-        return bootstrapContext.configSourceMapper().withParentConfigSource(configSource);
+        return context.configSourceMapper().withParentConfigSource(configSource);
     }
 }

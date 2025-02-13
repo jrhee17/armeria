@@ -41,7 +41,7 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
 
     BootstrapClusters(Bootstrap bootstrap, EventExecutor eventLoop, ClusterManager clusterManager) {
         this.clusterManager = clusterManager;
-        final BootstrapContext bootstrapContext = new StaticBootstrapContext(eventLoop, clusterManager);
+        final SubscriptionContext context = new StaticSubscriptionContext(eventLoop, clusterManager);
 
         final String localClusterName = bootstrap.getClusterManager().getLocalClusterName();
         if (!Strings.isNullOrEmpty(localClusterName) && bootstrap.getNode().hasLocality()) {
@@ -51,7 +51,7 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
                           localClusterName);
             checkArgument(!bootstrapLocalCluster.hasEdsClusterConfig(),
                           "Static cluster '%s' cannot use EDS", localClusterName);
-            StaticResourceUtils.staticCluster(bootstrapContext, localClusterName, this, bootstrapLocalCluster);
+            StaticResourceUtils.staticCluster(context, localClusterName, this, bootstrapLocalCluster);
         }
 
         if (bootstrap.hasStaticResources()) {
@@ -62,7 +62,7 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
                 }
                 checkArgument(!cluster.hasEdsClusterConfig(),
                               "Static cluster '%s' cannot use EDS", cluster.getName());
-                StaticResourceUtils.staticCluster(bootstrapContext, cluster.getName(), this, cluster);
+                StaticResourceUtils.staticCluster(context, cluster.getName(), this, cluster);
             }
         }
     }

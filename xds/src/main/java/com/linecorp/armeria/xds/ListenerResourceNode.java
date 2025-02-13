@@ -34,9 +34,9 @@ final class ListenerResourceNode extends AbstractResourceNode<ListenerXdsResourc
     private final SnapshotWatcher<ListenerSnapshot> parentWatcher;
 
     ListenerResourceNode(@Nullable ConfigSource configSource,
-                         String resourceName, BootstrapContext bootstrapContext,
+                         String resourceName, SubscriptionContext context,
                          SnapshotWatcher<ListenerSnapshot> parentWatcher, ResourceNodeType resourceNodeType) {
-        super(bootstrapContext, configSource, LISTENER, resourceName, parentWatcher, resourceNodeType);
+        super(context, configSource, LISTENER, resourceName, parentWatcher, resourceNodeType);
         this.parentWatcher = parentWatcher;
     }
 

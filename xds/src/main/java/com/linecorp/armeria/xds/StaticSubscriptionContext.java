@@ -20,12 +20,12 @@ import com.linecorp.armeria.xds.client.endpoint.ClusterManager;
 
 import io.netty.util.concurrent.EventExecutor;
 
-final class StaticBootstrapContext implements BootstrapContext {
+final class StaticSubscriptionContext implements SubscriptionContext {
 
     private final EventExecutor eventLoop;
     private final ClusterManager clusterManager;
 
-    StaticBootstrapContext(EventExecutor eventLoop, ClusterManager clusterManager) {
+    StaticSubscriptionContext(EventExecutor eventLoop, ClusterManager clusterManager) {
         this.eventLoop = eventLoop;
         this.clusterManager = clusterManager;
     }

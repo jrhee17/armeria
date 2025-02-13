@@ -65,19 +65,19 @@ final class XdsBootstrapImpl implements XdsBootstrap {
     @Override
     public ListenerRoot listenerRoot(String resourceName) {
         requireNonNull(resourceName, "resourceName");
-        final BootstrapContext bootstrapContext =
-                new DefaultBootstrapContext(eventLoop, clusterManager, bootstrapClusters,
-                                            configSourceMapper, configSourceManager);
-        return new ListenerRoot(bootstrapContext, resourceName, bootstrapListeners);
+        final SubscriptionContext context =
+                new DefaultSubscriptionContext(eventLoop, clusterManager, bootstrapClusters,
+                                               configSourceMapper, configSourceManager);
+        return new ListenerRoot(context, resourceName, bootstrapListeners);
     }
 
     @Override
     public ClusterRoot clusterRoot(String resourceName) {
         requireNonNull(resourceName, "resourceName");
-        final BootstrapContext bootstrapContext =
-                new DefaultBootstrapContext(eventLoop, clusterManager, bootstrapClusters,
-                                            configSourceMapper, configSourceManager);
-        return new ClusterRoot(bootstrapContext, resourceName);
+        final SubscriptionContext context =
+                new DefaultSubscriptionContext(eventLoop, clusterManager, bootstrapClusters,
+                                               configSourceMapper, configSourceManager);
+        return new ClusterRoot(context, resourceName);
     }
 
     @VisibleForTesting
