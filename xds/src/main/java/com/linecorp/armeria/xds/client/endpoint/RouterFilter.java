@@ -25,6 +25,7 @@ import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.PreClient;
 import com.linecorp.armeria.client.PreClientRequestContext;
 import com.linecorp.armeria.client.Preprocessor;
+import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
@@ -33,6 +34,9 @@ import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.xds.ClusterSnapshot;
+import com.linecorp.armeria.xds.filter.RouteConfig;
+import com.linecorp.armeria.xds.filter.SelectedRoute;
+import com.linecorp.armeria.xds.filter.XdsFilterAttributeKeys;
 
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
 import io.netty.channel.EventLoop;
@@ -49,16 +53,20 @@ final class RouterFilter<I extends Request, O extends Response> implements Prepr
     public O execute(PreClient<I, O> delegate, PreClientRequestContext ctx, I req) throws Exception {
         final RouteConfig routeConfig = ctx.attr(XdsFilterAttributeKeys.ROUTE_CONFIG);
         if (routeConfig == null) {
-            throw new RuntimeException();
+            throw new IllegalArgumentException(
+                    "RouteConfig is not set for the ctx. If a new ctx has been used, " +
+                    "please make sure to use ctx.newDerivedContext().");
         }
         final HttpRequest httpReq = ctx.request();
         final SelectedRoute selectedRoute = routeConfig.selectedRoute(httpReq, ctx);
         if (selectedRoute == null) {
-            throw new RuntimeException();
+            throw UnprocessedRequestException.of(new IllegalArgumentException(
+                    "No route has been selected for listener '" + routeConfig.listenerSnapshot() + "'."));
         }
         final ClusterSnapshot clusterSnapshot = selectedRoute.clusterSnapshot();
         if (clusterSnapshot == null) {
-            throw new RuntimeException();
+            throw UnprocessedRequestException.of(new IllegalArgumentException(
+                    "No cluster is specified for selected route '" + selectedRoute.routeEntry() + "'."));
         }
 
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
@@ -76,7 +84,8 @@ final class RouterFilter<I extends Request, O extends Response> implements Prepr
 
         final XdsLoadBalancer loadBalancer = clusterSnapshot.loadBalancer();
         if (loadBalancer == null) {
-            throw new RuntimeException();
+            throw UnprocessedRequestException.of(new IllegalArgumentException(
+                    "The target cluster '" + clusterSnapshot + "' does not contain endpoints."));
         }
 
         final Endpoint endpoint = loadBalancer.selectNow(ctx);
@@ -86,20 +95,24 @@ final class RouterFilter<I extends Request, O extends Response> implements Prepr
         final EventLoop temporaryEventLoop = ctx.options().factory().eventLoopSupplier().get();
         final CompletableFuture<O> cf =
                 loadBalancer.select(ctx, temporaryEventLoop, ctx.responseTimeoutMillis())
-                        .thenApply(endpoint0 -> {
-                            try {
-                                return execute0(delegate, ctx, req, endpoint0);
-                            } catch (Exception e) {
-                                throw new CompletionException(e);
-                            }
-                        });
+                            .thenApply(endpoint0 -> {
+                                try {
+                                    return execute0(delegate, ctx, req, endpoint0);
+                                } catch (Exception e) {
+                                    throw new CompletionException(e);
+                                }
+                            });
         return futureConverter.apply(cf);
     }
 
     private O execute0(PreClient<I, O> delegate, PreClientRequestContext ctx, I req,
                        @Nullable Endpoint endpoint) throws Exception {
         if (endpoint == null) {
-            throw new TimeoutException("Failed to select an endpoint for ctx: " + ctx);
+            final Throwable cancellationCause = ctx.cancellationCause();
+            if (cancellationCause != null) {
+                throw UnprocessedRequestException.of(cancellationCause);
+            }
+            throw UnprocessedRequestException.of(new TimeoutException("Failed to select an endpoint."));
         }
         ctx.setEndpointGroup(endpoint);
         return delegate.execute(ctx, req);
