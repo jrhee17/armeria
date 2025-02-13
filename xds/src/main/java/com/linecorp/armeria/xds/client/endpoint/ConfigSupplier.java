@@ -36,8 +36,7 @@ interface ConfigSupplier {
         if (config != null) {
             return config;
         }
-        config = routeSnapshot().xdsResource().filterConfig(typeUrl);
-        return config;
+        return routeSnapshot().xdsResource().filterConfig(typeUrl);
     }
 
     ListenerSnapshot listenerSnapshot();

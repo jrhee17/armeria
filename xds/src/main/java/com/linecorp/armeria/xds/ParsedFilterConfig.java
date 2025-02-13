@@ -129,17 +129,16 @@ public final class ParsedFilterConfig {
     /**
      * Returns the parsed config.
      *
-     * @param clazz the {@link HttpFilterFactory#configClass()} corresponding to this config
-     * @param defaultValue the {@link HttpFilterFactory#defaultConfig()} corresponding to this config
+     * @param filterFactory the {@link HttpFilterFactory} corresponding to this config
      */
     @SuppressWarnings("unchecked")
-    public <T extends Message> T config(Class<T> clazz, T defaultValue) {
+    public <T extends Message> T config(HttpFilterFactory<T> filterFactory) {
         if (configClass == null || parsedConfig == null) {
-            return defaultValue;
+            return filterFactory.defaultConfig();
         }
-        checkArgument(clazz == configClass,
-                      "Provided class '%s' does not match expected class '%s'",
-                      clazz.getSimpleName(), configClass.getSimpleName());
+        checkArgument(filterFactory.configClass() == configClass,
+                      "Provided filter factory '%s' does not support the expected class '%s'",
+                      filterFactory, configClass.getSimpleName());
         return (T) parsedConfig;
     }
 }

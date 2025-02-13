@@ -65,8 +65,8 @@ final class FilterUtils {
         return builder.build();
     }
 
-    static ClientDecoration buildUpstreamFilter(ConfigSupplier snapshots) {
-        final ListenerSnapshot listenerSnapshot = snapshots.listenerSnapshot();
+    static ClientDecoration buildUpstreamFilter(ConfigSupplier configSupplier) {
+        final ListenerSnapshot listenerSnapshot = configSupplier.listenerSnapshot();
         final Router router = listenerSnapshot.xdsResource().router();
         if (router == null) {
             return ClientDecoration.of();
@@ -75,7 +75,7 @@ final class FilterUtils {
         final ClientDecorationBuilder builder = ClientDecoration.builder();
         for (int i = httpFilters.size() - 1; i >= 0; i--) {
             final HttpFilter httpFilter = httpFilters.get(i);
-            final XdsFilter xdsFilter = xdsHttpFilter(httpFilter, snapshots);
+            final XdsFilter xdsFilter = xdsHttpFilter(httpFilter, configSupplier);
             if (xdsFilter == null) {
                 continue;
             }
@@ -89,7 +89,7 @@ final class FilterUtils {
     }
 
     @Nullable
-    private static XdsFilter xdsHttpFilter(HttpFilter httpFilter, @Nullable ConfigSupplier snapshots) {
+    private static XdsFilter xdsHttpFilter(HttpFilter httpFilter, @Nullable ConfigSupplier configSupplier) {
         final HttpFilterFactory<?> filterFactory =
                 FilterFactoryRegistry.INSTANCE.filterFactory(httpFilter.getName());
         if (filterFactory == null) {
@@ -101,7 +101,7 @@ final class FilterUtils {
         checkArgument(httpFilter.getConfigTypeCase() == ConfigTypeCase.TYPED_CONFIG,
                       "Only 'typed_config' is supported, but '%s' was supplied",
                       httpFilter.getConfigTypeCase());
-        return new DefaultXdsFilter<>(filterFactory, httpFilter, snapshots);
+        return new DefaultXdsFilter<>(filterFactory, httpFilter, configSupplier);
     }
 
     interface XdsFilter {
@@ -123,17 +123,16 @@ final class FilterUtils {
         private final ParsedFilterConfig filterConfig;
 
         DefaultXdsFilter(HttpFilterFactory<T> filterFactory, HttpFilter httpFilter,
-                         @Nullable ConfigSupplier snapshots) {
+                         @Nullable ConfigSupplier configSupplier) {
             this.filterFactory = filterFactory;
-            filterConfig = computeFinalConfig(filterFactory, httpFilter, snapshots);
-            config = filterConfig.config(filterFactory.configClass(), filterFactory.defaultConfig());
+            filterConfig = computeFinalConfig(filterFactory, httpFilter, configSupplier);
+            config = filterConfig.config(filterFactory);
         }
 
         private ParsedFilterConfig computeFinalConfig(HttpFilterFactory<T> filterFactory, HttpFilter httpFilter,
-                                                      @Nullable ConfigSupplier snapshots) {
-            if (snapshots != null) {
-                @Nullable
-                final ParsedFilterConfig config = snapshots.config(filterFactory.filterName());
+                                                      @Nullable ConfigSupplier configSupplier) {
+            if (configSupplier != null) {
+                final ParsedFilterConfig config = configSupplier.config(filterFactory.filterName());
                 if (config != null) {
                     return config;
                 }
