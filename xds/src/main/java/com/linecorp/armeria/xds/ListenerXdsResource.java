@@ -80,7 +80,7 @@ public final class ListenerXdsResource implements XdsResource {
     }
 
     /**
-     * TBU.
+     * The {@link HttpConnectionManager} contained in the {@link Listener#getListenerFiltersList()}.
      */
     @Nullable
     public HttpConnectionManager connectionManager() {
@@ -93,16 +93,13 @@ public final class ListenerXdsResource implements XdsResource {
     }
 
     /**
-     * TBU.
+     * The {@link Router} contained in the {@link Listener}.
      */
     @Nullable
     public Router router() {
         return router;
     }
 
-    /**
-     * TBU.
-     */
     @Nullable
     private static Router router(@Nullable HttpConnectionManager connectionManager) {
         if (connectionManager == null) {

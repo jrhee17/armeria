@@ -28,7 +28,8 @@ import io.envoyproxy.envoy.extensions.filters.http.router.v3.Router;
 
 public final class RouterFilterFactory implements HttpFilterFactory<Router> {
 
-    private static final String NAME = "envoy.filters.http.router";
+    public static final String NAME = "envoy.filters.http.router";
+    public static final RouterFilterFactory INSTANCE = new RouterFilterFactory();
 
     @Override
     public RpcPreprocessor rpcPreprocessor(Router config) {

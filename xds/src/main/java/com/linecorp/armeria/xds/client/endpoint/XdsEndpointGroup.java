@@ -16,8 +16,6 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
-import static java.util.Objects.requireNonNull;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -66,7 +64,7 @@ import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
  * Note that it is important to shut down the endpoint group to clean up resources
  * for the provided {@link XdsBootstrap}.
  *
- * @deprecated use {@link XdsHttpPreprocessor} instead
+ * @deprecated use {@link XdsHttpPreprocessor} or {@link XdsRpcPreprocessor} instead
  */
 @UnstableApi
 @Deprecated
@@ -95,7 +93,6 @@ public final class XdsEndpointGroup extends AbstractListenable<List<Endpoint>>
      */
     @UnstableApi
     public static XdsEndpointGroup of(ClusterSnapshot clusterSnapshot) {
-        requireNonNull(clusterSnapshot, "clusterSnapshot");
         throw new UnsupportedOperationException("Use ClusterSnapshot.loadBalancer() to select endpoints.");
     }
 

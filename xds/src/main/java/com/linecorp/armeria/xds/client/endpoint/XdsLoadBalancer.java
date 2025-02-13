@@ -24,9 +24,12 @@ import java.util.function.Consumer;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.endpoint.EndpointSelector;
+import com.linecorp.armeria.xds.ClusterSnapshot;
 
 /**
- * TBU.
+ * A load balancer which allows users to select an {@link Endpoint} based on a {@link ClientRequestContext}.
+ * A {@link XdsLoadBalancer} is bound to a {@link ClusterSnapshot} and can be accessed via
+ * {@link ClusterSnapshot#loadBalancer()}.
  */
 public interface XdsLoadBalancer extends EndpointSelector, LoadBalancer {
 

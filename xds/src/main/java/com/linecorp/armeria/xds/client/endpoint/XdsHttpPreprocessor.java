@@ -22,13 +22,23 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.xds.XdsBootstrap;
 
 /**
- * TBU.
+ * An {@link HttpPreprocessor} implementation which allows clients to execute requests based on
+ * xDS (* Discovery Service). A typical user may make requests like the following:
+ * <pre>{@code
+ * XdsBootstrap bootstrap = XdsBootstrap.of(...);
+ * XdsHttpPreprocessor httpPreprocessor = XdsHttpPreprocessor.of("my-listener" ,bootstrap);
+ * WebClient client = WebClient.of(httpPreprocessor);
+ * client.get("/"); // the request will be routed based on how the listener "my-listener" is configured
+ * httpPreprocessor.close();
+ * }</pre>
+ * Once a {@link XdsHttpPreprocessor} is no longer used, invoking {@link XdsHttpPreprocessor#close()}
+ * may help save resources.
  */
 public final class XdsHttpPreprocessor extends XdsPreprocessor<HttpRequest, HttpResponse>
         implements HttpPreprocessor {
 
     /**
-     * TBU.
+     * Creates a {@link XdsHttpPreprocessor}.
      */
     public static XdsHttpPreprocessor of(String listenerName, XdsBootstrap xdsBootstrap) {
         return new XdsHttpPreprocessor(listenerName, xdsBootstrap);

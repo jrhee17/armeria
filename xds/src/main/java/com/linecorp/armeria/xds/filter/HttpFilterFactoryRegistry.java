@@ -17,16 +17,16 @@
 package com.linecorp.armeria.xds.filter;
 
 import java.util.Map;
-import java.util.ServiceLoader;
 
 import com.google.common.collect.ImmutableMap;
 
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.xds.internal.RouterFilterFactory;
 
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter;
 
 /**
- * A registry for {@link  HttpFilterFactory} implementations.
+ * A registry for {@link HttpFilterFactory} implementations.
  */
 public final class HttpFilterFactoryRegistry {
 
@@ -42,10 +42,10 @@ public final class HttpFilterFactoryRegistry {
     private final Map<String, HttpFilterFactory<?>> filterFactories;
 
     private HttpFilterFactoryRegistry() {
-        final ImmutableMap.Builder<String, HttpFilterFactory<?>> builder = ImmutableMap.builder();
-        ServiceLoader.load(HttpFilterFactory.class, getClass().getClassLoader())
-                     .forEach(factory -> builder.put(factory.filterName(), factory));
-        filterFactories = builder.buildOrThrow();
+        filterFactories =
+                ImmutableMap.<String, HttpFilterFactory<?>>builder()
+                            .put(RouterFilterFactory.INSTANCE.filterName(), RouterFilterFactory.INSTANCE)
+                            .buildOrThrow();
     }
 
     /**

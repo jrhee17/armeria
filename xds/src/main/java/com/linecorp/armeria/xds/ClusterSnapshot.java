@@ -19,6 +19,8 @@ package com.linecorp.armeria.xds;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
+import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
@@ -67,7 +69,8 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
     }
 
     /**
-     * TBU.
+     * The {@link XdsLoadBalancer} which allows users to select an upstream {@link Endpoint} for a given
+     * {@link ClientRequestContext}.
      */
     @Nullable
     public XdsLoadBalancer loadBalancer() {

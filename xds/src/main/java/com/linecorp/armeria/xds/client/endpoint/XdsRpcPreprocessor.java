@@ -22,15 +22,25 @@ import com.linecorp.armeria.common.RpcResponse;
 import com.linecorp.armeria.xds.XdsBootstrap;
 
 /**
- * TBU.
+ * A {@link RpcPreprocessor} implementation which allows clients to execute requests based on
+ * xDS (* Discovery Service). A typical user may make requests like the following:
+ * <pre>{@code
+ * XdsBootstrap bootstrap = XdsBootstrap.of(...);
+ * XdsRpcPreprocessor rpcPreprocessor = XdsRpcPreprocessor.of("my-listener" ,bootstrap);
+ * HelloService.Iface iface = ThriftClients.newClient(rpcPreprocessor, HelloService.Iface.class);
+ * iface.hello() // the request will be routed based on how the listener "my-listener" is configured
+ * rpcPreprocessor.close();
+ * }</pre>
+ * Once a {@link XdsRpcPreprocessor} is no longer used, invoking {@link XdsRpcPreprocessor#close()}
+ * may help save resources.
  */
 public final class XdsRpcPreprocessor extends XdsPreprocessor<RpcRequest, RpcResponse>
         implements RpcPreprocessor {
 
     /**
-     * TBU.
+     * Creates a {@link XdsRpcPreprocessor}.
      */
-    public static XdsRpcPreprocessor ofRpc(String listenerName, XdsBootstrap xdsBootstrap) {
+    public static XdsRpcPreprocessor of(String listenerName, XdsBootstrap xdsBootstrap) {
         return new XdsRpcPreprocessor(listenerName, xdsBootstrap);
     }
 

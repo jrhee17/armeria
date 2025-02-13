@@ -80,7 +80,7 @@ public final class ClusterXdsResource extends XdsResourceWithPrimer<ClusterXdsRe
     }
 
     /**
-     * TBU.
+     * The upstream TLS context extracted from {@link Cluster#getTransportSocket()}.
      */
     @Nullable
     public UpstreamTlsContext upstreamTlsContext() {

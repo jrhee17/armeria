@@ -26,51 +26,61 @@ import com.linecorp.armeria.client.PreClient;
 import com.linecorp.armeria.client.RpcClient;
 import com.linecorp.armeria.client.RpcPreprocessor;
 
+import io.envoyproxy.envoy.extensions.filters.http.router.v3.Router;
+import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager;
+import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter;
+
 /**
- * TBU.
+ * An {@link HttpFilterFactory} is a factory for creating a decorator implementation equivalent to
+ * an {@link HttpFilter}.
  */
 public interface HttpFilterFactory<T extends Message> {
 
     /**
-     * TBU.
+     * Generates a {@link RpcPreprocessor} which acts as a downstream {@link HttpFilter} when
+     * registered in {@link HttpConnectionManager#getHttpFiltersList()}.
      */
     default RpcPreprocessor rpcPreprocessor(T config) {
         return PreClient::execute;
     }
 
     /**
-     * TBU.
+     * Generates a {@link HttpPreprocessor} which acts as a downstream {@link HttpFilter} when
+     * registered in {@link HttpConnectionManager#getHttpFiltersList()}.
      */
     default HttpPreprocessor httpPreprocessor(T config) {
         return PreClient::execute;
     }
 
     /**
-     * TBU.
+     * Generates a {@link DecoratingHttpClientFunction} which acts as an upstream {@link HttpFilter} when
+     * registered in {@link Router#getUpstreamHttpFiltersList()}.
+     * Unlike decorators added to clients, this decorator will not be invoked for RPC clients.
      */
     default DecoratingHttpClientFunction httpDecorator(T config) {
         return HttpClient::execute;
     }
 
     /**
-     * TBU.
+     * Generates a {@link DecoratingRpcClientFunction} which acts as an upstream {@link HttpFilter} when
+     * registered in {@link Router#getUpstreamHttpFiltersList()}.
      */
     default DecoratingRpcClientFunction rpcDecorator(T config) {
         return RpcClient::execute;
     }
 
     /**
-     * TBU.
+     * The class type of the filter configuration represented by {@link HttpFilter#getTypedConfig()}.
      */
     Class<T> configClass();
 
     /**
-     * TBU.
+     * The default configuration to be used if an appropriate configuration cannot be found.
      */
     T defaultConfig();
 
     /**
-     * TBU.
+     * The filter name that should be equivalent to {@link HttpFilter#getName()}.
      */
     String filterName();
 }
