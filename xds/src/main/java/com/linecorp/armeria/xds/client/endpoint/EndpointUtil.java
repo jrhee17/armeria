@@ -28,6 +28,7 @@ import com.linecorp.armeria.client.endpoint.WeightRampingUpStrategyBuilder;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.endpoint.EndpointAttributeKeys;
+import com.linecorp.armeria.xds.internal.XdsAttributeKeys;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.CommonLbConfig;

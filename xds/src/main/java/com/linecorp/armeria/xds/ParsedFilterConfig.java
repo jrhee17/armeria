@@ -25,7 +25,7 @@ import com.google.protobuf.Message;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
-import com.linecorp.armeria.xds.client.endpoint.HttpFilterFactory;
+import com.linecorp.armeria.xds.filter.HttpFilterFactory;
 import com.linecorp.armeria.xds.filter.HttpFilterFactoryRegistry;
 
 import io.envoyproxy.envoy.config.route.v3.FilterConfig;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LINE Corporation
+ * Copyright 2025 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.xds.internal;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -33,15 +33,17 @@ import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.ParsedFilterConfig;
+import com.linecorp.armeria.xds.filter.HttpFilterFactory;
+import com.linecorp.armeria.xds.filter.HttpFilterFactoryRegistry;
 
 import io.envoyproxy.envoy.extensions.filters.http.router.v3.Router;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter.ConfigTypeCase;
 
-final class FilterUtils {
+final class FilterUtil {
 
-    private FilterUtils() {}
+    private FilterUtil() {}
 
     static ClientPreprocessors buildDownstreamFilter(ListenerSnapshot listenerSnapshot) {
         final HttpConnectionManager connectionManager = listenerSnapshot.xdsResource().connectionManager();
@@ -91,7 +93,7 @@ final class FilterUtils {
     @Nullable
     private static XdsFilter xdsHttpFilter(HttpFilter httpFilter, @Nullable ConfigSupplier configSupplier) {
         final HttpFilterFactory<?> filterFactory =
-                FilterFactoryRegistry.INSTANCE.filterFactory(httpFilter.getName());
+                HttpFilterFactoryRegistry.of().filterFactory(httpFilter.getName());
         if (filterFactory == null) {
             if (httpFilter.getIsOptional()) {
                 return null;

@@ -53,7 +53,8 @@ import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 import com.linecorp.armeria.xds.XdsBootstrap;
 import com.linecorp.armeria.xds.XdsTestResources;
-import com.linecorp.armeria.xds.client.endpoint.XdsRandom.RandomHint;
+import com.linecorp.armeria.xds.internal.XdsAttributeKeys;
+import com.linecorp.armeria.xds.internal.XdsRandom.RandomHint;
 
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
 import io.envoyproxy.controlplane.cache.v3.Snapshot;

@@ -35,6 +35,7 @@ import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.xds.internal.XdsAttributeKeys;
 
 import io.envoyproxy.envoy.config.core.v3.Metadata;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;

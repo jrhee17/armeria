@@ -14,14 +14,12 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+/**
+ * Provides internal utilities.
+ */
+@NonNullByDefault
+@UnstableApi
+package com.linecorp.armeria.xds.internal;
 
-import io.netty.util.AttributeKey;
-
-final class XdsFilterAttributeKeys {
-
-    static final AttributeKey<RouteConfig> ROUTE_CONFIG =
-            AttributeKey.valueOf(XdsFilterAttributeKeys.class, "ROUTE_CONFIG");
-
-    private XdsFilterAttributeKeys() {}
-}
+import com.linecorp.armeria.common.annotation.NonNullByDefault;
+import com.linecorp.armeria.common.annotation.UnstableApi;

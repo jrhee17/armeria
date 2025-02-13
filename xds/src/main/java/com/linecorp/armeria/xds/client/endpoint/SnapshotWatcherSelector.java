@@ -22,6 +22,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ListenerRoot;
 import com.linecorp.armeria.xds.ListenerSnapshot;
 import com.linecorp.armeria.xds.SnapshotWatcher;
+import com.linecorp.armeria.xds.internal.RouteConfig;
 
 final class SnapshotWatcherSelector extends AbstractAsyncSelector<RouteConfig>
         implements SnapshotWatcher<ListenerSnapshot> {

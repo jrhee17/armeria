@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.xds.internal;
 
 import com.linecorp.armeria.client.ClientDecoration;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -24,7 +24,7 @@ import com.linecorp.armeria.xds.RouteEntry;
 import com.linecorp.armeria.xds.RouteSnapshot;
 import com.linecorp.armeria.xds.VirtualHostSnapshot;
 
-final class SelectedRoute implements ConfigSupplier {
+public final class SelectedRoute implements ConfigSupplier {
 
     private final ClientDecoration upstreamFilter;
     private final ListenerSnapshot listenerSnapshot;
@@ -38,7 +38,7 @@ final class SelectedRoute implements ConfigSupplier {
         this.routeSnapshot = routeSnapshot;
         this.virtualHostSnapshot = virtualHostSnapshot;
         this.routeEntry = routeEntry;
-        upstreamFilter = FilterUtils.buildUpstreamFilter(this);
+        upstreamFilter = FilterUtil.buildUpstreamFilter(this);
     }
 
     @Override

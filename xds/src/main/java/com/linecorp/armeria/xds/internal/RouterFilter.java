@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.xds.internal;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -34,6 +34,7 @@ import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.xds.ClusterSnapshot;
+import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
 
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
 import io.netty.channel.EventLoop;
@@ -48,14 +49,14 @@ final class RouterFilter<I extends Request, O extends Response> implements Prepr
 
     @Override
     public O execute(PreClient<I, O> delegate, PreClientRequestContext ctx, I req) throws Exception {
-        final RouteConfig routeConfig = ctx.attr(XdsFilterAttributeKeys.ROUTE_CONFIG);
+        final RouteConfig routeConfig = ctx.attr(XdsAttributeKeys.ROUTE_CONFIG);
         if (routeConfig == null) {
             throw new IllegalArgumentException(
                     "RouteConfig is not set for the ctx. If a new ctx has been used, " +
                     "please make sure to use ctx.newDerivedContext().");
         }
         final HttpRequest httpReq = ctx.request();
-        final SelectedRoute selectedRoute = routeConfig.selectedRoute(httpReq, ctx);
+        final SelectedRoute selectedRoute = routeConfig.select(httpReq, ctx);
         if (selectedRoute == null) {
             throw UnprocessedRequestException.of(new IllegalArgumentException(
                     "No route has been selected for listener '" + routeConfig.listenerSnapshot() + "'."));

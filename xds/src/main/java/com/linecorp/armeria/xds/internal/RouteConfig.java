@@ -14,9 +14,9 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.xds.internal;
 
-import static com.linecorp.armeria.xds.client.endpoint.FilterUtils.buildDownstreamFilter;
+import static com.linecorp.armeria.xds.internal.FilterUtil.buildDownstreamFilter;
 
 import java.util.Map;
 import java.util.Objects;
@@ -32,12 +32,12 @@ import com.linecorp.armeria.xds.RouteEntry;
 import com.linecorp.armeria.xds.RouteSnapshot;
 import com.linecorp.armeria.xds.VirtualHostSnapshot;
 
-final class RouteConfig {
+public final class RouteConfig {
     private final ListenerSnapshot listenerSnapshot;
     private final ClientPreprocessors downstreamFilters;
     private final Map<IndexPair, SelectedRoute> selectedRoutes;
 
-    RouteConfig(ListenerSnapshot listenerSnapshot) {
+    public RouteConfig(ListenerSnapshot listenerSnapshot) {
         this.listenerSnapshot = listenerSnapshot;
         downstreamFilters = buildDownstreamFilter(listenerSnapshot);
         selectedRoutes = routeEntries(listenerSnapshot);
@@ -62,12 +62,16 @@ final class RouteConfig {
         return builder.build();
     }
 
-    ListenerSnapshot listenerSnapshot() {
+    public ListenerSnapshot listenerSnapshot() {
         return listenerSnapshot;
     }
 
+    public ClientPreprocessors downstreamFilters() {
+        return downstreamFilters;
+    }
+
     @Nullable
-    SelectedRoute selectedRoute(@Nullable HttpRequest req, PreClientRequestContext ctx) {
+    public SelectedRoute select(@Nullable HttpRequest req, PreClientRequestContext ctx) {
         final RouteSnapshot routeSnapshot = listenerSnapshot.routeSnapshot();
         if (routeSnapshot == null) {
             return null;
@@ -97,10 +101,6 @@ final class RouteConfig {
 
     private static boolean matches(@Nullable HttpRequest req, VirtualHostSnapshot virtualHostSnapshot) {
         return true;
-    }
-
-    ClientPreprocessors downstreamFilters() {
-        return downstreamFilters;
     }
 
     private static final class IndexPair {

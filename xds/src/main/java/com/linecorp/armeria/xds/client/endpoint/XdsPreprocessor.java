@@ -32,6 +32,8 @@ import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ListenerRoot;
 import com.linecorp.armeria.xds.XdsBootstrap;
+import com.linecorp.armeria.xds.internal.RouteConfig;
+import com.linecorp.armeria.xds.internal.XdsAttributeKeys;
 
 import io.netty.channel.EventLoop;
 
@@ -80,7 +82,7 @@ class XdsPreprocessor<I extends Request, O extends Response>
             throw UnprocessedRequestException.of(
                     new TimeoutException("Couldn't select a snapshot for listener '" + listenerName + "'."));
         }
-        ctx.setAttr(XdsFilterAttributeKeys.ROUTE_CONFIG, routeConfig);
+        ctx.setAttr(XdsAttributeKeys.ROUTE_CONFIG, routeConfig);
         final ClientPreprocessors downstreamFilter = routeConfig.downstreamFilters();
         return filterFunction.apply(downstreamFilter, delegate).execute(ctx, req);
     }

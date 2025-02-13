@@ -25,6 +25,7 @@ import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 
 import com.linecorp.armeria.client.ClientRequestContext;
+import com.linecorp.armeria.xds.internal.XdsAttributeKeys;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetSelector;

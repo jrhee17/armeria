@@ -18,7 +18,7 @@ package com.linecorp.armeria.xds.client.endpoint;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.linecorp.armeria.xds.client.endpoint.DefaultLbStateFactory.isHostSetInPanic;
-import static com.linecorp.armeria.xds.client.endpoint.XdsRandom.RandomHint.ROUTING_ENABLED;
+import static com.linecorp.armeria.xds.internal.XdsRandom.RandomHint.ROUTING_ENABLED;
 
 import java.util.Map;
 
@@ -31,6 +31,8 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.client.endpoint.DefaultLbStateFactory.DefaultLbState;
 import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.LocalityRoutingState;
 import com.linecorp.armeria.xds.client.endpoint.LocalityRoutingStateFactory.State;
+import com.linecorp.armeria.xds.internal.XdsAttributeKeys;
+import com.linecorp.armeria.xds.internal.XdsRandom;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
 

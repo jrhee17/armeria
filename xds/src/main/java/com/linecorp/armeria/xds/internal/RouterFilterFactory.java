@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LINE Corporation
+ * Copyright 2025 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.xds.internal;
 
 import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.RpcPreprocessor;
@@ -22,16 +22,13 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
+import com.linecorp.armeria.xds.filter.HttpFilterFactory;
 
 import io.envoyproxy.envoy.extensions.filters.http.router.v3.Router;
 
-/**
- * TBU.
- */
 public final class RouterFilterFactory implements HttpFilterFactory<Router> {
 
-    public static final String NAME = "envoy.filters.http.router";
-    public static final HttpFilterFactory<Router> INSTANCE = new RouterFilterFactory();
+    private static final String NAME = "envoy.filters.http.router";
 
     @Override
     public RpcPreprocessor rpcPreprocessor(Router config) {
