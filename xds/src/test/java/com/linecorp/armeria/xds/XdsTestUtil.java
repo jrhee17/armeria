@@ -60,7 +60,11 @@ public final class XdsTestUtil {
 
     @Nullable
     private static ClusterSnapshot findByName(ListenerRoot root, String name) {
-        final RouteSnapshot routeSnapshot = root.current().routeSnapshot();
+        final ListenerSnapshot listenerSnapshot = root.current();
+        if (listenerSnapshot == null) {
+            return null;
+        }
+        final RouteSnapshot routeSnapshot = listenerSnapshot.routeSnapshot();
         for (VirtualHostSnapshot virtualHostSnapshot: routeSnapshot.virtualHostSnapshots()) {
             final List<RouteEntry> routeEntries = virtualHostSnapshot.routeEntries();
             for (RouteEntry routeEntry: routeEntries) {
