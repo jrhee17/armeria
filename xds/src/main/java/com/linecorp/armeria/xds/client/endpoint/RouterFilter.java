@@ -34,9 +34,6 @@ import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.xds.ClusterSnapshot;
-import com.linecorp.armeria.xds.filter.RouteConfig;
-import com.linecorp.armeria.xds.filter.SelectedRoute;
-import com.linecorp.armeria.xds.filter.XdsFilterAttributeKeys;
 
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
 import io.netty.channel.EventLoop;

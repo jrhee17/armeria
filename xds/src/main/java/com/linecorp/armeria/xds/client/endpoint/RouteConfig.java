@@ -62,6 +62,10 @@ final class RouteConfig {
         return builder.build();
     }
 
+    ListenerSnapshot listenerSnapshot() {
+        return listenerSnapshot;
+    }
+
     @Nullable
     SelectedRoute selectedRoute(@Nullable HttpRequest req, PreClientRequestContext ctx) {
         final RouteSnapshot routeSnapshot = listenerSnapshot.routeSnapshot();

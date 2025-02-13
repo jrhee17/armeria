@@ -42,6 +42,7 @@ import com.google.protobuf.Struct;
 import com.linecorp.armeria.client.BlockingWebClient;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.RequestOptions;
+import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
@@ -189,8 +190,10 @@ class RouteMetadataSubsetTest {
                                                       .blocking();
             if (noFallback) {
                 assertThatThrownBy(() -> client.get("/"))
+                        .isInstanceOf(UnprocessedRequestException.class)
+                        .cause()
                         .isInstanceOf(TimeoutException.class)
-                        .hasMessageContaining("Failed to select an endpoint for ctx");
+                        .hasMessageContaining("Failed to select an endpoint");
             } else {
                 assertThat(client.get("/").contentUtf8()).isEqualTo("8080");
                 assertThat(client.get("/").contentUtf8()).isEqualTo("8081");

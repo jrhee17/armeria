@@ -15,7 +15,7 @@
  */
 
 /**
- * Provides internal utilities related to xDS.
+ * Provides filter related integrations.
  */
 @NonNullByDefault
 @UnstableApi

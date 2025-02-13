@@ -27,7 +27,9 @@ import org.slf4j.LoggerFactory;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.endpoint.AbstractAsyncSelector;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
+import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
@@ -52,11 +54,12 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
     private List<Endpoint> endpoints;
     @Nullable
     private PrioritySet localPrioritySet;
-    private final FunctionSelector<Endpoint> endpointSelector;
     private final AttributesPool attributesPool;
     private final EndpointGroup endpointGroup;
     @Nullable
     private PrioritySet prioritySet;
+    private final LoadBalancerEndpointSelector endpointSelector = new LoadBalancerEndpointSelector();
+
     private final EndpointsWatchers endpointsWatchers = new EndpointsWatchers();
 
     UpdatableLoadBalancer(EventExecutor eventLoop, ClusterSnapshot clusterSnapshot,
@@ -67,14 +70,6 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
         this.localCluster = localCluster;
         this.localPrioritySet = localPrioritySet;
         attributesPool = new AttributesPool(prevAttrsPool);
-
-        endpointSelector = new FunctionSelector<>(ctx -> {
-            final LoadBalancer loadBalancer = delegate;
-            if (loadBalancer == null) {
-                return null;
-            }
-            return loadBalancer.selectNow(ctx);
-        });
 
         endpointGroup = XdsEndpointUtil.convertEndpointGroup(clusterSnapshot);
         endpointGroup.addListener(updateEndpointsCallback, true);
@@ -155,11 +150,44 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
         return prioritySet;
     }
 
+    private final class LoadBalancerEndpointSelector extends AbstractAsyncSelector<Endpoint> {
+
+        @Override
+        protected void onTimeout(ClientRequestContext ctx, long selectionTimeoutMillis) {
+            final PrioritySet prioritySet = UpdatableLoadBalancer.this.prioritySet;
+            final TimeoutException timeoutException;
+            if (prioritySet != null) {
+                timeoutException = new TimeoutException(
+                        "Failed to select an endpoint from state '" + prioritySet +
+                        "' within '" + selectionTimeoutMillis + "'ms");
+            } else {
+                timeoutException = new TimeoutException(
+                        "Failed to retrieve endpoints from '" + endpointGroup +
+                        "' for snapshot '" + clusterSnapshot + "' within '" + selectionTimeoutMillis + "'ms");
+            }
+            ctx.cancel(timeoutException);
+            super.onTimeout(ctx, selectionTimeoutMillis);
+        }
+
+        @Nullable
+        @Override
+        public Endpoint selectNow(ClientRequestContext ctx) {
+            return UpdatableLoadBalancer.this.selectNow(ctx);
+        }
+    }
+
     @Override
     public void close() {
-        endpointGroup.removeListener(updateEndpointsCallback);
-        //
-        eventLoop.schedule(endpointGroup::close, 10, TimeUnit.SECONDS);
+        // wait for an arbitrary amount of seconds just in case:
+        // 1) this cluster uses DNS type discovery
+        // 2) this load balancer was closed immediately after creation
+        // 3) a client is using this load balancer
+        // if the endpointGroup is closed immediately, requests may fail
+        // before there is a chance of dns resolution
+        eventLoop.schedule(() -> {
+            endpointGroup.removeListener(updateEndpointsCallback);
+            endpointGroup.close();
+        }, 10, TimeUnit.SECONDS);
     }
 
     // TODO: remove once XdsEndpointGroup is removed

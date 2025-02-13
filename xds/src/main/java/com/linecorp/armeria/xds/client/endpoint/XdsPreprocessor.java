@@ -25,6 +25,7 @@ import com.linecorp.armeria.client.ClientPreprocessors;
 import com.linecorp.armeria.client.PreClient;
 import com.linecorp.armeria.client.PreClientRequestContext;
 import com.linecorp.armeria.client.Preprocessor;
+import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.TimeoutException;
@@ -76,8 +77,8 @@ class XdsPreprocessor<I extends Request, O extends Response>
                        PreClientRequestContext ctx, I req,
                        @Nullable RouteConfig routeConfig) throws Exception {
         if (routeConfig == null) {
-            throw new TimeoutException("Couldn't select a snapshot for listener '" +
-                                       listenerName + "'.");
+            throw UnprocessedRequestException.of(
+                    new TimeoutException("Couldn't select a snapshot for listener '" + listenerName + "'."));
         }
         ctx.setAttr(XdsFilterAttributeKeys.ROUTE_CONFIG, routeConfig);
         final ClientPreprocessors downstreamFilter = routeConfig.downstreamFilters();

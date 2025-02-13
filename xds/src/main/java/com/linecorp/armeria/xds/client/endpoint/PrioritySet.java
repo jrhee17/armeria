@@ -42,8 +42,7 @@ final class PrioritySet {
     private final Cluster cluster;
     private final int panicThreshold;
 
-    PrioritySet(ClusterSnapshot clusterSnapshot, Map<Integer, HostSet> hostSets,
-                List<Endpoint> origEndpoints) {
+    PrioritySet(ClusterSnapshot clusterSnapshot, Map<Integer, HostSet> hostSets, List<Endpoint> origEndpoints) {
         this.clusterSnapshot = clusterSnapshot;
         cluster = clusterSnapshot.xdsResource().resource();
         panicThreshold = EndpointUtil.panicThreshold(cluster);
