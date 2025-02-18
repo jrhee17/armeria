@@ -37,6 +37,7 @@ import com.linecorp.armeria.client.logging.LoggingClient;
 import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.util.EventLoopGroups;
 import com.linecorp.armeria.server.ServerBuilder;
+import com.linecorp.armeria.server.ServiceRequestContext;
 import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
@@ -144,6 +145,11 @@ class GrpcServiceServerTest {
                     service.decorate(LoggingService.newDecorator())
             );
         }
+
+        @Override
+        protected boolean shouldCapture(ServiceRequestContext ctx) {
+            return false;
+        }
     };
 
     private static ManagedChannel channel;
@@ -173,6 +179,7 @@ class GrpcServiceServerTest {
                 GrpcClients.builder("h2c" + "://127.0.0.1:" + server.httpPort() + '/')
                            .factory(ClientFactory.builder().http2MaxHeaderListSize(1 * 1024 * 1024).build())
                            .decorator(LoggingClient.newDecorator())
+                           .requestAutoAbortDelayMillis(Long.MAX_VALUE)
                            .build(UnitTestServiceStub.class);
 
         stub = stub.withInterceptors(
@@ -228,14 +235,14 @@ class GrpcServiceServerTest {
         // final int delayBetweenOnNextAndOnCompleted = 0; // will have no leak
         final int delayBetweenOnNextAndOnCompleted = 100; // will cause a leak on server-side
 
-        for (int id = 0; id < 10; id++) {
+        for (int id = 0; id < 10_000_000; id++) {
             doPingPong(stub, delayBetweenOnNextAndOnCompleted, id);
         }
 
         // In IntelliJ open the Debugger and switch to Memory view. Search for `Http2RequestDecoder` and looking into the `requests` map.
         // You will find requests that are not cleaned up/ that are in CLEANUP state. As they store the big Metadata, this
         // will cause a memory leak quite quickly and together with high-rate services.
-        Thread.sleep(10000); // (1)
+        Thread.sleep(Long.MAX_VALUE); // (1)
         // Even after some time it is not cleaned up.
         fail(); // (2)
     }
