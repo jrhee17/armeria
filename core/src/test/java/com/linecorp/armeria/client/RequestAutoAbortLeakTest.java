@@ -35,6 +35,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import com.linecorp.armeria.common.AggregatedHttpResponse;
+import com.linecorp.armeria.common.HttpData;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpRequestWriter;
@@ -181,6 +182,11 @@ class RequestAutoAbortLeakTest {
 
         await().untilAsserted(() -> assertThat(streamRef.get()).isNotNull());
         final Http2Stream stream = streamRef.get();
+
+        while (stream.state() != State.CLOSED) {
+            writer.write(HttpData.wrap(new byte[] { 1, 2, 3 }));
+            Thread.sleep(1_000);
+        }
 
         await().untilAsserted(() -> assertThat(stream.state()).isEqualTo(State.CLOSED));
     }
