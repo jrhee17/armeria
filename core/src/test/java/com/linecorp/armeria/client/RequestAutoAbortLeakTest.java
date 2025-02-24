@@ -22,11 +22,13 @@ import static org.awaitility.Awaitility.await;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -78,6 +80,16 @@ class RequestAutoAbortLeakTest {
             sb.service("/http1", (ctx, req) -> {
                 final int abortDelayMillis = Integer.parseInt(req.headers().get(AUTO_ABORT_MILLIS_HEADER));
                 ctx.setRequestAutoAbortDelayMillis(abortDelayMillis);
+                return HttpResponse.of(200);
+            });
+
+            sb.service("/server-abort", (ctx, req) -> {
+                final Channel channel = ctx.log().ensureAvailable(RequestLogProperty.SESSION).channel();
+                final Http2Connection connection =
+                        channel.pipeline().get(Http2ConnectionHandler.class).connection();
+                final Http2Stream stream = connection.stream(connection.remote().lastStreamCreated());
+                streamRef.set(stream);
+                ctx.eventLoop().schedule(() -> req.abort(), 1, TimeUnit.SECONDS);
                 return HttpResponse.of(200);
             });
         }
@@ -153,6 +165,22 @@ class RequestAutoAbortLeakTest {
         final ServiceRequestContext sctx = server.requestContextCaptor().poll();
         sctx.request().subscribe();
         assertContextCompleted(sctx, requestCauseClass);
+
+        await().untilAsserted(() -> assertThat(stream.state()).isEqualTo(State.CLOSED));
+    }
+
+    @Test
+    void serverFirstAborts() throws Exception {
+        final WebClient client = WebClient.builder(server.uri(SessionProtocol.H2C))
+                                          .requestAutoAbortDelayMillis(-1)
+                                          .build();
+        final RequestHeaders headers = RequestHeaders.of(HttpMethod.POST, "/server-abort");
+        final HttpRequestWriter writer = HttpRequest.streaming(headers);
+        final HttpResponse res = client.execute(writer);
+        assertThat(res.aggregate().join().status().code()).isEqualTo(200);
+
+        await().untilAsserted(() -> assertThat(streamRef.get()).isNotNull());
+        final Http2Stream stream = streamRef.get();
 
         await().untilAsserted(() -> assertThat(stream.state()).isEqualTo(State.CLOSED));
     }
