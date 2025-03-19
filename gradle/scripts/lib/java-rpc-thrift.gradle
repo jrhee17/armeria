@@ -142,9 +142,9 @@ class CompileThriftTask extends DefaultTask {
             }.each { sourceFile ->
                 logger.info("Using ${actualThriftPath} to generate Java sources from ${sourceFile}")
                 project.mkdir(javaOutputDir)
-                def javaGenerator = 'java'
+                def javaGenerator = 'java:annotations_as_metadata'
                 if (fullCamel) {
-                    javaGenerator = 'java:fullcamel'
+                    javaGenerator = 'java:fullcamel,annotations_as_metadata'
                 }
                 project.exec {
                     commandLine actualThriftPath
