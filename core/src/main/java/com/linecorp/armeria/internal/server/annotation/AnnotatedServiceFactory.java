@@ -39,7 +39,6 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -559,7 +558,7 @@ public final class AnnotatedServiceFactory {
 
     private static Map<HttpMethod, List<String>> getHttpMethodAnnotatedPatternMap(
             Set<Annotation> methodAnnotations) {
-        final Map<HttpMethod, List<String>> httpMethodPatternMap = new EnumMap<>(HttpMethod.class);
+        final Map<HttpMethod, List<String>> httpMethodPatternMap = new HashMap<>();
         methodAnnotations.stream()
                          .filter(annotation -> HTTP_METHOD_MAP.containsKey(annotation.annotationType()))
                          .forEach(annotation -> {

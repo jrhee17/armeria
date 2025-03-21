@@ -33,6 +33,11 @@ package com.linecorp.armeria.internal.common;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.linecorp.armeria.common.HttpMethod.CONNECT;
+import static com.linecorp.armeria.common.HttpMethod.GET;
+import static com.linecorp.armeria.common.HttpMethod.HEAD;
+import static com.linecorp.armeria.common.HttpMethod.OPTIONS;
+import static com.linecorp.armeria.common.HttpMethod.TRACE;
 import static io.netty.util.AsciiString.EMPTY_STRING;
 import static io.netty.util.ByteProcessor.FIND_COMMA;
 import static io.netty.util.internal.StringUtil.decodeHexNibble;
@@ -472,7 +477,7 @@ public final class ArmeriaHttpUtil {
      */
     public static boolean isCorsPreflightRequest(RequestHeaders headers) {
         requireNonNull(headers, "headers");
-        return headers.method() == HttpMethod.OPTIONS &&
+        return headers.method() == OPTIONS &&
                headers.contains(HttpHeaderNames.ORIGIN) &&
                headers.contains(HttpHeaderNames.ACCESS_CONTROL_REQUEST_METHOD);
     }
@@ -871,16 +876,11 @@ public final class ArmeriaHttpUtil {
     }
 
     private static boolean isContentAlwaysEmpty(HttpMethod method) {
-        switch (method) {
-            case CONNECT:
-            case GET:
-            case HEAD:
-            case OPTIONS:
-            case TRACE:
-                return true;
-            default:
-                return false;
+        if (method.equals(CONNECT) || method.equals(GET) || method.equals(HEAD) || method.equals(OPTIONS) ||
+            method.equals(TRACE)) {
+            return true;
         }
+        return false;
     }
 
     private static boolean maybeWebSocketUpgrade(AsciiString header, CharSequence value) {

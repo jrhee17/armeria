@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.server;
 
+import static com.linecorp.armeria.common.HttpMethod.CONNECT;
+import static com.linecorp.armeria.common.HttpMethod.UNKNOWN;
 import static com.linecorp.armeria.server.HttpServerPipelineConfigurator.SCHEME_HTTP;
 import static com.linecorp.armeria.server.ServerPortMetric.SERVER_PORT_METRIC;
 import static com.linecorp.armeria.server.ServiceRouteUtil.newRoutingContext;
@@ -148,18 +150,16 @@ final class Http2RequestDecoder extends Http2EventAdapter {
                                                             scheme.toString(), cfg, reqTarget);
 
             // Reject a request with an unsupported method.
-            switch (method) {
-                case CONNECT:
-                    // Accept a CONNECT request only when it has a :protocol header, as defined in:
-                    // https://datatracker.ietf.org/doc/html/rfc8441#section-4
-                    if (!nettyHeaders.contains(HttpHeaderNames.PROTOCOL)) {
-                        writeUnsupportedMethodResponse(streamId, headers);
-                        return;
-                    }
-                    break;
-                case UNKNOWN:
+            if (method.equals(CONNECT)) {
+                // Accept a CONNECT request only when it has a :protocol header, as defined in:
+                // https://datatracker.ietf.org/doc/html/rfc8441#section-4
+                if (!nettyHeaders.contains(HttpHeaderNames.PROTOCOL)) {
                     writeUnsupportedMethodResponse(streamId, headers);
                     return;
+                }
+            } else if (method.equals(UNKNOWN)) {
+                writeUnsupportedMethodResponse(streamId, headers);
+                return;
             }
 
             // Do not accept the request path '*' for a non-OPTIONS request.

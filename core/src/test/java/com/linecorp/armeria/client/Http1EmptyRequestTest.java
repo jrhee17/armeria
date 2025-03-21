@@ -15,6 +15,15 @@
  */
 package com.linecorp.armeria.client;
 
+import static com.linecorp.armeria.common.HttpMethod.CONNECT;
+import static com.linecorp.armeria.common.HttpMethod.DELETE;
+import static com.linecorp.armeria.common.HttpMethod.GET;
+import static com.linecorp.armeria.common.HttpMethod.HEAD;
+import static com.linecorp.armeria.common.HttpMethod.OPTIONS;
+import static com.linecorp.armeria.common.HttpMethod.PATCH;
+import static com.linecorp.armeria.common.HttpMethod.POST;
+import static com.linecorp.armeria.common.HttpMethod.PUT;
+import static com.linecorp.armeria.common.HttpMethod.TRACE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.BufferedReader;
@@ -22,10 +31,11 @@ import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.EnumSource.Mode;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
@@ -36,8 +46,14 @@ import com.linecorp.armeria.common.HttpRequest;
  */
 class Http1EmptyRequestTest {
 
+    public static Stream<Arguments> emptyRequest() {
+        return HttpMethod.knownMethods().stream().filter(
+                                 method -> method != CONNECT && method != HttpMethod.UNKNOWN)
+                         .map(Arguments::of);
+    }
+
     @ParameterizedTest
-    @EnumSource(value = HttpMethod.class, mode = Mode.EXCLUDE, names = "UNKNOWN")
+    @MethodSource
     void emptyRequest(HttpMethod method) throws Exception {
         try (ServerSocket ss = new ServerSocket(0)) {
             final int port = ss.getLocalPort();
@@ -60,20 +76,12 @@ class Http1EmptyRequestTest {
     }
 
     private static boolean hasContent(HttpMethod method) {
-        switch (method) {
-            case OPTIONS:
-            case GET:
-            case HEAD:
-            case DELETE:
-            case TRACE:
-            case CONNECT:
-                return false;
-            case POST:
-            case PUT:
-            case PATCH:
-                return true;
-            default:
-                return false;
+        if (method.equals(OPTIONS) || method.equals(GET) || method.equals(HEAD) || method.equals(DELETE) ||
+            method.equals(TRACE) || method.equals(CONNECT)) {
+            return false;
+        } else if (method.equals(POST) || method.equals(PUT) || method.equals(PATCH)) {
+            return true;
         }
+        return false;
     }
 }

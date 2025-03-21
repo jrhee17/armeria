@@ -15,6 +15,8 @@
  */
 package com.linecorp.armeria.server.file;
 
+import static com.linecorp.armeria.common.HttpMethod.GET;
+import static com.linecorp.armeria.common.HttpMethod.HEAD;
 import static java.util.Objects.requireNonNull;
 
 import java.io.IOException;
@@ -247,7 +249,7 @@ public abstract class AbstractHttpFile implements HttpFile {
     public HttpService asService() {
         return (ctx, req) -> {
             final HttpMethod method = ctx.method();
-            if (method != HttpMethod.GET && method != HttpMethod.HEAD) {
+            if (method != GET && method != HEAD) {
                 return HttpResponse.of(HttpStatus.METHOD_NOT_ALLOWED);
             }
 
@@ -287,21 +289,19 @@ public abstract class AbstractHttpFile implements HttpFile {
                 }
 
                 // Precondition did not match. Handle as usual.
-                switch (ctx.method()) {
-                    case HEAD:
-                        final ResponseHeaders resHeaders = readHeaders(attrs);
-                        if (resHeaders != null) {
-                            return HttpResponse.of(resHeaders);
-                        }
-                        break;
-                    case GET:
-                        final HttpResponse res = read(ctx.blockingTaskExecutor(), ctx.alloc(), attrs);
-                        if (res != null) {
-                            return res;
-                        }
-                        break;
-                    default:
-                        throw new Error(); // Never reaches here.
+                final HttpMethod httpMethod = ctx.method();
+                if (httpMethod.equals(HEAD)) {
+                    final ResponseHeaders resHeaders = readHeaders(attrs);
+                    if (resHeaders != null) {
+                        return HttpResponse.of(resHeaders);
+                    }
+                } else if (httpMethod.equals(GET)) {
+                    final HttpResponse res = read(ctx.blockingTaskExecutor(), ctx.alloc(), attrs);
+                    if (res != null) {
+                        return res;
+                    }
+                } else {
+                    throw new Error(); // Never reaches here.
                 }
 
                 // readHeaders() or read() returned null above.

@@ -134,8 +134,9 @@ public final class ServiceInfo {
             });
         }
         return ImmutableSortedSet
-                .orderedBy(comparing(MethodInfo::name).thenComparing(MethodInfo::httpMethod)
-                                                      .thenComparing(MethodInfo::id))
+                .orderedBy(comparing(MethodInfo::name)
+                                   .thenComparing(methodInfo -> methodInfo.httpMethod().name())
+                                   .thenComparing(MethodInfo::id))
                 .addAll(methodInfoMap.values())
                 .build();
     }

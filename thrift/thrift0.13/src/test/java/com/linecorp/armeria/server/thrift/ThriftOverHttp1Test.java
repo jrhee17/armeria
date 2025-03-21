@@ -24,7 +24,7 @@ import org.apache.thrift.transport.TTransportException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
@@ -52,7 +52,7 @@ class ThriftOverHttp1Test extends AbstractThriftOverHttpTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = HttpMethod.class, names = {"DELETE", "GET"})
+    @CsvSource(value = { "DELETE", "GET"})
     void testNonPostRequest(HttpMethod method) throws Exception {
         final AggregatedHttpResponse res =
                 WebClient.of(server.uri(SessionProtocol.H1C, SerializationFormat.NONE))

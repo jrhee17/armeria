@@ -15,9 +15,13 @@
  */
 package com.linecorp.armeria.server.file;
 
+import static com.linecorp.armeria.common.HttpMethod.GET;
+import static com.linecorp.armeria.common.HttpMethod.HEAD;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.ResponseHeaders;
@@ -59,17 +63,15 @@ final class NonExistentHttpFile implements HttpFile {
     @Override
     public HttpService asService() {
         return (ctx, req) -> {
-            switch (req.method()) {
-                case HEAD:
-                case GET:
-                    if (location == null) {
-                        return HttpResponse.of(HttpStatus.NOT_FOUND);
-                    } else {
-                        return HttpResponse.ofRedirect(location);
-                    }
-                default:
-                    return HttpResponse.of(HttpStatus.METHOD_NOT_ALLOWED);
+            final HttpMethod method = req.method();
+            if (method.equals(HEAD) || method.equals(GET)) {
+                if (location == null) {
+                    return HttpResponse.of(HttpStatus.NOT_FOUND);
+                } else {
+                    return HttpResponse.ofRedirect(location);
+                }
             }
+            return HttpResponse.of(HttpStatus.METHOD_NOT_ALLOWED);
         };
     }
 

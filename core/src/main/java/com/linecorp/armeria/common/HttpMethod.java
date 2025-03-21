@@ -32,9 +32,15 @@ package com.linecorp.armeria.common;
 
 import static java.util.Objects.requireNonNull;
 
-import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -42,7 +48,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 /**
  * HTTP request method.
  */
-public enum HttpMethod {
+public final class HttpMethod {
 
     // Forked from Netty 4.1.34 at ff7484864b1785103cbc62845ff3a392c93822b7
 
@@ -53,7 +59,7 @@ public enum HttpMethod {
      * capabilities of a server, without implying a resource action or initiating a resource
      * retrieval.
      */
-    OPTIONS,
+    public static final HttpMethod OPTIONS = new HttpMethod("OPTIONS");
 
     /**
      * The GET method which means retrieve whatever information (in the form of an entity) is identified
@@ -61,65 +67,70 @@ public enum HttpMethod {
      * produced data which shall be returned as the entity in the response and not the source text
      * of the process, unless that text happens to be the output of the process.
      */
-    GET,
+    public static final HttpMethod GET = new HttpMethod("GET");
 
     /**
      * The HEAD method which is identical to GET except that the server MUST NOT return a message-body
      * in the response.
      */
-    HEAD,
+    public static final HttpMethod HEAD = new HttpMethod("HEAD");
 
     /**
      * The POST method which is used to request that the origin server accept the entity enclosed in the
      * request as a new subordinate of the resource identified by the Request-URI in the
      * Request-Line.
      */
-    POST,
+    public static final HttpMethod POST = new HttpMethod("POST");
 
     /**
      * The PUT method which requests that the enclosed entity be stored under the supplied Request-URI.
      */
-    PUT,
+    public static final HttpMethod PUT = new HttpMethod("PUT");
 
     /**
      * The PATCH method which requests that a set of changes described in the
      * request entity be applied to the resource identified by the Request-URI.
      */
-    PATCH,
+    public static final HttpMethod PATCH = new HttpMethod("PATCH");
 
     /**
      * The DELETE method which requests that the origin server delete the resource identified by the
      * Request-URI.
      */
-    DELETE,
+    public static final HttpMethod DELETE = new HttpMethod("DELETE");
 
     /**
      * The TRACE method which is used to invoke a remote, application-layer loop-back of the request
      * message.
      */
-    TRACE,
+    public static final HttpMethod TRACE = new HttpMethod("TRACE");
 
     /**
      * The CONNECT method which is used for a proxy that can dynamically switch to being a tunnel or for
      * <a href="https://datatracker.ietf.org/doc/rfc8441/">bootstrapping WebSockets with HTTP/2</a>.
      * Note that Armeria handles a {@code CONNECT} request only for bootstrapping WebSockets.
      */
-    CONNECT,
+    public static final HttpMethod CONNECT = new HttpMethod("CONNECT");
 
     /**
      * A special constant returned by {@link RequestHeaders#method()} to signify that a request has a method
      * not defined in this enum.
      */
-    UNKNOWN;
+    public static final HttpMethod UNKNOWN = new HttpMethod("UNKNOWN");
 
+    private static final List<HttpMethod> allMethods;
     private static final Set<HttpMethod> knownMethods; // ImmutableEnumSet
-    private static final Set<HttpMethod> idempotentMethods = Sets.immutableEnumSet(GET, HEAD, PUT, DELETE);
+    private static final Set<HttpMethod> idempotentMethods = Sets.newHashSet(GET, HEAD, PUT, DELETE);
+    private static final Map<String, HttpMethod> nameToMethod;
 
     static {
-        final Set<HttpMethod> allMethods = EnumSet.allOf(HttpMethod.class);
-        allMethods.remove(UNKNOWN);
-        knownMethods = Sets.immutableEnumSet(allMethods);
+        allMethods = ImmutableList.of(OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE, TRACE, CONNECT, UNKNOWN);
+        knownMethods = ImmutableSet.of(OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE, TRACE, CONNECT);
+        nameToMethod = allMethods.stream().collect(ImmutableMap.toImmutableMap(HttpMethod::name,
+                                                                               Function.identity()));
     }
+
+    private static final HttpMethod[] allMethodsArr = allMethods.toArray(new HttpMethod[0]);
 
     /**
      * Returns whether the specified {@link String} is one of the supported method names.
@@ -195,5 +206,40 @@ public enum HttpMethod {
             default:
                 return null;
         }
+    }
+
+    /**
+     * TBU.
+     */
+    public static HttpMethod[] values() {
+        return allMethodsArr;
+    }
+
+    private final String name;
+
+    private HttpMethod(String name) {
+        this.name = requireNonNull(name, "name");
+    }
+
+    /**
+     * TBU.
+     */
+    @JsonProperty
+    public String name() {
+        return name;
+    }
+
+    /**
+     * TBU.
+     */
+    public static HttpMethod valueOf(String name) {
+        final HttpMethod method = nameToMethod.get(name);
+        requireNonNull(method, "cannot find method: " + name);
+        return method;
+    }
+
+    @Override
+    public String toString() {
+        return name;
     }
 }

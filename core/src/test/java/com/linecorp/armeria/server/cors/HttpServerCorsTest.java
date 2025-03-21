@@ -76,7 +76,7 @@ class HttpServerCorsTest {
     @CorsDecorator(
             origins = "http://example.com",
             pathPatterns = "glob:/**/configured",
-            allowedRequestMethods = HttpMethod.GET
+            allowedRequestMethods = "GET"
     )
     private static class MyAnnotatedService2 {
         @Get("/configured")
@@ -88,7 +88,7 @@ class HttpServerCorsTest {
 
     @CorsDecorator(
             origins = "http://example.com",
-            allowedRequestMethods = HttpMethod.GET,
+            allowedRequestMethods = "GET",
             allowAllRequestHeaders = true
     )
     private static class MyAnnotatedService3 {
@@ -99,7 +99,7 @@ class HttpServerCorsTest {
 
     @CorsDecorator(
             originRegexes = "http:\\/\\/example.*",
-            allowedRequestMethods = HttpMethod.GET
+            allowedRequestMethods = "GET"
     )
     private static class MyAnnotatedService4 {
         @Get("/index")
@@ -110,7 +110,7 @@ class HttpServerCorsTest {
     @CorsDecorator(
             origins = "http://armeria.com",
             originRegexes = { "http:\\/\\/line.*", "http:\\/\\/test.*" },
-            allowedRequestMethods = HttpMethod.GET
+            allowedRequestMethods = "GET"
     )
     private static class MyAnnotatedService5 {
         @Get("/index")
@@ -207,7 +207,7 @@ class HttpServerCorsTest {
                 @CorsDecorator(
                         origins = "*", exposedHeaders = { "expose_header_1", "expose_header_2" },
                         allowedRequestHeaders = { "allow_request_1", "allow_request_2" },
-                        allowedRequestMethods = HttpMethod.GET, maxAge = 3600,
+                        allowedRequestMethods = "GET", maxAge = 3600,
                         preflightRequestHeaders = {
                                 @AdditionalHeader(name = "x-preflight-cors",
                                                   value = { "Hello CORS", "Hello CORS2" })
@@ -220,7 +220,7 @@ class HttpServerCorsTest {
                 @CorsDecorator(
                         origins = "http://example.com",
                         exposedHeaders = { "expose_header_1", "expose_header_2" },
-                        allowedRequestMethods = HttpMethod.POST, credentialsAllowed = true,
+                        allowedRequestMethods = "POST", credentialsAllowed = true,
                         allowedRequestHeaders = { "allow_request_1", "allow_request_2" }, maxAge = 1800,
                         preflightRequestHeaders = {
                                 @AdditionalHeader(name = "x-preflight-cors", value = "Hello CORS")
@@ -231,9 +231,9 @@ class HttpServerCorsTest {
 
                 @Get("/multi/get")
                 @CorsDecorator(origins = "http://example.com", exposedHeaders = "expose_header_1",
-                               allowedRequestMethods = HttpMethod.GET, credentialsAllowed = true)
+                               allowedRequestMethods = "GET", credentialsAllowed = true)
                 @CorsDecorator(origins = "http://example2.com", exposedHeaders = "expose_header_2",
-                               allowedRequestMethods = HttpMethod.GET, credentialsAllowed = true)
+                               allowedRequestMethods = "GET", credentialsAllowed = true)
                 public HttpResponse multiGet() {
                     return HttpResponse.of(HttpStatus.OK);
                 }

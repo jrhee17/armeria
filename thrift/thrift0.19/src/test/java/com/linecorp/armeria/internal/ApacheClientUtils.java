@@ -16,6 +16,10 @@
 
 package com.linecorp.armeria.internal;
 
+import static com.linecorp.armeria.common.HttpMethod.DELETE;
+import static com.linecorp.armeria.common.HttpMethod.GET;
+import static com.linecorp.armeria.common.HttpMethod.POST;
+
 import java.util.AbstractMap;
 import java.util.Map.Entry;
 
@@ -70,18 +74,14 @@ public final class ApacheClientUtils {
 
     public static Entry<String, String> makeApacheHttpRequest(String uri, HttpMethod method) {
         final HttpUriRequest req;
-        switch (method) {
-            case GET:
-                req = new HttpGet(uri);
-                break;
-            case DELETE:
-                req = new HttpDelete(uri);
-                break;
-            case POST:
-                req = new HttpPost(uri);
-                break;
-            default:
-                throw new UnsupportedOperationException("Unsupported HTTP method: " + method);
+        if (method.equals(GET)) {
+            req = new HttpGet(uri);
+        } else if (method.equals(DELETE)) {
+            req = new HttpDelete(uri);
+        } else if (method.equals(POST)) {
+            req = new HttpPost(uri);
+        } else {
+            throw new UnsupportedOperationException("Unsupported HTTP method: " + method);
         }
         try (CloseableHttpClient hc = HttpClients.createMinimal()) {
             try (CloseableHttpResponse res = hc.execute(req)) {

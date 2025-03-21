@@ -20,7 +20,6 @@ import static com.linecorp.armeria.internal.server.CorsHeaderUtil.DELIMITER;
 import static java.util.Objects.requireNonNull;
 
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -113,7 +112,7 @@ public final class CorsPolicy {
                List<Route> routes, boolean credentialsAllowed, long maxAge,
                boolean nullOriginAllowed, Set<AsciiString> exposedHeaders,
                boolean allowAllRequestHeaders, Set<AsciiString> allowedRequestHeaders,
-               EnumSet<HttpMethod> allowedRequestMethods, boolean preflightResponseHeadersDisabled,
+               Set<HttpMethod> allowedRequestMethods, boolean preflightResponseHeadersDisabled,
                Map<AsciiString, Supplier<?>> preflightResponseHeaders) {
         this.origins = ImmutableSet.copyOf(origins);
         this.originPredicate = (Predicate<String>) originPredicate;

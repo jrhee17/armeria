@@ -20,6 +20,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.linecorp.armeria.common.HttpMethod.DELETE;
+import static com.linecorp.armeria.common.HttpMethod.GET;
+import static com.linecorp.armeria.common.HttpMethod.PATCH;
+import static com.linecorp.armeria.common.HttpMethod.POST;
+import static com.linecorp.armeria.common.HttpMethod.PUT;
 import static com.linecorp.armeria.server.grpc.HttpJsonTranscodingQueryParamMatchRule.ORIGINAL_FIELD;
 import static java.util.Objects.requireNonNull;
 
@@ -617,7 +622,7 @@ final class HttpJsonTranscodingService extends AbstractUnframedGrpcService
                                    "gRPC encoding is not supported for non-framed requests.");
         }
 
-        grpcHeaders.method(HttpMethod.POST)
+        grpcHeaders.method(POST)
                    .contentType(GrpcSerializationFormats.JSON.mediaType());
         // All clients support no encoding, and we don't support gRPC encoding for non-framed requests, so just
         // clear the header if it's present.
@@ -691,50 +696,47 @@ final class HttpJsonTranscodingService extends AbstractUnframedGrpcService
                                           AggregatedHttpRequest request,
                                           TranscodingSpec spec) throws IOException {
         try {
-            switch (request.method()) {
-                case GET:
-                    return setParametersAndWriteJson(mapper.createObjectNode(), ctx, spec);
-                case PUT:
-                case POST:
-                case PATCH:
-                case DELETE:
-                    final String bodyMapping = spec.httpRule.getBody();
-                    // Put the body into the json if 'body: "*"' is specified.
-                    if ("*".equals(bodyMapping)) {
-                        @Nullable
-                        final JsonNode body = getBodyContent(request);
-                        final ObjectNode root;
-                        if (body instanceof ObjectNode) {
-                            root = (ObjectNode) body;
-                        } else if (body == null) {
-                            root = mapper.createObjectNode();
-                        } else {
-                            throw new IllegalArgumentException("Unexpected JSON: " +
-                                                               body + ", (expected: ObjectNode or null).");
-                        }
-                        return setParametersAndWriteJson(root, ctx, spec);
-                    }
-
-                    // Put the body into the json under "name" field if 'body: "name"' is specified.
-                    final ObjectNode root = mapper.createObjectNode();
-                    if (!Strings.isNullOrEmpty(bodyMapping)) {
-                        ObjectNode current = root;
-                        final String[] nameParts = bodyMapping.split("\\.");
-                        for (int i = 0; i < nameParts.length - 1; i++) {
-                            current = current.putObject(nameParts[i]);
-                        }
-                        @Nullable
-                        final JsonNode body = getBodyContent(request);
-                        if (body != null) {
-                            current.set(nameParts[nameParts.length - 1], body);
-                        } else {
-                            current.putNull(nameParts[nameParts.length - 1]);
-                        }
+            final HttpMethod method = request.method();
+            if (method.equals(GET)) {
+                return setParametersAndWriteJson(mapper.createObjectNode(), ctx, spec);
+            } else if (method.equals(PUT) || method.equals(POST) || method.equals(PATCH) || method.equals(
+                    DELETE)) {
+                final String bodyMapping = spec.httpRule.getBody();
+                // Put the body into the json if 'body: "*"' is specified.
+                if ("*".equals(bodyMapping)) {
+                    @Nullable
+                    final JsonNode body = getBodyContent(request);
+                    final ObjectNode root;
+                    if (body instanceof ObjectNode) {
+                        root = (ObjectNode) body;
+                    } else if (body == null) {
+                        root = mapper.createObjectNode();
+                    } else {
+                        throw new IllegalArgumentException("Unexpected JSON: " +
+                                                           body + ", (expected: ObjectNode or null).");
                     }
                     return setParametersAndWriteJson(root, ctx, spec);
-                default:
-                    throw HttpStatusException.of(HttpStatus.METHOD_NOT_ALLOWED);
+                }
+
+                // Put the body into the json under "name" field if 'body: "name"' is specified.
+                final ObjectNode root = mapper.createObjectNode();
+                if (!Strings.isNullOrEmpty(bodyMapping)) {
+                    ObjectNode current = root;
+                    final String[] nameParts = bodyMapping.split("\\.");
+                    for (int i = 0; i < nameParts.length - 1; i++) {
+                        current = current.putObject(nameParts[i]);
+                    }
+                    @Nullable
+                    final JsonNode body = getBodyContent(request);
+                    if (body != null) {
+                        current.set(nameParts[nameParts.length - 1], body);
+                    } else {
+                        current.putNull(nameParts[nameParts.length - 1]);
+                    }
+                }
+                return setParametersAndWriteJson(root, ctx, spec);
             }
+            throw HttpStatusException.of(HttpStatus.METHOD_NOT_ALLOWED);
         } finally {
             request.content().close();
         }

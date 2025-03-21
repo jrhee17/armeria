@@ -15,6 +15,8 @@
  */
 package com.linecorp.armeria.internal.server.websocket;
 
+import static com.linecorp.armeria.common.HttpMethod.CONNECT;
+import static com.linecorp.armeria.common.HttpMethod.GET;
 import static com.linecorp.armeria.internal.common.websocket.WebSocketUtil.generateSecWebSocketAccept;
 import static com.linecorp.armeria.internal.common.websocket.WebSocketUtil.isHttp1WebSocketUpgradeRequest;
 import static com.linecorp.armeria.internal.common.websocket.WebSocketUtil.isHttp2WebSocketUpgradeRequest;
@@ -132,16 +134,14 @@ public final class DefaultWebSocketService implements WebSocketService, WebSocke
     @Override
     public WebSocketUpgradeResult upgrade(ServiceRequestContext ctx, HttpRequest req) throws Exception {
         final HttpMethod method = ctx.method();
-        switch (method) {
-            case GET:
-                return upgradeHttp1(ctx, req);
-            case CONNECT:
-                return upgradeHttp2(ctx, req);
-            default:
-                final HttpResponse httpResponse =
-                        failOrFallback(ctx, req, () -> HttpResponse.of(HttpStatus.METHOD_NOT_ALLOWED));
-                return WebSocketUpgradeResult.ofFailure(httpResponse);
+        if (method.equals(GET)) {
+            return upgradeHttp1(ctx, req);
+        } else if (method.equals(CONNECT)) {
+            return upgradeHttp2(ctx, req);
         }
+        final HttpResponse httpResponse =
+                failOrFallback(ctx, req, () -> HttpResponse.of(HttpStatus.METHOD_NOT_ALLOWED));
+        return WebSocketUpgradeResult.ofFailure(httpResponse);
     }
 
     /**

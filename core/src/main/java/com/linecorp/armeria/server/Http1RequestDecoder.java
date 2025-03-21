@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.server;
 
+import static com.linecorp.armeria.common.HttpMethod.CONNECT;
+import static com.linecorp.armeria.common.HttpMethod.UNKNOWN;
 import static com.linecorp.armeria.internal.common.websocket.WebSocketUtil.isHttp1WebSocketUpgradeRequest;
 import static com.linecorp.armeria.server.HttpServerPipelineConfigurator.SCHEME_HTTP;
 import static com.linecorp.armeria.server.ServerPortMetric.SERVER_PORT_METRIC;
@@ -197,11 +199,9 @@ final class Http1RequestDecoder extends ChannelDuplexHandler {
                                                       cfg, scheme.toString(), reqTarget);
                     // Do not accept unsupported methods.
                     final HttpMethod method = headers.method();
-                    switch (method) {
-                        case CONNECT:
-                        case UNKNOWN:
-                            fail(id, headers, HttpStatus.METHOD_NOT_ALLOWED, "Unsupported method", null);
-                            return;
+                    if (method.equals(CONNECT) || method.equals(UNKNOWN)) {
+                        fail(id, headers, HttpStatus.METHOD_NOT_ALLOWED, "Unsupported method", null);
+                        return;
                     }
 
                     // Do not accept the request path '*' for a non-OPTIONS request.

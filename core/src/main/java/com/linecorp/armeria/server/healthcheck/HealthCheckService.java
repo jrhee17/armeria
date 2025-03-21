@@ -16,6 +16,12 @@
 package com.linecorp.armeria.server.healthcheck;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.linecorp.armeria.common.HttpMethod.CONNECT;
+import static com.linecorp.armeria.common.HttpMethod.DELETE;
+import static com.linecorp.armeria.common.HttpMethod.GET;
+import static com.linecorp.armeria.common.HttpMethod.HEAD;
+import static com.linecorp.armeria.common.HttpMethod.OPTIONS;
+import static com.linecorp.armeria.common.HttpMethod.TRACE;
 
 import java.util.List;
 import java.util.Set;
@@ -342,12 +348,8 @@ public final class HealthCheckService implements TransientHttpService {
         final HttpMethod method = ctx.method();
         if (useLongPolling) {
             // Disallow other methods than HEAD/GET for long polling.
-            switch (method) {
-                case HEAD:
-                case GET:
-                    break;
-                default:
-                    throw HttpStatusException.of(HttpStatus.METHOD_NOT_ALLOWED);
+            if (!method.equals(HEAD) && !method.equals(GET)) {
+                throw HttpStatusException.of(HttpStatus.METHOD_NOT_ALLOWED);
             }
 
             assert healthCheckerListener != null : "healthCheckerListener is null.";
@@ -412,15 +414,12 @@ public final class HealthCheckService implements TransientHttpService {
             }
         }
 
-        switch (method) {
-            case HEAD:
-            case GET:
-                return newResponse(method, isHealthy);
-            case CONNECT:
-            case DELETE:
-            case OPTIONS:
-            case TRACE:
-                return HttpResponse.of(HttpStatus.METHOD_NOT_ALLOWED);
+        if (method.equals(HEAD) || method.equals(GET)) {
+            return newResponse(method, isHealthy);
+        }
+        if (method.equals(CONNECT) || method.equals(DELETE) || method.equals(OPTIONS) || method.equals(
+                TRACE)) {
+            return HttpResponse.of(HttpStatus.METHOD_NOT_ALLOWED);
         }
 
         assert method == HttpMethod.POST ||
@@ -510,7 +509,7 @@ public final class HealthCheckService implements TransientHttpService {
     private HttpResponse newResponse(HttpMethod method, boolean isHealthy) {
         final AggregatedHttpResponse aRes = getResponse(isHealthy);
 
-        if (method == HttpMethod.HEAD) {
+        if (method == HEAD) {
             return HttpResponse.of(aRes.headers());
         } else {
             return aRes.toHttpResponse();
@@ -553,7 +552,7 @@ public final class HealthCheckService implements TransientHttpService {
         final AggregatedHttpResponse res = getResponse(isHealthy);
         for (PendingResponse e : pendingResponses) {
             if (e.cancelAllScheduledFutures()) {
-                if (e.method == HttpMethod.HEAD) {
+                if (e.method == HEAD) {
                     if (e.res.tryWrite(res.headers())) {
                         e.res.close();
                     }

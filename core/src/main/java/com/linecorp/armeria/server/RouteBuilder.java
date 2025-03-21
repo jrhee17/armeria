@@ -254,7 +254,7 @@ public final class RouteBuilder {
      * the mapped {@link HttpService} accepts any {@link HttpMethod}s.
      */
     public RouteBuilder methods(Iterable<HttpMethod> methods) {
-        this.methods = Sets.immutableEnumSet(requireNonNull(methods, "methods"));
+        this.methods = Sets.newHashSet(requireNonNull(methods, "methods"));
         return this;
     }
 

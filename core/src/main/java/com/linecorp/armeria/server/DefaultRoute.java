@@ -56,7 +56,7 @@ final class DefaultRoute implements Route {
                  boolean isFallback, List<Route> excludedRoutes) {
         this.pathMapping = requireNonNull(pathMapping, "pathMapping");
         checkArgument(!requireNonNull(methods, "methods").isEmpty(), "methods is empty.");
-        this.methods = Sets.immutableEnumSet(methods);
+        this.methods = Sets.newHashSet(methods);
         this.consumes = ImmutableSet.copyOf(requireNonNull(consumes, "consumes"));
         this.produces = ImmutableSet.copyOf(requireNonNull(produces, "produces"));
         this.paramPredicates = ImmutableList.copyOf(requireNonNull(paramPredicates, "paramPredicates"));

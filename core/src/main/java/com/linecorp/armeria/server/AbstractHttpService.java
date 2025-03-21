@@ -15,6 +15,16 @@
  */
 package com.linecorp.armeria.server;
 
+import static com.linecorp.armeria.common.HttpMethod.CONNECT;
+import static com.linecorp.armeria.common.HttpMethod.DELETE;
+import static com.linecorp.armeria.common.HttpMethod.GET;
+import static com.linecorp.armeria.common.HttpMethod.HEAD;
+import static com.linecorp.armeria.common.HttpMethod.OPTIONS;
+import static com.linecorp.armeria.common.HttpMethod.PATCH;
+import static com.linecorp.armeria.common.HttpMethod.POST;
+import static com.linecorp.armeria.common.HttpMethod.PUT;
+import static com.linecorp.armeria.common.HttpMethod.TRACE;
+
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
@@ -46,28 +56,27 @@ public abstract class AbstractHttpService implements HttpService {
      */
     @Override
     public final HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
-        switch (req.method()) {
-            case OPTIONS:
-                return doOptions(ctx, req);
-            case GET:
-                return doGet(ctx, req);
-            case HEAD:
-                return doHead(ctx, req);
-            case POST:
-                return doPost(ctx, req);
-            case PUT:
-                return doPut(ctx, req);
-            case PATCH:
-                return doPatch(ctx, req);
-            case DELETE:
-                return doDelete(ctx, req);
-            case TRACE:
-                return doTrace(ctx, req);
-            case CONNECT:
-                return doConnect(ctx, req);
-            default:
-                return HttpResponse.of(HttpStatus.METHOD_NOT_ALLOWED);
+        final HttpMethod method = req.method();
+        if (method.equals(OPTIONS)) {
+            return doOptions(ctx, req);
+        } else if (method.equals(GET)) {
+            return doGet(ctx, req);
+        } else if (method.equals(HEAD)) {
+            return doHead(ctx, req);
+        } else if (method.equals(POST)) {
+            return doPost(ctx, req);
+        } else if (method.equals(PUT)) {
+            return doPut(ctx, req);
+        } else if (method.equals(PATCH)) {
+            return doPatch(ctx, req);
+        } else if (method.equals(DELETE)) {
+            return doDelete(ctx, req);
+        } else if (method.equals(TRACE)) {
+            return doTrace(ctx, req);
+        } else if (method.equals(CONNECT)) {
+            return doConnect(ctx, req);
         }
+        return HttpResponse.of(HttpStatus.METHOD_NOT_ALLOWED);
     }
 
     /**

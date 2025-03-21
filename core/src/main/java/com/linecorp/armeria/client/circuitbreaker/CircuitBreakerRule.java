@@ -25,7 +25,6 @@ import java.util.function.BiPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 import com.linecorp.armeria.client.ClientRequestContext;
@@ -174,7 +173,7 @@ public interface CircuitBreakerRule {
     static CircuitBreakerRuleBuilder builder(Iterable<HttpMethod> methods) {
         requireNonNull(methods, "methods");
         checkArgument(!Iterables.isEmpty(methods), "method can't be empty.");
-        final ImmutableSet<HttpMethod> httpMethods = Sets.immutableEnumSet(methods);
+        final ImmutableSet<HttpMethod> httpMethods = ImmutableSet.copyOf(methods);
         return builder((unused, headers) -> httpMethods.contains(headers.method()));
     }
 

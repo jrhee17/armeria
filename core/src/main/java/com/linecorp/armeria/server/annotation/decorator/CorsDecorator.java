@@ -59,7 +59,7 @@ public @interface CorsDecorator {
      *
      * @see CorsPolicyBuilder#allowRequestMethods(HttpMethod...)
      */
-    HttpMethod[] allowedRequestMethods() default {};
+    String[] allowedRequestMethods() default {};
 
     /**
      * The value of the CORS {@code "Access-Control-Max-Age"} response header which enables the

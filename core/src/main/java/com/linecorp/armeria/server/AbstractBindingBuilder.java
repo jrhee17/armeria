@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -222,12 +222,13 @@ abstract class AbstractBindingBuilder<SELF extends AbstractBindingBuilder<SELF>>
     }
 
     private void addRouteBuilder(String pathPattern, HttpMethod method) {
-        addRouteBuilder(Route.builder().path(requireNonNull(pathPattern, "pathPattern")), EnumSet.of(method));
+        addRouteBuilder(Route.builder().path(requireNonNull(pathPattern, "pathPattern")),
+                        ImmutableSet.of(method));
     }
 
     private void addRouteBuilder(RouteBuilder routeBuilder, Set<HttpMethod> methods) {
         final Set<HttpMethod> methodSet = routeBuilders.computeIfAbsent(
-                routeBuilder, key -> EnumSet.noneOf(HttpMethod.class));
+                routeBuilder, key -> new HashSet<>());
 
         for (HttpMethod method : methods) {
             if (!methodSet.add(method)) {
@@ -258,7 +259,7 @@ abstract class AbstractBindingBuilder<SELF extends AbstractBindingBuilder<SELF>>
     public SELF methods(Iterable<HttpMethod> methods) {
         requireNonNull(methods, "methods");
         checkArgument(!Iterables.isEmpty(methods), "methods can't be empty.");
-        this.methods = Sets.immutableEnumSet(methods);
+        this.methods = Sets.newHashSet(methods);
         return self();
     }
 

@@ -15,6 +15,8 @@
  */
 package com.linecorp.armeria.internal.server.annotation;
 
+import static com.linecorp.armeria.common.HttpMethod.GET;
+import static com.linecorp.armeria.common.HttpMethod.POST;
 import static org.apache.hc.core5.http.HttpHeaders.ACCEPT;
 import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
 import static org.apache.hc.core5.http.HttpHeaders.IF_MATCH;
@@ -1088,27 +1090,27 @@ class AnnotatedServiceTest {
         final BlockingWebClient client = BlockingWebClient.of(server.httpUri());
         final String path = "/8/same/path";
 
-        RequestHeaders headers = RequestHeaders.of(HttpMethod.GET, path);
+        RequestHeaders headers = RequestHeaders.of(GET, path);
         AggregatedHttpResponse res = client.execute(headers);
         assertThat(res.status()).isSameAs(HttpStatus.OK);
         assertThat(res.headers().contentType()).isNull();
         assertThat(res.contentUtf8()).isEqualTo("GET");
 
         // The same as the above.
-        headers = RequestHeaders.of(HttpMethod.GET, path, HttpHeaderNames.ACCEPT, "*/*");
+        headers = RequestHeaders.of(GET, path, HttpHeaderNames.ACCEPT, "*/*");
         res = client.execute(headers);
         assertThat(res.status()).isSameAs(HttpStatus.OK);
         assertThat(res.headers().contentType()).hasToString("text/plain");
         assertThat(res.contentUtf8()).isEqualTo("GET/TEXT");
 
-        headers = RequestHeaders.of(HttpMethod.GET, path,
+        headers = RequestHeaders.of(GET, path,
                                     HttpHeaderNames.ACCEPT, "application/json;q=0.9, text/plain");
         res = client.execute(headers);
         assertThat(res.status()).isSameAs(HttpStatus.OK);
         assertThat(res.headers().contentType()).hasToString("text/plain");
         assertThat(res.contentUtf8()).isEqualTo("GET/TEXT");
 
-        headers = RequestHeaders.of(HttpMethod.GET, path,
+        headers = RequestHeaders.of(GET, path,
                                     HttpHeaderNames.ACCEPT, "application/json;q=0.9, text/plain;q=0.7");
         res = client.execute(headers);
         assertThat(res.status()).isSameAs(HttpStatus.OK);
@@ -1116,7 +1118,7 @@ class AnnotatedServiceTest {
         assertThat(res.contentUtf8()).isEqualTo("GET/JSON");
 
         // Because of the charset, sharedGetJson() is not matched.
-        headers = RequestHeaders.of(HttpMethod.GET, path,
+        headers = RequestHeaders.of(GET, path,
                                     HttpHeaderNames.ACCEPT,
                                     "application/json;charset=UTF-8;q=0.9, text/plain;q=0.7");
         res = client.execute(headers);
@@ -1125,7 +1127,7 @@ class AnnotatedServiceTest {
         assertThat(res.contentUtf8()).isEqualTo("GET/TEXT");
 
         // Because of the charset, sharedGetJson() is not matched.
-        headers = RequestHeaders.of(HttpMethod.GET, path,
+        headers = RequestHeaders.of(GET, path,
                                     HttpHeaderNames.ACCEPT,
                                     "application/json;charset=UTF-8;q=0.9, text/html;q=0.7");
         res = client.execute(headers);
@@ -1133,7 +1135,7 @@ class AnnotatedServiceTest {
         assertThat(res.headers().contentType()).isNull();
         assertThat(res.contentUtf8()).isEqualTo("GET");
 
-        headers = RequestHeaders.of(HttpMethod.GET, path,
+        headers = RequestHeaders.of(GET, path,
                                     HttpHeaderNames.ACCEPT,
                                     "application/x-www-form-urlencoded, " +
                                     "application/json;charset=UTF-8;q=0.9, text/plain;q=0.7");
@@ -1142,7 +1144,7 @@ class AnnotatedServiceTest {
         assertThat(res.headers().contentType()).hasToString("text/plain");
         assertThat(res.contentUtf8()).isEqualTo("GET/TEXT");
 
-        headers = RequestHeaders.of(HttpMethod.POST, path,
+        headers = RequestHeaders.of(POST, path,
                                     HttpHeaderNames.ACCEPT, "application/json",
                                     HttpHeaderNames.CONTENT_TYPE, "application/json");
         res = client.execute(headers);
@@ -1150,27 +1152,27 @@ class AnnotatedServiceTest {
         assertThat(res.headers().contentType()).isSameAs(MediaType.JSON);
         assertThat(res.contentUtf8()).isEqualTo("POST/JSON/BOTH");
 
-        headers = RequestHeaders.of(HttpMethod.POST, path,
+        headers = RequestHeaders.of(POST, path,
                                     HttpHeaderNames.CONTENT_TYPE, "application/json");
         res = client.execute(headers);
         assertThat(res.status()).isSameAs(HttpStatus.OK);
         assertThat(res.headers().contentType()).isNull();
         assertThat(res.contentUtf8()).isEqualTo("POST/JSON");
 
-        headers = RequestHeaders.of(HttpMethod.POST, path,
+        headers = RequestHeaders.of(POST, path,
                                     HttpHeaderNames.ACCEPT, "application/json");
         res = client.execute(headers);
         assertThat(res.status()).isSameAs(HttpStatus.OK);
         assertThat(res.headers().contentType()).isSameAs(MediaType.JSON);
         assertThat(res.contentUtf8()).isEqualTo("POST/JSON/BOTH");
 
-        headers = RequestHeaders.of(HttpMethod.POST, path);
+        headers = RequestHeaders.of(POST, path);
         res = client.execute(headers);
         assertThat(res.status()).isSameAs(HttpStatus.OK);
         assertThat(res.headers().contentType()).isNull();
         assertThat(res.contentUtf8()).isEqualTo("POST");
 
-        headers = RequestHeaders.of(HttpMethod.POST, path,
+        headers = RequestHeaders.of(POST, path,
                                     HttpHeaderNames.ACCEPT, "test/json",
                                     HttpHeaderNames.CONTENT_TYPE, "application/json");
         res = client.execute(headers);
@@ -1452,23 +1454,23 @@ class AnnotatedServiceTest {
     }
 
     static HttpUriRequestBase get(String path) {
-        return request(HttpMethod.GET, path, null, null);
+        return request(GET, path, null, null);
     }
 
     static HttpUriRequestBase get(String path, @Nullable String accept) {
-        return request(HttpMethod.GET, path, null, accept);
+        return request(GET, path, null, accept);
     }
 
     static HttpUriRequestBase post(String path) {
-        return request(HttpMethod.POST, path, null, null);
+        return request(POST, path, null, null);
     }
 
     static HttpUriRequestBase post(String path, @Nullable String contentType) {
-        return request(HttpMethod.POST, path, contentType, null);
+        return request(POST, path, contentType, null);
     }
 
     static HttpUriRequestBase post(String path, @Nullable String contentType, @Nullable String accept) {
-        return request(HttpMethod.POST, path, contentType, accept);
+        return request(POST, path, contentType, accept);
     }
 
     static HttpPost form(String path) {
@@ -1476,7 +1478,7 @@ class AnnotatedServiceTest {
     }
 
     static HttpPost form(String path, @Nullable Charset charset, String... kv) {
-        final HttpPost req = (HttpPost) request(HttpMethod.POST, path, MediaType.FORM_DATA.toString());
+        final HttpPost req = (HttpPost) request(POST, path, MediaType.FORM_DATA.toString());
 
         final List<NameValuePair> params = new ArrayList<>();
         for (int i = 0; i < kv.length; i += 2) {
@@ -1496,15 +1498,12 @@ class AnnotatedServiceTest {
     static HttpUriRequestBase request(HttpMethod method, String path,
                                       @Nullable String contentType, @Nullable String accept) {
         final HttpUriRequestBase req;
-        switch (method) {
-            case GET:
-                req = new HttpGet(server.httpUri().resolve(path));
-                break;
-            case POST:
-                req = new HttpPost(server.httpUri().resolve(path));
-                break;
-            default:
-                throw new Error("Unexpected method: " + method);
+        if (method.equals(GET)) {
+            req = new HttpGet(server.httpUri().resolve(path));
+        } else if (method.equals(POST)) {
+            req = new HttpPost(server.httpUri().resolve(path));
+        } else {
+            throw new Error("Unexpected method: " + method);
         }
         if (contentType != null) {
             req.setHeader(CONTENT_TYPE, contentType);

@@ -15,6 +15,9 @@
  */
 package com.linecorp.armeria.server.healthcheck;
 
+import static com.linecorp.armeria.common.HttpMethod.PATCH;
+import static com.linecorp.armeria.common.HttpMethod.POST;
+import static com.linecorp.armeria.common.HttpMethod.PUT;
 import static java.util.Objects.requireNonNull;
 
 import java.io.IOException;
@@ -27,6 +30,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 
 import com.linecorp.armeria.common.AggregatedHttpRequest;
+import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.MediaType;
@@ -44,16 +48,14 @@ enum DefaultHealthCheckUpdateHandler implements HealthCheckUpdateHandler {
     public CompletionStage<HealthCheckUpdateResult> handle(ServiceRequestContext ctx,
                                                            HttpRequest req) throws Exception {
         requireNonNull(req, "req");
-        switch (req.method()) {
-            case PUT:
-            case POST:
-                return req.aggregate().thenApply(DefaultHealthCheckUpdateHandler::handlePut);
-            case PATCH:
-                return req.aggregate().thenApply(DefaultHealthCheckUpdateHandler::handlePatch);
-            default:
-                return UnmodifiableFuture.exceptionallyCompletedFuture(
-                        HttpStatusException.of(HttpStatus.METHOD_NOT_ALLOWED));
+        final HttpMethod method = req.method();
+        if (method.equals(PUT) || method.equals(POST)) {
+            return req.aggregate().thenApply(DefaultHealthCheckUpdateHandler::handlePut);
+        } else if (method.equals(PATCH)) {
+            return req.aggregate().thenApply(DefaultHealthCheckUpdateHandler::handlePatch);
         }
+        return UnmodifiableFuture.exceptionallyCompletedFuture(
+                HttpStatusException.of(HttpStatus.METHOD_NOT_ALLOWED));
     }
 
     private static HealthCheckUpdateResult handlePut(AggregatedHttpRequest req) {

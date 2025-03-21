@@ -22,7 +22,6 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -30,12 +29,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 
 import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpMethod;
@@ -61,7 +63,7 @@ abstract class AbstractCorsPolicyBuilder<SELF extends AbstractCorsPolicyBuilder<
     private boolean nullOriginAllowed;
     private long maxAge;
     private final Set<AsciiString> exposedHeaders = new HashSet<>();
-    private final EnumSet<HttpMethod> allowedRequestMethods = EnumSet.noneOf(HttpMethod.class);
+    private final Set<HttpMethod> allowedRequestMethods = Sets.newHashSet();
     // FIXME(ghkim3221): Change the default value to true in Armeria 2.0.
     private boolean allowAllRequestHeaders;
     private final Set<AsciiString> allowedRequestHeaders = new HashSet<>();
@@ -111,7 +113,10 @@ abstract class AbstractCorsPolicyBuilder<SELF extends AbstractCorsPolicyBuilder<
         }
         allowAllRequestHeaders(corsDecorator.allowAllRequestHeaders());
         if (corsDecorator.allowedRequestMethods().length > 0) {
-            allowRequestMethods(corsDecorator.allowedRequestMethods());
+            final List<HttpMethod> methods = Stream.of(corsDecorator.allowedRequestMethods())
+                                                   .map(HttpMethod::valueOf)
+                                                   .collect(Collectors.toList());
+            allowRequestMethods(methods);
         }
         for (AdditionalHeader additionalHeader : corsDecorator.preflightRequestHeaders()) {
             preflightResponseHeader(additionalHeader.name(), additionalHeader.value());

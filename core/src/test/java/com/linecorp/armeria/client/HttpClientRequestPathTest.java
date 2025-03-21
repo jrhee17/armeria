@@ -22,13 +22,17 @@ import static com.linecorp.armeria.common.HttpStatus.OK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import com.linecorp.armeria.client.retry.RetryRule;
 import com.linecorp.armeria.client.retry.RetryingClient;
@@ -87,8 +91,14 @@ class HttpClientRequestPathTest {
         counter = 0;
     }
 
+    public static Stream<Arguments> default_withAbsolutePath() {
+        return HttpMethod.knownMethods().stream().filter(
+                                 method -> method != HttpMethod.CONNECT && method != HttpMethod.UNKNOWN)
+                         .map(Arguments::of);
+    }
+
     @ParameterizedTest
-    @EnumSource(value = HttpMethod.class, mode = Mode.EXCLUDE, names = { "CONNECT", "UNKNOWN" })
+    @MethodSource
     void default_withAbsolutePath(HttpMethod method) {
         final HttpRequest request = HttpRequest.of(method, server2.httpUri() + "/simple-client");
         final HttpResponse response = WebClient.of().execute(request);

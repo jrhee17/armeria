@@ -16,6 +16,11 @@
 
 package com.linecorp.armeria.client;
 
+import static com.linecorp.armeria.common.HttpMethod.DELETE;
+import static com.linecorp.armeria.common.HttpMethod.GET;
+import static com.linecorp.armeria.common.HttpMethod.PATCH;
+import static com.linecorp.armeria.common.HttpMethod.POST;
+import static com.linecorp.armeria.common.HttpMethod.PUT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.lang.reflect.Method;
@@ -92,24 +97,18 @@ class RestClientTest {
         RestClientPreparation preparation = null;
         // HTTP methods used for REST APIs
         // See: https://restfulapi.net/http-methods/
-        for (HttpMethod method : ImmutableList.of(HttpMethod.GET, HttpMethod.POST, HttpMethod.PUT,
-                                                  HttpMethod.DELETE, HttpMethod.PATCH)) {
-            switch (method) {
-                case GET:
-                    preparation = restClient.get("/rest/{id}");
-                    break;
-                case POST:
-                    preparation = restClient.post("/rest/{id}");
-                    break;
-                case PUT:
-                    preparation = restClient.put("/rest/{id}");
-                    break;
-                case PATCH:
-                    preparation = restClient.patch("/rest/{id}");
-                    break;
-                case DELETE:
-                    preparation = restClient.delete("/rest/{id}");
-                    break;
+        for (HttpMethod method : ImmutableList.of(GET, POST, PUT,
+                                                  DELETE, PATCH)) {
+            if (method.equals(GET)) {
+                preparation = restClient.get("/rest/{id}");
+            } else if (method.equals(POST)) {
+                preparation = restClient.post("/rest/{id}");
+            } else if (method.equals(PUT)) {
+                preparation = restClient.put("/rest/{id}");
+            } else if (method.equals(PATCH)) {
+                preparation = restClient.patch("/rest/{id}");
+            } else if (method.equals(DELETE)) {
+                preparation = restClient.delete("/rest/{id}");
             }
             assertThat(preparation).isNotNull();
             final RestResponse response =
