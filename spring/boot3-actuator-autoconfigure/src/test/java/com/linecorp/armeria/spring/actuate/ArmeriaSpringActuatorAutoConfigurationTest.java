@@ -362,7 +362,7 @@ class ArmeriaSpringActuatorAutoConfigurationTest {
             assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN))
                     .isEqualTo("https://example.com");
             assertThat(res.headers().get(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS))
-                    .isEqualTo("GET,POST");
+                    .matches("POST,GET|GET,POST");
             assertThat(res.headers().contains(HttpHeaderNames.ACCESS_CONTROL_MAX_AGE)).isTrue();
             assertThat(res.status()).isNotEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
         }

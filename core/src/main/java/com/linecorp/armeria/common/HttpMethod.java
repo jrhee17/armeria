@@ -37,7 +37,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -224,7 +224,7 @@ public final class HttpMethod {
     /**
      * TBU.
      */
-    @JsonProperty
+    @JsonValue
     public String name() {
         return name;
     }

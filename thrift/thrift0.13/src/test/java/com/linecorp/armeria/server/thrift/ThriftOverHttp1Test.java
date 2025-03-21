@@ -18,13 +18,16 @@ package com.linecorp.armeria.server.thrift;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.stream.Stream;
+
 import org.apache.thrift.transport.THttpClient;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
@@ -51,8 +54,12 @@ class ThriftOverHttp1Test extends AbstractThriftOverHttpTest {
         return client;
     }
 
+    private static Stream<Arguments> testNonPostRequest() {
+        return Stream.of(Arguments.of(HttpMethod.DELETE), Arguments.of(HttpMethod.GET));
+    }
+
     @ParameterizedTest
-    @CsvSource(value = { "DELETE", "GET"})
+    @MethodSource
     void testNonPostRequest(HttpMethod method) throws Exception {
         final AggregatedHttpResponse res =
                 WebClient.of(server.uri(SessionProtocol.H1C, SerializationFormat.NONE))
