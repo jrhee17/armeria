@@ -35,6 +35,8 @@ import static java.util.Objects.requireNonNull;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -45,10 +47,15 @@ import com.google.common.collect.Sets;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 
+import io.netty.util.internal.ObjectUtil;
+import io.netty.util.internal.PlatformDependent;
+
 /**
  * HTTP request method.
  */
-public final class HttpMethod {
+public final class HttpMethod implements Comparable<HttpMethod> {
+
+    private static final HttpMethodConstantPool pool = new HttpMethodConstantPool();
 
     // Forked from Netty 4.1.34 at ff7484864b1785103cbc62845ff3a392c93822b7
 
@@ -59,7 +66,7 @@ public final class HttpMethod {
      * capabilities of a server, without implying a resource action or initiating a resource
      * retrieval.
      */
-    public static final HttpMethod OPTIONS = new HttpMethod("OPTIONS");
+    public static final HttpMethod OPTIONS = pool.createOrThrow("OPTIONS");
 
     /**
      * The GET method which means retrieve whatever information (in the form of an entity) is identified
@@ -67,56 +74,56 @@ public final class HttpMethod {
      * produced data which shall be returned as the entity in the response and not the source text
      * of the process, unless that text happens to be the output of the process.
      */
-    public static final HttpMethod GET = new HttpMethod("GET");
+    public static final HttpMethod GET =  pool.createOrThrow("GET");
 
     /**
      * The HEAD method which is identical to GET except that the server MUST NOT return a message-body
      * in the response.
      */
-    public static final HttpMethod HEAD = new HttpMethod("HEAD");
+    public static final HttpMethod HEAD =  pool.createOrThrow("HEAD");
 
     /**
      * The POST method which is used to request that the origin server accept the entity enclosed in the
      * request as a new subordinate of the resource identified by the Request-URI in the
      * Request-Line.
      */
-    public static final HttpMethod POST = new HttpMethod("POST");
+    public static final HttpMethod POST =  pool.createOrThrow("POST");
 
     /**
      * The PUT method which requests that the enclosed entity be stored under the supplied Request-URI.
      */
-    public static final HttpMethod PUT = new HttpMethod("PUT");
+    public static final HttpMethod PUT =  pool.createOrThrow("PUT");
 
     /**
      * The PATCH method which requests that a set of changes described in the
      * request entity be applied to the resource identified by the Request-URI.
      */
-    public static final HttpMethod PATCH = new HttpMethod("PATCH");
+    public static final HttpMethod PATCH =  pool.createOrThrow("PATCH");
 
     /**
      * The DELETE method which requests that the origin server delete the resource identified by the
      * Request-URI.
      */
-    public static final HttpMethod DELETE = new HttpMethod("DELETE");
+    public static final HttpMethod DELETE =  pool.createOrThrow("DELETE");
 
     /**
      * The TRACE method which is used to invoke a remote, application-layer loop-back of the request
      * message.
      */
-    public static final HttpMethod TRACE = new HttpMethod("TRACE");
+    public static final HttpMethod TRACE =  pool.createOrThrow("TRACE");
 
     /**
      * The CONNECT method which is used for a proxy that can dynamically switch to being a tunnel or for
      * <a href="https://datatracker.ietf.org/doc/rfc8441/">bootstrapping WebSockets with HTTP/2</a>.
      * Note that Armeria handles a {@code CONNECT} request only for bootstrapping WebSockets.
      */
-    public static final HttpMethod CONNECT = new HttpMethod("CONNECT");
+    public static final HttpMethod CONNECT =  pool.createOrThrow("CONNECT");
 
     /**
      * A special constant returned by {@link RequestHeaders#method()} to signify that a request has a method
      * not defined in this enum.
      */
-    public static final HttpMethod UNKNOWN = new HttpMethod("UNKNOWN");
+    public static final HttpMethod UNKNOWN =  pool.createOrThrow("UNKNOWN");
 
     private static final List<HttpMethod> allMethods;
     private static final Set<HttpMethod> knownMethods; // ImmutableEnumSet
@@ -215,9 +222,11 @@ public final class HttpMethod {
         return allMethodsArr;
     }
 
+    private final int id;
     private final String name;
 
-    private HttpMethod(String name) {
+    private HttpMethod(int id, String name) {
+        this.id = id;
         this.name = requireNonNull(name, "name");
     }
 
@@ -241,5 +250,73 @@ public final class HttpMethod {
     @Override
     public String toString() {
         return name;
+    }
+
+    @Override
+    public int compareTo(HttpMethod o) {
+        if (id == o.id) {
+            return 0;
+        }
+        return id < o.id ? 1 : -1;
+    }
+
+    private static final class HttpMethodConstantPool {
+        private final ConcurrentMap<String, HttpMethod> constants = PlatformDependent.newConcurrentHashMap();
+        private final AtomicInteger nextId = new AtomicInteger(1);
+
+        HttpMethodConstantPool() {
+        }
+
+        public HttpMethod valueOf(Class<?> firstNameComponent, String secondNameComponent) {
+            return this.valueOf(((Class) ObjectUtil.checkNotNull(firstNameComponent, "firstNameComponent")).getName() + '#' + (String)ObjectUtil.checkNotNull(secondNameComponent, "secondNameComponent"));
+        }
+
+        public HttpMethod valueOf(String name) {
+            return this.getOrCreate(ObjectUtil.checkNonEmpty(name, "name"));
+        }
+
+        private HttpMethod getOrCreate(String name) {
+            HttpMethod constant = (HttpMethod)this.constants.get(name);
+            if (constant == null) {
+                HttpMethod tempConstant = this.newConstant(this.nextId(), name);
+                constant = (HttpMethod)this.constants.putIfAbsent(name, tempConstant);
+                if (constant == null) {
+                    return tempConstant;
+                }
+            }
+
+            return constant;
+        }
+
+        public boolean exists(String name) {
+            return this.constants.containsKey(ObjectUtil.checkNonEmpty(name, "name"));
+        }
+
+        public HttpMethod newInstance(String name) {
+            return this.createOrThrow(ObjectUtil.checkNonEmpty(name, "name"));
+        }
+
+        private HttpMethod createOrThrow(String name) {
+            HttpMethod constant = (HttpMethod)this.constants.get(name);
+            if (constant == null) {
+                HttpMethod tempConstant = this.newConstant(this.nextId(), name);
+                constant = (HttpMethod)this.constants.putIfAbsent(name, tempConstant);
+                if (constant == null) {
+                    return tempConstant;
+                }
+            }
+
+            throw new IllegalArgumentException(String.format("'%s' is already in use", name));
+        }
+
+        HttpMethod newConstant(int var1, String var2) {
+            return new HttpMethod(var1, var2);
+        }
+
+        /** @deprecated */
+        @Deprecated
+        public final int nextId() {
+            return this.nextId.getAndIncrement();
+        }
     }
 }
