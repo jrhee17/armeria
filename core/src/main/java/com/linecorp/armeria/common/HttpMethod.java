@@ -47,7 +47,6 @@ import com.google.common.collect.Sets;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 
-import io.netty.util.internal.ObjectUtil;
 import io.netty.util.internal.PlatformDependent;
 
 /**
@@ -254,53 +253,18 @@ public final class HttpMethod implements Comparable<HttpMethod> {
 
     @Override
     public int compareTo(HttpMethod o) {
-        if (id == o.id) {
-            return 0;
-        }
-        return id < o.id ? 1 : -1;
+        return Integer.compare(id, o.id);
     }
 
     private static final class HttpMethodConstantPool {
         private final ConcurrentMap<String, HttpMethod> constants = PlatformDependent.newConcurrentHashMap();
         private final AtomicInteger nextId = new AtomicInteger(1);
 
-        HttpMethodConstantPool() {
-        }
-
-        public HttpMethod valueOf(Class<?> firstNameComponent, String secondNameComponent) {
-            return this.valueOf(((Class) ObjectUtil.checkNotNull(firstNameComponent, "firstNameComponent")).getName() + '#' + (String)ObjectUtil.checkNotNull(secondNameComponent, "secondNameComponent"));
-        }
-
-        public HttpMethod valueOf(String name) {
-            return this.getOrCreate(ObjectUtil.checkNonEmpty(name, "name"));
-        }
-
-        private HttpMethod getOrCreate(String name) {
-            HttpMethod constant = (HttpMethod)this.constants.get(name);
-            if (constant == null) {
-                HttpMethod tempConstant = this.newConstant(this.nextId(), name);
-                constant = (HttpMethod)this.constants.putIfAbsent(name, tempConstant);
-                if (constant == null) {
-                    return tempConstant;
-                }
-            }
-
-            return constant;
-        }
-
-        public boolean exists(String name) {
-            return this.constants.containsKey(ObjectUtil.checkNonEmpty(name, "name"));
-        }
-
-        public HttpMethod newInstance(String name) {
-            return this.createOrThrow(ObjectUtil.checkNonEmpty(name, "name"));
-        }
-
         private HttpMethod createOrThrow(String name) {
-            HttpMethod constant = (HttpMethod)this.constants.get(name);
+            HttpMethod constant = constants.get(name);
             if (constant == null) {
-                HttpMethod tempConstant = this.newConstant(this.nextId(), name);
-                constant = (HttpMethod)this.constants.putIfAbsent(name, tempConstant);
+                final HttpMethod tempConstant = newConstant(nextId(), name);
+                constant = constants.putIfAbsent(name, tempConstant);
                 if (constant == null) {
                     return tempConstant;
                 }
@@ -313,10 +277,8 @@ public final class HttpMethod implements Comparable<HttpMethod> {
             return new HttpMethod(var1, var2);
         }
 
-        /** @deprecated */
-        @Deprecated
-        public final int nextId() {
-            return this.nextId.getAndIncrement();
+        private int nextId() {
+            return nextId.getAndIncrement();
         }
     }
 }
