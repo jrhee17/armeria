@@ -6,7 +6,7 @@ on:
     tags-ignore:
       # The release versions will be verified by 'publish-release.yml'
       - armeria-*
-  pull_request:
+  pull_request_target:
   merge_group:
 
 concurrency:
@@ -26,7 +26,7 @@ env:
 
 jobs:
   build:
-    if: github.repository == 'line/armeria'
+    if: github.repository == 'jrhee17/armeria'
     runs-on: ${{ matrix.on }}
     timeout-minutes: 120
     strategy:
@@ -90,6 +90,7 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+
 
       # Build the shaded JARs first so that shading process doesn't incur memory pressure
       # on other Gradle tasks such as tests.
