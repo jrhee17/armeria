@@ -21,6 +21,7 @@ import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -32,7 +33,11 @@ import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.internal.common.brave.TraceContextUtil;
 import com.linecorp.armeria.internal.common.brave.TraceContextUtil.PingPongExtra;
 import com.linecorp.armeria.server.ServiceRequestContext;
+import com.linecorp.armeria.testing.junit5.common.EventLoopExtension;
+import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
+import brave.ScopedSpan;
+import brave.Tracing;
 import brave.propagation.CurrentTraceContext;
 import brave.propagation.CurrentTraceContext.Scope;
 import brave.propagation.TraceContext;
@@ -48,6 +53,9 @@ class RequestContextCurrentTraceContextTest {
     private static final CurrentTraceContext currentTraceContext =
             RequestContextCurrentTraceContext.ofDefault();
     private static final TraceContext traceContext = TraceContext.newBuilder().traceId(1).spanId(1).build();
+
+    @RegisterExtension
+    final static EventLoopExtension eventLoopExtension = new EventLoopExtension();
 
     @BeforeEach
     void setUp() {
@@ -164,4 +172,22 @@ class RequestContextCurrentTraceContextTest {
 
         assertThat(extra.isPong()).isTrue();
     }
+
+//    @Test
+//    void nonEventLoopPropagation() {
+//        TraceContextUtil.setTraceContext(ctx, traceContext);
+//
+//        try {
+//            // The span is in "scope" meaning downstream code such as loggers can see trace IDs
+//            RequestContext.current().makeContextAware(eventLoopExtension.get()).submit(() -> {
+//                final TraceContext traceContext = currentTraceContext.get();
+//
+//            });
+//        } catch (RuntimeException | Error e) {
+//            span.error(e); // Unless you handle exceptions, you might not know the operation failed!
+//            throw e;
+//        } finally {
+//            span.finish(); // always finish the span
+//        }
+//    }
 }

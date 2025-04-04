@@ -27,6 +27,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import com.linecorp.armeria.internal.common.context.ArmeriaContextPropagation;
+
+import io.micrometer.context.ContextSnapshot;
+import io.micrometer.context.ContextSnapshot.Scope;
+
 abstract class AbstractContextAwareExecutorService<ES extends ExecutorService>
         extends AbstractContextAwareExecutor<ES> implements ExecutorService {
 
@@ -101,7 +106,15 @@ abstract class AbstractContextAwareExecutorService<ES extends ExecutorService>
 
     final <T> Callable<T> makeContextAware(Callable<T> task) {
         final RequestContext context = contextOrNull();
-        return context == null ? task : context.makeContextAware(task);
+        if (context != null) {
+            return context.makeContextAware(task);
+        }
+        final ContextSnapshot snapshot = ArmeriaContextPropagation.factory().captureAll();
+        return () -> {
+            try (Scope ignored = snapshot.setThreadLocals()) {
+                return task.call();
+            }
+        };
     }
 
     private <T> Collection<? extends Callable<T>> makeContextAware(

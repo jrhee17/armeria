@@ -20,16 +20,24 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.function.Function;
 
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SafeCloseable;
+import com.linecorp.armeria.internal.common.context.ArmeriaContextPropagation;
+
+import io.micrometer.context.ContextSnapshot;
+import io.micrometer.context.ContextSnapshot.Scope;
 
 final class DefaultContextAwareFunction<T, R> implements ContextAwareFunction<T, R> {
 
     private final RequestContext context;
     private final Function<T, R> function;
+    @Nullable
+    private final ContextSnapshot contextSnapshot;
 
     DefaultContextAwareFunction(RequestContext context, Function<T, R> function) {
         this.context = requireNonNull(context, "context");
         this.function = requireNonNull(function, "function");
+        contextSnapshot = ArmeriaContextPropagation.factory().captureAll();
     }
 
     @Override
@@ -45,6 +53,11 @@ final class DefaultContextAwareFunction<T, R> implements ContextAwareFunction<T,
     @Override
     public R apply(T t) {
         try (SafeCloseable ignored = context.push()) {
+            if (contextSnapshot != null) {
+                try (Scope ignored2 = contextSnapshot.setThreadLocals()) {
+                    return function.apply(t);
+                }
+            }
             return function.apply(t);
         }
     }

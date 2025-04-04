@@ -20,15 +20,23 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.concurrent.Callable;
 
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SafeCloseable;
+import com.linecorp.armeria.internal.common.context.ArmeriaContextPropagation;
+
+import io.micrometer.context.ContextSnapshot;
+import io.micrometer.context.ContextSnapshot.Scope;
 
 final class DefaultContextAwareCallable<T> implements ContextAwareCallable<T> {
     private final RequestContext context;
     private final Callable<T> callable;
+    @Nullable
+    private final ContextSnapshot contextSnapshot;
 
     DefaultContextAwareCallable(RequestContext context, Callable<T> callable) {
         this.context = requireNonNull(context, "context");
         this.callable = requireNonNull(callable, "callable");
+        contextSnapshot = ArmeriaContextPropagation.factory().captureAll();
     }
 
     @Override
@@ -44,6 +52,11 @@ final class DefaultContextAwareCallable<T> implements ContextAwareCallable<T> {
     @Override
     public T call() throws Exception {
         try (SafeCloseable ignored = context.push()) {
+            if (contextSnapshot != null) {
+                try (Scope ignored2 = contextSnapshot.setThreadLocals()) {
+                    return callable.call();
+                }
+            }
             return callable.call();
         }
     }

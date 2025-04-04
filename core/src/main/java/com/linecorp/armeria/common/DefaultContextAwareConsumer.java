@@ -20,15 +20,23 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.function.Consumer;
 
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SafeCloseable;
+import com.linecorp.armeria.internal.common.context.ArmeriaContextPropagation;
+
+import io.micrometer.context.ContextSnapshot;
+import io.micrometer.context.ContextSnapshot.Scope;
 
 final class DefaultContextAwareConsumer<T> implements ContextAwareConsumer<T> {
     private final RequestContext context;
     private final Consumer<T> action;
+    @Nullable
+    private final ContextSnapshot contextSnapshot;
 
     DefaultContextAwareConsumer(RequestContext context, Consumer<T> action) {
         this.context = requireNonNull(context, "context");
         this.action = requireNonNull(action, "action");
+        contextSnapshot = ArmeriaContextPropagation.factory().captureAll();
     }
 
     @Override
@@ -44,7 +52,11 @@ final class DefaultContextAwareConsumer<T> implements ContextAwareConsumer<T> {
     @Override
     public void accept(T t) {
         try (SafeCloseable ignored = context.push()) {
-            action.accept(t);
+            if (contextSnapshot != null) {
+                try (Scope ignored2 = contextSnapshot.setThreadLocals()) {
+                    action.accept(t);
+                }
+            }
         }
     }
 }
