@@ -20,8 +20,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 import org.junit.jupiter.api.Test;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
 
+import com.linecorp.armeria.common.HttpObject;
 import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.HttpResponseWriter;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.ResponseHeaders;
 
@@ -31,6 +35,46 @@ import testing.grpc.Messages.SimpleRequest;
 import testing.grpc.TestServiceGrpc.TestServiceBlockingStub;
 
 class InvalidGrpcResponseTest {
+
+    @Test
+    void asdf() {
+        GrpcClients.builder("http://1.2.3.4")
+                   .decorator((delegate, ctx, req) -> {
+                       final HttpResponse res = delegate.execute(ctx, req);
+                       final HttpResponseWriter streaming = HttpResponse.streaming();
+                       res.subscribe(new Subscriber<HttpObject>() {
+                           @Override
+                           public void onSubscribe(Subscription subscription) {
+                               subscription.request(Long.MAX_VALUE);
+                           }
+
+                           @Override
+                           public void onNext(HttpObject httpObject) {
+                               System.out.println("[onNext] httpObject: " + httpObject);
+                               streaming.write(httpObject);
+                           }
+
+                           @Override
+                           public void onError(Throwable throwable) {
+                               System.out.println("[onError] throwable: " + throwable + " with stacktrace:");
+                               for (StackTraceElement ste : Thread.currentThread().getStackTrace()) {
+                                   System.out.println(ste);
+                               }
+                               streaming.close(throwable);
+                           }
+
+                           @Override
+                           public void onComplete() {
+                               System.out.println("completed with stacktrace:");
+                               for (StackTraceElement ste : Thread.currentThread().getStackTrace()) {
+                                   System.out.println(ste);
+                               }
+                               streaming.close();
+                           }
+                       });
+                       return streaming;
+                   });
+    }
 
     @Test
     void shouldFailIfGrpcStatusIsMissingForOkHttpStatus() {
