@@ -102,6 +102,8 @@ service TestService {
   // as well as the response type contains all different types of parameters.
   // Can be used to check any kind of serialization issues.
   rpc UnaryCallWithAllDifferentParameterTypes(ExtendedTestMessage) returns (ExtendedTestMessage);
+
+  rpc ComplexUnaryCall(armeria.grpc.testing.TestMessage) returns (armeria.grpc.testing.TestMessage);
 }
 
 // A service for use in unit tests with methods for fine-grained test conditions.

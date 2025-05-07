@@ -49,6 +49,8 @@ package armeria.grpc.testing;
 
 option java_package = "testing.grpc";
 
+import "testing/grpc/annotations.proto";
+
 // The type of payload that should be returned.
 enum PayloadType {
   // Compressable text format.
@@ -218,24 +220,26 @@ enum TestEnum {
 message TestMessage {
   message Nested {
     string string = 1;
+
+    option (MessageAnnotation.grade) = PUBLIC;
   }
 
   bool bool = 1;
-  int32 int32 = 2;
+  int32 int32 = 2  [(FieldAnnotation.grade) = PUBLIC];
   int64 int64 = 3;
   uint32 uint32 = 4;
-  uint64 uint64 = 5;
+  uint64 uint64 = 5  [(FieldAnnotation.grade) = INTERNAL];
   sint32 sint32 = 6;
   sint64 sint64 = 7;
-  fixed32 fixed32 = 8;
+  fixed32 fixed32 = 8 [(FieldAnnotation.grade) = CONFIDENTIAL];
   fixed64 fixed64 = 9;
   float float = 10;
   double double = 11;
-  string string = 12;
+  string string = 12   [(FieldAnnotation.grade) = PUBLIC];
   bytes bytes = 13;
-  TestEnum test_enum = 14;
-  Nested nested = 15;
-  repeated string strings = 16;
+  TestEnum test_enum = 14  [(FieldAnnotation.grade) = INTERNAL];
+  Nested nested = 15 [(FieldAnnotation.grade) = RESTRICTED];
+  repeated string strings = 16 [(FieldAnnotation.grade) = CONFIDENTIAL];
   map<string, int32> map = 17;
   TestMessage self = 18;
 }

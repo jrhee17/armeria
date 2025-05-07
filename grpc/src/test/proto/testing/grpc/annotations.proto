@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package armeria.grpc.testing;
+
+option java_package = "testing.grpc";
+
+import "google/protobuf/descriptor.proto";
+
+enum Grade {
+  GRADE_UNSPECIFIED = 0;
+  PUBLIC = 1;
+  INTERNAL = 2;
+  CONFIDENTIAL = 3;
+  RESTRICTED = 4;
+}
+
+message FieldAnnotation {
+  extend google.protobuf.FieldOptions {
+    Grade grade = 100001;
+  }
+}
+
+message MessageAnnotation {
+  extend google.protobuf.MessageOptions {
+    Grade grade = 100003;
+  }
+}

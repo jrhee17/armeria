@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.common.logging.masker.it;
+package com.linecorp.armeria.internal.testing;
 
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -30,14 +30,10 @@ public class TestLogWriter implements LogWriter {
     private final LogFormatter logFormatter;
     private final BlockingDeque<String> blockingDeque = new LinkedBlockingDeque<>();
 
-    TestLogWriter(ContentSanitizer<String> contentSanitizer) {
-        this.logFormatter = LogFormatter.builderForText()
-                                        .contentSanitizer(contentSanitizer)
-                                        .build();
-    }
-
-    TestLogWriter(LogFormatter logFormatter) {
-        this.logFormatter = logFormatter;
+    public TestLogWriter(ContentSanitizer<String> contentSanitizer) {
+        logFormatter = LogFormatter.builderForText()
+                                   .contentSanitizer(contentSanitizer)
+                                   .build();
     }
 
     @Override
