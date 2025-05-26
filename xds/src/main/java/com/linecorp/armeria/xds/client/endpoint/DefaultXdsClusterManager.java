@@ -27,8 +27,10 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
 import com.linecorp.armeria.xds.ClusterSnapshot;
+import com.linecorp.armeria.xds.SnapshotWatcher;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
+import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.core.v3.Locality;
 import io.netty.util.concurrent.EventExecutor;
 
@@ -68,6 +70,21 @@ final class DefaultXdsClusterManager implements XdsClusterManager {
         } finally {
             lock.unlock();
         }
+    }
+
+    @Override
+    public void registerLocalCluster(String name, Cluster cluster) {
+        checkState(localCluster == null, "localCluster is already registered.");
+
+    }
+
+    @Override
+    public void register(String name, Cluster cluster, SnapshotWatcher<ClusterSnapshot> watcher) {
+    }
+
+    @Override
+    public void register(String name, SnapshotWatcher<ClusterSnapshot> watcher) {
+
     }
 
     @Override

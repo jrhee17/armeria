@@ -51,7 +51,7 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
                           localClusterName);
             checkArgument(!bootstrapLocalCluster.hasEdsClusterConfig(),
                           "Static cluster '%s' cannot use EDS", localClusterName);
-            StaticResourceUtils.staticCluster(context, localClusterName, this, bootstrapLocalCluster);
+            clusterManager.registerLocalCluster(localClusterName, bootstrapLocalCluster);
         }
 
         if (bootstrap.hasStaticResources()) {
@@ -60,9 +60,10 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
                 if (clusterSnapshots.containsKey(cluster.getName())) {
                     continue;
                 }
-                checkArgument(!cluster.hasEdsClusterConfig(),
-                              "Static cluster '%s' cannot use EDS", cluster.getName());
-                StaticResourceUtils.staticCluster(context, cluster.getName(), this, cluster);
+                if (cluster.hasEdsClusterConfig()) {
+                    continue;
+                }
+                clusterManager.register(cluster.getName(), cluster, this);
             }
         }
     }

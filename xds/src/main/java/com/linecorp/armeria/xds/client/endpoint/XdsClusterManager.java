@@ -21,6 +21,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
+import com.linecorp.armeria.xds.SnapshotWatcher;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.bootstrap.v3.ClusterManager;
@@ -55,6 +56,12 @@ public interface XdsClusterManager extends SafeCloseable {
      * a name before calling {@link #update(String, ClusterSnapshot)}.
      */
     void register(String name);
+
+    void registerLocalCluster(String name, Cluster cluster);
+
+    void register(String name, Cluster cluster, SnapshotWatcher<ClusterSnapshot> watcher);
+
+    void register(String name, SnapshotWatcher<ClusterSnapshot> watcher);
 
     /**
      * Gets the {@link XdsLoadBalancer} registered with the specified name if exists.
