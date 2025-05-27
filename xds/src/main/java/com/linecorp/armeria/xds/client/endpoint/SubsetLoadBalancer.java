@@ -147,9 +147,4 @@ final class SubsetLoadBalancer implements LoadBalancer {
                           .add("allEndpointsLoadBalancer", allEndpointsLoadBalancer)
                           .toString();
     }
-
-    @Override
-    public PrioritySet prioritySet() {
-        return prioritySet;
-    }
 }

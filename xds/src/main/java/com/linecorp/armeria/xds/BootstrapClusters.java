@@ -16,15 +16,10 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import java.util.HashMap;
 import java.util.Map;
 
-import com.google.common.base.Strings;
-
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.xds.client.endpoint.XdsClusterManager;
 import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
@@ -37,45 +32,37 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
 
     private final Map<String, ClusterSnapshot> clusterSnapshots = new HashMap<>();
     private final Map<String, XdsLoadBalancer> loadBalancers = new HashMap<>();
+    private final Bootstrap bootstrap;
+    private final EventExecutor eventLoop;
     private final XdsClusterManager clusterManager;
 
     BootstrapClusters(Bootstrap bootstrap, EventExecutor eventLoop, XdsClusterManager clusterManager) {
+        this.bootstrap = bootstrap;
+        this.eventLoop = eventLoop;
         this.clusterManager = clusterManager;
-        final SubscriptionContext context = new StaticSubscriptionContext(eventLoop, clusterManager);
 
-        final String localClusterName = bootstrap.getClusterManager().getLocalClusterName();
-        if (!Strings.isNullOrEmpty(localClusterName) && bootstrap.getNode().hasLocality()) {
-            final Cluster bootstrapLocalCluster = localCluster(localClusterName, bootstrap);
-            checkArgument(bootstrapLocalCluster != null,
-                          "A static cluster must be defined for localClusterName '%s'",
-                          localClusterName);
-            checkArgument(!bootstrapLocalCluster.hasEdsClusterConfig(),
-                          "Static cluster '%s' cannot use EDS", localClusterName);
-            clusterManager.registerLocalCluster(localClusterName, bootstrapLocalCluster);
-        }
+        final StaticResources staticResources = bootstrap.getStaticResources();
 
-        if (bootstrap.hasStaticResources()) {
-            final StaticResources staticResources = bootstrap.getStaticResources();
-            for (Cluster cluster : staticResources.getClustersList()) {
-                if (clusterSnapshots.containsKey(cluster.getName())) {
-                    continue;
-                }
-                if (cluster.hasEdsClusterConfig()) {
-                    continue;
-                }
-                clusterManager.register(cluster.getName(), cluster, this);
+        // primary initialization
+        for (Cluster cluster : staticResources.getClustersList()) {
+            if (clusterSnapshots.containsKey(cluster.getName())) {
+                continue;
             }
+            if (cluster.hasEdsClusterConfig()) {
+                continue;
+            }
+            clusterManager.register(cluster.getName(), cluster, this);
         }
     }
 
-    @Nullable
-    private static Cluster localCluster(String localClusterName, Bootstrap bootstrap) {
-        for (Cluster cluster: bootstrap.getStaticResources().getClustersList()) {
-            if (localClusterName.equals(cluster.getName())) {
-                return cluster;
+    void secondaryInitialize() {
+        // secondary initialization
+        for (Cluster cluster : bootstrap.getStaticResources().getClustersList()) {
+            if (clusterSnapshots.containsKey(cluster.getName())) {
+                continue;
             }
+            clusterManager.register(cluster.getName(), cluster, this);
         }
-        return null;
     }
 
     @Override

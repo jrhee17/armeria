@@ -185,11 +185,6 @@ final class DefaultLoadBalancer implements LoadBalancer {
         return sourceType;
     }
 
-    @Override
-    public PrioritySet prioritySet() {
-        return prioritySet;
-    }
-
     static class PriorityAndAvailability {
         final int priority;
         final HostAvailability hostAvailability;

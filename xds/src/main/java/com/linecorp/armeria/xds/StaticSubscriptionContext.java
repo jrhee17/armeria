@@ -16,8 +16,6 @@
 
 package com.linecorp.armeria.xds;
 
-import com.linecorp.armeria.xds.client.endpoint.XdsClusterManager;
-
 import io.netty.util.concurrent.EventExecutor;
 
 final class StaticSubscriptionContext implements SubscriptionContext {

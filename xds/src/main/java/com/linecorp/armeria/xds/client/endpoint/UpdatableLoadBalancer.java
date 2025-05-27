@@ -17,6 +17,7 @@
 package com.linecorp.armeria.xds.client.endpoint;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -34,10 +35,13 @@ import com.linecorp.armeria.common.util.AbstractListenable;
 import com.linecorp.armeria.internal.client.AbstractAsyncSelector;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 
+import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.netty.util.concurrent.EventExecutor;
 
-final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
-        implements XdsLoadBalancer, AutoCloseable {
+/**
+ * TBU.
+ */
+public final class UpdatableLoadBalancer implements XdsLoadBalancer, AutoCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdatableLoadBalancer.class);
 
@@ -46,7 +50,9 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
     @Nullable
     private LoadBalancer delegate;
     private final EventExecutor eventLoop;
-    private final ClusterSnapshot clusterSnapshot;
+
+    @Nullable
+    private ClusterSnapshot clusterSnapshot;
     @Nullable
     private final LocalCluster localCluster;
 
@@ -54,43 +60,61 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
     private List<Endpoint> endpoints;
     @Nullable
     private PrioritySet localPrioritySet;
-    private final AttributesPool attributesPool;
-    private final EndpointGroup endpointGroup;
+    private final AttributesPool attributesPool = AttributesPool.NOOP;
+    private EndpointGroup endpointGroup = EndpointGroup.of();
     @Nullable
     private PrioritySet prioritySet;
     private final LoadBalancerEndpointSelector endpointSelector = new LoadBalancerEndpointSelector();
+    private final PrioritySetListener prioritySetListener = new PrioritySetListener();
 
     private final EndpointsWatchers endpointsWatchers = new EndpointsWatchers();
 
-    UpdatableLoadBalancer(EventExecutor eventLoop, ClusterSnapshot clusterSnapshot,
-                          @Nullable LocalCluster localCluster,
-                          @Nullable PrioritySet localPrioritySet, AttributesPool prevAttrsPool) {
+    /**
+     * TBU.
+     */
+    public UpdatableLoadBalancer(EventExecutor eventLoop, Bootstrap bootstrap,
+                                 @Nullable UpdatableLoadBalancer localLoadBalancer) {
         this.eventLoop = eventLoop;
-        this.clusterSnapshot = clusterSnapshot;
-        this.localCluster = localCluster;
-        this.localPrioritySet = localPrioritySet;
-        attributesPool = new AttributesPool(prevAttrsPool);
-
-        endpointGroup = XdsEndpointUtil.convertEndpointGroup(clusterSnapshot);
-        endpointGroup.addListener(updateEndpointsCallback, true);
-        if (localCluster != null) {
-            localCluster.addListener(this::updateLocalLoadBalancer, true);
+        if (localLoadBalancer != null) {
+            localCluster = new LocalCluster(bootstrap.getNode().getLocality(), localLoadBalancer);
+            localCluster.localLoadBalancer().prioritySetListener()
+                        .addListener(this::updateLocalLoadBalancer, true);
+        } else {
+            localCluster = null;
         }
     }
 
-    void updateEndpoints(List<Endpoint> endpoints) {
+    /**
+     * TBU.
+     */
+    public void updateSnapshot(ClusterSnapshot clusterSnapshot) {
+        if (Objects.equals(clusterSnapshot, this.clusterSnapshot)) {
+            return;
+        }
+
+        // First remove the listener for the previous endpointGroup and close it
+        endpointGroup.removeListener(updateEndpointsCallback);
+        endpointGroup.closeAsync();
+
+        // Set the new clusterSnapshot
+        this.clusterSnapshot = clusterSnapshot;
+        endpointGroup = XdsEndpointUtil.convertEndpointGroup(clusterSnapshot);
+        endpointGroup.addListener(updateEndpointsCallback, true);
+    }
+
+    private void updateEndpoints(List<Endpoint> endpoints) {
         endpoints = attributesPool.cacheAttributesAndDelegate(endpoints);
         this.endpoints = endpoints;
         tryRefresh();
     }
 
-    void updateLocalLoadBalancer(PrioritySet localPrioritySet) {
+    private void updateLocalLoadBalancer(PrioritySet localPrioritySet) {
         this.localPrioritySet = localPrioritySet;
         tryRefresh();
     }
 
     void tryRefresh() {
-        if (endpoints == null) {
+        if (endpoints == null || clusterSnapshot == null) {
             return;
         }
 
@@ -108,21 +132,8 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
         this.prioritySet = prioritySet;
 
         endpointSelector.refresh();
-        notifyListeners(prioritySet);
+        prioritySetListener.notifyListeners0(prioritySet);
         endpointsWatchers.notifyListeners0(prioritySet.endpoints());
-    }
-
-    @Nullable
-    @Override
-    public PrioritySet prioritySet() {
-        if (delegate == null) {
-            return null;
-        }
-        return delegate.prioritySet();
-    }
-
-    ClusterSnapshot clusterSnapshot() {
-        return clusterSnapshot;
     }
 
     @Nullable
@@ -138,16 +149,6 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
     public CompletableFuture<Endpoint> select(ClientRequestContext ctx,
                                               ScheduledExecutorService executor, long selectionTimeoutMillis) {
         return endpointSelector.select(ctx, executor, selectionTimeoutMillis);
-    }
-
-    AttributesPool attributesPool() {
-        return attributesPool;
-    }
-
-    @Nullable
-    @Override
-    protected PrioritySet latestValue() {
-        return prioritySet;
     }
 
     private final class LoadBalancerEndpointSelector extends AbstractAsyncSelector<Endpoint> {
@@ -188,6 +189,23 @@ final class UpdatableLoadBalancer extends AbstractListenable<PrioritySet>
             endpointGroup.removeListener(updateEndpointsCallback);
             endpointGroup.close();
         }, 10, TimeUnit.SECONDS);
+    }
+
+    PrioritySetListener prioritySetListener() {
+        return prioritySetListener;
+    }
+
+    final class PrioritySetListener extends AbstractListenable<PrioritySet> {
+
+        void notifyListeners0(PrioritySet prioritySet) {
+            notifyListeners(prioritySet);
+        }
+
+        @Nullable
+        @Override
+        protected PrioritySet latestValue() {
+            return prioritySet;
+        }
     }
 
     // TODO: remove once XdsEndpointGroup is removed

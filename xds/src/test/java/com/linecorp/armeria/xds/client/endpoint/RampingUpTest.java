@@ -132,7 +132,7 @@ class RampingUpTest {
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap);
              ListenerRoot root = xdsBootstrap.listenerRoot(listenerName)) {
             final XdsLoadBalancer loadBalancer = pollLoadBalancer(root, "cluster", cluster);
-            await().untilAsserted(() -> assertThat(loadBalancer.prioritySet().endpoints())
+            await().untilAsserted(() -> assertThat(selectEndpoints(weight, loadBalancer))
                     .containsExactlyInAnyOrder(Endpoint.of("a.com", 80), Endpoint.of("b.com", 80)));
 
             Set<Endpoint> selectedEndpoints = selectEndpoints(weight, loadBalancer);
@@ -163,7 +163,7 @@ class RampingUpTest {
                                     ImmutableList.of(listener), ImmutableList.of(route),
                                     ImmutableList.of(), "3"));
             final XdsLoadBalancer loadBalancer2 = pollLoadBalancer(root, "cluster", loadAssignment);
-            await().untilAsserted(() -> assertThat(loadBalancer2.prioritySet().endpoints())
+            await().untilAsserted(() -> assertThat(selectEndpoints(weight, loadBalancer2))
                     .containsExactlyInAnyOrder(Endpoint.of("b.com", 80), Endpoint.of("c.com", 80)));
             selectedEndpoints = selectEndpoints(weight, loadBalancer2);
             bEndpoint = filterEndpoint(selectedEndpoints, "b.com");

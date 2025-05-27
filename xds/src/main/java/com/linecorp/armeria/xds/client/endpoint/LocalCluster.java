@@ -23,20 +23,20 @@ import com.linecorp.armeria.common.util.AbstractListenable;
 
 import io.envoyproxy.envoy.config.core.v3.Locality;
 
-final class LocalCluster extends AbstractListenable<PrioritySet>
-        implements AutoCloseable, Consumer<PrioritySet> {
+final class LocalCluster extends AbstractListenable<PrioritySet> implements Consumer<PrioritySet> {
 
     private final LocalityRoutingStateFactory localityRoutingStateFactory;
     private final UpdatableLoadBalancer localLoadBalancer;
     @Nullable
     private PrioritySet prioritySet;
 
-    LocalCluster(Locality locality, XdsLoadBalancer localLoadBalancer) {
+    LocalCluster(Locality locality, UpdatableLoadBalancer localLoadBalancer) {
         localityRoutingStateFactory = new LocalityRoutingStateFactory(locality);
-        assert localLoadBalancer instanceof UpdatableLoadBalancer;
-        final UpdatableLoadBalancer updatableLoadBalancer = (UpdatableLoadBalancer) localLoadBalancer;
-        this.localLoadBalancer = updatableLoadBalancer;
-        updatableLoadBalancer.addListener(this, true);
+        this.localLoadBalancer = localLoadBalancer;
+    }
+
+    UpdatableLoadBalancer localLoadBalancer() {
+        return localLoadBalancer;
     }
 
     @Override
@@ -47,11 +47,6 @@ final class LocalCluster extends AbstractListenable<PrioritySet>
 
     LocalityRoutingStateFactory stateFactory() {
         return localityRoutingStateFactory;
-    }
-
-    @Override
-    public void close() {
-        localLoadBalancer.removeListener(this);
     }
 
     @Override

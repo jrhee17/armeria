@@ -25,7 +25,6 @@ import com.google.common.annotations.VisibleForTesting;
 
 import com.linecorp.armeria.client.grpc.GrpcClientBuilder;
 import com.linecorp.armeria.common.CommonPools;
-import com.linecorp.armeria.xds.client.endpoint.XdsClusterManager;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
@@ -55,7 +54,7 @@ final class XdsBootstrapImpl implements XdsBootstrap {
         this.bootstrap = bootstrap;
         this.eventLoop = requireNonNull(eventLoop, "eventLoop");
         configSourceMapper = new ConfigSourceMapper(bootstrap);
-        clusterManager = XdsClusterManager.of(eventLoop, bootstrap);
+        clusterManager = new XdsClusterManager(eventLoop, bootstrap);
         bootstrapClusters = new BootstrapClusters(bootstrap, eventLoop, clusterManager);
         bootstrapListeners = new BootstrapListeners(bootstrap);
         configSourceManager = new ConfigSourceManager(bootstrap, eventLoop,

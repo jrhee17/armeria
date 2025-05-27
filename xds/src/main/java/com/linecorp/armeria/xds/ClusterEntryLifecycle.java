@@ -16,7 +16,6 @@
 
 package com.linecorp.armeria.xds;
 
-import com.linecorp.armeria.xds.client.endpoint.XdsClusterManager;
 import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
 
 final class ClusterEntryLifecycle implements AutoCloseable {

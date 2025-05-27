@@ -1,7 +1,7 @@
 /*
- * Copyright 2025 LINE Corporation
+ * Copyright 2025 LY Corporation
  *
- * LINE Corporation licenses this file to you under the Apache License,
+ * LY Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
  * with the License. You may obtain a copy of the License at:
  *
@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.xds;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -26,68 +26,56 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
-import com.linecorp.armeria.xds.ClusterSnapshot;
-import com.linecorp.armeria.xds.SnapshotWatcher;
+import com.linecorp.armeria.xds.client.endpoint.UpdatableLoadBalancer;
+import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
-import io.envoyproxy.envoy.config.core.v3.Locality;
 import io.netty.util.concurrent.EventExecutor;
 
-final class DefaultXdsClusterManager implements XdsClusterManager {
+final class XdsClusterManager {
 
     @GuardedBy("lock")
-    private final Map<String, ClusterEntry> clusterEntries = new HashMap<>();
+    private final Map<String, UpdatableLoadBalancer> loadBalancers = new HashMap<>();
     private final ReentrantShortLock lock = new ReentrantShortLock();
     private boolean closed;
+    @Nullable
+    final UpdatableLoadBalancer localLoadBalancer;
 
     private final EventExecutor eventLoop;
-    private final String localClusterName;
-    @Nullable
-    private final Locality locality;
-    @Nullable
-    private LocalCluster localCluster;
+    private final Bootstrap bootstrap;
 
-    DefaultXdsClusterManager(EventExecutor eventLoop, Bootstrap bootstrap) {
+    XdsClusterManager(EventExecutor eventLoop, Bootstrap bootstrap) {
         this.eventLoop = eventLoop;
-        localClusterName = bootstrap.getClusterManager().getLocalClusterName();
+        this.bootstrap = bootstrap;
+        final String localClusterName = bootstrap.getClusterManager().getLocalClusterName();
         if (bootstrap.getNode().hasLocality()) {
-            locality = bootstrap.getNode().getLocality();
+            localLoadBalancer = new UpdatableLoadBalancer(eventLoop, bootstrap, null);
+            loadBalancers.put(localClusterName, localLoadBalancer);
         } else {
-            locality = null;
+            localLoadBalancer = null;
         }
     }
 
-    @Override
     public void register(String name) {
         try {
             lock.lock();
             if (closed) {
                 return;
             }
-            clusterEntries.computeIfAbsent(name, ignored -> new ClusterEntry(eventLoop, localCluster))
-                          .retain();
+            loadBalancers.computeIfAbsent(name, ignored -> new UpdatableLoadBalancer(eventLoop, bootstrap,
+                                                                                     localLoadBalancer));
         } finally {
             lock.unlock();
         }
     }
 
-    @Override
-    public void registerLocalCluster(String name, Cluster cluster) {
-        checkState(localCluster == null, "localCluster is already registered.");
-
-    }
-
-    @Override
     public void register(String name, Cluster cluster, SnapshotWatcher<ClusterSnapshot> watcher) {
     }
 
-    @Override
-    public void register(String name, SnapshotWatcher<ClusterSnapshot> watcher) {
-
+    public void register(String name, XdsBootstrap xdsBootstrap, SnapshotWatcher<ClusterSnapshot> watcher) {
     }
 
-    @Override
     @Nullable
     public XdsLoadBalancer get(String name) {
         try {
@@ -95,57 +83,42 @@ final class DefaultXdsClusterManager implements XdsClusterManager {
             if (closed) {
                 return null;
             }
-            final ClusterEntry clusterEntry = clusterEntries.get(name);
-            if (clusterEntry == null) {
-                return null;
-            }
-            return clusterEntry.loadBalancer();
+            return loadBalancers.get(name);
         } finally {
             lock.unlock();
         }
     }
 
-    @Override
     public XdsLoadBalancer update(String name, ClusterSnapshot snapshot) {
         try {
             lock.lock();
             checkState(!closed, "Attempted to update cluster snapshot '%s' for a closed ClusterManager.",
                        snapshot);
-            final ClusterEntry clusterEntry = clusterEntries.get(name);
+            final UpdatableLoadBalancer clusterEntry = loadBalancers.get(name);
             checkArgument(clusterEntry != null,
                           "Cluster with name '%s' must be registered first via register.", name);
-            final XdsLoadBalancer loadBalancer = clusterEntry.update(snapshot);
-
-            if (name.equals(localClusterName) && locality != null) {
-                checkState(localCluster == null,
-                           "localCluster with name '%s' can only be set once", name);
-                localCluster = new LocalCluster(locality, loadBalancer);
-            }
-
-            return loadBalancer;
+            clusterEntry.updateSnapshot(snapshot);
+            return clusterEntry;
         } finally {
             lock.unlock();
         }
     }
 
-    @Override
     public void unregister(String name) {
         try {
             lock.lock();
             if (closed) {
                 return;
             }
-            final ClusterEntry clusterEntry = clusterEntries.get(name);
+            final UpdatableLoadBalancer clusterEntry = loadBalancers.get(name);
             assert clusterEntry != null;
-            if (clusterEntry.release()) {
-                clusterEntries.remove(name);
-            }
+            clusterEntry.close();
+            loadBalancers.remove(name);
         } finally {
             lock.unlock();
         }
     }
 
-    @Override
     public void close() {
         try {
             lock.lock();
@@ -153,7 +126,7 @@ final class DefaultXdsClusterManager implements XdsClusterManager {
                 return;
             }
             closed = true;
-            clusterEntries.values().forEach(ClusterEntry::release);
+            loadBalancers.values().forEach(UpdatableLoadBalancer::close);
         } finally {
             lock.unlock();
         }
