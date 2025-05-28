@@ -33,23 +33,14 @@ import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3
  * A resource object for a {@link RouteConfiguration}.
  */
 @UnstableApi
-public final class RouteXdsResource extends XdsResourceWithPrimer<RouteXdsResource> {
+public final class RouteXdsResource implements XdsResource {
 
     private final RouteConfiguration routeConfiguration;
 
-    @Nullable
-    private final XdsResource primer;
     private final Map<String, ParsedFilterConfig> filterConfigs;
 
     RouteXdsResource(RouteConfiguration routeConfiguration) {
         this.routeConfiguration = routeConfiguration;
-        primer = null;
-        filterConfigs = toParsedFilterConfigs(routeConfiguration.getTypedPerFilterConfigMap());
-    }
-
-    RouteXdsResource(RouteConfiguration routeConfiguration, XdsResource primer) {
-        this.routeConfiguration = routeConfiguration;
-        this.primer = primer;
         filterConfigs = toParsedFilterConfigs(routeConfiguration.getTypedPerFilterConfigMap());
     }
 
@@ -66,20 +57,6 @@ public final class RouteXdsResource extends XdsResourceWithPrimer<RouteXdsResour
     @Override
     public String name() {
         return routeConfiguration.getName();
-    }
-
-    @Override
-    RouteXdsResource withPrimer(@Nullable XdsResource primer) {
-        if (primer == null) {
-            return this;
-        }
-        return new RouteXdsResource(routeConfiguration, primer);
-    }
-
-    @Override
-    @Nullable
-    XdsResource primer() {
-        return primer;
     }
 
     /**
@@ -107,7 +84,7 @@ public final class RouteXdsResource extends XdsResourceWithPrimer<RouteXdsResour
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(routeConfiguration, primer);
+        return Objects.hashCode(routeConfiguration);
     }
 
     @Override

@@ -19,9 +19,8 @@ package com.linecorp.armeria.xds;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.linecorp.armeria.xds.XdsType.CLUSTER;
 
-import java.util.Objects;
-
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.xds.client.endpoint.UpdatableLoadBalancer;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
@@ -30,85 +29,111 @@ import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 import io.grpc.Status;
 
-final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXdsResource,
-        ClusterSnapshot> {
+final class ClusterResourceNode extends AbstractResourceNode<ClusterXdsResource, ClusterSnapshot> {
 
-    private final EndpointSnapshotWatcher snapshotWatcher = new EndpointSnapshotWatcher();
+    @Nullable
+    private EndpointSnapshotWatcher snapshotWatcher;
     private final UpdatableLoadBalancer loadBalancer;
 
     ClusterResourceNode(@Nullable ConfigSource configSource,
                         String resourceName, SubscriptionContext context,
-                        @Nullable RouteXdsResource primer,
-                        SnapshotWatcher<ClusterSnapshot> parentWatcher,
                         ResourceNodeType resourceNodeType, UpdatableLoadBalancer loadBalancer) {
-        super(context, configSource, CLUSTER, resourceName, primer, parentWatcher, resourceNodeType);
-        this.loadBalancer = loadBalancer;
-    }
-
-    ClusterResourceNode(@Nullable ConfigSource configSource,
-                        String resourceName, SubscriptionContext context,
-                        @Nullable RouteXdsResource primer,
-                        ResourceNodeType resourceNodeType, UpdatableLoadBalancer loadBalancer) {
-        super(context, configSource, CLUSTER, resourceName, primer, resourceNodeType);
+        super(context, configSource, CLUSTER, resourceName, resourceNodeType);
         this.loadBalancer = loadBalancer;
     }
 
     @Override
     public void doOnChanged(ClusterXdsResource resource) {
-        final Cluster cluster = resource.resource();
-        if (cluster.hasLoadAssignment()) {
-            final ClusterLoadAssignment loadAssignment = cluster.getLoadAssignment();
-            final EndpointResourceNode node =
-                    StaticResourceUtils.staticEndpoint(context(), loadAssignment.getClusterName(),
-                                                       resource, snapshotWatcher, loadAssignment);
-            children().add(node);
-        } else if (cluster.hasEdsClusterConfig()) {
-            final EdsClusterConfig edsClusterConfig = cluster.getEdsClusterConfig();
-            final String serviceName = edsClusterConfig.getServiceName();
-            final String clusterName = !isNullOrEmpty(serviceName) ? serviceName : cluster.getName();
-            final ConfigSource configSource = configSourceMapper()
-                    .edsConfigSource(cluster.getEdsClusterConfig().getEdsConfig(), clusterName);
-            final EndpointResourceNode node =
-                    new EndpointResourceNode(configSource, clusterName, context(), resource,
-                                             snapshotWatcher, ResourceNodeType.DYNAMIC);
-            children().add(node);
-            context().subscribe(node);
-        } else {
-            final ClusterSnapshot clusterSnapshot = new ClusterSnapshot(resource);
-            notifyOnChanged(clusterSnapshot);
+        final EndpointSnapshotWatcher previousWatcher = snapshotWatcher;
+        snapshotWatcher = new EndpointSnapshotWatcher(resource, context(), this, loadBalancer,
+                                                      configSource());
+        if (previousWatcher != null) {
+            previousWatcher.close();
         }
     }
 
     @Override
     public void close() {
+        final EndpointSnapshotWatcher snapshotWatcher = this.snapshotWatcher;
+        if (snapshotWatcher != null) {
+            snapshotWatcher.close();
+        }
         loadBalancer.close();
         super.close();
     }
 
-    private class EndpointSnapshotWatcher implements SnapshotWatcher<EndpointSnapshot> {
+    private static class EndpointSnapshotWatcher implements SnapshotWatcher<EndpointSnapshot>, SafeCloseable {
+
+        private final ClusterXdsResource resource;
+        private final ClusterResourceNode parentNode;
+        private final UpdatableLoadBalancer loadBalancer;
+        @Nullable
+        private final EndpointResourceNode node;
+
+        private boolean closed;
+
+        EndpointSnapshotWatcher(ClusterXdsResource resource, SubscriptionContext context,
+                                ClusterResourceNode parentNode, UpdatableLoadBalancer loadBalancer,
+                                @Nullable ConfigSource parentConfigSource) {
+            this.resource = resource;
+            this.parentNode = parentNode;
+            this.loadBalancer = loadBalancer;
+
+            EndpointResourceNode node = null;
+            final Cluster cluster = resource.resource();
+            if (cluster.hasLoadAssignment()) {
+                final ClusterLoadAssignment loadAssignment = cluster.getLoadAssignment();
+                node = StaticResourceUtils.staticEndpoint(context, loadAssignment.getClusterName(),
+                                                          this, loadAssignment);
+            } else if (cluster.hasEdsClusterConfig()) {
+                final EdsClusterConfig edsClusterConfig = cluster.getEdsClusterConfig();
+                final String serviceName = edsClusterConfig.getServiceName();
+                final String clusterName = !isNullOrEmpty(serviceName) ? serviceName : cluster.getName();
+                final ConfigSource configSource =
+                        context.configSourceMapper().withParentConfigSource(parentConfigSource)
+                               .edsConfigSource(cluster.getEdsClusterConfig().getEdsConfig(), clusterName);
+                node = new EndpointResourceNode(configSource, clusterName, context,
+                                                this, ResourceNodeType.DYNAMIC);
+                context.subscribe(node);
+            } else {
+                final ClusterSnapshot clusterSnapshot = new ClusterSnapshot(resource);
+                parentNode.notifyOnChanged(clusterSnapshot);
+            }
+            this.node = node;
+        }
+
         @Override
         public void snapshotUpdated(EndpointSnapshot newSnapshot) {
-            final ClusterXdsResource current = currentResource();
-            if (current == null) {
+            if (closed) {
                 return;
             }
-            if (!Objects.equals(newSnapshot.xdsResource().primer(), current)) {
-                return;
-            }
-            final ClusterSnapshot clusterSnapshot = new ClusterSnapshot(current, newSnapshot);
+            final ClusterSnapshot clusterSnapshot = new ClusterSnapshot(resource, newSnapshot);
             loadBalancer.updateSnapshot(clusterSnapshot);
-            clusterSnapshot.loadBalancer(loadBalancer);
-            notifyOnChanged(clusterSnapshot);
+            parentNode.notifyOnChanged(new ClusterSnapshot(clusterSnapshot, loadBalancer));
         }
 
         @Override
         public void onError(XdsType type, Status status) {
-            notifyOnError(type, status);
+            if (closed) {
+                return;
+            }
+            parentNode.notifyOnError(type, status);
         }
 
         @Override
         public void onMissing(XdsType type, String resourceName) {
-            notifyOnMissing(type, resourceName);
+            if (closed) {
+                return;
+            }
+            parentNode.notifyOnMissing(type, resourceName);
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+            if (node != null) {
+                node.close();
+            }
         }
     }
 }

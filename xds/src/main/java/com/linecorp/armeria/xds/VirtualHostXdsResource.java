@@ -30,22 +30,13 @@ import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3
 /**
  * A resource object for a {@link VirtualHost}.
  */
-public final class VirtualHostXdsResource extends XdsResourceWithPrimer<VirtualHostXdsResource> {
+public final class VirtualHostXdsResource implements XdsResource {
 
     private final VirtualHost virtualHost;
-    @Nullable
-    private final XdsResource primer;
     private final Map<String, ParsedFilterConfig> virtualHostFilterConfigs;
 
     VirtualHostXdsResource(VirtualHost virtualHost) {
         this.virtualHost = virtualHost;
-        primer = null;
-        virtualHostFilterConfigs = toParsedFilterConfigs(virtualHost.getTypedPerFilterConfigMap());
-    }
-
-    VirtualHostXdsResource(VirtualHost virtualHost, @Nullable XdsResource primer) {
-        this.virtualHost = virtualHost;
-        this.primer = primer;
         virtualHostFilterConfigs = toParsedFilterConfigs(virtualHost.getTypedPerFilterConfigMap());
     }
 
@@ -75,21 +66,9 @@ public final class VirtualHostXdsResource extends XdsResourceWithPrimer<VirtualH
     }
 
     @Override
-    VirtualHostXdsResource withPrimer(@Nullable XdsResource primer) {
-        return new VirtualHostXdsResource(virtualHost, primer);
-    }
-
-    @Nullable
-    @Override
-    XdsResource primer() {
-        return primer;
-    }
-
-    @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
                           .add("virtualHost", virtualHost)
-                          .add("primer", primer)
                           .toString();
     }
 }

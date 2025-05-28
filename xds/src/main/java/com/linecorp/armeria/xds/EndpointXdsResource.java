@@ -19,7 +19,6 @@ package com.linecorp.armeria.xds;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
-import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
@@ -28,20 +27,12 @@ import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
  * A resource object for a {@link ClusterLoadAssignment}.
  */
 @UnstableApi
-public final class EndpointXdsResource extends XdsResourceWithPrimer<EndpointXdsResource> {
+public final class EndpointXdsResource implements XdsResource {
 
     private final ClusterLoadAssignment clusterLoadAssignment;
-    @Nullable
-    private final XdsResource primer;
 
     EndpointXdsResource(ClusterLoadAssignment clusterLoadAssignment) {
         this.clusterLoadAssignment = clusterLoadAssignment;
-        primer = null;
-    }
-
-    EndpointXdsResource(ClusterLoadAssignment clusterLoadAssignment, XdsResource primer) {
-        this.clusterLoadAssignment = clusterLoadAssignment;
-        this.primer = primer;
     }
 
     @Override
@@ -57,20 +48,6 @@ public final class EndpointXdsResource extends XdsResourceWithPrimer<EndpointXds
     @Override
     public String name() {
         return clusterLoadAssignment.getClusterName();
-    }
-
-    @Override
-    EndpointXdsResource withPrimer(@Nullable XdsResource primer) {
-        if (primer == null) {
-            return this;
-        }
-        return new EndpointXdsResource(clusterLoadAssignment, primer);
-    }
-
-    @Override
-    @Nullable
-    XdsResource primer() {
-        return primer;
     }
 
     @Override

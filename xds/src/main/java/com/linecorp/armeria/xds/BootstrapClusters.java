@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
@@ -27,7 +28,7 @@ import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.grpc.Status;
 import io.netty.util.concurrent.EventExecutor;
 
-final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
+final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot>, SafeCloseable {
 
     private final Map<String, ClusterSnapshot> clusterSnapshots = new HashMap<>();
     private final Bootstrap bootstrap;
@@ -90,5 +91,12 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
     public void onError(XdsType type, Status status) {
         throw new IllegalArgumentException("Unexpected error for bootstrap cluster with type: '" +
                                            type + '\'', status.asException());
+    }
+
+    @Override
+    public void close() {
+        for (ClusterSnapshot snapshot : clusterSnapshots.values()) {
+            clusterManager.unregister(snapshot.xdsResource().name(), this);
+        }
     }
 }

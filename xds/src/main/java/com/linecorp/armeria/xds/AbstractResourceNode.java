@@ -16,8 +16,6 @@
 
 package com.linecorp.armeria.xds;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -28,8 +26,6 @@ import io.grpc.Status;
 
 abstract class AbstractResourceNode<T extends XdsResource, S extends Snapshot<T>> implements ResourceNode<T> {
 
-    private final Deque<ResourceNode<?>> children = new ArrayDeque<>();
-
     private final SubscriptionContext context;
     @Nullable
     private final ConfigSource configSource;
@@ -38,13 +34,10 @@ abstract class AbstractResourceNode<T extends XdsResource, S extends Snapshot<T>
     private final Set<SnapshotWatcher<S>> watchers = new HashSet<>();
     private final ResourceNodeType resourceNodeType;
     @Nullable
-    private T current;
-    @Nullable
     private S snapshot;
 
     AbstractResourceNode(SubscriptionContext context, @Nullable ConfigSource configSource,
-                         XdsType type, String resourceName,
-                         SnapshotWatcher<S> parentWatcher,
+                         XdsType type, String resourceName, SnapshotWatcher<S> parentWatcher,
                          ResourceNodeType resourceNodeType) {
         this.context = context;
         this.configSource = configSource;
@@ -71,16 +64,6 @@ abstract class AbstractResourceNode<T extends XdsResource, S extends Snapshot<T>
     @Override
     public ConfigSource configSource() {
         return configSource;
-    }
-
-    private void setCurrent(@Nullable T current) {
-        this.current = current;
-    }
-
-    @Nullable
-    @Override
-    public T currentResource() {
-        return current;
     }
 
     void addWatcher(SnapshotWatcher<S> watcher) {
@@ -111,13 +94,6 @@ abstract class AbstractResourceNode<T extends XdsResource, S extends Snapshot<T>
 
     @Override
     public void onResourceDoesNotExist(XdsType type, String resourceName) {
-        setCurrent(null);
-
-        for (ResourceNode<?> child: children) {
-            child.close();
-        }
-        children.clear();
-
         notifyOnMissing(type, resourceName);
     }
 
@@ -130,16 +106,7 @@ abstract class AbstractResourceNode<T extends XdsResource, S extends Snapshot<T>
     @Override
     public void onChanged(T update) {
         assert update.type() == type();
-        setCurrent(update);
-
-        final Deque<ResourceNode<?>> prevChildren = new ArrayDeque<>(children);
-        children.clear();
-
         doOnChanged(update);
-
-        for (ResourceNode<?> child: prevChildren) {
-            child.close();
-        }
     }
 
     abstract void doOnChanged(T update);
@@ -153,17 +120,9 @@ abstract class AbstractResourceNode<T extends XdsResource, S extends Snapshot<T>
 
     @Override
     public void close() {
-        for (ResourceNode<?> child: children) {
-            child.close();
-        }
-        children.clear();
         if (resourceNodeType == ResourceNodeType.DYNAMIC) {
             context.unsubscribe(this);
         }
-    }
-
-    Deque<ResourceNode<?>> children() {
-        return children;
     }
 
     @Override
@@ -174,9 +133,5 @@ abstract class AbstractResourceNode<T extends XdsResource, S extends Snapshot<T>
     @Override
     public String name() {
         return resourceName;
-    }
-
-    ConfigSourceMapper configSourceMapper() {
-        return context.configSourceMapper().withParentConfigSource(configSource);
     }
 }

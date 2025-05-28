@@ -101,6 +101,7 @@ final class XdsBootstrapImpl implements XdsBootstrap {
 
     @Override
     public void close() {
+        bootstrapClusters.close();
         configSourceManager.close();
         clusterManager.close();
     }

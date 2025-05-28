@@ -23,6 +23,7 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
+import com.linecorp.armeria.xds.client.endpoint.UpdatableLoadBalancer;
 import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
@@ -36,13 +37,19 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
     private final ClusterXdsResource clusterXdsResource;
     @Nullable
     private final EndpointSnapshot endpointSnapshot;
-
     @Nullable
-    private XdsLoadBalancer loadBalancer;
+    private final XdsLoadBalancer loadBalancer;
 
     ClusterSnapshot(ClusterXdsResource clusterXdsResource, @Nullable EndpointSnapshot endpointSnapshot) {
         this.clusterXdsResource = clusterXdsResource;
         this.endpointSnapshot = endpointSnapshot;
+        loadBalancer = null;
+    }
+
+    ClusterSnapshot(ClusterSnapshot clusterSnapshot, UpdatableLoadBalancer loadBalancer) {
+        clusterXdsResource = clusterSnapshot.clusterXdsResource;
+        endpointSnapshot = clusterSnapshot.endpointSnapshot;
+        this.loadBalancer = loadBalancer;
     }
 
     ClusterSnapshot(ClusterXdsResource clusterXdsResource) {
@@ -60,10 +67,6 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
     @Nullable
     public EndpointSnapshot endpointSnapshot() {
         return endpointSnapshot;
-    }
-
-    void loadBalancer(XdsLoadBalancer loadBalancer) {
-        this.loadBalancer = loadBalancer;
     }
 
     /**

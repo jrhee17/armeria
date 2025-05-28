@@ -31,36 +31,15 @@ import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContex
  * A resource object for a {@link Cluster}.
  */
 @UnstableApi
-public final class ClusterXdsResource extends XdsResourceWithPrimer<ClusterXdsResource> {
+public final class ClusterXdsResource implements XdsResource {
 
     private final Cluster cluster;
-    @Nullable
-    private final XdsResource primer;
     @Nullable
     UpstreamTlsContext upstreamTlsContext;
 
     ClusterXdsResource(Cluster cluster) {
-        this(cluster, null);
-    }
-
-    ClusterXdsResource(Cluster cluster, @Nullable XdsResource primer) {
         this.cluster = cluster;
-        this.primer = primer;
         upstreamTlsContext = upstreamTlsContext(cluster);
-    }
-
-    @Override
-    ClusterXdsResource withPrimer(@Nullable XdsResource primer) {
-        if (primer == null) {
-            return this;
-        }
-        return new ClusterXdsResource(cluster, primer);
-    }
-
-    @Nullable
-    @Override
-    XdsResource primer() {
-        return primer;
     }
 
     @Nullable

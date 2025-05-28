@@ -83,8 +83,8 @@ final class XdsClusterManager implements SnapshotWatcher<ClusterSnapshot> {
                 loadBalancer = new UpdatableLoadBalancer(eventLoop, bootstrap, localLoadBalancer);
             }
             final ClusterResourceNode node =
-                    StaticResourceUtils.staticCluster(context, cluster.getName(), watcher,
-                                                      cluster, loadBalancer);
+                    StaticResourceUtils.staticCluster(context, cluster.getName(), cluster, loadBalancer);
+            node.addWatcher(watcher);
             nodes.put(cluster.getName(), node);
         } finally {
             lock.unlock();
@@ -104,7 +104,7 @@ final class XdsClusterManager implements SnapshotWatcher<ClusterSnapshot> {
                         new UpdatableLoadBalancer(eventLoop, bootstrap, localLoadBalancer);
                 final ConfigSource configSource = context.configSourceMapper().cdsConfigSource(name);
                 final ClusterResourceNode dynamicNode =
-                        new ClusterResourceNode(configSource, name, context, null,
+                        new ClusterResourceNode(configSource, name, context,
                                                 ResourceNodeType.DYNAMIC, loadBalancer);
                 context.subscribe(dynamicNode);
                 return dynamicNode;

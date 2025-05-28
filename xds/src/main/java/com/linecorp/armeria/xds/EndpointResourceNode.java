@@ -22,14 +22,12 @@ import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 
-final class EndpointResourceNode extends AbstractResourceNodeWithPrimer<EndpointXdsResource,
-        EndpointSnapshot> {
+final class EndpointResourceNode extends AbstractResourceNode<EndpointXdsResource, EndpointSnapshot> {
 
     EndpointResourceNode(@Nullable ConfigSource configSource,
                          String resourceName, SubscriptionContext context,
-                         @Nullable ClusterXdsResource primer,
                          SnapshotWatcher<EndpointSnapshot> parentWatcher, ResourceNodeType resourceNodeType) {
-        super(context, configSource, ENDPOINT, resourceName, primer, parentWatcher, resourceNodeType);
+        super(context, configSource, ENDPOINT, resourceName, parentWatcher, resourceNodeType);
     }
 
     @Override

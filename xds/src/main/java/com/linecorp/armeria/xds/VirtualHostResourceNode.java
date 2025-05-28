@@ -17,7 +17,6 @@
 package com.linecorp.armeria.xds;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -32,80 +31,107 @@ import io.envoyproxy.envoy.config.route.v3.Route;
 import io.envoyproxy.envoy.config.route.v3.RouteAction;
 import io.grpc.Status;
 
-final class VirtualHostResourceNode
-        extends AbstractResourceNodeWithPrimer<VirtualHostXdsResource, VirtualHostSnapshot> {
+final class VirtualHostResourceNode extends AbstractResourceNode<VirtualHostXdsResource, VirtualHostSnapshot> {
 
     @Nullable
     private ClusterSnapshotWatcher snapshotWatcher;
     private final int index;
 
     VirtualHostResourceNode(@Nullable ConfigSource configSource, String resourceName,
-                            SubscriptionContext context, @Nullable RouteXdsResource primer,
+                            SubscriptionContext context,
                             SnapshotWatcher<VirtualHostSnapshot> parentWatcher, int index,
                             ResourceNodeType resourceNodeType) {
-        super(context, configSource, XdsType.VIRTUAL_HOST, resourceName, primer, parentWatcher,
-              resourceNodeType);
+        super(context, configSource, XdsType.VIRTUAL_HOST, resourceName, parentWatcher, resourceNodeType);
         this.index = index;
     }
 
     @Override
     void doOnChanged(VirtualHostXdsResource resource) {
-        final Set<String> clusterNames = new HashSet<>();
-        for (Route route: resource.resource().getRoutesList()) {
-            final RouteAction routeAction = route.getRoute();
-            if (!routeAction.hasCluster()) {
-                continue;
-            }
-            final String clusterName = routeAction.getCluster();
-            clusterNames.add(clusterName);
-        }
-
         final ClusterSnapshotWatcher prevWatcher = snapshotWatcher;
-        snapshotWatcher = new ClusterSnapshotWatcher(resource, clusterNames);
-
+        snapshotWatcher = new ClusterSnapshotWatcher(resource, context(), this, index);
         if (prevWatcher != null) {
             prevWatcher.close();
         }
     }
 
-    private class ClusterSnapshotWatcher implements SnapshotWatcher<ClusterSnapshot>, SafeCloseable {
+    @Override
+    public void close() {
+        final ClusterSnapshotWatcher snapshotWatcher = this.snapshotWatcher;
+        if (snapshotWatcher != null) {
+            snapshotWatcher.close();
+        }
+        super.close();
+    }
+
+    private static class ClusterSnapshotWatcher implements SnapshotWatcher<ClusterSnapshot>, SafeCloseable {
 
         private final Map<String, ClusterSnapshot> snapshots = new HashMap<>();
         private final VirtualHostXdsResource resource;
+        private final SubscriptionContext context;
+        private final VirtualHostResourceNode parentNode;
+        private final int index;
         private final Set<String> clusterNames;
 
-        ClusterSnapshotWatcher(VirtualHostXdsResource resource, Set<String> clusterNames) {
+        private boolean closed;
+
+        ClusterSnapshotWatcher(VirtualHostXdsResource resource, SubscriptionContext context,
+                               VirtualHostResourceNode parentNode, int index) {
             this.resource = resource;
-            this.clusterNames = ImmutableSet.copyOf(clusterNames);
+            this.context = context;
+            this.parentNode = parentNode;
+            this.index = index;
+
+            final ImmutableSet.Builder<String> clusterNamesBuilder = ImmutableSet.builder();
+            for (Route route: resource.resource().getRoutesList()) {
+                final RouteAction routeAction = route.getRoute();
+                if (!routeAction.hasCluster()) {
+                    continue;
+                }
+                final String clusterName = routeAction.getCluster();
+                clusterNamesBuilder.add(clusterName);
+            }
+            clusterNames = clusterNamesBuilder.build();
             for (String clusterName : clusterNames) {
-                context().clusterManager().register(clusterName, context(), this);
+                context.clusterManager().register(clusterName, context, this);
             }
         }
 
         @Override
         public void snapshotUpdated(ClusterSnapshot newSnapshot) {
+            if (closed) {
+                return;
+            }
             snapshots.put(newSnapshot.xdsResource().name(), newSnapshot);
             // checks if all clusters for the route have reported a snapshot
             if (snapshots.size() < clusterNames.size()) {
                 return;
             }
-            notifyOnChanged(new VirtualHostSnapshot(resource, ImmutableMap.copyOf(snapshots), index));
+            final VirtualHostSnapshot snapshot =
+                    new VirtualHostSnapshot(resource, ImmutableMap.copyOf(snapshots), index);
+            parentNode.notifyOnChanged(snapshot);
         }
 
         @Override
         public void onError(XdsType type, Status status) {
-            notifyOnError(type, status);
+            if (closed) {
+                return;
+            }
+            parentNode.notifyOnError(type, status);
         }
 
         @Override
         public void onMissing(XdsType type, String resourceName) {
-            notifyOnMissing(type, resourceName);
+            if (closed) {
+                return;
+            }
+            parentNode.notifyOnMissing(type, resourceName);
         }
 
         @Override
         public void close() {
+            closed = true;
             for (String clusterName : clusterNames) {
-                context().clusterManager().unregister(clusterName, this);
+                context.clusterManager().unregister(clusterName, this);
             }
         }
     }
