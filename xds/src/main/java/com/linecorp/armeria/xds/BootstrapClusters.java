@@ -23,7 +23,6 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
 
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
-import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap.StaticResources;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.grpc.Status;
 import io.netty.util.concurrent.EventExecutor;
@@ -31,7 +30,6 @@ import io.netty.util.concurrent.EventExecutor;
 final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
 
     private final Map<String, ClusterSnapshot> clusterSnapshots = new HashMap<>();
-    private final Map<String, XdsLoadBalancer> loadBalancers = new HashMap<>();
     private final Bootstrap bootstrap;
     private final EventExecutor eventLoop;
     private final XdsClusterManager clusterManager;
@@ -40,38 +38,31 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
         this.bootstrap = bootstrap;
         this.eventLoop = eventLoop;
         this.clusterManager = clusterManager;
+        primaryInitialize(bootstrap);
+    }
 
-        final StaticResources staticResources = bootstrap.getStaticResources();
-
-        // primary initialization
-        for (Cluster cluster : staticResources.getClustersList()) {
-            if (clusterSnapshots.containsKey(cluster.getName())) {
+    private void primaryInitialize(Bootstrap bootstrap) {
+        final StaticSubscriptionContext context = new StaticSubscriptionContext(eventLoop);
+        for (Cluster cluster: bootstrap.getStaticResources().getClustersList()) {
+            if (!cluster.hasLoadAssignment()) {
                 continue;
             }
-            if (cluster.hasEdsClusterConfig()) {
-                continue;
-            }
-            clusterManager.register(cluster.getName(), cluster, this);
+            clusterManager.register(cluster, context, this);
         }
     }
 
-    void secondaryInitialize() {
-        // secondary initialization
-        for (Cluster cluster : bootstrap.getStaticResources().getClustersList()) {
-            if (clusterSnapshots.containsKey(cluster.getName())) {
+    void secondaryInitialize(SubscriptionContext context) {
+        for (Cluster cluster: bootstrap.getStaticResources().getClustersList()) {
+            if (!cluster.hasEdsClusterConfig()) {
                 continue;
             }
-            clusterManager.register(cluster.getName(), cluster, this);
+            clusterManager.register(cluster, context, this);
         }
     }
 
     @Override
     public void snapshotUpdated(ClusterSnapshot newSnapshot) {
         final String name = newSnapshot.xdsResource().name();
-        final XdsLoadBalancer loadBalancer = clusterManager.get(name);
-        if (loadBalancer != null) {
-            loadBalancers.put(name, loadBalancer);
-        }
         clusterSnapshots.put(name, newSnapshot);
     }
 
@@ -81,17 +72,12 @@ final class BootstrapClusters implements SnapshotWatcher<ClusterSnapshot> {
     }
 
     @Nullable
-    Cluster cluster(String clusterName) {
-        final ClusterSnapshot clusterSnapshot = clusterSnapshots.get(clusterName);
-        if (clusterSnapshot == null) {
+    XdsLoadBalancer loadBalancer(String clusterName) {
+        final ClusterSnapshot snapshot = clusterSnapshots.get(clusterName);
+        if (snapshot == null) {
             return null;
         }
-        return clusterSnapshot.xdsResource().resource();
-    }
-
-    @Nullable
-    XdsLoadBalancer loadBalancer(String clusterName) {
-        return loadBalancers.get(clusterName);
+        return snapshot.loadBalancer();
     }
 
     @Override

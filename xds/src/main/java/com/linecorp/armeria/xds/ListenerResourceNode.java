@@ -28,16 +28,15 @@ import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.Rds;
 import io.grpc.Status;
 
-final class ListenerResourceNode extends AbstractResourceNode<ListenerXdsResource> {
+final class ListenerResourceNode extends AbstractResourceNode<ListenerXdsResource,
+        ListenerSnapshot> {
 
     private final RouteResourceWatcher snapshotWatcher = new RouteResourceWatcher();
-    private final SnapshotWatcher<ListenerSnapshot> parentWatcher;
 
     ListenerResourceNode(@Nullable ConfigSource configSource,
                          String resourceName, SubscriptionContext context,
                          SnapshotWatcher<ListenerSnapshot> parentWatcher, ResourceNodeType resourceNodeType) {
         super(context, configSource, LISTENER, resourceName, parentWatcher, resourceNodeType);
-        this.parentWatcher = parentWatcher;
     }
 
     @Override
@@ -64,7 +63,7 @@ final class ListenerResourceNode extends AbstractResourceNode<ListenerXdsResourc
             }
         }
         if (children().isEmpty()) {
-            parentWatcher.snapshotUpdated(new ListenerSnapshot(resource, null));
+            notifyOnChanged(new ListenerSnapshot(resource, null));
         }
     }
 
@@ -79,17 +78,17 @@ final class ListenerResourceNode extends AbstractResourceNode<ListenerXdsResourc
             if (!Objects.equals(newSnapshot.xdsResource().primer(), current)) {
                 return;
             }
-            parentWatcher.snapshotUpdated(new ListenerSnapshot(current, newSnapshot));
+            notifyOnChanged(new ListenerSnapshot(current, newSnapshot));
         }
 
         @Override
         public void onMissing(XdsType type, String resourceName) {
-            parentWatcher.onMissing(type, resourceName);
+            notifyOnMissing(type, resourceName);
         }
 
         @Override
         public void onError(XdsType type, Status status) {
-            parentWatcher.onError(type, status);
+            notifyOnError(type, status);
         }
     }
 }

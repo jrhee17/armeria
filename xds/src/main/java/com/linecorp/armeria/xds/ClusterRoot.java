@@ -16,12 +16,9 @@
 
 package com.linecorp.armeria.xds;
 
-import static com.linecorp.armeria.xds.StaticResourceUtils.staticCluster;
-
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
-import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 
 /**
  * A root node representing a {@link Cluster}.
@@ -31,20 +28,14 @@ import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 @UnstableApi
 public final class ClusterRoot extends AbstractRoot<ClusterSnapshot> {
 
-    private final ClusterResourceNode node;
+    private final SubscriptionContext context;
+    private final String resourceName;
 
     ClusterRoot(SubscriptionContext context, String resourceName) {
         super(context.eventLoop());
-        final Cluster cluster = context.bootstrapClusters().cluster(resourceName);
-        if (cluster != null) {
-            node = staticCluster(context, resourceName, this, cluster);
-        } else {
-            final ConfigSource configSource =
-                    context.configSourceMapper().cdsConfigSource(resourceName);
-            node = new ClusterResourceNode(configSource, resourceName, context,
-                                           null, this, ResourceNodeType.DYNAMIC);
-            context.subscribe(node);
-        }
+        this.context = context;
+        this.resourceName = resourceName;
+        context.clusterManager().register(resourceName, context, this);
     }
 
     @Override
@@ -53,7 +44,7 @@ public final class ClusterRoot extends AbstractRoot<ClusterSnapshot> {
             eventLoop().execute(this::close);
             return;
         }
-        node.close();
+        context.clusterManager().unregister(resourceName, this);
         super.close();
     }
 }

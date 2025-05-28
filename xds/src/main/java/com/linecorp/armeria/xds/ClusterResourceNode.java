@@ -22,6 +22,7 @@ import static com.linecorp.armeria.xds.XdsType.CLUSTER;
 import java.util.Objects;
 
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.xds.client.endpoint.UpdatableLoadBalancer;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.EdsClusterConfig;
@@ -29,32 +30,27 @@ import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 import io.grpc.Status;
 
-final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXdsResource> {
+final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXdsResource,
+        ClusterSnapshot> {
 
-    private final int index;
     private final EndpointSnapshotWatcher snapshotWatcher = new EndpointSnapshotWatcher();
-    private final SnapshotWatcher<ClusterSnapshot> parentWatcher;
-    private final ClusterEntryLifecycle clusterEntryLifecycle;
+    private final UpdatableLoadBalancer loadBalancer;
 
     ClusterResourceNode(@Nullable ConfigSource configSource,
                         String resourceName, SubscriptionContext context,
                         @Nullable RouteXdsResource primer,
                         SnapshotWatcher<ClusterSnapshot> parentWatcher,
-                        ResourceNodeType resourceNodeType) {
+                        ResourceNodeType resourceNodeType, UpdatableLoadBalancer loadBalancer) {
         super(context, configSource, CLUSTER, resourceName, primer, parentWatcher, resourceNodeType);
-        this.parentWatcher = parentWatcher;
-        index = -1;
-        clusterEntryLifecycle = new ClusterEntryLifecycle(context.clusterManager(), resourceName);
+        this.loadBalancer = loadBalancer;
     }
 
     ClusterResourceNode(@Nullable ConfigSource configSource,
                         String resourceName, SubscriptionContext context,
-                        @Nullable VirtualHostXdsResource primer, SnapshotWatcher<ClusterSnapshot> parentWatcher,
-                        int index, ResourceNodeType resourceNodeType) {
-        super(context, configSource, CLUSTER, resourceName, primer, parentWatcher, resourceNodeType);
-        this.parentWatcher = parentWatcher;
-        this.index = index;
-        clusterEntryLifecycle = new ClusterEntryLifecycle(context.clusterManager(), resourceName);
+                        @Nullable RouteXdsResource primer,
+                        ResourceNodeType resourceNodeType, UpdatableLoadBalancer loadBalancer) {
+        super(context, configSource, CLUSTER, resourceName, primer, resourceNodeType);
+        this.loadBalancer = loadBalancer;
     }
 
     @Override
@@ -79,13 +75,13 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
             context().subscribe(node);
         } else {
             final ClusterSnapshot clusterSnapshot = new ClusterSnapshot(resource);
-            parentWatcher.snapshotUpdated(clusterSnapshot);
+            notifyOnChanged(clusterSnapshot);
         }
     }
 
     @Override
     public void close() {
-        clusterEntryLifecycle.close();
+        loadBalancer.close();
         super.close();
     }
 
@@ -99,22 +95,20 @@ final class ClusterResourceNode extends AbstractResourceNodeWithPrimer<ClusterXd
             if (!Objects.equals(newSnapshot.xdsResource().primer(), current)) {
                 return;
             }
-            if (clusterEntryLifecycle.closed()) {
-                return;
-            }
-            final ClusterSnapshot clusterSnapshot = new ClusterSnapshot(current, newSnapshot, index);
-            clusterSnapshot.loadBalancer(clusterEntryLifecycle.update(clusterSnapshot));
-            parentWatcher.snapshotUpdated(clusterSnapshot);
+            final ClusterSnapshot clusterSnapshot = new ClusterSnapshot(current, newSnapshot);
+            loadBalancer.updateSnapshot(clusterSnapshot);
+            clusterSnapshot.loadBalancer(loadBalancer);
+            notifyOnChanged(clusterSnapshot);
         }
 
         @Override
         public void onError(XdsType type, Status status) {
-            parentWatcher.onError(type, status);
+            notifyOnError(type, status);
         }
 
         @Override
         public void onMissing(XdsType type, String resourceName) {
-            parentWatcher.onMissing(type, resourceName);
+            notifyOnMissing(type, resourceName);
         }
     }
 }

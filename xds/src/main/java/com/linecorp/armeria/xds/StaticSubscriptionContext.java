@@ -21,16 +21,16 @@ import io.netty.util.concurrent.EventExecutor;
 final class StaticSubscriptionContext implements SubscriptionContext {
 
     private final EventExecutor eventLoop;
-    private final XdsClusterManager clusterManager;
 
-    StaticSubscriptionContext(EventExecutor eventLoop, XdsClusterManager clusterManager) {
+    StaticSubscriptionContext(EventExecutor eventLoop) {
         this.eventLoop = eventLoop;
-        this.clusterManager = clusterManager;
     }
 
     @Override
     public XdsClusterManager clusterManager() {
-        return clusterManager;
+        final String message = String.format("'%s.clusterManager()' method is not supported",
+                                             getClass().getSimpleName());
+        throw new UnsupportedOperationException(message);
     }
 
     @Override

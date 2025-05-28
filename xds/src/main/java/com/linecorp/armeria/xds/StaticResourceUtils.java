@@ -18,6 +18,8 @@ package com.linecorp.armeria.xds;
 
 import static com.linecorp.armeria.xds.ResourceNodeType.STATIC;
 
+import com.linecorp.armeria.xds.client.endpoint.UpdatableLoadBalancer;
+
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
@@ -55,19 +57,9 @@ final class StaticResourceUtils {
 
     static ClusterResourceNode staticCluster(SubscriptionContext context, String resourceName,
                                              SnapshotWatcher<ClusterSnapshot> parentWatcher,
-                                             Cluster cluster) {
+                                             Cluster cluster, UpdatableLoadBalancer loadBalancer) {
         final ClusterResourceNode node = new ClusterResourceNode(null, resourceName, context,
-                                                                 null, parentWatcher, STATIC);
-        setClusterXdsResourceToNode(cluster, node);
-        return node;
-    }
-
-    static ClusterResourceNode staticCluster(SubscriptionContext context, String resourceName,
-                                             VirtualHostXdsResource primer,
-                                             SnapshotWatcher<ClusterSnapshot> parentWatcher,
-                                             int index, Cluster cluster) {
-        final ClusterResourceNode node = new ClusterResourceNode(null, resourceName, context,
-                                                                 primer, parentWatcher, index, STATIC);
+                                                                 null, parentWatcher, STATIC, loadBalancer);
         setClusterXdsResourceToNode(cluster, node);
         return node;
     }

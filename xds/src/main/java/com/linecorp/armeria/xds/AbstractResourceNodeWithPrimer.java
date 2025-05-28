@@ -20,17 +20,24 @@ import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 
-abstract class AbstractResourceNodeWithPrimer<T extends XdsResourceWithPrimer<T>>
-        extends AbstractResourceNode<T> {
+abstract class AbstractResourceNodeWithPrimer<T extends XdsResourceWithPrimer<T>, S extends Snapshot<T>>
+        extends AbstractResourceNode<T, S> {
 
     @Nullable
     private final XdsResource primer;
 
     AbstractResourceNodeWithPrimer(SubscriptionContext context, @Nullable ConfigSource configSource,
                                    XdsType type, String resourceName, @Nullable XdsResource primer,
-                                   SnapshotWatcher<? extends Snapshot<T>> parentWatcher,
+                                   SnapshotWatcher<S> parentWatcher,
                                    ResourceNodeType resourceNodeType) {
         super(context, configSource, type, resourceName, parentWatcher, resourceNodeType);
+        this.primer = primer;
+    }
+
+    AbstractResourceNodeWithPrimer(SubscriptionContext context, @Nullable ConfigSource configSource,
+                                   XdsType type, String resourceName, @Nullable XdsResource primer,
+                                   ResourceNodeType resourceNodeType) {
+        super(context, configSource, type, resourceName, resourceNodeType);
         this.primer = primer;
     }
 

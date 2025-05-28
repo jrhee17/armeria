@@ -18,13 +18,15 @@ package com.linecorp.armeria.xds;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashSet;
+import java.util.Set;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.grpc.Status;
 
-abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNode<T> {
+abstract class AbstractResourceNode<T extends XdsResource, S extends Snapshot<T>> implements ResourceNode<T> {
 
     private final Deque<ResourceNode<?>> children = new ArrayDeque<>();
 
@@ -33,20 +35,31 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
     private final ConfigSource configSource;
     private final XdsType type;
     private final String resourceName;
-    private final SnapshotWatcher<? extends Snapshot<T>> parentWatcher;
+    private final Set<SnapshotWatcher<S>> watchers = new HashSet<>();
     private final ResourceNodeType resourceNodeType;
     @Nullable
     private T current;
+    @Nullable
+    private S snapshot;
 
     AbstractResourceNode(SubscriptionContext context, @Nullable ConfigSource configSource,
                          XdsType type, String resourceName,
-                         SnapshotWatcher<? extends Snapshot<T>> parentWatcher,
+                         SnapshotWatcher<S> parentWatcher,
                          ResourceNodeType resourceNodeType) {
         this.context = context;
         this.configSource = configSource;
         this.type = type;
         this.resourceName = resourceName;
-        this.parentWatcher = parentWatcher;
+        this.resourceNodeType = resourceNodeType;
+        watchers.add(parentWatcher);
+    }
+
+    AbstractResourceNode(SubscriptionContext context, @Nullable ConfigSource configSource,
+                         XdsType type, String resourceName, ResourceNodeType resourceNodeType) {
+        this.context = context;
+        this.configSource = configSource;
+        this.type = type;
+        this.resourceName = resourceName;
         this.resourceNodeType = resourceNodeType;
     }
 
@@ -70,9 +83,30 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
         return current;
     }
 
+    void addWatcher(SnapshotWatcher<S> watcher) {
+        watchers.add(watcher);
+        if (snapshot != null) {
+            watcher.snapshotUpdated(snapshot);
+        }
+    }
+
+    void removeWatcher(SnapshotWatcher<S> watcher) {
+        watchers.remove(watcher);
+    }
+
+    boolean hasWatchers() {
+        return !watchers.isEmpty();
+    }
+
     @Override
     public void onError(XdsType type, Status error) {
-        parentWatcher.onError(type, error);
+        notifyOnError(type, error);
+    }
+
+    void notifyOnError(XdsType type, Status error) {
+        for (SnapshotWatcher<S> watcher : watchers) {
+            watcher.onError(type, error);
+        }
     }
 
     @Override
@@ -83,7 +117,14 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
             child.close();
         }
         children.clear();
-        parentWatcher.onMissing(type, resourceName);
+
+        notifyOnMissing(type, resourceName);
+    }
+
+    void notifyOnMissing(XdsType type, String resourceName) {
+        for (SnapshotWatcher<S> watcher : watchers) {
+            watcher.onMissing(type, resourceName);
+        }
     }
 
     @Override
@@ -102,6 +143,13 @@ abstract class AbstractResourceNode<T extends XdsResource> implements ResourceNo
     }
 
     abstract void doOnChanged(T update);
+
+    void notifyOnChanged(S snapshot) {
+        this.snapshot = snapshot;
+        for (SnapshotWatcher<S> watcher : watchers) {
+            watcher.snapshotUpdated(snapshot);
+        }
+    }
 
     @Override
     public void close() {

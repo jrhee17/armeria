@@ -58,7 +58,7 @@ final class ConfigSourceClient implements SafeCloseable {
         final boolean ads = apiConfigSource.getApiType() == ApiType.AGGREGATED_GRPC;
         final GrpcClientBuilder builder =
                 GrpcClients.builder(new GrpcServicesPreprocessor(grpcServices, bootstrapClusters));
-        builder.responseTimeout(java.time.Duration.ZERO);
+        builder.responseTimeoutMillis(Long.MAX_VALUE);
         builder.maxResponseLength(0);
         clientCustomizer.accept(builder);
         if (ads) {

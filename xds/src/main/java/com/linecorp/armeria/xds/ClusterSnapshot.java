@@ -32,23 +32,21 @@ import io.envoyproxy.envoy.config.cluster.v3.Cluster;
  */
 @UnstableApi
 public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
+
     private final ClusterXdsResource clusterXdsResource;
     @Nullable
     private final EndpointSnapshot endpointSnapshot;
-    private final int index;
 
     @Nullable
     private XdsLoadBalancer loadBalancer;
 
-    ClusterSnapshot(ClusterXdsResource clusterXdsResource,
-                    @Nullable EndpointSnapshot endpointSnapshot, int index) {
+    ClusterSnapshot(ClusterXdsResource clusterXdsResource, @Nullable EndpointSnapshot endpointSnapshot) {
         this.clusterXdsResource = clusterXdsResource;
         this.endpointSnapshot = endpointSnapshot;
-        this.index = index;
     }
 
     ClusterSnapshot(ClusterXdsResource clusterXdsResource) {
-        this(clusterXdsResource, null, -1);
+        this(clusterXdsResource, null);
     }
 
     @Override
@@ -75,10 +73,6 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
     @Nullable
     public XdsLoadBalancer loadBalancer() {
         return loadBalancer;
-    }
-
-    int index() {
-        return index;
     }
 
     @Override

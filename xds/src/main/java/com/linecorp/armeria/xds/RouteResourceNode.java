@@ -34,18 +34,16 @@ import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 import io.envoyproxy.envoy.config.route.v3.VirtualHost;
 import io.grpc.Status;
 
-final class RouteResourceNode extends AbstractResourceNodeWithPrimer<RouteXdsResource> {
+final class RouteResourceNode extends AbstractResourceNodeWithPrimer<RouteXdsResource, RouteSnapshot> {
 
     private final Set<Integer> pending = new HashSet<>();
     private final List<VirtualHostSnapshot> virtualHostSnapshots = new ArrayList<>();
-    private final SnapshotWatcher<RouteSnapshot> parentWatcher;
     private final VirtualHostSnapshotWatcher snapshotWatcher = new VirtualHostSnapshotWatcher();
 
     RouteResourceNode(@Nullable ConfigSource configSource, String resourceName,
                       SubscriptionContext context, @Nullable ListenerXdsResource primer,
                       SnapshotWatcher<RouteSnapshot> parentWatcher, ResourceNodeType resourceNodeType) {
         super(context, configSource, ROUTE, resourceName, primer, parentWatcher, resourceNodeType);
-        this.parentWatcher = parentWatcher;
     }
 
     @Override
@@ -64,7 +62,7 @@ final class RouteResourceNode extends AbstractResourceNodeWithPrimer<RouteXdsRes
             children().add(childNode);
         }
         if (children().isEmpty()) {
-            parentWatcher.snapshotUpdated(new RouteSnapshot(resource, Collections.emptyList()));
+            notifyOnChanged(new RouteSnapshot(resource, Collections.emptyList()));
         }
     }
 
@@ -85,18 +83,17 @@ final class RouteResourceNode extends AbstractResourceNodeWithPrimer<RouteXdsRes
             if (!pending.isEmpty()) {
                 return;
             }
-            parentWatcher.snapshotUpdated(
-                    new RouteSnapshot(current, ImmutableList.copyOf(virtualHostSnapshots)));
+            notifyOnChanged(new RouteSnapshot(current, ImmutableList.copyOf(virtualHostSnapshots)));
         }
 
         @Override
         public void onError(XdsType type, Status status) {
-            parentWatcher.onError(type, status);
+            notifyOnError(type, status);
         }
 
         @Override
         public void onMissing(XdsType type, String resourceName) {
-            parentWatcher.onMissing(type, resourceName);
+            notifyOnMissing(type, resourceName);
         }
     }
 }

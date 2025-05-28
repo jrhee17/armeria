@@ -59,6 +59,11 @@ final class XdsBootstrapImpl implements XdsBootstrap {
         bootstrapListeners = new BootstrapListeners(bootstrap);
         configSourceManager = new ConfigSourceManager(bootstrap, eventLoop,
                                                       configClientCustomizer, bootstrapClusters);
+
+        final SubscriptionContext context =
+                new DefaultSubscriptionContext(eventLoop, clusterManager, bootstrapClusters,
+                                               configSourceMapper, configSourceManager);
+        bootstrapClusters.secondaryInitialize(context);
     }
 
     @Override
