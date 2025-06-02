@@ -89,12 +89,13 @@ struct FooStruct {
     15: optional FooStruct selfRef
 }
 
-typedef string              TypedefedString
-typedef FooStruct           TypedefedStruct
-typedef FooEnum             TypedefedEnum
-typedef map<string, string> TypedefedMap
-typedef list<string>        TypedefedList
-typedef set<string>         TypedefedSet
+typedef string               TypedefedString
+typedef FooStruct            TypedefedStruct
+typedef FooEnum              TypedefedEnum
+typedef map<string, string>  TypedefedMap
+typedef map<string, FooEnum> TypedefedEnumMap
+typedef list<string>         TypedefedList
+typedef set<string>          TypedefedSet
 typedef list<list<TypedefedStruct>> NestedTypedefedStructs
 
 service FooService {
@@ -135,6 +136,8 @@ typedef double                TypedefedDouble
 typedef list<TypedefedDouble> TypedefedListDouble
 typedef binary                TypedefedBinary
 typedef list<TypedefedBinary> TypedefedListBinary
+typedef FooUnion              TypedefedUnion
+typedef set<FooUnion>         TypedefedSetUnion
 
 service TypeDefService {
     void typeDefs(1: TypedefedString td1, 2: TypedefedListString td2, 3: TypedefedBool td3,

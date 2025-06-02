@@ -4,6 +4,8 @@ dependencies {
 
     api libs.javax.annotation
 
+    implementation libs.caffeine
+
     testImplementation project(':prometheus1')
 
     // thrift api depends on httpclient4
