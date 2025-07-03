@@ -106,6 +106,10 @@ class RetryingContext {
         return initFuture;
     }
 
+    private RetryAttempt newAttempt(RetryingClient client) {
+        return new RetryAttempt(this, client.unwrap(), ctx.log().children().size() + 1);
+    }
+
     boolean isCompleted() {
         if (state == State.COMPLETING || state == State.COMPLETED) {
             return true;
@@ -151,6 +155,9 @@ class RetryingContext {
         if (!AbstractRetryingClient.setResponseTimeout(ctx)) {
             throw ResponseTimeoutException.get();
         }
+        if (isCompleted()) {
+            throw ResponseTimeoutException.get();
+        }
 
         final HttpRequest attemptReq;
         if (isInitialAttempt) {
@@ -165,19 +172,17 @@ class RetryingContext {
                     ctx, attemptReq, ctx.rpcRequest(), isInitialAttempt);
     }
 
-    void commit(RetryAttempt attempt) {
+    void commit(HttpResponse res) {
         if (state == State.COMPLETED) {
             // Already completed.
             return;
         }
-        assert attempt.state() == RetryAttempt.State.COMPLETED;
         assert state == State.INITIALIZED;
         assert reqDuplicator != null;
         state = State.COMPLETED;
 
-        final HttpResponse attemptRes = attempt.commit();
         ctx.logBuilder().endResponseWithLastChild();
-        resFuture.complete(attemptRes);
+        resFuture.complete(res);
         reqDuplicator.close();
     }
 
