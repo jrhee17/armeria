@@ -27,7 +27,6 @@ import org.slf4j.LoggerFactory;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.HttpClient;
-import com.linecorp.armeria.client.retry.RetryAttempt.RetryResult;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.Request;
@@ -222,68 +221,50 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
     protected HttpResponse doExecute(ClientRequestContext ctx, HttpRequest req) throws Exception {
         final CompletableFuture<HttpResponse> resFuture = new CompletableFuture<>();
         final HttpResponse res = HttpResponse.of(resFuture, ctx.eventLoop());
-        final RetryingContext rctx = new RetryingContext(ctx, mappedRetryConfig(ctx), res, resFuture, req);
+        final RetryingContext rctx = new RetryingContext(ctx, mappedRetryConfig(ctx), res, resFuture, req, unwrap());
         rctx.init().handle((initSuccessful, unused) -> {
             if (!initSuccessful) {
                 return null;
             }
-
-            final RetryAttempt attempt;
-            try {
-                attempt = new RetryAttempt(rctx, unwrap(), 1);
-            } catch (Exception e) {
-                rctx.abort(e);
-                return null;
-            }
-            doExecuteAttempt(rctx, attempt);
+            doExecuteAttempt(rctx);
 
             return null;
         });
         return res;
     }
 
-    private void doExecuteAttempt(RetryingContext rctx, RetryAttempt attempt) {
+    private void doExecuteAttempt(RetryingContext rctx) {
         if (rctx.isCompleted()) {
             // The request or response has been aborted by the client before it receives a response,
             // so stop retrying.
             return;
         }
 
-        attempt.execute().handle((retryResult, unexpectedAttemptCause) -> {
+        rctx.newRetryAttempt().handle((retryAttempt, unexpectedAttemptCause) -> {
             if (unexpectedAttemptCause != null) {
                 rctx.abort(unexpectedAttemptCause);
                 return null;
             }
 
-            decideOnAttempt(rctx, attempt, retryResult).handle((nextDelayMillis, unexpectedDecisionCause) -> {
+            decideOnAttempt(rctx, retryAttempt).handle((nextDelayMillis, unexpectedDecisionCause) -> {
                 if (unexpectedDecisionCause != null) {
-                    retryResult.abort(unexpectedDecisionCause);
+                    retryAttempt.abort(unexpectedDecisionCause);
                     rctx.abort(unexpectedDecisionCause);
                     return null;
                 }
 
                 if (nextDelayMillis >= 0) {
-                    retryResult.abort(AbortedStreamException.get());
+                    retryAttempt.abort(AbortedStreamException.get());
 
                     scheduleNextRetry(
                             rctx.ctx(), rctx::abort,
-                            () -> {
-                                final RetryAttempt nextAttempt;
-                                try {
-                                    nextAttempt = new RetryAttempt(
-                                            rctx, unwrap(), getTotalAttempts(rctx.ctx()));
-                                } catch (Exception e) {
-                                    rctx.abort(e);
-                                    return;
-                                }
-                                doExecuteAttempt(rctx, nextAttempt);
-                            },
+                            () -> doExecuteAttempt(rctx),
                             nextDelayMillis);
                     return null;
                 }
 
-                retryResult.close();
-                rctx.commit(retryResult.res());
+                retryAttempt.close();
+                rctx.commit(retryAttempt.res());
                 return null;
             });
 
@@ -291,15 +272,14 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
         });
     }
 
-    private CompletionStage<Long> decideOnAttempt(RetryingContext rctx, RetryAttempt attempt,
-                                                  RetryResult retryResult) {
+    private CompletionStage<Long> decideOnAttempt(RetryingContext rctx, RetryAttempt retryAttempt) {
 
         try {
-            return attempt.shouldRetry(retryResult).handle((decision, cause) -> {
+            return rctx.shouldRetry(retryAttempt).handle((decision, cause) -> {
                 assert cause == null;
                 final Backoff backoff = decision != null ? decision.backoff() : null;
                 if (backoff != null) {
-                    final long millisAfter = useRetryAfter ? attempt.retryAfterMillis(retryResult.ctx()) : -1;
+                    final long millisAfter = useRetryAfter ? retryAttempt.retryAfterMillis() : -1;
                     final long nextDelay = getNextDelay(rctx.ctx(), backoff, millisAfter);
                     if (nextDelay >= 0) {
                         return nextDelay;

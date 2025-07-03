@@ -17,9 +17,16 @@
 package com.linecorp.armeria.client.retry;
 
 import static com.linecorp.armeria.client.retry.AbstractRetryingClient.ARMERIA_RETRY_COUNT;
+import static com.linecorp.armeria.internal.client.ClientUtil.executeWithFallback;
+import static com.linecorp.armeria.internal.client.ClientUtil.initContextAndExecuteWithFallback;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.linecorp.armeria.client.Client;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ResponseTimeoutException;
 import com.linecorp.armeria.common.AggregationOptions;
@@ -30,8 +37,13 @@ import com.linecorp.armeria.common.RequestHeadersBuilder;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.stream.AbortedStreamException;
 import com.linecorp.armeria.internal.client.AggregatedHttpRequestDuplicator;
+import com.linecorp.armeria.internal.client.ClientPendingThrowableUtil;
+import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 
 class RetryingContext {
+
+    private static final Logger logger = LoggerFactory.getLogger(RetryingContext.class);
+
     private enum State {
         UNINITIALIZED,
         INITIALIZING,
@@ -45,6 +57,7 @@ class RetryingContext {
     private final HttpResponse res;
     private final CompletableFuture<HttpResponse> resFuture;
     private final HttpRequest req;
+    private final Client<HttpRequest, HttpResponse> delegate;
     private State state;
 
     @Nullable
@@ -54,13 +67,15 @@ class RetryingContext {
                     RetryConfig<HttpResponse> retryConfig,
                     HttpResponse res,
                     CompletableFuture<HttpResponse> resFuture,
-                    HttpRequest req) {
+                    HttpRequest req,
+                    Client<HttpRequest, HttpResponse> delegate) {
 
         this.ctx = ctx;
         this.retryConfig = retryConfig;
         this.res = res;
         this.resFuture = resFuture;
         this.req = req;
+        this.delegate = delegate;
         state = State.UNINITIALIZED;
         reqDuplicator = null; // will be initialized in init().
     }
@@ -106,8 +121,39 @@ class RetryingContext {
         return initFuture;
     }
 
-    private RetryAttempt newAttempt(RetryingClient client) {
-        return new RetryAttempt(this, client.unwrap(), ctx.log().children().size() + 1);
+    CompletableFuture<RetryAttempt> newRetryAttempt() {
+        final int number = ctx().log().children().size() + 1;
+        final ClientRequestContext ctx = newAttemptContext(number);
+        final HttpResponse res = executeAttemptRequest(ctx, number, delegate);
+        if (!ctx().exchangeType().isResponseStreaming() || config().requiresResponseTrailers()) {
+            return RetryAttempt.handleAggRes(ctx, res);
+        } else {
+            return RetryAttempt.handleStreamingRes(this, ctx, res);
+        }
+    }
+
+    private static HttpResponse executeAttemptRequest(ClientRequestContext ctx, int number,
+                                                      Client<HttpRequest, HttpResponse> delegate) {
+
+        final HttpRequest req = ctx.request();
+        assert req != null;
+
+        final ClientRequestContextExtension ctxExtension =
+                ctx.as(ClientRequestContextExtension.class);
+        if ((number > 1) && ctxExtension != null && ctx.endpoint() == null) {
+            // clear the pending throwable to retry endpoint selection
+            ClientPendingThrowableUtil.removePendingThrowable(ctx);
+            // if the endpoint hasn't been selected,
+            // try to initialize the ctx with a new endpoint/event loop
+            return initContextAndExecuteWithFallback(
+                    delegate, ctxExtension, HttpResponse::of,
+                    (context, cause) ->
+                            HttpResponse.ofFailure(cause), req, false);
+        } else {
+            return executeWithFallback(delegate, ctx,
+                                       (context, cause) ->
+                                               HttpResponse.ofFailure(cause), req, false);
+        }
     }
 
     boolean isCompleted() {
@@ -169,7 +215,7 @@ class RetryingContext {
         }
 
         return AbstractRetryingClient.newAttemptContext(
-                    ctx, attemptReq, ctx.rpcRequest(), isInitialAttempt);
+                ctx, attemptReq, ctx.rpcRequest(), isInitialAttempt);
     }
 
     void commit(HttpResponse res) {
@@ -206,5 +252,47 @@ class RetryingContext {
         ctx.logBuilder().endResponse(cause);
 
         resFuture.completeExceptionally(cause);
+    }
+
+    CompletionStage<@Nullable RetryDecision> shouldRetry(RetryAttempt retryAttempt) {
+
+        if (config().needsContentInRule()) {
+            final RetryRuleWithContent<HttpResponse> retryRuleWithContent =
+                    config().retryRuleWithContent();
+            assert retryRuleWithContent != null;
+            return shouldBeRetriedWith(retryRuleWithContent, retryAttempt);
+        } else {
+            final RetryRule retryRule = config().retryRule();
+            assert retryRule != null;
+            return shouldBeRetriedWith(retryRule, retryAttempt);
+        }
+    }
+
+    static CompletionStage<@Nullable RetryDecision> shouldBeRetriedWith(
+            RetryRuleWithContent<HttpResponse> retryRuleWithContent, RetryAttempt retryAttempt) {
+
+        return retryRuleWithContent.shouldRetry(retryAttempt.ctx(), retryAttempt.truncatedRes(),
+                                                retryAttempt.cause())
+                                   .handle((decision, cause) -> {
+                                       if (cause != null) {
+                                           logger.warn("Unexpected exception is raised from {}.",
+                                                       retryRuleWithContent, cause);
+                                           return null;
+                                       }
+                                       return decision;
+                                   });
+    }
+
+    static CompletionStage<@Nullable RetryDecision> shouldBeRetriedWith(RetryRule retryRule,
+                                                                        RetryAttempt retryAttempt) {
+
+        return retryRule.shouldRetry(retryAttempt.ctx(), retryAttempt.cause())
+                        .handle((decision, cause) -> {
+                            if (cause != null) {
+                                logger.warn("Unexpected exception is raised from {}.", retryRule, cause);
+                                return null;
+                            }
+                            return decision;
+                        });
     }
 }
