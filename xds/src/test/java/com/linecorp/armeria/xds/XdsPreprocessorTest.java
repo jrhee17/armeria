@@ -75,7 +75,7 @@ class XdsPreprocessorTest {
                                   .addService(v3DiscoveryServer.getEndpointDiscoveryServiceImpl())
                                   .build());
             sb.tlsSelfSigned();
-            sb.http(0);
+            sb.http(8080);
             sb.https(0);
         }
     };
@@ -97,9 +97,15 @@ class XdsPreprocessorTest {
     @BeforeEach
     void beforeEach() {
         final Cluster httpCluster = XdsTestResources.createCluster(clusterName, 0);
+        Cluster httpCluster2 = XdsTestResources.createCluster(clusterName + "2", 0);
+        httpCluster2 = httpCluster2.toBuilder()
+                .setLoadAssignment(XdsTestResources.loadAssignment(clusterName,
+                                                                   helloServer.httpSocketAddress().getHostString(),
+                                                                   helloServer.httpPort()))
+                                   .build();
 
         final Cluster httpsCluster = XdsTestResources
-                .createCluster(httpsClusterName, 0)
+                .createCluster(httpsClusterName, 1)
                 .toBuilder()
                 .setTransportSocket(upstreamTls())
                 .build();
@@ -121,7 +127,7 @@ class XdsPreprocessorTest {
         cache.setSnapshot(
                 GROUP,
                 Snapshot.create(
-                        ImmutableList.of(httpCluster, httpsCluster),
+                        ImmutableList.of(httpCluster, httpsCluster, httpCluster2),
                         ImmutableList.of(httpAssignment, httpsAssignment),
                         ImmutableList.of(httpListener, httpsListener),
                         ImmutableList.of(httpRoute, httpsRoute),
@@ -130,7 +136,8 @@ class XdsPreprocessorTest {
     }
 
     @Test
-    void testWithListener() {
+    void testWithListener() throws Exception {
+        Thread.sleep(Long.MAX_VALUE);
         final ConfigSource configSource = XdsTestResources.basicConfigSource(BOOTSTRAP_CLUSTER_NAME);
         final URI uri = server.httpUri();
         final ClusterLoadAssignment loadAssignment =
