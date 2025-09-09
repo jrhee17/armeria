@@ -64,8 +64,6 @@ class ErrorHandlingTest {
         }
     };
 
-    private static final String ROUTER_NAME = "envoy.filters.http.router";
-
     //language=YAML
     private static final String bootstrapYaml =
             """
@@ -88,6 +86,7 @@ class ErrorHandlingTest {
                                   address: 127.0.0.1
                                   port_value: %s
                 """;
+
     //language=YAML
     private static final String listenerYaml =
             """
@@ -107,9 +106,19 @@ class ErrorHandlingTest {
                             route:
                               cluster: my-cluster
                     http_filters:
-                    - name: %s
+                    - name: envoy.filters.http.router
                       typed_config:
                         "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                """;
+
+    //language=YAML
+    private static final String malformedListenerYaml =
+            """
+                name: my-listener
+                api_listener:
+                  api_listener:
+                    "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager\
+                .v3.HttpConnectionManager
                 """;
 
     //language=YAML
@@ -130,7 +139,7 @@ class ErrorHandlingTest {
     @Test
     void testListenerFetchFailure() throws Exception {
         final Cluster cluster = XdsResourceReader.fromYaml(clusterYaml.formatted(server.httpPort()), Cluster.class);
-        Listener listener = XdsResourceReader.fromYaml(listenerYaml.formatted(ROUTER_NAME), Listener.class);
+        Listener listener = XdsResourceReader.fromYaml(listenerYaml, Listener.class);
         cache.setSnapshot(GROUP, Snapshot.create(ImmutableList.of(cluster), ImmutableList.of(), ImmutableList.of(listener),
                                                  ImmutableList.of(), ImmutableList.of(), version.toString()));
 
@@ -141,7 +150,7 @@ class ErrorHandlingTest {
             assertThat(res.contentUtf8()).isEqualTo("world");
 
             version.incrementAndGet();
-            listener = XdsResourceReader.fromYaml(listenerYaml.formatted(ROUTER_NAME + ".malformed"), Listener.class);
+            listener = XdsResourceReader.fromYaml(malformedListenerYaml, Listener.class);
             cache.setSnapshot(GROUP, Snapshot.create(ImmutableList.of(cluster), ImmutableList.of(), ImmutableList.of(listener),
                                                      ImmutableList.of(), ImmutableList.of(), version.toString()));
 
