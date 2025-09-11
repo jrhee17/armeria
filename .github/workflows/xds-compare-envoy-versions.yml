@@ -34,6 +34,7 @@ jobs:
         id: compare-latest-to-current-version
         run: |
           if [[ "${{ env.ENVOY_LATEST }}" > "${{ env.ENVOY_CURRENT }}" ]]
+          then
             echo "::set-output name=target-version::${{ env.ENVOY_LATEST }}"
             echo "::set-output name=current-version::${{ env.ENVOY_CURRENT }}"
           else
