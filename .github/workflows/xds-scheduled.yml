@@ -22,5 +22,5 @@ jobs:
     if: ${{ needs.envoy-versions.outputs.target-version != 'noop' }}
     uses: ./.github/workflows/xds-update-protobuf.yml
     with:
-      target-version: ${{ needs.envoy-versions.outputs.target-version }}
-      current-version: ${{ needs.envoy-versions.outputs.current-version }}
+      target_version: ${{ needs.envoy-versions.outputs.target-version }}
+      current_version: ${{ needs.envoy-versions.outputs.current-version }}
