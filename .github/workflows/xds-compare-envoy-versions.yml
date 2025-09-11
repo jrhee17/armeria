@@ -23,12 +23,12 @@ jobs:
         id: latest-envoy-version
         run: |
           version=$(curl -s https://api.github.com/repos/envoyproxy/envoy/releases/latest | jq -r '.tag_name')
-          echo "version=version" >> $GITHUB_OUTPUT
+          echo "version=$version" >> $GITHUB_OUTPUT
       - name: Read current Envoy version
         id: current-envoy-version
         run: |
           version=$(cat ./xds-api/tools/envoy_release)
-          echo "version=version" >> $GITHUB_OUTPUT
+          echo "version=$version" >> $GITHUB_OUTPUT
       - name: Compare latest to current
         id: compare
         run: |
