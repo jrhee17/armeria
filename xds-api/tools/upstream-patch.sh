@@ -118,12 +118,10 @@ fi
 echo "Patch size: $(stat -c%s "$PATCH_OUT" 2>/dev/null || wc -c <"$PATCH_OUT") bytes"
 
 if $APPLY; then
-  echo "== Applying patch with 3-way merge on new branch: $BRANCH"
-  git switch -c "$BRANCH" >/dev/null 2>&1 || git switch "$BRANCH"
+  echo "== Applying patch with 3-way merge"
   # --3way uses blob ids embedded in the patch to merge; leaves conflicts if needed
   if git apply --3way --index "$PATCH_OUT"; then
-    git commit -m "vendor: Envoy $BASE_VER -> $TARGET_VER"
-    echo "Applied and committed. Branch: $BRANCH"
+    echo "Applied. Branch: $BRANCH"
   else
     echo "Conflicts detected. Resolve them in your Git UI, then:"
     echo "    git add -A && git commit -m 'vendor: Envoy $BASE_VER -> $TARGET_VER (resolved)'"
