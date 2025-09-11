@@ -12,8 +12,12 @@ source "${__dir}/API_SHAS"
 
 protodir="${__dir}/../src/main/proto"
 tmpdir=`mktemp -d 2>/dev/null || mktemp -d -t 'tmpdir'`
-#tar_option=--wildcards
+
+# tar dist by macos doesn't require wildcards, whereas the dist by linux may require it
 tar_option=""
+if tar --help 2>&1 | grep -q -- '--wildcards'; then
+  tar_option=--wildcards
+fi
 
 # Check if the temp dir was created.
 if [[ ! "${tmpdir}" || ! -d "${tmpdir}" ]]; then
