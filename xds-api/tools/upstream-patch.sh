@@ -86,6 +86,7 @@ build_snapshot() {
 
   git add -A
   if git diff --cached --quiet; then
+    echo "[$label] no changes staged (version $ver) - committing empty marker"
     git commit --allow-empty -m "vendor: Envoy $ver ($label)"
   else
     git commit -m "vendor: Envoy $ver ($label)"
@@ -96,11 +97,13 @@ build_snapshot() {
 }
 
 echo "== Building BASE snapshot ($BASE_VER)"
-BASE_SHA="$(build_snapshot "$WT_BASE" "$BASE_VER" "BASE")"
+build_snapshot "$WT_BASE" "$BASE_VER" "BASE"
+BASE_SHA="$(git -C "$WT_BASE" rev-parse --verify HEAD^{commit})"
 echo "BASE @ $BASE_SHA"
 
 echo "== Building TARGET snapshot ($TARGET_VER)"
-NEW_SHA="$(build_snapshot "$WT_NEW" "$TARGET_VER" "TARGET")"
+build_snapshot "$WT_NEW" "$TARGET_VER" "TARGET"
+NEW_SHA="$(git -C "$WT_NEW"  rev-parse --verify HEAD^{commit})"
 echo "TARGET @ $NEW_SHA"
 
 # Create a binary patch limited to the path(s) you care about
