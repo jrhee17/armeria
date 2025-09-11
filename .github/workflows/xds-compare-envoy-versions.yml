@@ -20,8 +20,8 @@ jobs:
   compare-envoy-versions:
     runs-on: ubuntu-latest
     outputs:
-      target_version: ${{ steps.latest-envoy-version.outputs.target-version }}
-      current_version: ${{ steps.compare-latest-to-current-version.outputs.current-version }}
+      target_version: ${{ steps.latest-envoy-version.outputs.version }}
+      current_version: ${{ steps.compare-latest-to-current-version.outputs.version }}
       should_update: ${{ steps.compare.outputs.should_update }}
     steps:
       - uses: actions/checkout@v4
