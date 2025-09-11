@@ -74,17 +74,18 @@ trap cleanup EXIT
 
 build_snapshot() {
   local wt_dir="$1" ver="$2" label="$3"
-  pushd "$wt_dir/xds-api/tools" >/dev/null
+  pushd "$wt_dir/xds-api" >/dev/null
 
   # Optional: ensure a clean tree in the areas update-api.sh touches.
   # If your upstream script already does a clean sync, you can skip this.
   # git clean -fdx xds-api/ || true
 
-  ( ./update-sha.sh "$ver" > API_SHAS && ./update-api.sh )
+  ( ./tools/update-sha.sh "$ver" > API_SHAS && ./tools/update-api.sh )
 
+  cd ..
   git add -A
   if git diff --cached --quiet; then
-    echo "[$label] no changes staged (version $ver) — committing empty marker"
+    echo "[$label] no changes staged (version $ver) - committing empty marker"
     git commit --allow-empty -m "vendor: Envoy $ver ($label)"
   else
     git commit -m "vendor: Envoy $ver ($label)"
@@ -94,16 +95,16 @@ build_snapshot() {
   echo "$sha"
 }
 
-echo "== Building BASE snapshot ($BASE_VER)…"
+echo "== Building BASE snapshot ($BASE_VER)"
 BASE_SHA="$(build_snapshot "$WT_BASE" "$BASE_VER" "BASE")"
 echo "BASE @ $BASE_SHA"
 
-echo "== Building TARGET snapshot ($TARGET_VER)…"
+echo "== Building TARGET snapshot ($TARGET_VER)"
 NEW_SHA="$(build_snapshot "$WT_NEW" "$TARGET_VER" "TARGET")"
 echo "TARGET @ $NEW_SHA"
 
 # Create a binary patch limited to the path(s) you care about
-echo "== Creating binary patch → $PATCH_OUT"
+echo "== Creating binary patch $PATCH_OUT"
 # Build pathspec array safely (supports multiple space-separated paths)
 read -r -a PATHS <<< "$PATHS_FILTER"
 git diff --binary "$BASE_SHA" "$NEW_SHA" -- "${PATHS[@]}" > "$PATCH_OUT" || true
@@ -118,11 +119,11 @@ if $APPLY; then
   git switch -c "$BRANCH" >/dev/null 2>&1 || git switch "$BRANCH"
   # --3way uses blob ids embedded in the patch to merge; leaves conflicts if needed
   if git apply --3way --index "$PATCH_OUT"; then
-    git commit -m "vendor: Envoy $BASE_VER → $TARGET_VER"
+    git commit -m "vendor: Envoy $BASE_VER -> $TARGET_VER"
     echo "Applied and committed. Branch: $BRANCH"
   else
-    echo "⚠️  Conflicts detected. Resolve them in your Git UI, then:"
-    echo "    git add -A && git commit -m 'vendor: Envoy $BASE_VER → $TARGET_VER (resolved)'"
+    echo "Conflicts detected. Resolve them in your Git UI, then:"
+    echo "    git add -A && git commit -m 'vendor: Envoy $BASE_VER -> $TARGET_VER (resolved)'"
     exit 2
   fi
 else
