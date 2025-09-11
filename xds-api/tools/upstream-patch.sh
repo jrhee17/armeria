@@ -80,9 +80,10 @@ build_snapshot() {
   # If your upstream script already does a clean sync, you can skip this.
   # git clean -fdx xds-api/ || true
 
+  pushd tools
   ( ./tools/update-sha.sh "$ver" > API_SHAS && ./tools/update-api.sh )
+  popd
 
-  cd ..
   git add -A
   if git diff --cached --quiet; then
     echo "[$label] no changes staged (version $ver) - committing empty marker"
