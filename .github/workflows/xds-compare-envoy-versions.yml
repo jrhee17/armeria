@@ -6,9 +6,15 @@ permissions:
 on:
   workflow_call:
     outputs:
-      target-version:
+      target_version:
         description: "Envoy version we need to update to"
-        value: ${{ jobs.compare-envoy-versions.outputs.target-version }}
+        value: ${{ jobs.compare-envoy-versions.outputs.target_version }}
+      current_version:
+        description: "Envoy version we need to update to"
+        value: ${{ jobs.compare-envoy-versions.outputs.current_version }}
+      should_update:
+        description: "Envoy version we need to update to"
+        value: ${{ jobs.compare-envoy-versions.outputs.should_update }}
 
 jobs:
   compare-envoy-versions:
