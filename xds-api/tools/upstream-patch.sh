@@ -82,7 +82,7 @@ build_snapshot() {
 
   pushd tools
   ( ./update-sha.sh "$ver" > API_SHAS && ./update-api.sh )
-  popd
+  popd >/dev/null
 
   git add -A
   if git diff --cached --quiet; then
