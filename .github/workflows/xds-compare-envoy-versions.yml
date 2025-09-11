@@ -14,30 +14,27 @@ jobs:
   compare-envoy-versions:
     runs-on: ubuntu-latest
     outputs:
-      target-version: ${{ steps.compare-latest-to-current-version.outputs.target-version }}
-      current-version: ${{ steps.compare-latest-to-current-version.outputs.current-version }}
+      target_version: ${{ steps.latest-envoy-version.outputs.target-version }}
+      current_version: ${{ steps.compare-latest-to-current-version.outputs.current-version }}
+      should_update: ${{ steps.compare.outputs.should_update }}
     steps:
       - uses: actions/checkout@v4
       - name: Fetch latest Envoy version
         id: latest-envoy-version
         run: |
-          echo 'ENVOY_LATEST<<EOF' >> $GITHUB_ENV
-          curl -s https://api.github.com/repos/envoyproxy/envoy/releases/latest | jq -r '.tag_name' >> $GITHUB_ENV
-          echo 'EOF' >> $GITHUB_ENV
+          version=$(curl -s https://api.github.com/repos/envoyproxy/envoy/releases/latest | jq -r '.tag_name')
+          echo "version=version" >> $GITHUB_OUTPUT
       - name: Read current Envoy version
         id: current-envoy-version
         run: |
-          echo 'ENVOY_CURRENT<<EOF' >> $GITHUB_ENV
-          cat ./xds-api/tools/envoy_release >> $GITHUB_ENV
-          echo 'EOF' >> $GITHUB_ENV
+          version=$(cat ./xds-api/tools/envoy_release)
+          echo "version=version" >> $GITHUB_OUTPUT
       - name: Compare latest to current
-        id: compare-latest-to-current-version
+        id: compare
         run: |
-          if [[ "${{ env.ENVOY_LATEST }}" > "${{ env.ENVOY_CURRENT }}" ]]
+          if [[ "${{ steps.latest-envoy-version.outputs.version }}" > "${{ steps.current-envoy-version.outputs.version }}" ]]
           then
-            echo "target-version=${{ env.ENVOY_LATEST }}" >> $GITHUB_OUTPUT
-            echo "current-version=${{ env.ENVOY_CURRENT }}" >> $GITHUB_OUTPUT
+            echo "should_update=true" >> $GITHUB_OUTPUT
           else
-            echo "target-version=noop" >> $GITHUB_OUTPUT
-            echo "current-version=noop" >> $GITHUB_OUTPUT
+            echo "should_update=false" >> $GITHUB_OUTPUT
           fi
