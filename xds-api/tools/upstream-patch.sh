@@ -80,7 +80,7 @@ build_snapshot() {
   # If your upstream script already does a clean sync, you can skip this.
   # git clean -fdx xds-api/ || true
 
-  pushd tools
+  pushd tools >/dev/null
   ( ./update-sha.sh "$ver" > API_SHAS && ./update-api.sh )
   popd >/dev/null
 
