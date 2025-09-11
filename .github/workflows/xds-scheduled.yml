@@ -19,7 +19,7 @@ jobs:
       contents: write
       pull-requests: write
     needs: envoy-versions
-    if: ${{ needs.envoy-versions.outputs.target-version > needs.envoy-versions.outputs.current-version }}
+    if: ${{ needs.envoy-versions.outputs.target-version != 'noop' }}
     uses: ./.github/workflows/xds-update-protobuf.yml
     with:
       target-version: ${{ needs.envoy-versions.outputs.target-version }}
