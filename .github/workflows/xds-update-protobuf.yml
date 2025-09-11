@@ -26,8 +26,9 @@ jobs:
       - name: Run scripts
         working-directory: ./xds-api/tools/
         run: |
-          ./update-sha.sh ${{ inputs.target_version }} | tee API_SHAS
+          echo "./upstream-patch.sh --base ${{ inputs.current_version }} --target ${{ inputs.target_version }} --apply"
           ./upstream-patch.sh --base ${{ inputs.current_version }} --target ${{ inputs.target_version }} --apply
+          ./update-sha.sh ${{ inputs.target_version }} | tee API_SHAS
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
