@@ -72,4 +72,9 @@ curl -sL https://github.com/google/cel-spec/archive/v${CEL_VERSION}.tar.gz | tar
 mkdir -p "${protodir}/cel/expr"
 cp -r cel-spec-*/proto/cel/expr/* "${protodir}/cel/expr"
 
+# proto2 syntax is not fully supported by javapgv
+# protoc: stdout: . stderr: group types are deprecated and unsupported. Use an embedded message instead.
+#  --javapgv_out: protoc-gen-javapgv: Plugin failed with status code 1.
+rm -r "${protodir}/cel/expr/conformance"
+
 popd >/dev/null
