@@ -86,7 +86,6 @@ build_snapshot() {
 
   git add -A
   if git diff --cached --quiet; then
-    echo "[$label] no changes staged (version $ver) - committing empty marker"
     git commit --allow-empty -m "vendor: Envoy $ver ($label)"
   else
     git commit -m "vendor: Envoy $ver ($label)"
