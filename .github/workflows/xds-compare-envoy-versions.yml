@@ -10,7 +10,7 @@ on:
         description: "Envoy version we need to update to"
         value: ${{ jobs.compare-envoy-versions.outputs.target_version }}
       current_version:
-        description: "Envoy version we need to update to"
+        description: "Envoy current version we need to update to"
         value: ${{ jobs.compare-envoy-versions.outputs.current_version }}
       should_update:
         description: "Envoy version we need to update to"
@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       target_version: ${{ steps.latest-envoy-version.outputs.version }}
-      current_version: ${{ steps.compare-latest-to-current-version.outputs.version }}
+      current_version: ${{ steps.current-envoy-version.outputs.version }}
       should_update: ${{ steps.compare.outputs.should_update }}
     steps:
       - uses: actions/checkout@v4
