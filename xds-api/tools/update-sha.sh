@@ -59,8 +59,5 @@ CEL_VERSION=\"$CEL_SHA\"  # $CEL_DATE
 XDS_SHA=\"$XDS_SHA\"  # $XDS_DATE
 "
 
-# replace version in EnvoyContainer.java
-sed -i "s/$CURRENT_ENVOY_RELEASE/$1/g" ../server/src/test/java/io/envoyproxy/controlplane/server/EnvoyContainer.java
-
 # update tag in envoy_release file
 echo $1 > envoy_release
