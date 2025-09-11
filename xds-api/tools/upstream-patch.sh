@@ -74,12 +74,11 @@ trap cleanup EXIT
 
 build_snapshot() {
   local wt_dir="$1" ver="$2" label="$3"
-  pushd "$wt_dir" >/dev/null
+  pushd "$wt_dir/xds-api/tools" >/dev/null
 
   # Optional: ensure a clean tree in the areas update-api.sh touches.
   # If your upstream script already does a clean sync, you can skip this.
   # git clean -fdx xds-api/ || true
-  cd $wt_dir/xds-api/tools
 
   ( ./update-sha.sh "$ver" > API_SHAS && ./update-api.sh )
 
