@@ -1,0 +1,25 @@
+name: scheduled
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+#on:
+#  schedule:
+#    # every day at 10
+#    - cron:  '0 10 * * *'
+
+jobs:
+  call-compare-envoy-versions-workflow:
+    uses: ./.github/workflows/compare-envoy-versions.yml
+
+  call-update-protobuf:
+    permissions:
+      contents: write
+      pull-requests: write
+    needs: call-compare-envoy-versions-workflow
+    if: ${{ needs.call-compare-envoy-versions-workflow.outputs.target-version != 'noop' }}
+    uses: ./.github/workflows/update-protobuf.yml
+    with:
+      envoy_version: ${{ needs.call-compare-envoy-versions-workflow.outputs.target-version }}

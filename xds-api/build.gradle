@@ -1,0 +1,22 @@
+dependencies {
+    compileOnly libs.protobuf.java
+    compileOnly libs.protobuf.java.util
+    compileOnly project(":grpc")
+    compileOnly libs.protoc.gen.validate
+    compileOnly (libs.protoc.pgv.java.stub) {
+        exclude group: 'com.google.protobuf', module: 'protobuf-java'
+        exclude group: 'com.google.protobuf', module: 'protobuf-java-util'
+    }
+
+    testImplementation libs.protobuf.java
+    testImplementation libs.protobuf.java.util
+    testImplementation (libs.protoc.pgv.java.stub) {
+        exclude group: 'com.google.protobuf', module: 'protobuf-java'
+        exclude group: 'com.google.protobuf', module: 'protobuf-java-util'
+    }
+}
+
+
+tasks.withType(JavaCompile).configureEach {
+    options.forkOptions.memoryMaximumSize = '2g'
+}
