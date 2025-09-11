@@ -11,15 +11,16 @@ on:
 #    - cron:  '0 10 * * *'
 
 jobs:
-  call-compare-envoy-versions-workflow:
+  envoy-versions:
     uses: ./.github/workflows/xds-compare-envoy-versions.yml
 
   call-update-protobuf:
     permissions:
       contents: write
       pull-requests: write
-    needs: call-compare-envoy-versions-workflow
-    if: ${{ needs.call-compare-envoy-versions-workflow.outputs.target-version != 'noop' }}
+    needs: envoy-versions
+    if: ${{ needs.envoy-versions.outputs.target-version > needs.envoy-versions.outputs.current-version }}
     uses: ./.github/workflows/xds-update-protobuf.yml
     with:
-      envoy_version: ${{ needs.call-compare-envoy-versions-workflow.outputs.target-version }}
+      target-version: ${{ needs.envoy-versions.outputs.target-version }}
+      current-version: ${{ needs.envoy-versions.outputs.current-version }}

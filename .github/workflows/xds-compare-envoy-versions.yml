@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       target-version: ${{ steps.compare-latest-to-current-version.outputs.target-version }}
+      current-version: ${{ steps.compare-latest-to-current-version.outputs.current-version }}
     steps:
       - uses: actions/checkout@v4
       - name: Fetch latest Envoy version
@@ -32,9 +33,5 @@ jobs:
       - name: Compare latest to current
         id: compare-latest-to-current-version
         run: |
-          if [[ "${{ env.ENVOY_LATEST }}" > "${{ env.ENVOY_CURRENT }}" ]]
-          then
-            echo "::set-output name=target-version::${{ env.ENVOY_LATEST }}"
-          else
-            echo "::set-output name=target-version::noop"
-          fi
+          echo "::set-output name=target-version::${{ env.ENVOY_LATEST }}"
+          echo "::set-output name=current-version::${{ env.ENVOY_CURRENT }}"
