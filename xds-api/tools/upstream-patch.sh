@@ -81,7 +81,7 @@ build_snapshot() {
   # git clean -fdx xds-api/ || true
 
   pushd tools
-  ( ./tools/update-sha.sh "$ver" > API_SHAS && ./tools/update-api.sh )
+  ( ./update-sha.sh "$ver" > API_SHAS && ./update-api.sh )
   popd
 
   git add -A
