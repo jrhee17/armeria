@@ -16,6 +16,7 @@
 package com.linecorp.armeria.client.retry;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.linecorp.armeria.client.retry.RetryState.STATE;
 import static java.util.Objects.requireNonNull;
 
 import java.util.concurrent.TimeUnit;
@@ -39,7 +40,6 @@ import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.internal.client.ClientUtil;
 
 import io.netty.util.AsciiString;
-import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.ScheduledFuture;
 
 /**
@@ -59,9 +59,6 @@ public abstract class AbstractRetryingClient<I extends Request, O extends Respon
      */
     public static final AsciiString ARMERIA_RETRY_COUNT = HttpHeaderNames.of("armeria-retry-count");
 
-    private static final AttributeKey<State> STATE =
-            AttributeKey.valueOf(AbstractRetryingClient.class, "STATE");
-
     private final RetryConfigMapping<O> mapping;
 
     @Nullable
@@ -77,12 +74,16 @@ public abstract class AbstractRetryingClient<I extends Request, O extends Respon
         this.retryConfig = retryConfig;
     }
 
+    public @Nullable RetryConfig<O> retryConfig() {
+        return retryConfig;
+    }
+
     @Override
     public final O execute(ClientRequestContext ctx, I req) throws Exception {
         final RetryConfig<O> config = mapping.get(ctx, req);
         requireNonNull(config, "mapping.get() returned null");
 
-        final State state = new State(config, ctx.responseTimeoutMillis());
+        final RetryState state = new RetryState(config, ctx.responseTimeoutMillis());
         ctx.setAttr(STATE, state);
         return doExecute(ctx, req);
     }
@@ -125,7 +126,7 @@ public abstract class AbstractRetryingClient<I extends Request, O extends Respon
      */
     final RetryConfig<O> mappedRetryConfig(ClientRequestContext ctx) {
         @SuppressWarnings("unchecked")
-        final RetryConfig<O> config = (RetryConfig<O>) state(ctx).config;
+        final RetryConfig<O> config = (RetryConfig<O>) state(ctx).config();
         return config;
     }
 
@@ -217,11 +218,11 @@ public abstract class AbstractRetryingClient<I extends Request, O extends Respon
     protected final long getNextDelay(ClientRequestContext ctx, Backoff backoff, long millisAfterFromServer) {
         requireNonNull(ctx, "ctx");
         requireNonNull(backoff, "backoff");
-        final State state = state(ctx);
+        final RetryState state = state(ctx);
         final int currentAttemptNo = state.currentAttemptNoWith(backoff);
 
         if (currentAttemptNo < 0) {
-            logger.debug("Exceeded the default number of max attempt: {}", state.config.maxTotalAttempts());
+            logger.debug("Exceeded the default number of max attempt: {}", state.config().maxTotalAttempts());
             return -1;
         }
 
@@ -245,7 +246,7 @@ public abstract class AbstractRetryingClient<I extends Request, O extends Respon
      * {@link ClientRequestContext}.
      */
     protected static int getTotalAttempts(ClientRequestContext ctx) {
-        final State state = ctx.attr(STATE);
+        final RetryState state = ctx.attr(STATE);
         if (state == null) {
             return 0;
         }
@@ -263,79 +264,9 @@ public abstract class AbstractRetryingClient<I extends Request, O extends Respon
         return ClientUtil.newDerivedContext(ctx, req, rpcReq, initialAttempt);
     }
 
-    private static State state(ClientRequestContext ctx) {
-        final State state = ctx.attr(STATE);
+    public static RetryState state(ClientRequestContext ctx) {
+        final RetryState state = ctx.attr(STATE);
         assert state != null;
         return state;
-    }
-
-    private static final class State {
-
-        private final RetryConfig<?> config;
-        private final long deadlineNanos;
-        private final boolean isTimeoutEnabled;
-
-        @Nullable
-        private Backoff lastBackoff;
-        private int currentAttemptNoWithLastBackoff;
-        private int totalAttemptNo;
-
-        State(RetryConfig<?> config, long responseTimeoutMillis) {
-            this.config = config;
-
-            if (responseTimeoutMillis <= 0 || responseTimeoutMillis == Long.MAX_VALUE) {
-                deadlineNanos = 0;
-                isTimeoutEnabled = false;
-            } else {
-                deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(responseTimeoutMillis);
-                isTimeoutEnabled = true;
-            }
-            totalAttemptNo = 1;
-        }
-
-        /**
-         * Returns the smaller value between {@link RetryConfig#responseTimeoutMillisForEachAttempt()} and
-         * remaining {@link #responseTimeoutMillis}.
-         *
-         * @return 0 if the response timeout for both of each request and whole retry is disabled or
-         *         -1 if the elapsed time from the first request has passed {@code responseTimeoutMillis}
-         */
-        long responseTimeoutMillis() {
-            if (!timeoutForWholeRetryEnabled()) {
-                return config.responseTimeoutMillisForEachAttempt();
-            }
-
-            final long actualResponseTimeoutMillis = actualResponseTimeoutMillis();
-
-            // Consider 0 or less than 0 of actualResponseTimeoutMillis as timed out.
-            if (actualResponseTimeoutMillis <= 0) {
-                return -1;
-            }
-
-            if (config.responseTimeoutMillisForEachAttempt() > 0) {
-                return Math.min(config.responseTimeoutMillisForEachAttempt(), actualResponseTimeoutMillis);
-            }
-
-            return actualResponseTimeoutMillis;
-        }
-
-        boolean timeoutForWholeRetryEnabled() {
-            return isTimeoutEnabled;
-        }
-
-        long actualResponseTimeoutMillis() {
-            return TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime());
-        }
-
-        int currentAttemptNoWith(Backoff backoff) {
-            if (totalAttemptNo++ >= config.maxTotalAttempts()) {
-                return -1;
-            }
-            if (lastBackoff != backoff) {
-                lastBackoff = backoff;
-                currentAttemptNoWithLastBackoff = 1;
-            }
-            return currentAttemptNoWithLastBackoff++;
-        }
     }
 }
