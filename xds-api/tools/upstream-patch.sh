@@ -27,7 +27,6 @@ while [[ $# -gt 0 ]]; do
     --out) PATCH_OUT="${2:-}"; shift 2 ;;
     --apply) APPLY=true; shift ;;
     --branch) BRANCH="${2:-}"; shift 2 ;;
-    --paths) PATHS_FILTER="${2:-}"; shift 2 ;;
     -h|--help)
       sed -n '1,40p' "$0"; exit 0 ;;
     *) die "unknown arg: $1" ;;
@@ -109,8 +108,7 @@ echo "TARGET @ $NEW_SHA"
 # Create a binary patch limited to the path(s) you care about
 echo "== Creating binary patch $PATCH_OUT"
 # Build pathspec array safely (supports multiple space-separated paths)
-read -r -a PATHS <<< "$PATHS_FILTER"
-git diff --binary "$BASE_SHA" "$NEW_SHA" -- "${PATHS[@]}" > "$PATCH_OUT" || true
+git diff --binary "$BASE_SHA" "$NEW_SHA" > "$PATCH_OUT" || true
 
 if [[ ! -s "$PATCH_OUT" ]]; then
   echo "No upstream changes under: ${PATHS[*]}"
