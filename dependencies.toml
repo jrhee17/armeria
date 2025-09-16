@@ -109,6 +109,7 @@ opensaml = "3.4.6"
 osdetector = "1.7.3"
 # Used for kubernetes-chaos-tests
 picocli = "4.7.7"
+protoc-gen-validate = "1.2.1"
 proguard = "7.5.0"
 prometheus = "1.3.10"
 prometheus-legacy = "0.16.0"
@@ -993,6 +994,13 @@ javadocs = "https://prometheus.github.io/client_java/"
 [libraries.prometheus-legacy]
 module = "io.prometheus:simpleclient_common"
 version.ref = "prometheus-legacy"
+
+[libraries.protoc-pgv-java-stub]
+module = "build.buf.protoc-gen-validate:pgv-java-stub"
+version.ref = "protoc-gen-validate"
+[libraries.protoc-gen-validate]
+module = "build.buf.protoc-gen-validate:protoc-gen-validate"
+version.ref = "protoc-gen-validate"
 
 [libraries.protobuf-java]
 module = "com.google.protobuf:protobuf-java"
