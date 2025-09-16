@@ -13,7 +13,6 @@
 
 set -euo pipefail
 
-BASE_VER=""
 TARGET_VER=""
 PATCH_OUT="/tmp/upstream-delta.patch"
 APPLY=false
@@ -24,7 +23,6 @@ die() { echo "error: $*" >&2; exit 1; }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --base) BASE_VER="${2:-}"; shift 2 ;;
     --target) TARGET_VER="${2:-}"; shift 2 ;;
     --out) PATCH_OUT="${2:-}"; shift 2 ;;
     --apply) APPLY=true; shift ;;
@@ -36,7 +34,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "$BASE_VER" && -n "$TARGET_VER" ]] || die "must provide --base and --target"
+[[ -n "$TARGET_VER" ]] || die "must provide --target"
 if $APPLY && [[ -z "$BRANCH" ]]; then
   BRANCH="update-protobuf-to-${TARGET_VER}"
 fi
@@ -45,6 +43,8 @@ fi
 git rev-parse --git-dir >/dev/null 2>&1 || die "run inside a git repo"
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
+
+BASE_VER=$(cat "$ROOT/xds-api/tools/envoy_release")
 
 # Record current HEAD so we can come back if needed
 START_REF="$(git rev-parse --abbrev-ref HEAD || true)"
