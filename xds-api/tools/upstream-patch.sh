@@ -15,9 +15,7 @@ set -euo pipefail
 
 TARGET_VER=""
 PATCH_OUT="/tmp/upstream-delta.patch"
-APPLY=false
-BRANCH=""
-PATHS_FILTER="xds-api/"   # limit the patch to this path (space-separated allowed)
+DRYRUN=false
 
 die() { echo "error: $*" >&2; exit 1; }
 
@@ -25,8 +23,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --target) TARGET_VER="${2:-}"; shift 2 ;;
     --out) PATCH_OUT="${2:-}"; shift 2 ;;
-    --apply) APPLY=true; shift ;;
-    --branch) BRANCH="${2:-}"; shift 2 ;;
+    --dryrun) DRYRUN=true; shift ;;
     -h|--help)
       sed -n '1,40p' "$0"; exit 0 ;;
     *) die "unknown arg: $1" ;;
@@ -34,9 +31,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$TARGET_VER" ]] || die "must provide --target"
-if $APPLY && [[ -z "$BRANCH" ]]; then
-  BRANCH="update-protobuf-to-${TARGET_VER}"
-fi
 
 # Ensure we're in a git repo root
 git rev-parse --git-dir >/dev/null 2>&1 || die "run inside a git repo"
@@ -44,13 +38,6 @@ ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
 BASE_VER=$(cat "$ROOT/xds-api/tools/envoy_release")
-
-# Record current HEAD so we can come back if needed
-START_REF="$(git rev-parse --abbrev-ref HEAD || true)"
-
-# Git identity (useful in CI; harmless locally if already set)
-git config user.name  >/dev/null 2>&1 || git config user.name  "automation"
-git config user.email >/dev/null 2>&1 || git config user.email "automation@example.com"
 
 # Create two temporary worktrees on throwaway branches
 ts="$(date +%s)"
@@ -115,11 +102,11 @@ if [[ ! -s "$PATCH_OUT" ]]; then
 fi
 echo "Patch size: $(stat -c%s "$PATCH_OUT" 2>/dev/null || wc -c <"$PATCH_OUT") bytes"
 
-if $APPLY; then
+if ! $DRYRUN; then
   echo "== Applying patch with 3-way merge"
   # --3way uses blob ids embedded in the patch to merge; leaves conflicts if needed
   if git apply --3way --index "$PATCH_OUT"; then
-    echo "Applied. Branch: $BRANCH"
+    echo "Applied."
   else
     echo "Conflicts detected. Resolve them in your Git UI, then:"
     echo "    git add -A && git commit -m 'vendor: Envoy $BASE_VER -> $TARGET_VER (resolved)'"
@@ -127,7 +114,6 @@ if $APPLY; then
   fi
 else
   echo "Patch generated only. To apply later:"
-  echo "  git switch -c $BRANCH"
   echo "  git apply --3way --index $PATCH_OUT"
   echo "  git commit -m 'vendor: Envoy $BASE_VER → $TARGET_VER'"
 fi
