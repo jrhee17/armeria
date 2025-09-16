@@ -23,4 +23,3 @@ jobs:
     uses: ./.github/workflows/xds-update-protobuf.yml
     with:
       target_version: ${{ needs.envoy-versions.outputs.target_version }}
-      current_version: ${{ needs.envoy-versions.outputs.current_version }}

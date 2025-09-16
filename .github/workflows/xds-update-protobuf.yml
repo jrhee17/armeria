@@ -10,10 +10,6 @@ on:
         description: 'Envoy version to update to'
         required: true
         type: string
-      current_version:
-        description: 'Current envoy version'
-        required: true
-        type: string
 
 jobs:
   update-protobuf:
@@ -26,9 +22,7 @@ jobs:
       - name: Run scripts
         working-directory: ./xds-api/tools/
         run: |
-          echo "./upstream-patch.sh --base ${{ inputs.current_version }} --target ${{ inputs.target_version }} --apply"
-          ./upstream-patch.sh --base ${{ inputs.current_version }} --target ${{ inputs.target_version }} --apply
-          ./update-sha.sh ${{ inputs.target_version }} | tee API_SHAS
+          ./upstream-patch.sh --target ${{ inputs.target_version }}
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
@@ -38,9 +32,9 @@ jobs:
           committer: Meri Kim <dl_armeria@linecorp.com>
           signoff: true
           delete-branch: true
-          title: '[protobuf] Update xds protobuf definitions to ${{ inputs.target_version }}'
+          title: '[xds] Update protobuf definitions to ${{ inputs.target_version }}'
           commit-message: |
-            [protobuf] Update xds protobuf definitions to ${{ inputs.target_version }}
+            [xds] Update protobuf definitions to ${{ inputs.target_version }}
           body: |
             This is an automatic PR created by github action workflow:
             - Updated protobuf files
