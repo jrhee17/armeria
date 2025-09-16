@@ -39,6 +39,9 @@ cd "$ROOT"
 
 BASE_VER=$(cat "$ROOT/xds-api/tools/envoy_release")
 
+git config --global user.email "dl_armeria@linecorp.com"
+git config --global user.name "Meri Kim"
+
 # Create two temporary worktrees on throwaway branches
 ts="$(date +%s)"
 WT_BASE="$ROOT/.wt-base-$ts"
