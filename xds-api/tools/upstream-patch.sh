@@ -108,7 +108,18 @@ if ! $DRYRUN; then
   if git apply --3way --index "$PATCH_OUT"; then
     echo "Applied."
   else
-    echo "Conflicts detected. Resolve them in your Git UI, then:"
+    echo "Conflicts detected in the following files:"
+    conflicted_files=$(git diff --name-only --diff-filter=U)
+    echo "$conflicted_files"
+    echo ""
+    echo "Conflict details:"
+    echo "=================="
+    for file in $conflicted_files; do
+      echo "--- $file ---"
+      git diff "$file" | head -20  # Show first 20 lines of conflict
+      echo ""
+    done
+    echo "Resolve them in your Git UI, then:"
     echo "    git add -A && git commit -m 'vendor: Envoy $BASE_VER -> $TARGET_VER (resolved)'"
     exit 2
   fi
