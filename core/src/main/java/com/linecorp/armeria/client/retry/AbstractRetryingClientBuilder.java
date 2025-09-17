@@ -141,6 +141,13 @@ public abstract class AbstractRetryingClientBuilder<O extends Response> {
         return responseTimeoutMillisForEachAttempt(responseTimeoutForEachAttempt.toMillis());
     }
 
+    public AbstractRetryingClientBuilder<O> retryLimiter(RetryLimiter retryLimiter) {
+        checkState(retryConfigBuilder != null,
+                   "You are using a RetryConfigMapping, so you cannot set retryLimiter.");
+        retryConfigBuilder.retryLimiter(retryLimiter);
+        return this;
+    }
+
     @Override
     public String toString() {
         return toStringHelper().toString();

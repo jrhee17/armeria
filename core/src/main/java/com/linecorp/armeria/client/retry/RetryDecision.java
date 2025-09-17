@@ -18,6 +18,8 @@ package com.linecorp.armeria.client.retry;
 
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.base.MoreObjects;
+
 import com.linecorp.armeria.common.annotation.Nullable;
 
 /**
@@ -26,18 +28,25 @@ import com.linecorp.armeria.common.annotation.Nullable;
  */
 public final class RetryDecision {
 
-    private static final RetryDecision NO_RETRY = new RetryDecision(null);
-    private static final RetryDecision NEXT = new RetryDecision(null);
-    static final RetryDecision DEFAULT = new RetryDecision(Backoff.ofDefault());
+    private static final RetryDecision NO_RETRY = new RetryDecision(null, 0);
+    private static final RetryDecision NEXT = new RetryDecision(null, 0);
+    static final RetryDecision DEFAULT = new RetryDecision(Backoff.ofDefault(), 0);
 
     /**
      * Returns a {@link RetryDecision} that retries with the specified {@link Backoff}.
      */
     public static RetryDecision retry(Backoff backoff) {
+        return retry(backoff, 0);
+    }
+
+    /**
+     * TBU.
+     */
+    public static RetryDecision retry(Backoff backoff, int permits) {
         if (backoff == Backoff.ofDefault()) {
             return DEFAULT;
         }
-        return new RetryDecision(requireNonNull(backoff, "backoff"));
+        return new RetryDecision(requireNonNull(backoff, "backoff"), permits);
     }
 
     /**
@@ -45,6 +54,13 @@ public final class RetryDecision {
      */
     public static RetryDecision noRetry() {
         return NO_RETRY;
+    }
+
+    /**
+     * TBU.
+     */
+    public static RetryDecision noRetry(int permits) {
+        return new RetryDecision(null, permits);
     }
 
     /**
@@ -57,9 +73,11 @@ public final class RetryDecision {
 
     @Nullable
     private final Backoff backoff;
+    private final int permits;
 
-    private RetryDecision(@Nullable Backoff backoff) {
+    private RetryDecision(@Nullable Backoff backoff, int permits) {
         this.backoff = backoff;
+        this.permits = permits;
     }
 
     @Nullable
@@ -67,14 +85,19 @@ public final class RetryDecision {
         return backoff;
     }
 
+    /**
+     * TBU.
+     */
+    public int permits() {
+        return permits;
+    }
+
     @Override
     public String toString() {
-        if (this == NO_RETRY) {
-            return "RetryDecision(NO_RETRY)";
-        } else if (this == NEXT) {
-            return "RetryDecision(NEXT)";
-        } else {
-            return "RetryDecision(RETRY(" + backoff + "))";
-        }
+        return MoreObjects.toStringHelper(this)
+                          .omitNullValues()
+                          .add("backoff", backoff)
+                          .add("permits", permits)
+                          .toString();
     }
 }

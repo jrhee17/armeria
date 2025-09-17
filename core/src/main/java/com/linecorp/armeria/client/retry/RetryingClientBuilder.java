@@ -96,4 +96,9 @@ public final class RetryingClientBuilder extends AbstractRetryingClientBuilder<H
     public RetryingClientBuilder responseTimeoutForEachAttempt(Duration responseTimeoutForEachAttempt) {
         return (RetryingClientBuilder) super.responseTimeoutForEachAttempt(responseTimeoutForEachAttempt);
     }
+
+    @Override
+    public RetryingClientBuilder retryLimiter(RetryLimiter retryLimiter) {
+        return (RetryingClientBuilder) super.retryLimiter(retryLimiter);
+    }
 }

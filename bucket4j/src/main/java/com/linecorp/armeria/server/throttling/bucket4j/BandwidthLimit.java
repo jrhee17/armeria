@@ -166,7 +166,7 @@ public final class BandwidthLimit {
     /**
      * Constructs a new {@link Bandwidth}.
      */
-    Bandwidth bandwidth() {
+    public Bandwidth bandwidth() {
         final Bandwidth bandwidth;
         if (overdraftLimit > limit) {
             // overdraft has been defined

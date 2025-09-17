@@ -70,4 +70,9 @@ public final class RetryingRpcClientBuilder extends AbstractRetryingClientBuilde
             Duration responseTimeoutForEachAttempt) {
         return (RetryingRpcClientBuilder) super.responseTimeoutForEachAttempt(responseTimeoutForEachAttempt);
     }
+
+    @Override
+    public RetryingRpcClientBuilder retryLimiter(RetryLimiter retryLimiter) {
+        return (RetryingRpcClientBuilder) super.retryLimiter(retryLimiter);
+    }
 }

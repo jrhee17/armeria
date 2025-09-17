@@ -42,6 +42,7 @@ public final class RetryConfigBuilder<T extends Response> {
     private final RetryRule retryRule;
     @Nullable
     private final RetryRuleWithContent<T> retryRuleWithContent;
+    private RetryLimiter retryLimiter = new RateRetryLimiter(3);
 
     /**
      * Creates a {@link RetryConfigBuilder} with this {@link RetryRule}.
@@ -111,19 +112,24 @@ public final class RetryConfigBuilder<T extends Response> {
         return this;
     }
 
+    public RetryConfigBuilder<T> retryLimiter(RetryLimiter retryLimiter) {
+        this.retryLimiter = requireNonNull(retryLimiter, "retryLimiter");
+        return this;
+    }
     /**
      * Returns a newly-created {@link RetryConfig} from this {@link RetryConfigBuilder}'s values.
      */
     public RetryConfig<T> build() {
         if (retryRule != null) {
-            return new RetryConfig<>(retryRule, maxTotalAttempts, responseTimeoutMillisForEachAttempt);
+            return new RetryConfig<>(retryRule, maxTotalAttempts, responseTimeoutMillisForEachAttempt, retryLimiter);
         }
         assert retryRuleWithContent != null;
         return new RetryConfig<>(
                 retryRuleWithContent,
                 maxContentLength,
                 maxTotalAttempts,
-                responseTimeoutMillisForEachAttempt);
+                responseTimeoutMillisForEachAttempt,
+                retryLimiter);
     }
 
     @Override
