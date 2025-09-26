@@ -87,8 +87,6 @@ class SplitHttpMessageSubscriber implements Subscriber<HttpObject>, Subscription
 
     private volatile boolean cancelCalled;
 
-    private boolean needsDirectInvocation;
-
     SplitHttpMessageSubscriber(int prefetch, HttpMessage upstreamMessage, EventExecutor upstreamExecutor) {
         pendingRequests = prefetch;
         this.upstreamMessage = requireNonNull(upstreamMessage, "upstreamMessage");
@@ -131,9 +129,8 @@ class SplitHttpMessageSubscriber implements Subscriber<HttpObject>, Subscription
                 usePooledObject = true;
             }
         }
-        needsDirectInvocation = downstreamExecutor == upstreamExecutor;
 
-        if (needsDirectInvocation) {
+        if (downstreamExecutor.inEventLoop()) {
             initDownstream(downstream);
         } else {
             downstreamExecutor.execute(() -> initDownstream(downstream));
@@ -220,11 +217,11 @@ class SplitHttpMessageSubscriber implements Subscriber<HttpObject>, Subscription
 
         assert httpObject instanceof HttpData;
 
-        if (needsDirectInvocation) {
+        final EventExecutor downstreamExecutor = this.downstreamExecutor;
+        assert downstreamExecutor != null;
+        if (downstreamExecutor.inEventLoop()) {
             onNext0((HttpData) httpObject);
         } else {
-            final EventExecutor downstreamExecutor = this.downstreamExecutor;
-            assert downstreamExecutor != null;
             downstreamExecutor.execute(() -> onNext0((HttpData) httpObject));
         }
     }
@@ -250,7 +247,7 @@ class SplitHttpMessageSubscriber implements Subscriber<HttpObject>, Subscription
             return;
         }
 
-        if (needsDirectInvocation) {
+        if (downstreamExecutor.inEventLoop()) {
             downstream.onComplete();
         } else {
             downstreamExecutor.execute(downstream::onComplete);
@@ -268,7 +265,7 @@ class SplitHttpMessageSubscriber implements Subscriber<HttpObject>, Subscription
             return;
         }
 
-        if (needsDirectInvocation) {
+        if (downstreamExecutor.inEventLoop()) {
             onError0(cause, downstream);
         } else {
             downstreamExecutor.execute(() -> onError0(cause, downstream));
