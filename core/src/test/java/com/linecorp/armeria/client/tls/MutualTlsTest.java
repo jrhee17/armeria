@@ -21,13 +21,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
-import java.security.Security;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.List;
 
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.BasicConstraints;
@@ -42,11 +44,12 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+
+import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.WebClient;
@@ -55,61 +58,51 @@ import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.TlsProvider;
+import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.server.ServerBuilder;
-import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
+
+import io.netty.util.NetUtil;
 
 class MutualTlsTest {
 
-    static final KeyPair clientCaKeyPair;
-    static final X509Certificate clientCaCert;
-    static final KeyPair serverCaKeyPair;
-    static final X509Certificate serverCaCert;
-
-    static {
-        Security.addProvider(new BouncyCastleProvider());
-
-        final X500Name caDn = new X500Name("CN=Test CA, O=Example, C=US");
-        try {
-            clientCaKeyPair = generateRsaKeyPair(2048);
-            clientCaCert = createCaCert(caDn, clientCaKeyPair, 3650);
-            serverCaKeyPair = generateRsaKeyPair(2048);
-            serverCaCert = createCaCert(caDn, serverCaKeyPair, 3650);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
+    private static final X500Name caDn = new X500Name("CN=Test CA, O=Example, C=US");
+    private static final KeyPair clientCaKeyPair = generateRsaKeyPair(2048);
+    private static final X509Certificate clientCaCert = createCaCert(caDn, clientCaKeyPair);
+    private static final KeyPair serverCaKeyPair = generateRsaKeyPair(2048);
+    private static final X509Certificate serverCaCert = createCaCert(caDn, serverCaKeyPair);
 
     @RegisterExtension
     static ServerExtension server = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
             sb.service("/", (ctx, req) -> HttpResponse.of(200));
-            KeyPair serverKp = generateRsaKeyPair(2048);
-            X500Name serverDn = new X500Name("CN=example.com, O=Example, C=US");
-            String[] dnsSans = {"example.com", "localhost"};
-            String[] ipSans  = {"127.0.0.1"};
-            X509Certificate serverCert = createServerCert(serverDn, serverKp.getPublic(), serverCaCert, serverCaKeyPair.getPrivate(),
-                                                          dnsSans, ipSans, 825);
-            TlsProvider tlsProvider = TlsProvider.builder()
-                                                 .keyPair(TlsKeyPair.of(serverKp.getPrivate(), serverCert, serverCaCert))
-                                                 .trustedCertificates(Arrays.asList(clientCaCert))
-                                                 .build();
+
+            final KeyPair keyPair = generateRsaKeyPair(2048);
+            final X500Name subject = new X500Name("CN=example.com, O=Example, C=US");
+            final List<String> sans = ImmutableList.of("example.com", "localhost", "127.0.0.1");
+            final X509Certificate serverCert =
+                    createServerCert(subject, keyPair.getPublic(), serverCaCert,
+                                     serverCaKeyPair.getPrivate(), sans);
+            final TlsProvider tlsProvider =
+                    TlsProvider.builder()
+                               .keyPair(TlsKeyPair.of(keyPair.getPrivate(), serverCert, serverCaCert))
+                               .trustedCertificates(ImmutableList.of(clientCaCert))
+                               .build();
             sb.tlsProvider(tlsProvider);
-            sb.decorator(LoggingService.newDecorator());
-            sb.https(0);
         }
     };
 
     @Test
     void basicCase() throws Exception{
-        KeyPair clientKp = generateRsaKeyPair(2048);
-        X500Name clientDn = new X500Name("CN=test-client, O=Example, C=US");
-        X509Certificate clientCert = createClientCert(clientDn, clientKp.getPublic(), clientCaCert, clientCaKeyPair.getPrivate(), 365);
-        TlsProvider tlsProvider = TlsProvider.builder()
-                                             .keyPair(TlsKeyPair.of(clientKp.getPrivate(), clientCert, clientCaCert))
-                                             .trustedCertificates(Arrays.asList(serverCaCert))
-                                             .build();
+        final KeyPair keyPair = generateRsaKeyPair(2048);
+        final X500Name subject = new X500Name("CN=test-client, O=Example, C=US");
+        final X509Certificate clientCert =
+                createClientCert(subject, keyPair.getPublic(), clientCaCert, clientCaKeyPair.getPrivate());
+        final TlsProvider tlsProvider = TlsProvider.builder()
+                                                   .keyPair(TlsKeyPair.of(keyPair.getPrivate(), clientCert, clientCaCert))
+                                                   .trustedCertificates(ImmutableList.of(serverCaCert))
+                                                   .build();
         final ClientFactory cf = ClientFactory.builder()
                                               .tlsProvider(tlsProvider)
                                               .build();
@@ -121,204 +114,100 @@ class MutualTlsTest {
         assertThat(res.status().code()).isEqualTo(200);
     }
 
-//    @Test
-//    void generateCert() throws Exception {
-//        generate();
-//    }
-//
-//    public void generate() throws Exception {
-//
-//
-//        // --- 2) Generate server keypair & certificate signed by the CA ---
-//        KeyPair serverKp = generateRsaKeyPair(2048);
-//        X500Name serverDn = new X500Name("CN=example.com, O=Example, C=US");
-//        String[] dnsSans = {"example.com", "localhost"};
-//        String[] ipSans  = {"127.0.0.1"};
-//        X509Certificate serverCert = createServerCert(serverDn, serverKp.getPublic(), clientCaCert, clientCaKeyPair.getPrivate(),
-//                                                      dnsSans, ipSans, 825);
-//        KeyPair clientKp = generateRsaKeyPair(2048);
-//        X500Name clientDn = new X500Name("CN=test-client, O=Example, C=US");
-//        X509Certificate clientCert = createClientCert(clientDn, clientKp.getPublic(), clientCaCert, clientCaKeyPair.getPrivate(), 365);
-//
-//        // --- 3) Write PEM files ---
-//        writePem("PRIVATE KEY", serverKp.getPrivate().getEncoded(), Path.of("server-key.pem"));
-//        writePem("CERTIFICATE", serverCert.getEncoded(), Path.of("server-cert.pem"));
-//
-//        writePem("PRIVATE KEY", clientKp.getPrivate().getEncoded(), Path.of("client-key.pem"));
-//        writePem("CERTIFICATE", clientCert.getEncoded(), Path.of("client-cert.pem"));
-//
-//        writePem("PRIVATE KEY", clientCaKeyPair.getPrivate().getEncoded(), Path.of("ca-key.pem"));
-//        writePem("CERTIFICATE", clientCaCert.getEncoded(), Path.of("ca-cert.pem"));
-//
-//        // --- 4) Build a PKCS#12 keystore (server key + chain) ---
-//        char[] pass = "changeit".toCharArray();
-//        KeyStore p12 = KeyStore.getInstance("PKCS12");
-//        p12.load(null, null);
-//        Certificate[] chain = new Certificate[] { serverCert, clientCaCert };
-//        p12.setKeyEntry("tls", serverKp.getPrivate(), pass, chain);
-//        try (FileOutputStream fos = new FileOutputStream("server.p12")) {
-//            p12.store(fos, pass);
-//        }
-//
-//
-//// --- 4b) Build a PKCS#12 keystore for the client (client key + chain) ---
-//        KeyStore clientP12 = KeyStore.getInstance("PKCS12");
-//        clientP12.load(null, null);
-//        Certificate[] clientChain = new Certificate[] { clientCert, clientCaCert };
-//        clientP12.setKeyEntry("mtls-client", clientKp.getPrivate(), pass, clientChain);
-//        try (FileOutputStream fos = new FileOutputStream("client.p12")) {
-//            clientP12.store(fos, pass);
-//        }
-//
-//
-    //// --- 5) Print some quick pointers ---
-//        System.out.println("Wrote: server-key.pem, server-cert.pem, client-key.pem, client-cert.pem, ca-key.pem, ca-cert.pem, server.p12, client.p12 (password 'changeit')");
-//        System.out.println("Server cert serial: 0x" + Hex.toHexString(serverCert.getSerialNumber().toByteArray()));
-//        System.out.println("Client cert serial: 0x" + Hex.toHexString(clientCert.getSerialNumber().toByteArray()));
-//    }
-
-    // ===== Helpers =====
-
-    private static KeyPair generateRsaKeyPair(int bits) throws Exception {
-        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
-        kpg.initialize(bits, SecureRandom.getInstanceStrong());
+    private static KeyPair generateRsaKeyPair(int bits) {
+        final KeyPairGenerator kpg;
+        try {
+            kpg = KeyPairGenerator.getInstance("RSA");
+            kpg.initialize(bits, SecureRandom.getInstanceStrong());
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
         return kpg.generateKeyPair();
     }
 
-    private static X509Certificate createCaCert(X500Name subject, KeyPair caKp, int days) throws Exception {
-        long now = System.currentTimeMillis();
-        Date notBefore = new Date(now - 5_000);
-        Date notAfter  = new Date(now + days * 24L * 60 * 60 * 1000);
-        BigInteger serial = new BigInteger(160, SecureRandom.getInstanceStrong()).abs();
-
-        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
-                .setProvider("BC").build(caKp.getPrivate());
-
-        JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
-
-        JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                subject, serial, notBefore, notAfter, subject, caKp.getPublic());
-
-        // CA: true, with keyCertSign + cRLSign
-        builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
-        builder.addExtension(Extension.keyUsage, true,
-                             new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign));
-        builder.addExtension(Extension.subjectKeyIdentifier, false,
-                             extUtils.createSubjectKeyIdentifier(caKp.getPublic()));
-
-        X509CertificateHolder holder = builder.build(signer);
-        return new JcaX509CertificateConverter().setProvider("BC").getCertificate(holder);
+    private static JcaX509v3CertificateBuilder x509Builder(X500Name issuer, X500Name subject,
+                                                           PublicKey publicKey) {
+        final Date notBefore = new Date(Instant.now().minusSeconds(5).toEpochMilli());
+        final Date notAfter  = new Date(Instant.now().plus(1, ChronoUnit.DAYS).toEpochMilli());
+        final BigInteger serial = new BigInteger(160, new SecureRandom()).abs();
+        return new JcaX509v3CertificateBuilder(issuer, serial, notBefore, notAfter, subject, publicKey);
     }
 
-    private static X509Certificate createServerCert(
-            X500Name subject,
-            PublicKey serverPublicKey,
-            X509Certificate issuerCert,
-            PrivateKey issuerKey,
-            String[] dnsSans,
-            String[] ipSans,
-            int days) throws Exception {
-
-        long now = System.currentTimeMillis();
-        Date notBefore = new Date(now - 5_000);
-        Date notAfter  = new Date(now + days * 24L * 60 * 60 * 1000);
-        BigInteger serial = new BigInteger(128, SecureRandom.getInstanceStrong()).abs();
-
-        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
-                .setProvider("BC").build(issuerKey);
-
-        JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
-
-        final X500Name issuerName = new JcaX509CertificateHolder(issuerCert).getSubject();
-        JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                issuerName,
-                serial,
-                notBefore,
-                notAfter,
-                subject,
-                serverPublicKey
-        );
-
-        // Key Usage for TLS server
-        builder.addExtension(Extension.keyUsage, true,
-                             new KeyUsage(KeyUsage.digitalSignature | KeyUsage.keyEncipherment));
-
-        // Extended Key Usage: serverAuth
-        builder.addExtension(Extension.extendedKeyUsage, false,
-                             new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
-
-        // Subject & Authority Key Identifiers
-        builder.addExtension(Extension.subjectKeyIdentifier, false,
-                             extUtils.createSubjectKeyIdentifier(serverPublicKey));
-        builder.addExtension(Extension.authorityKeyIdentifier, false,
-                             extUtils.createAuthorityKeyIdentifier(issuerCert));
-
-        // Basic Constraints: CA=false
-        builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
-
-        // Subject Alternative Names (DNS + IP)
-        GeneralName[] names = buildSanArray(dnsSans, ipSans);
-        if (names.length > 0) {
-            GeneralNames gns = new GeneralNames(names);
-            builder.addExtension(Extension.subjectAlternativeName, false, gns);
+    private static X509Certificate createCaCert(X500Name subject, KeyPair caKp) {
+        try {
+            final ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(caKp.getPrivate());
+            final JcaX509v3CertificateBuilder builder = x509Builder(subject, subject, caKp.getPublic());
+            builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
+            builder.addExtension(Extension.keyUsage, true,
+                                 new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign));
+            final JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
+            builder.addExtension(Extension.subjectKeyIdentifier, false,
+                                 extUtils.createSubjectKeyIdentifier(caKp.getPublic()));
+            return new JcaX509CertificateConverter().getCertificate(builder.build(signer));
+        } catch (Exception e) {
+            return Exceptions.throwUnsafely(e);
         }
-
-        X509CertificateHolder holder = builder.build(signer);
-        return new JcaX509CertificateConverter().setProvider("BC").getCertificate(holder);
     }
 
-    private static X509Certificate createClientCert(
-            X500Name subject,
-            PublicKey clientPublicKey,
-            X509Certificate issuerCert,
-            PrivateKey issuerKey,
-            int days) throws Exception {
+    private static X509Certificate createServerCert(X500Name subject, PublicKey serverPublicKey,
+                                                    X509Certificate issuerCert, PrivateKey issuerKey,
+                                                    List<String> sans) {
+        try {
+            final ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
+                    .build(issuerKey);
+            final X500Name issuerName = new JcaX509CertificateHolder(issuerCert).getSubject();
+            final JcaX509v3CertificateBuilder builder = x509Builder(issuerName, subject, serverPublicKey);
+            builder.addExtension(Extension.keyUsage, true,
+                                 new KeyUsage(KeyUsage.digitalSignature | KeyUsage.keyEncipherment));
+            builder.addExtension(Extension.extendedKeyUsage, false,
+                                 new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
+            final JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
+            builder.addExtension(Extension.subjectKeyIdentifier, false,
+                                 extUtils.createSubjectKeyIdentifier(serverPublicKey));
+            builder.addExtension(Extension.authorityKeyIdentifier, false,
+                                 extUtils.createAuthorityKeyIdentifier(issuerCert));
+            builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
 
-        final long now = System.currentTimeMillis();
-        final Date notBefore = new Date(now - 5_000);
-        final Date notAfter = new Date(now + days * 24L * 60 * 60 * 1000);
-        final BigInteger serial = new BigInteger(128, SecureRandom.getInstanceStrong()).abs();
-
-        final ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").setProvider("BC")
-                                                                                 .build(issuerKey);
-
-        final JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
-
-        final X500Name issuerName = new JcaX509CertificateHolder(issuerCert).getSubject();
-        final JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                issuerName,
-                serial,
-                notBefore,
-                notAfter,
-                subject,
-                clientPublicKey
-        );
-        // Key Usage for TLS client auth
-        builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.digitalSignature));
-        // Extended Key Usage: clientAuth
-        builder.addExtension(Extension.extendedKeyUsage, false,
-                             new ExtendedKeyUsage(KeyPurposeId.id_kp_clientAuth));
-        // Subject & Authority Key Identifiers
-        builder.addExtension(Extension.subjectKeyIdentifier, false,
-                             extUtils.createSubjectKeyIdentifier(clientPublicKey));
-        builder.addExtension(Extension.authorityKeyIdentifier, false,
-                             extUtils.createAuthorityKeyIdentifier(issuerCert));
-        // Basic Constraints: CA=false
-        builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
-        final X509CertificateHolder holder = builder.build(signer);
-        return new JcaX509CertificateConverter().setProvider("BC").getCertificate(holder);
+            final GeneralNames names = toGeneralNames(sans);
+            if (names.getNames().length > 0) {
+                builder.addExtension(Extension.subjectAlternativeName, false, names);
+            }
+            return new JcaX509CertificateConverter().getCertificate(builder.build(signer));
+        } catch (Exception e) {
+            return Exceptions.throwUnsafely(e);
+        }
     }
 
-    private static GeneralName[] buildSanArray(String[] dnsSans, String[] ipSans) {
-        return Arrays.stream(new Object[][]{ dnsSans, ipSans})
-                     .flatMap(arr -> arr == null ? Arrays.stream(new String[0]) : Arrays.stream((String[]) arr))
-                     .map(s -> isIp(s) ? new GeneralName(GeneralName.iPAddress, s)
-                                       : new GeneralName(GeneralName.dNSName, s))
-                     .toArray(GeneralName[]::new);
+    private static X509Certificate createClientCert(X500Name subject, PublicKey clientPublicKey,
+                                                    X509Certificate issuerCert,
+                                                    PrivateKey issuerKey) {
+        try {
+            final ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
+                    .build(issuerKey);
+            final X500Name issuerName = new JcaX509CertificateHolder(issuerCert).getSubject();
+            final JcaX509v3CertificateBuilder builder = x509Builder(issuerName, subject, clientPublicKey);
+            builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.digitalSignature));
+            builder.addExtension(Extension.extendedKeyUsage, false,
+                                 new ExtendedKeyUsage(KeyPurposeId.id_kp_clientAuth));
+            final JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
+            builder.addExtension(Extension.subjectKeyIdentifier, false,
+                                 extUtils.createSubjectKeyIdentifier(clientPublicKey));
+            builder.addExtension(Extension.authorityKeyIdentifier, false,
+                                 extUtils.createAuthorityKeyIdentifier(issuerCert));
+            builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
+            final X509CertificateHolder holder = builder.build(signer);
+            return new JcaX509CertificateConverter().getCertificate(holder);
+        } catch (Exception e) {
+            return Exceptions.throwUnsafely(e);
+        }
     }
 
-    private static boolean isIp(String s) {
-        // crude check: if it contains a dot or colon and no letters, treat as IP
-        return s != null && s.matches("[0-9a-fA-F:.]+") && s.matches(".*[.].*|.*[:].*");
+    private static GeneralNames toGeneralNames(List<String> sans) {
+        final List<GeneralName> names = sans.stream().map(s -> {
+            final int nameType = NetUtil.isValidIpV4Address(s) || NetUtil.isValidIpV6Address(s) ?
+                                 GeneralName.iPAddress : GeneralName.dNSName;
+            return new GeneralName(nameType, s);
+        }).collect(ImmutableList.toImmutableList());
+        return new GeneralNames(names.toArray(new GeneralName[0]));
     }
 }
