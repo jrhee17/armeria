@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.BasicConstraints;
@@ -58,6 +59,7 @@ import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.TlsProvider;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
@@ -66,35 +68,36 @@ import io.netty.util.NetUtil;
 
 class MutualTlsTest {
 
-    private static final X500Name caDn = new X500Name("CN=Test CA, O=Example, C=US");
-    private static final KeyPair clientCaKeyPair = generateRsaKeyPair(2048);
-    private static final X509Certificate clientCaCert = createCaCert(caDn, clientCaKeyPair);
-    private static final KeyPair serverCaKeyPair = generateRsaKeyPair(2048);
-    private static final X509Certificate serverCaCert = createCaCert(caDn, serverCaKeyPair);
+    private static final DelegatingTlsProvider serverTlsProvider = new DelegatingTlsProvider();
 
     @RegisterExtension
     static ServerExtension server = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
             sb.service("/", (ctx, req) -> HttpResponse.of(200));
-
-            final KeyPair keyPair = generateRsaKeyPair(2048);
-            final X500Name subject = new X500Name("CN=example.com, O=Example, C=US");
-            final List<String> sans = ImmutableList.of("example.com", "localhost", "127.0.0.1");
-            final X509Certificate serverCert =
-                    createServerCert(subject, keyPair.getPublic(), serverCaCert,
-                                     serverCaKeyPair.getPrivate(), sans);
-            final TlsProvider tlsProvider =
-                    TlsProvider.builder()
-                               .keyPair(TlsKeyPair.of(keyPair.getPrivate(), serverCert, serverCaCert))
-                               .trustedCertificates(ImmutableList.of(clientCaCert))
-                               .build();
-            sb.tlsProvider(tlsProvider);
+            sb.tlsProvider(serverTlsProvider);
         }
     };
 
     @Test
     void basicCase() throws Exception{
+        final X500Name caDn = new X500Name("CN=Test CA, O=Example, C=US");
+        final KeyPair clientCaKeyPair = generateRsaKeyPair(2048);
+        final X509Certificate clientCaCert = createCaCert(caDn, clientCaKeyPair);
+        final KeyPair serverCaKeyPair = generateRsaKeyPair(2048);
+        final X509Certificate serverCaCert = createCaCert(caDn, serverCaKeyPair);
+
+        final KeyPair serverKeyPair = generateRsaKeyPair(2048);
+        final List<String> sans = ImmutableList.of("example.com", "localhost", "127.0.0.1");
+        final X509Certificate serverCert =
+                createServerCert(new X500Name("CN=example.com, O=Example, C=US"),
+                                 serverKeyPair.getPublic(), serverCaCert,
+                                 serverCaKeyPair.getPrivate(), sans);
+        serverTlsProvider.setDelegate(TlsProvider.builder()
+                                                 .keyPair(TlsKeyPair.of(serverKeyPair.getPrivate(), serverCert, serverCaCert))
+                                                 .trustedCertificates(clientCaCert)
+                                                 .build());
+
         final KeyPair keyPair = generateRsaKeyPair(2048);
         final X500Name subject = new X500Name("CN=test-client, O=Example, C=US");
         final X509Certificate clientCert =
@@ -209,5 +212,32 @@ class MutualTlsTest {
             return new GeneralName(nameType, s);
         }).collect(ImmutableList.toImmutableList());
         return new GeneralNames(names.toArray(new GeneralName[0]));
+    }
+
+    private static class DelegatingTlsProvider implements TlsProvider {
+
+        final AtomicReference<TlsProvider> delegate = new AtomicReference<>();
+
+        void setDelegate(@Nullable TlsProvider tlsProvider) {
+            delegate.set(tlsProvider);
+        }
+
+        @Override
+        public @Nullable TlsKeyPair keyPair(String hostname) {
+            final TlsProvider tlsProvider = delegate.get();
+            if (tlsProvider == null) {
+                return null;
+            }
+            return tlsProvider.keyPair(hostname);
+        }
+
+        @Override
+        public @Nullable List<X509Certificate> trustedCertificates(String hostname) {
+            final TlsProvider tlsProvider = delegate.get();
+            if (tlsProvider == null) {
+                return null;
+            }
+            return tlsProvider.trustedCertificates(hostname);
+        }
     }
 }
