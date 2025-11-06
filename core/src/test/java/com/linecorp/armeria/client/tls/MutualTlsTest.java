@@ -80,7 +80,7 @@ class MutualTlsTest {
     };
 
     @Test
-    void basicCase() throws Exception{
+    void basicCase() throws Exception {
         final X500Name caDn = new X500Name("CN=Test CA, O=Example, C=US");
         final KeyPair clientCaKeyPair = generateRsaKeyPair(2048);
         final X509Certificate clientCaCert = createCaCert(caDn, clientCaKeyPair);
@@ -94,7 +94,8 @@ class MutualTlsTest {
                                  serverKeyPair.getPublic(), serverCaCert,
                                  serverCaKeyPair.getPrivate(), sans);
         serverTlsProvider.setDelegate(TlsProvider.builder()
-                                                 .keyPair(TlsKeyPair.of(serverKeyPair.getPrivate(), serverCert, serverCaCert))
+                                                 .keyPair(TlsKeyPair.of(serverKeyPair.getPrivate(),
+                                                                        serverCert, serverCaCert))
                                                  .trustedCertificates(clientCaCert)
                                                  .build());
 
@@ -102,10 +103,11 @@ class MutualTlsTest {
         final X500Name subject = new X500Name("CN=test-client, O=Example, C=US");
         final X509Certificate clientCert =
                 createClientCert(subject, keyPair.getPublic(), clientCaCert, clientCaKeyPair.getPrivate());
-        final TlsProvider tlsProvider = TlsProvider.builder()
-                                                   .keyPair(TlsKeyPair.of(keyPair.getPrivate(), clientCert, clientCaCert))
-                                                   .trustedCertificates(ImmutableList.of(serverCaCert))
-                                                   .build();
+        final TlsProvider tlsProvider =
+                TlsProvider.builder()
+                           .keyPair(TlsKeyPair.of(keyPair.getPrivate(), clientCert, clientCaCert))
+                           .trustedCertificates(ImmutableList.of(serverCaCert))
+                           .build();
         final ClientFactory cf = ClientFactory.builder()
                                               .tlsProvider(tlsProvider)
                                               .build();
@@ -138,7 +140,8 @@ class MutualTlsTest {
 
     private static X509Certificate createCaCert(X500Name subject, KeyPair caKp) {
         try {
-            final ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(caKp.getPrivate());
+            final ContentSigner signer =
+                    new JcaContentSignerBuilder("SHA256withRSA").build(caKp.getPrivate());
             final JcaX509v3CertificateBuilder builder = x509Builder(subject, subject, caKp.getPublic());
             builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
             builder.addExtension(Extension.keyUsage, true,
