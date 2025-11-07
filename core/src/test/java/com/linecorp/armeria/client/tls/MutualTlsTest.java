@@ -17,6 +17,7 @@
 package com.linecorp.armeria.client.tls;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigInteger;
 import java.security.KeyPair;
@@ -31,6 +32,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+
+import javax.net.ssl.SSLHandshakeException;
 
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.BasicConstraints;
@@ -53,17 +56,20 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.ClientFactory;
+import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.client.WebClient;
-import com.linecorp.armeria.client.logging.LoggingClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
+import com.linecorp.armeria.common.ClosedSessionException;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.TlsProvider;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.server.ServerBuilder;
+import com.linecorp.armeria.server.ServerTlsConfig;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
+import io.netty.handler.ssl.ClientAuth;
 import io.netty.util.NetUtil;
 
 class MutualTlsTest {
@@ -75,7 +81,9 @@ class MutualTlsTest {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
             sb.service("/", (ctx, req) -> HttpResponse.of(200));
-            sb.tlsProvider(serverTlsProvider);
+            sb.tlsProvider(serverTlsProvider, ServerTlsConfig.builder()
+                                                             .clientAuth(ClientAuth.REQUIRE)
+                                                             .build());
         }
     };
 
@@ -108,15 +116,90 @@ class MutualTlsTest {
                            .keyPair(TlsKeyPair.of(keyPair.getPrivate(), clientCert, clientCaCert))
                            .trustedCertificates(ImmutableList.of(serverCaCert))
                            .build();
-        final ClientFactory cf = ClientFactory.builder()
-                                              .tlsProvider(tlsProvider)
-                                              .build();
+        try (ClientFactory cf = ClientFactory.builder().tlsProvider(tlsProvider).build()) {
+            final AggregatedHttpResponse res = WebClient.builder(server.httpsUri()).factory(cf)
+                                                        .build()
+                                                        .blocking().get("/");
+            assertThat(res.status().code()).isEqualTo(200);
+        }
+    }
 
-        final AggregatedHttpResponse res = WebClient.builder(server.httpsUri()).factory(cf)
-                                                    .decorator(LoggingClient.newDecorator())
-                                                    .build()
-                                                    .blocking().get("/");
-        assertThat(res.status().code()).isEqualTo(200);
+    @Test
+    void serverValidationFails() throws Exception {
+        final X500Name caDn = new X500Name("CN=Test CA, O=Example, C=US");
+        final KeyPair clientCaKeyPair = generateRsaKeyPair(2048);
+        final X509Certificate clientCaCert = createCaCert(caDn, clientCaKeyPair);
+        final KeyPair serverCaKeyPair = generateRsaKeyPair(2048);
+        final X509Certificate serverCaCert = createCaCert(caDn, serverCaKeyPair);
+
+        final KeyPair serverKeyPair = generateRsaKeyPair(2048);
+        final List<String> sans = ImmutableList.of("example.com", "localhost", "127.0.0.1");
+        final X509Certificate serverCert =
+                createServerCert(new X500Name("CN=example.com, O=Example, C=US"),
+                                 serverKeyPair.getPublic(), serverCaCert,
+                                 serverCaKeyPair.getPrivate(), sans);
+        serverTlsProvider.setDelegate(TlsProvider.builder()
+                                                 .keyPair(TlsKeyPair.of(serverKeyPair.getPrivate(),
+                                                                        serverCert, serverCaCert))
+                                                 // not trusting the client ca cert
+                                                 .trustedCertificates(serverCaCert)
+                                                 .build());
+
+        final KeyPair keyPair = generateRsaKeyPair(2048);
+        final X500Name subject = new X500Name("CN=test-client, O=Example, C=US");
+        final X509Certificate clientCert =
+                createClientCert(subject, keyPair.getPublic(), clientCaCert, clientCaKeyPair.getPrivate());
+        final TlsProvider tlsProvider =
+                TlsProvider.builder()
+                           .keyPair(TlsKeyPair.of(keyPair.getPrivate(), clientCert, clientCaCert))
+                           .trustedCertificates(ImmutableList.of(serverCaCert))
+                           .build();
+        try (ClientFactory cf = ClientFactory.builder().tlsProvider(tlsProvider).build()) {
+            assertThatThrownBy(() -> WebClient.builder(server.httpsUri()).factory(cf)
+                                              .build()
+                                              .blocking().get("/"))
+                    .isInstanceOf(UnprocessedRequestException.class)
+                    .hasCauseInstanceOf(ClosedSessionException.class);
+        }
+    }
+
+    @Test
+    void clientValidationFails() throws Exception {
+        final X500Name caDn = new X500Name("CN=Test CA, O=Example, C=US");
+        final KeyPair clientCaKeyPair = generateRsaKeyPair(2048);
+        final X509Certificate clientCaCert = createCaCert(caDn, clientCaKeyPair);
+        final KeyPair serverCaKeyPair = generateRsaKeyPair(2048);
+        final X509Certificate serverCaCert = createCaCert(caDn, serverCaKeyPair);
+
+        final KeyPair serverKeyPair = generateRsaKeyPair(2048);
+        final List<String> sans = ImmutableList.of("example.com", "localhost", "127.0.0.1");
+        final X509Certificate serverCert =
+                createServerCert(new X500Name("CN=example.com, O=Example, C=US"),
+                                 serverKeyPair.getPublic(), serverCaCert,
+                                 serverCaKeyPair.getPrivate(), sans);
+        serverTlsProvider.setDelegate(TlsProvider.builder()
+                                                 .keyPair(TlsKeyPair.of(serverKeyPair.getPrivate(),
+                                                                        serverCert, serverCaCert))
+                                                 .trustedCertificates(clientCaCert)
+                                                 .build());
+
+        final KeyPair keyPair = generateRsaKeyPair(2048);
+        final X500Name subject = new X500Name("CN=test-client, O=Example, C=US");
+        final X509Certificate clientCert =
+                createClientCert(subject, keyPair.getPublic(), clientCaCert, clientCaKeyPair.getPrivate());
+        final TlsProvider tlsProvider =
+                TlsProvider.builder()
+                           .keyPair(TlsKeyPair.of(keyPair.getPrivate(), clientCert, clientCaCert))
+                           // not trusting the server ca cert
+                           .trustedCertificates(ImmutableList.of(clientCaCert))
+                           .build();
+        try (ClientFactory cf = ClientFactory.builder().tlsProvider(tlsProvider).build()) {
+            assertThatThrownBy(() -> WebClient.builder(server.httpsUri()).factory(cf)
+                                              .build()
+                                              .blocking().get("/"))
+                    .isInstanceOf(UnprocessedRequestException.class)
+                    .hasCauseInstanceOf(SSLHandshakeException.class);
+        }
     }
 
     private static KeyPair generateRsaKeyPair(int bits) {
