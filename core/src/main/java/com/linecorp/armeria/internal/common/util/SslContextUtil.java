@@ -27,7 +27,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLException;
 
 import org.slf4j.Logger;
@@ -40,7 +39,6 @@ import com.google.common.collect.ImmutableSet;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.TlsEngineType;
 
-import io.netty.buffer.ByteBufAllocator;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
@@ -96,7 +94,7 @@ public final class SslContextUtil {
      * TLSv1.3 (if supported), and TLSv1.2.
      */
     public static SslContext createSslContext(
-            Supplier<SslContextBuilder> builderSupplier, boolean forceHttp1,
+            Supplier<SslContextBuilder> builderSupplier, boolean noOverwriteAlpn,
             TlsEngineType tlsEngineType, boolean tlsAllowUnsafeCiphers,
             @Nullable Consumer<? super SslContextBuilder> userCustomizer,
             @Nullable List<X509Certificate> keyCertChainCaptor) {
@@ -105,8 +103,7 @@ public final class SslContextUtil {
             final SslContextBuilder builder = builderSupplier.get();
             final SslProvider provider = tlsEngineType.sslProvider();
             builder.sslProvider(provider);
-
-            final Set<String> supportedProtocols = supportedProtocols(builder);
+            final Set<String> supportedProtocols = supportedProtocols(provider);
             final List<String> protocols = DEFAULT_PROTOCOLS.stream()
                                                             .filter(supportedProtocols::contains)
                                                             .collect(toImmutableList());
@@ -136,7 +133,7 @@ public final class SslContextUtil {
 
             // We called user customization logic before setting ALPN to make sure they don't break
             // compatibility with HTTP/2.
-            if (!forceHttp1) {
+            if (!noOverwriteAlpn) {
                 builder.applicationProtocolConfig(ALPN_CONFIG);
             }
             maybeCaptureKeyCertChain(builder, keyCertChainCaptor);
@@ -151,7 +148,7 @@ public final class SslContextUtil {
                            "SSLContext has no cipher suites enabled. " +
                            "You must specify at least one cipher suite.");
 
-                if (forceHttp1) {
+                if (noOverwriteAlpn) {
                     // Skip validation
                 } else {
                     validateHttp2Ciphers(ciphers, tlsAllowUnsafeCiphers);
@@ -191,20 +188,11 @@ public final class SslContextUtil {
         }
     }
 
-    @VisibleForTesting
-    static Set<String> supportedProtocols(SslContextBuilder builder) {
-        SslContext ctx = null;
-        SSLEngine engine = null;
-        try {
-            ctx = builder.build();
-            engine = ctx.newEngine(ByteBufAllocator.DEFAULT);
-            return ImmutableSet.copyOf(engine.getSupportedProtocols());
-        } catch (Exception e) {
-            throw new IllegalStateException(
-                    "Failed to get the list of supported protocols from an SSLContext.", e);
-        } finally {
-            ReferenceCountUtil.release(engine);
-            ReferenceCountUtil.release(ctx);
+    public static Set<String> supportedProtocols(SslProvider provider) {
+        if (SslProvider.isTlsv13Supported(provider)) {
+            return ImmutableSet.of("TLSv1.3", "TLSv1.2");
+        } else {
+            return ImmutableSet.of("TLSv1.2");
         }
     }
 

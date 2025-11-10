@@ -106,7 +106,6 @@ final class HttpClientFactory implements ClientFactory {
     private final Bootstrap unixBaseBootstrap;
     private final SslContext sslCtxHttp1Or2;
     private final SslContext sslCtxHttp1Only;
-    @Nullable
     private final SslContextFactory sslContextFactory;
     private final AddressResolverGroup<InetSocketAddress> addressResolverGroup;
     private final int http2InitialConnectionWindowSize;
@@ -196,16 +195,8 @@ final class HttpClientFactory implements ClientFactory {
         setupTlsMetrics(keyCertChainCaptor, options.meterRegistry());
 
         final TlsProvider tlsProvider = options.tlsProvider();
-        if (tlsProvider != NullTlsProvider.INSTANCE) {
-            ClientTlsConfig clientTlsConfig = options.tlsConfig();
-            if (clientTlsConfig == ClientTlsConfig.NOOP) {
-                clientTlsConfig = null;
-            }
-            sslContextFactory = new SslContextFactory(tlsProvider, options.tlsEngineType(), clientTlsConfig,
-                                                      options.meterRegistry());
-        } else {
-            sslContextFactory = null;
-        }
+        sslContextFactory = new SslContextFactory(tlsProvider, options.tlsEngineType(), null,
+                                                  options.meterRegistry());
 
         http2InitialConnectionWindowSize = options.http2InitialConnectionWindowSize();
         http2InitialStreamWindowSize = options.http2InitialStreamWindowSize();
@@ -547,7 +538,6 @@ final class HttpClientFactory implements ClientFactory {
     }
 
     @VisibleForTesting
-    @Nullable
     SslContextFactory sslContextFactory() {
         return sslContextFactory;
     }

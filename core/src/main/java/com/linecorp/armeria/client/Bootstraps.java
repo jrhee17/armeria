@@ -19,7 +19,6 @@ package com.linecorp.armeria.client;
 import static com.linecorp.armeria.common.SessionProtocol.httpAndHttpsValues;
 
 import java.lang.reflect.Array;
-import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Set;
 
@@ -27,7 +26,6 @@ import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.common.SslContextFactory;
-import com.linecorp.armeria.internal.common.SslContextFactory.SslContextMode;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -53,7 +51,7 @@ final class Bootstraps {
 
     Bootstraps(HttpClientFactory clientFactory, EventLoop eventLoop,
                SslContext sslCtxHttp1Or2, SslContext sslCtxHttp1Only,
-               @Nullable SslContextFactory sslContextFactory) {
+               SslContextFactory sslContextFactory) {
         this.eventLoop = eventLoop;
         this.sslCtxHttp1Or2 = sslCtxHttp1Or2;
         this.sslCtxHttp1Only = sslCtxHttp1Only;
@@ -121,7 +119,7 @@ final class Bootstraps {
      * {@link SessionProtocol} and {@link SerializationFormat}.
      */
     Bootstrap getOrCreate(SocketAddress remoteAddress, SessionProtocol desiredProtocol,
-                          SerializationFormat serializationFormat) {
+                          SerializationFormat serializationFormat, ClientTlsSpec tlsSpec) {
         if (!httpAndHttpsValues().contains(desiredProtocol)) {
             throw new IllegalArgumentException("Unsupported session protocol: " + desiredProtocol);
         }
@@ -132,20 +130,20 @@ final class Bootstraps {
                                                eventLoop.getClass().getName());
         }
 
-        if (sslContextFactory == null || !desiredProtocol.isTls()) {
+        if (tlsSpec == ClientTlsSpec.FACTORY_DEFAULT_MARKER || tlsSpec == ClientTlsSpec.NO_TLS || !desiredProtocol.isTls()) {
             return select(isDomainSocket, desiredProtocol, serializationFormat);
         }
 
         final Bootstrap baseBootstrap = isDomainSocket ? unixBaseBootstrap : inetBaseBootstrap;
         assert baseBootstrap != null;
-        return newBootstrap(baseBootstrap, remoteAddress, desiredProtocol, serializationFormat);
+        return newBootstrap(baseBootstrap, remoteAddress, desiredProtocol, serializationFormat, tlsSpec);
     }
 
     private Bootstrap newBootstrap(Bootstrap baseBootstrap, SocketAddress remoteAddress,
                                    SessionProtocol desiredProtocol,
-                                   SerializationFormat serializationFormat) {
+                                   SerializationFormat serializationFormat, ClientTlsSpec tlsSpec) {
         final boolean webSocket = serializationFormat == SerializationFormat.WS;
-        final SslContext sslContext = newSslContext(remoteAddress, desiredProtocol);
+        final SslContext sslContext = newSslContext(remoteAddress, desiredProtocol, tlsSpec);
         return newBootstrap(baseBootstrap, desiredProtocol, sslContext, webSocket, true);
     }
 
@@ -156,28 +154,18 @@ final class Bootstraps {
         return bootstrap;
     }
 
-    SslContext getOrCreateSslContext(SocketAddress remoteAddress, SessionProtocol desiredProtocol) {
-        if (sslContextFactory == null) {
+    SslContext getOrCreateSslContext(SocketAddress remoteAddress, SessionProtocol desiredProtocol,
+                                     ClientTlsSpec tlsSpec) {
+        if (tlsSpec == ClientTlsSpec.FACTORY_DEFAULT_MARKER || tlsSpec == ClientTlsSpec.NO_TLS) {
             return determineSslContext(desiredProtocol);
-        } else {
-            return newSslContext(remoteAddress, desiredProtocol);
         }
+        return newSslContext(remoteAddress, desiredProtocol, tlsSpec);
     }
 
-    private SslContext newSslContext(SocketAddress remoteAddress, SessionProtocol desiredProtocol) {
-        final String hostname;
-        if (remoteAddress instanceof InetSocketAddress) {
-            hostname = ((InetSocketAddress) remoteAddress).getHostString();
-        } else {
-            assert remoteAddress instanceof DomainSocketAddress;
-            hostname = "unix:" + ((DomainSocketAddress) remoteAddress).path();
-        }
-
-        final SslContextMode sslContextMode =
-                desiredProtocol.isExplicitHttp1() ? SslContextFactory.SslContextMode.CLIENT_HTTP1_ONLY
-                                                  : SslContextFactory.SslContextMode.CLIENT;
+    private SslContext newSslContext(SocketAddress remoteAddress, SessionProtocol desiredProtocol,
+                                     ClientTlsSpec tlsSpec) {
         assert sslContextFactory != null;
-        return sslContextFactory.getOrCreate(sslContextMode, hostname);
+        return sslContextFactory.getOrCreate(tlsSpec);
     }
 
     boolean shouldReleaseSslContext(SslContext sslContext) {
@@ -186,7 +174,7 @@ final class Bootstraps {
 
     void releaseSslContext(SslContext sslContext) {
         if (sslContextFactory != null) {
-            sslContextFactory.release(sslContext);
+            sslContextFactory.release2(sslContext);
         }
     }
 

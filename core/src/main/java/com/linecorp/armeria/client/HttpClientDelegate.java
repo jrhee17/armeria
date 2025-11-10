@@ -20,10 +20,13 @@ import static java.util.Objects.requireNonNull;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.security.cert.X509Certificate;
+import java.util.List;
 import java.util.function.BiConsumer;
 
 import com.linecorp.armeria.client.HttpChannelPool.PoolKey;
 import com.linecorp.armeria.client.endpoint.EmptyEndpointGroupException;
+import com.linecorp.armeria.client.proxy.ConnectProxyConfig;
 import com.linecorp.armeria.client.proxy.HAProxyConfig;
 import com.linecorp.armeria.client.proxy.ProxyConfig;
 import com.linecorp.armeria.client.proxy.ProxyType;
@@ -32,6 +35,8 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.IpAddressRejectedException;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.common.TlsKeyPair;
+import com.linecorp.armeria.common.TlsProvider;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.logging.ClientConnectionTimings;
 import com.linecorp.armeria.common.logging.ClientConnectionTimingsBuilder;
@@ -214,7 +219,13 @@ final class HttpClientDelegate implements HttpClient {
                                               HttpRequest req, DecodedHttpResponse res,
                                               ClientConnectionTimingsBuilder timingsBuilder,
                                               ProxyConfig proxyConfig) {
-        final PoolKey key = new PoolKey(endpoint, proxyConfig);
+        final SessionProtocol protocol = ctx.sessionProtocol();
+        // Injection point has to be here so that the per-request tls config is respected
+        final ClientTlsSpec tlsSpec;
+        final TlsProvider tlsProvider = factory.options().tlsProvider();
+        tlsSpec = getClientTlsSpec(ctx, endpoint, protocol, tlsProvider, proxyConfig);
+
+        final PoolKey key = new PoolKey(endpoint, proxyConfig, tlsSpec);
         final HttpChannelPool pool;
         try {
             pool = factory.pool(ctx.eventLoop().withoutContext());
@@ -222,7 +233,6 @@ final class HttpClientDelegate implements HttpClient {
             earlyCancelRequest(t, ctx, timingsBuilder);
             return;
         }
-        final SessionProtocol protocol = ctx.sessionProtocol();
         final SerializationFormat serializationFormat = ctx.log().partial().serializationFormat();
         final PooledChannel pooledChannel = pool.acquireNow(protocol, serializationFormat, key);
         if (pooledChannel != null) {
@@ -240,6 +250,38 @@ final class HttpClientDelegate implements HttpClient {
                     return null;
                 });
         }
+    }
+
+    private ClientTlsSpec getClientTlsSpec(ClientRequestContext ctx, Endpoint endpoint,
+                                           SessionProtocol protocol,
+                                           TlsProvider tlsProvider, ProxyConfig proxyConfig) {
+        final boolean proxyTls = proxyConfig instanceof ConnectProxyConfig && ((ConnectProxyConfig) proxyConfig).useTls();
+        if (!protocol.isTls() && !proxyTls) {
+            return ClientTlsSpec.NO_TLS;
+        }
+        final ClientTlsSpec reqTlsSpec = ctx.attr(ClientTlsSpec.ATTR);
+        if (reqTlsSpec != null) {
+            return reqTlsSpec;
+        }
+        if (tlsProvider != NullTlsProvider.INSTANCE) {
+            TlsKeyPair keyPair = null;
+            endpoint = endpoint.withoutTrailingDot();
+            final String authority = endpoint.toSocketAddress(-1).getHostString();
+            if (authority != null) {
+                keyPair = tlsProvider.keyPair(authority);
+            }
+            if (keyPair == null) {
+                keyPair = tlsProvider.keyPair("*");
+            }
+            final ClientTlsConfig config = factory.options().tlsConfig();
+            List<X509Certificate> certs = tlsProvider.trustedCertificates(authority);
+            if (certs == null) {
+                certs = tlsProvider.trustedCertificates("*");
+            }
+            return ClientTlsSpec.fromProvider(protocol, keyPair, certs,
+                                              config, factory.options().tlsEngineType());
+        }
+        return ClientTlsSpec.FACTORY_DEFAULT_MARKER;
     }
 
     private void resolveProxyConfig(SessionProtocol protocol, Endpoint endpoint, ClientRequestContext ctx,

@@ -67,6 +67,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.ServerTlsConfig;
+import com.linecorp.armeria.testing.junit5.server.SelfSignedCertificateExtension;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
 import io.netty.handler.ssl.ClientAuth;
@@ -75,6 +76,12 @@ import io.netty.util.NetUtil;
 class MutualTlsTest {
 
     private static final DelegatingTlsProvider serverTlsProvider = new DelegatingTlsProvider();
+
+    @RegisterExtension
+    static SelfSignedCertificateExtension clientSelfSigned = new SelfSignedCertificateExtension();
+
+    @RegisterExtension
+    static SelfSignedCertificateExtension serverSelfSigned = new SelfSignedCertificateExtension();
 
     @RegisterExtension
     static ServerExtension server = new ServerExtension() {

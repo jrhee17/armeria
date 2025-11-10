@@ -30,6 +30,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.ClientTlsConfig;
+import com.linecorp.armeria.client.ClientTlsSpec;
 import com.linecorp.armeria.common.AbstractTlsConfig;
 import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.TlsProvider;
@@ -57,6 +58,9 @@ public final class SslContextFactory {
 
     private final Map<CacheKey, SslContextHolder> cache = new HashMap<>();
     private final Map<SslContext, CacheKey> reverseCache = new HashMap<>();
+
+    private final Map<ClientTlsSpec, SslContextHolder> cache2 = new HashMap<>();
+    private final Map<SslContext, ClientTlsSpec> reverseCache2 = new HashMap<>();
 
     private final TlsProvider tlsProvider;
     private final TlsEngineType engineType;
@@ -103,6 +107,45 @@ public final class SslContextFactory {
             contextHolder.retain();
             reverseCache.putIfAbsent(contextHolder.sslContext(), cacheKey);
             return contextHolder.sslContext();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public SslContext getOrCreate(ClientTlsSpec clientTlsSpec) {
+        lock.lock();
+        try {
+            final SslContextHolder contextHolder =
+                    cache2.computeIfAbsent(clientTlsSpec, unused -> {
+                        CloseableMeterBinder meterBinder = null;
+                        List<X509Certificate> certs = clientTlsSpec.allCertificates();
+                        if (!certs.isEmpty()) {
+                            meterBinder = MoreMeterBinders.certificateMetrics(certs, meterIdPrefix(SslContextMode.CLIENT));
+                            meterBinder.bindTo(meterRegistry);
+                        }
+                        return new SslContextHolder(clientTlsSpec.toSslContext(), meterBinder);
+                    });
+            contextHolder.retain();
+            reverseCache2.putIfAbsent(contextHolder.sslContext(), clientTlsSpec);
+            return contextHolder.sslContext();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void release2(SslContext sslContext) {
+        lock.lock();
+        try {
+            final ClientTlsSpec cacheKey = reverseCache2.get(sslContext);
+            final SslContextHolder contextHolder = cache2.get(cacheKey);
+            assert contextHolder != null : "sslContext not found in the cache: " + sslContext;
+
+            if (contextHolder.release()) {
+                final SslContextHolder removed = cache2.remove(cacheKey);
+                assert removed == contextHolder;
+                reverseCache2.remove(sslContext);
+                contextHolder.destroy();
+            }
         } finally {
             lock.unlock();
         }
@@ -184,7 +227,7 @@ public final class SslContextFactory {
                         applyTlsConfig(contextBuilder);
                         return contextBuilder;
                     },
-                    false, engineType, allowsUnsafeCiphers,
+                    true, engineType, allowsUnsafeCiphers,
                     null, null);
         } else {
             final boolean forceHttp1 = mode == SslContextMode.CLIENT_HTTP1_ONLY;
