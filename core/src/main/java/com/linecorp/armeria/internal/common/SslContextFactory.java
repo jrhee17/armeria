@@ -284,6 +284,11 @@ public final class SslContextFactory {
         return cache.size();
     }
 
+    @VisibleForTesting
+    public int numCachedContexts2() {
+        return cache2.size();
+    }
+
     public enum SslContextMode {
         SERVER,
         CLIENT_HTTP1_ONLY,

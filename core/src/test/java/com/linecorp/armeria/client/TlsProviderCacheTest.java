@@ -155,7 +155,7 @@ class TlsProviderCacheTest {
             final SslContextFactory sslContextFactory = clientFactory.sslContextFactory();
             assertThat(sslContextFactory).isNotNull();
             // Make sure the SslContext is reused
-            assertThat(sslContextFactory.numCachedContexts()).isEqualTo(2);
+            assertThat(sslContextFactory.numCachedContexts2()).isEqualTo(2);
 
             startFuture.complete(null);
             final List<AggregatedHttpResponse> responses0 = CompletableFutures.allAsList(responses).join();
@@ -173,7 +173,7 @@ class TlsProviderCacheTest {
                 assertThat(poolListener.closed()).isEqualTo(6);
             });
             // Make sure a cached SslContext is released when all referenced channels are closed.
-            assertThat(sslContextFactory.numCachedContexts()).isEqualTo(0);
+            assertThat(sslContextFactory.numCachedContexts2()).isEqualTo(0);
         }
     }
 }

@@ -29,6 +29,8 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509ExtendedTrustManager;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -107,6 +109,42 @@ public final class ClientTlsSpec {
             builder.addAll(trustAnchors);
         }
         allCertificates = builder.build();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) {return false;}
+        final ClientTlsSpec tlsSpec = (ClientTlsSpec) o;
+        return Objects.equal(protocols, tlsSpec.protocols) &&
+               Objects.equal(alpn, tlsSpec.alpn) &&
+               Objects.equal(cipherSuites12, tlsSpec.cipherSuites12) &&
+               Objects.equal(privateKey, tlsSpec.privateKey) &&
+               Objects.equal(certChain, tlsSpec.certChain) &&
+               Objects.equal(trustAnchors, tlsSpec.trustAnchors) &&
+               Objects.equal(hostnameVerification, tlsSpec.hostnameVerification) &&
+               Objects.equal(verifierFactories, tlsSpec.verifierFactories) &&
+               engineType == tlsSpec.engineType;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(protocols, alpn, cipherSuites12, privateKey, certChain, trustAnchors,
+                                hostnameVerification, verifierFactories, engineType);
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                          .add("protocols", protocols)
+                          .add("alpn", alpn)
+                          .add("cipherSuites12", cipherSuites12)
+                          .add("privateKey", privateKey)
+                          .add("certChain", certChain)
+                          .add("trustAnchors", trustAnchors)
+                          .add("hostnameVerification", hostnameVerification)
+                          .add("verifierFactories", verifierFactories)
+                          .add("engineType", engineType)
+                          .toString();
     }
 
     public List<X509Certificate> allCertificates() {
