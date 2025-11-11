@@ -227,7 +227,7 @@ public final class SslContextFactory {
                         applyTlsConfig(contextBuilder);
                         return contextBuilder;
                     },
-                    true, engineType, allowsUnsafeCiphers,
+                    false, engineType, allowsUnsafeCiphers,
                     null, null);
         } else {
             final boolean forceHttp1 = mode == SslContextMode.CLIENT_HTTP1_ONLY;
