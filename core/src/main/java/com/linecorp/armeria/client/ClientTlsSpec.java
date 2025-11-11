@@ -38,7 +38,6 @@ import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.TlsPeerVerifier;
 import com.linecorp.armeria.common.TlsPeerVerifier.TlsPeerVerifierFactory;
-import com.linecorp.armeria.common.Verifiers.NoVerifyPeerVerifierFactory;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.common.util.TlsEngineType;
@@ -54,17 +53,24 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.util.AttributeKey;
 
+/**
+ * TBU.
+ */
 public final class ClientTlsSpec {
 
-    static final ClientTlsSpec NO_TLS = new ClientTlsSpec(ImmutableSet.of(), ImmutableSet.of(ApplicationProtocolNames.HTTP_2, ApplicationProtocolNames.HTTP_1_1),
-                                                          ImmutableList.of(), null, ImmutableList.of(), ImmutableList.of(),
-                                                          null, ImmutableList.of(), TlsEngineType.JDK);
+    static final ClientTlsSpec NO_TLS = new ClientTlsSpec(
+            ImmutableSet.of(), ImmutableSet.of(ApplicationProtocolNames.HTTP_2,
+                                               ApplicationProtocolNames.HTTP_1_1),
+            ImmutableList.of(), null, ImmutableList.of(), ImmutableList.of(),
+            null, ImmutableList.of(), TlsEngineType.JDK);
 
-    static final ClientTlsSpec FACTORY_DEFAULT_MARKER = new ClientTlsSpec(ImmutableSet.of(), ImmutableSet.of(ApplicationProtocolNames.HTTP_2, ApplicationProtocolNames.HTTP_1_1),
-                                                                          ImmutableList.of(), null, ImmutableList.of(), ImmutableList.of(),
-                                                                          null, ImmutableList.of(), TlsEngineType.JDK);
+    static final ClientTlsSpec FACTORY_DEFAULT_MARKER =
+            new ClientTlsSpec(ImmutableSet.of(), ImmutableSet.of(ApplicationProtocolNames.HTTP_2,
+                                                                 ApplicationProtocolNames.HTTP_1_1),
+                              ImmutableList.of(), null, ImmutableList.of(), ImmutableList.of(),
+                              null, ImmutableList.of(), TlsEngineType.JDK);
 
-    public static final AttributeKey<ClientTlsSpec> ATTR = AttributeKey.valueOf(ClientTlsSpec.class, "tlsSpec");
+    public static final AttributeKey<ClientTlsSpec> ATTR = AttributeKey.valueOf(ClientTlsSpec.class, "attr");
 
     private final Set<String> protocols;
     private final Set<String> alpn;
@@ -86,11 +92,11 @@ public final class ClientTlsSpec {
 
     private final List<X509Certificate> allCertificates;
 
-    public ClientTlsSpec(Set<String> protocols, Set<String> alpn,
-                         List<String> cipherSuites12, @Nullable PrivateKey privateKey,
-                         @Nullable List<X509Certificate> certChain, @Nullable List<X509Certificate> trustAnchors,
-                         @Nullable String hostnameVerification,
-                         List<TlsPeerVerifierFactory> verifierFactories, TlsEngineType engineType) {
+    ClientTlsSpec(Set<String> protocols, Set<String> alpn,
+                  List<String> cipherSuites12, @Nullable PrivateKey privateKey,
+                  @Nullable List<X509Certificate> certChain, @Nullable List<X509Certificate> trustAnchors,
+                  @Nullable String hostnameVerification,
+                  List<TlsPeerVerifierFactory> verifierFactories, TlsEngineType engineType) {
         this.protocols = protocols;
         this.alpn = alpn;
         this.cipherSuites12 = cipherSuites12;
@@ -113,7 +119,9 @@ public final class ClientTlsSpec {
 
     @Override
     public boolean equals(Object o) {
-        if (o == null || getClass() != o.getClass()) {return false;}
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         final ClientTlsSpec tlsSpec = (ClientTlsSpec) o;
         return Objects.equal(protocols, tlsSpec.protocols) &&
                Objects.equal(alpn, tlsSpec.alpn) &&
@@ -147,10 +155,16 @@ public final class ClientTlsSpec {
                           .toString();
     }
 
+    /**
+     * TBU.
+     */
     public List<X509Certificate> allCertificates() {
         return allCertificates;
     }
 
+    /**
+     * TBU.
+     */
     public SslContext toSslContext() {
         if (this == NO_TLS) {
             throw new IllegalStateException();
@@ -173,7 +187,8 @@ public final class ClientTlsSpec {
 
         X509ExtendedTrustManager pkix = null;
         try {
-            final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            final TrustManagerFactory trustManagerFactory =
+                    TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
             if (trustAnchors != null) {
                 final KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
                 ks.load(null, null);
@@ -213,7 +228,8 @@ public final class ClientTlsSpec {
         private final X509ExtendedTrustManager delegate;
         private final List<TlsPeerVerifierFactory> verifierFactories;
 
-        VerifierBasedTrustManager(X509ExtendedTrustManager delegate, List<TlsPeerVerifierFactory> verifierFactories) {
+        VerifierBasedTrustManager(X509ExtendedTrustManager delegate,
+                                  List<TlsPeerVerifierFactory> verifierFactories) {
             this.delegate = delegate;
             this.verifierFactories = verifierFactories;
         }
@@ -263,9 +279,9 @@ public final class ClientTlsSpec {
         }
     }
 
-    public static ClientTlsSpec fromProvider(SessionProtocol protocol, @Nullable TlsKeyPair tlsKeyPair,
-                                             @Nullable List<X509Certificate> trustAnchors, ClientTlsConfig tlsConfig,
-                                             TlsEngineType tlsEngineType) {
+    static ClientTlsSpec fromProvider(SessionProtocol protocol, @Nullable TlsKeyPair tlsKeyPair,
+                                      @Nullable List<X509Certificate> trustAnchors, ClientTlsConfig tlsConfig,
+                                      TlsEngineType tlsEngineType) {
         final Set<String> versions = SslContextUtil.supportedProtocols(tlsEngineType.sslProvider());
         final Set<String> alpn;
         if (protocol.isExplicitHttp1()) {

@@ -23,17 +23,29 @@ import javax.net.ssl.SSLSession;
 
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
+/**
+ * TBU.
+ */
 @UnstableApi
 public interface TlsPeerVerifier {
 
     /**
-     * The tail verifier will apply JSSE checks
+     * The tail verifier will apply JSSE checks.
      */
     void verify(X509Certificate[] chain, String peerHost, SSLSession sslSession) throws CertificateException;
 
+    /**
+     * TBU.
+     */
     interface TlsPeerVerifierFactory {
+        /**
+         * TBU.
+         */
         TlsPeerVerifier create(TlsPeerVerifier delegate);
 
+        /**
+         * TBU.
+         */
         String signature();
     }
 }

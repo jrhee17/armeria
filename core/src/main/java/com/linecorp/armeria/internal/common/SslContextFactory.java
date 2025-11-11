@@ -118,9 +118,10 @@ public final class SslContextFactory {
             final SslContextHolder contextHolder =
                     cache2.computeIfAbsent(clientTlsSpec, unused -> {
                         CloseableMeterBinder meterBinder = null;
-                        List<X509Certificate> certs = clientTlsSpec.allCertificates();
+                        final List<X509Certificate> certs = clientTlsSpec.allCertificates();
                         if (!certs.isEmpty()) {
-                            meterBinder = MoreMeterBinders.certificateMetrics(certs, meterIdPrefix(SslContextMode.CLIENT));
+                            final MeterIdPrefix meterIdPrefix = meterIdPrefix(SslContextMode.CLIENT);
+                            meterBinder = MoreMeterBinders.certificateMetrics(certs, meterIdPrefix);
                             meterBinder.bindTo(meterRegistry);
                         }
                         return new SslContextHolder(clientTlsSpec.toSslContext(), meterBinder);

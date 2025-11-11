@@ -394,7 +394,8 @@ final class HttpChannelPool implements AsyncCloseable {
                  @Nullable ClientConnectionTimingsBuilder timingsBuilder) {
         final Bootstrap bootstrap;
         try {
-            bootstrap = bootstraps.getOrCreate(remoteAddress, desiredProtocol, serializationFormat, poolKey.tlsSpec);
+            bootstrap = bootstraps.getOrCreate(remoteAddress, desiredProtocol,
+                                               serializationFormat, poolKey.tlsSpec);
         } catch (Exception e) {
             sessionPromise.tryFailure(e);
             return;

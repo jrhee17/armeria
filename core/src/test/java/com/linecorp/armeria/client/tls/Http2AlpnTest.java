@@ -16,8 +16,6 @@
 
 package com.linecorp.armeria.client.tls;
 
-import java.time.Duration;
-
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -30,9 +28,6 @@ import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.SessionProtocol;
-import com.linecorp.armeria.common.TlsKeyPair;
-import com.linecorp.armeria.common.TlsProvider;
-import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.ServerTlsConfig;
 import com.linecorp.armeria.testing.junit5.server.SelfSignedCertificateExtension;
@@ -61,17 +56,13 @@ class Http2AlpnTest {
                 return HttpResponse.of(200);
             });
             sb.https(0);
-            sb.tlsProvider(new TlsProvider() {
-                               @Override
-                               public @Nullable TlsKeyPair keyPair(String hostname) {
-                                   return selfSignedCertificate.tlsKeyPair();
-                               }
-                           },
-                           ServerTlsConfig.builder().tlsCustomizer(b -> b
-                                                  .applicationProtocolConfig(new ApplicationProtocolConfig(Protocol.ALPN,
-                                                                                                           SelectorFailureBehavior.NO_ADVERTISE,
-                                                                                                           SelectedListenerFailureBehavior.ACCEPT,
-                                                                                                           ApplicationProtocolNames.HTTP_1_1)))
+            final ApplicationProtocolConfig alpn =
+                    new ApplicationProtocolConfig(Protocol.ALPN, SelectorFailureBehavior.NO_ADVERTISE,
+                                                  SelectedListenerFailureBehavior.ACCEPT,
+                                                  ApplicationProtocolNames.HTTP_1_1);
+            sb.tlsProvider(hostname -> selfSignedCertificate.tlsKeyPair(),
+                           ServerTlsConfig.builder()
+                                          .tlsCustomizer(b -> b.applicationProtocolConfig(alpn))
                                           .build());
         }
     };

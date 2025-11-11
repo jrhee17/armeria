@@ -20,7 +20,7 @@ import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.TlsProvider;
 import com.linecorp.armeria.common.annotation.Nullable;
 
-public enum NullTlsProvider implements TlsProvider {
+enum NullTlsProvider implements TlsProvider {
     INSTANCE;
 
     @Override

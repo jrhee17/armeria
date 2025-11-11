@@ -130,7 +130,8 @@ final class Bootstraps {
                                                eventLoop.getClass().getName());
         }
 
-        if (tlsSpec == ClientTlsSpec.FACTORY_DEFAULT_MARKER || tlsSpec == ClientTlsSpec.NO_TLS || !desiredProtocol.isTls()) {
+        if (tlsSpec == ClientTlsSpec.FACTORY_DEFAULT_MARKER || tlsSpec == ClientTlsSpec.NO_TLS ||
+            !desiredProtocol.isTls()) {
             return select(isDomainSocket, desiredProtocol, serializationFormat);
         }
 

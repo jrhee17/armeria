@@ -255,7 +255,8 @@ final class HttpClientDelegate implements HttpClient {
     private ClientTlsSpec getClientTlsSpec(ClientRequestContext ctx, Endpoint endpoint,
                                            SessionProtocol protocol,
                                            TlsProvider tlsProvider, ProxyConfig proxyConfig) {
-        final boolean proxyTls = proxyConfig instanceof ConnectProxyConfig && ((ConnectProxyConfig) proxyConfig).useTls();
+        final boolean proxyTls = proxyConfig instanceof ConnectProxyConfig &&
+                                 ((ConnectProxyConfig) proxyConfig).useTls();
         if (!protocol.isTls() && !proxyTls) {
             return ClientTlsSpec.NO_TLS;
         }
