@@ -627,9 +627,7 @@ final class HttpChannelPool implements AsyncCloseable {
         private final int hashCode;
 
         PoolKey(Endpoint endpoint, ProxyConfig proxyConfig, ClientTlsSpec tlsSpec) {
-            // Remove the trailing dot of the host name because SNI does not allow it.
-            // https://lists.w3.org/Archives/Public/ietf-http-wg/2016JanMar/0430.html
-            this.endpoint = endpoint.withoutTrailingDot();
+            this.endpoint = endpoint;
             this.proxyConfig = proxyConfig;
             this.tlsSpec = tlsSpec;
             hashCode = Objects.hash(endpoint, proxyConfig, tlsSpec);

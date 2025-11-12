@@ -96,7 +96,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.EventLoop;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.util.AttributeKey;
-import io.netty.util.NetUtil;
 
 /**
  * Default {@link ClientRequestContext} implementation.
@@ -475,7 +474,9 @@ public final class DefaultClientRequestContext
 
     private void updateEndpoint(@Nullable Endpoint endpoint) {
         this.endpoint = endpoint;
-        autoFillSchemeAuthorityAndOrigin();
+        internalRequestHeaders = computeInternalHeaders(defaultInternalRequestHeaders,
+                                                        endpoint, sessionProtocol,
+                                                        options().autoFillOriginHeader());
     }
 
     private void acquireEventLoop(EndpointGroup endpointGroup) {
@@ -533,7 +534,9 @@ public final class DefaultClientRequestContext
         final UnprocessedRequestException wrapped = UnprocessedRequestException.of(cause);
         final HttpRequest req = request();
         if (req != null) {
-            autoFillSchemeAuthorityAndOrigin();
+            internalRequestHeaders = computeInternalHeaders(
+                    defaultInternalRequestHeaders, null, sessionProtocol,
+                    options().autoFillOriginHeader());
             req.abort(wrapped);
         }
 
@@ -542,34 +545,21 @@ public final class DefaultClientRequestContext
         logBuilder.endResponse(wrapped);
     }
 
-    // TODO(ikhoon): Consider moving the logic for filling authority to `HttpClientDelegate.exceute()`.
-    private void autoFillSchemeAuthorityAndOrigin() {
-        final String authority = authority();
-        if (authority != null && endpoint != null && endpoint.isIpAddrOnly()) {
-            // The connection will be established with the IP address but `host` set to the `Endpoint`
-            // could be used for SNI. It would make users send HTTPS requests with CSLB or configure a reverse
-            // proxy based on an authority.
-            final String host = SchemeAndAuthority.of(null, authority).host();
-            if (!NetUtil.isValidIpV4Address(host) && !NetUtil.isValidIpV6Address(host)) {
-                endpoint = endpoint.withHost(host);
-            }
-        }
-
-        final HttpHeadersBuilder headersBuilder = internalRequestHeaders.toBuilder();
-        headersBuilder.set(HttpHeaderNames.SCHEME, getScheme(sessionProtocol()));
+    private static HttpHeaders computeInternalHeaders(
+            HttpHeaders internalHeaders, @Nullable Endpoint endpoint,
+            SessionProtocol sessionProtocol, boolean autoFillOriginHeader) {
+        final HttpHeadersBuilder headersBuilder = internalHeaders.toBuilder();
+        headersBuilder.set(HttpHeaderNames.SCHEME, getScheme(sessionProtocol));
         if (endpoint != null) {
             final String endpointAuthority = endpoint.authority();
             headersBuilder.set(HttpHeaderNames.AUTHORITY, endpointAuthority);
-            final String origin = origin();
-            if (origin != null) {
-                headersBuilder.set(HttpHeaderNames.ORIGIN, origin);
-            } else if (options().autoFillOriginHeader()) {
-                final String uriText = sessionProtocol().isTls() ? SessionProtocol.HTTPS.uriText()
-                                                                 : SessionProtocol.HTTP.uriText();
+            if (autoFillOriginHeader) {
+                final String uriText = sessionProtocol.isTls() ? SessionProtocol.HTTPS.uriText()
+                                                               : SessionProtocol.HTTP.uriText();
                 headersBuilder.set(HttpHeaderNames.ORIGIN, uriText + "://" + endpointAuthority);
             }
         }
-        internalRequestHeaders = headersBuilder.build();
+        return headersBuilder.build();
     }
 
     /**
@@ -860,24 +850,11 @@ public final class DefaultClientRequestContext
         if (authority == null) {
             authority = internalRequestHeaders.get(HttpHeaderNames.HOST);
         }
+        final Endpoint endpoint = this.endpoint;
+        if (authority == null && endpoint != null) {
+            authority = endpoint.authority();
+        }
         return authority;
-    }
-
-    @Nullable
-    private String origin() {
-        final HttpHeaders additionalRequestHeaders = this.additionalRequestHeaders;
-        String origin = additionalRequestHeaders.get(HttpHeaderNames.ORIGIN);
-        final HttpRequest request = request();
-        if (origin == null && request != null) {
-            origin = request.headers().get(HttpHeaderNames.ORIGIN);
-        }
-        if (origin == null) {
-            origin = defaultRequestHeaders.get(HttpHeaderNames.ORIGIN);
-        }
-        if (origin == null) {
-            origin = internalRequestHeaders.get(HttpHeaderNames.ORIGIN);
-        }
-        return origin;
     }
 
     @Nullable

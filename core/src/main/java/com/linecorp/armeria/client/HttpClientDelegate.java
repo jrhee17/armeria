@@ -24,6 +24,8 @@ import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.function.BiConsumer;
 
+import com.google.common.net.HostAndPort;
+
 import com.linecorp.armeria.client.HttpChannelPool.PoolKey;
 import com.linecorp.armeria.client.endpoint.EmptyEndpointGroupException;
 import com.linecorp.armeria.client.proxy.ConnectProxyConfig;
@@ -219,6 +221,15 @@ final class HttpClientDelegate implements HttpClient {
                                               HttpRequest req, DecodedHttpResponse res,
                                               ClientConnectionTimingsBuilder timingsBuilder,
                                               ProxyConfig proxyConfig) {
+        final String authority = ctx.authority();
+        if (authority != null && endpoint.isIpAddrOnly()) {
+            final HostAndPort hostAndPort = HostAndPort.fromString(authority);
+            endpoint = endpoint.withHost(hostAndPort.getHost());
+        }
+        // Remove the trailing dot of the host name because SNI does not allow it.
+        // https://lists.w3.org/Archives/Public/ietf-http-wg/2016JanMar/0430.html
+        endpoint = endpoint.withoutTrailingDot();
+
         final SessionProtocol protocol = ctx.sessionProtocol();
         // Injection point has to be here so that the per-request tls config is respected
         final ClientTlsSpec tlsSpec;
@@ -266,7 +277,6 @@ final class HttpClientDelegate implements HttpClient {
         }
         if (tlsProvider != NullTlsProvider.INSTANCE) {
             TlsKeyPair keyPair = null;
-            endpoint = endpoint.withoutTrailingDot();
             final String authority = endpoint.toSocketAddress(-1).getHostString();
             if (authority != null) {
                 keyPair = tlsProvider.keyPair(authority);
