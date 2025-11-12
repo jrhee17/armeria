@@ -16,6 +16,7 @@
 
 package com.linecorp.armeria.client;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -23,8 +24,11 @@ import java.net.InetSocketAddress;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
@@ -36,6 +40,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapMaker;
 
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
@@ -72,6 +77,7 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.resolver.AddressResolverGroup;
+import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.FutureListener;
 
 /**
@@ -142,7 +148,12 @@ final class HttpClientFactory implements ClientFactory {
     private final boolean autoCloseConnectionPoolListener;
     private final AsyncCloseableSupport closeable = AsyncCloseableSupport.of(this::closeAsync);
 
-    HttpClientFactory(ClientFactoryOptions options, boolean autoCloseConnectionPoolListener) {
+    private final Map<SessionProtocol, ClientTlsSpec> tlsSpecs;
+    private final Map<SessionProtocol, SslContext> defaultSslContexts;
+    private final Map<ClientTlsSpec, SslContext> tlsSpecSslContextMap;
+
+    HttpClientFactory(ClientFactoryOptions options, boolean autoCloseConnectionPoolListener,
+                      Map<SessionProtocol, ClientTlsSpec> tlsSpecs) {
         workerGroup = options.workerGroup();
 
         @SuppressWarnings("unchecked")
@@ -195,6 +206,19 @@ final class HttpClientFactory implements ClientFactory {
         setupTlsMetrics(keyCertChainCaptor, options.meterRegistry());
 
         final TlsProvider tlsProvider = options.tlsProvider();
+        this.tlsSpecs = tlsSpecs;
+        final ImmutableMap.Builder<SessionProtocol, SslContext> builder = ImmutableMap.builder();
+        final Map<ClientTlsSpec, SslContext> builder2 = new HashMap<>();
+        for (Entry<SessionProtocol, ClientTlsSpec> e : tlsSpecs.entrySet()) {
+            final SslContext sslContext = e.getValue().toSslContext();
+            setupTlsMetrics(e.getValue().allCertificates(), options.meterRegistry());
+            builder.put(e.getKey(), sslContext);
+            if (!builder2.containsKey(e.getValue())) {
+                builder2.put(e.getValue(), sslContext);
+            }
+        }
+        defaultSslContexts = builder.build();
+        tlsSpecSslContextMap = ImmutableMap.copyOf(builder2);
         sslContextFactory = new SslContextFactory(tlsProvider, options.tlsEngineType(), null,
                                                   options.meterRegistry());
 
@@ -484,6 +508,11 @@ final class HttpClientFactory implements ClientFactory {
             if (autoCloseConnectionPoolListener) {
                 connectionPoolListener.close();
             }
+            defaultSslContexts.values().forEach(ctx -> {
+                if (ctx instanceof ReferenceCounted) {
+                    ((ReferenceCounted) ctx).release();
+                }
+            });
             if (shutdownWorkerGroupOnClose) {
                 workerGroup.shutdownGracefully().addListener((FutureListener<Object>) f -> {
                     if (f.cause() != null) {
@@ -534,11 +563,20 @@ final class HttpClientFactory implements ClientFactory {
                                      e -> new HttpChannelPool(this, eventLoop,
                                                               sslCtxHttp1Or2, sslCtxHttp1Only,
                                                               sslContextFactory,
-                                                              connectionPoolListener()));
+                                                              connectionPoolListener(),
+                                                              defaultSslContexts,
+                                                              tlsSpecs));
     }
 
     @VisibleForTesting
     SslContextFactory sslContextFactory() {
         return sslContextFactory;
+    }
+
+    ClientTlsSpec tlsSpec(SessionProtocol sessionProtocol) {
+        checkArgument(sessionProtocol.isTls(), "Unexpected sessionProtocol '%s'", sessionProtocol);
+        final ClientTlsSpec tlsSpec = tlsSpecs.get(sessionProtocol);
+        assert tlsSpec != null;
+        return tlsSpec;
     }
 }

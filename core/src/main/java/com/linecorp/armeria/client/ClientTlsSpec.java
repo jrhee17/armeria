@@ -23,6 +23,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManager;
@@ -62,13 +63,13 @@ public final class ClientTlsSpec {
             ImmutableSet.of(), ImmutableSet.of(ApplicationProtocolNames.HTTP_2,
                                                ApplicationProtocolNames.HTTP_1_1),
             ImmutableList.of(), null, ImmutableList.of(), ImmutableList.of(),
-            null, ImmutableList.of(), TlsEngineType.JDK);
+            null, ImmutableList.of(), TlsEngineType.JDK, ignored -> {});
 
-    static final ClientTlsSpec FACTORY_DEFAULT_MARKER =
+    static final ClientTlsSpec FACTORY_DEFAULT =
             new ClientTlsSpec(ImmutableSet.of(), ImmutableSet.of(ApplicationProtocolNames.HTTP_2,
                                                                  ApplicationProtocolNames.HTTP_1_1),
                               ImmutableList.of(), null, ImmutableList.of(), ImmutableList.of(),
-                              null, ImmutableList.of(), TlsEngineType.JDK);
+                              null, ImmutableList.of(), TlsEngineType.JDK, ignored -> {});
 
     public static final AttributeKey<ClientTlsSpec> ATTR = AttributeKey.valueOf(ClientTlsSpec.class, "attr");
 
@@ -81,7 +82,7 @@ public final class ClientTlsSpec {
     private final PrivateKey privateKey;
     @Nullable
     private final List<X509Certificate> certChain;
-    @Nullable
+    // empty: use the system default, otherwise: use user-provided trust anchors
     private final List<X509Certificate> trustAnchors;
 
     @Nullable
@@ -90,13 +91,17 @@ public final class ClientTlsSpec {
     private final List<TlsPeerVerifierFactory> verifierFactories;
     private final TlsEngineType engineType;
 
+    // transient fields that are not used for caching
+    private final Consumer<? super SslContextBuilder> customizer;
     private final List<X509Certificate> allCertificates;
 
     ClientTlsSpec(Set<String> protocols, Set<String> alpn,
                   List<String> cipherSuites12, @Nullable PrivateKey privateKey,
-                  @Nullable List<X509Certificate> certChain, @Nullable List<X509Certificate> trustAnchors,
+                  @Nullable List<X509Certificate> certChain,
+                  List<X509Certificate> trustAnchors,
                   @Nullable String hostnameVerification,
-                  List<TlsPeerVerifierFactory> verifierFactories, TlsEngineType engineType) {
+                  List<TlsPeerVerifierFactory> verifierFactories, TlsEngineType engineType,
+                  Consumer<? super SslContextBuilder> customizer) {
         this.protocols = protocols;
         this.alpn = alpn;
         this.cipherSuites12 = cipherSuites12;
@@ -106,14 +111,13 @@ public final class ClientTlsSpec {
         this.hostnameVerification = hostnameVerification;
         this.verifierFactories = verifierFactories;
         this.engineType = engineType;
+        this.customizer = customizer;
 
         final ImmutableList.Builder<X509Certificate> builder = ImmutableList.builder();
         if (certChain != null) {
             builder.addAll(certChain);
         }
-        if (trustAnchors != null) {
-            builder.addAll(trustAnchors);
-        }
+        builder.addAll(trustAnchors);
         allCertificates = builder.build();
     }
 
@@ -170,26 +174,15 @@ public final class ClientTlsSpec {
             throw new IllegalStateException();
         }
         final SslContextBuilder builder = SslContextBuilder.forClient();
-        builder.sslProvider(engineType.sslProvider());
-        builder.protocols(protocols);
-        builder.ciphers(cipherSuites12);
-        final ApplicationProtocolConfig alpnConfig = new ApplicationProtocolConfig(
-                Protocol.ALPN,
-                // NO_ADVERTISE is currently the only mode supported by both OpenSsl and JDK providers.
-                SelectorFailureBehavior.NO_ADVERTISE,
-                // ACCEPT is currently the only mode supported by both OpenSsl and JDK providers.
-                SelectedListenerFailureBehavior.ACCEPT, alpn);
-        builder.applicationProtocolConfig(alpnConfig);
+
         if (privateKey != null) {
             builder.keyManager(privateKey, certChain);
         }
-        builder.endpointIdentificationAlgorithm(hostnameVerification);
-
         X509ExtendedTrustManager pkix = null;
         try {
             final TrustManagerFactory trustManagerFactory =
                     TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-            if (trustAnchors != null) {
+            if (!trustAnchors.isEmpty()) {
                 final KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
                 ks.load(null, null);
                 int i = 1;
@@ -216,6 +209,22 @@ public final class ClientTlsSpec {
             throw new IllegalStateException("No X.509 X509ExtendedTrustManager from TMF");
         }
         builder.trustManager(new VerifierBasedTrustManager(pkix, verifierFactories));
+        builder.protocols(protocols);
+        builder.ciphers(cipherSuites12);
+
+        customizer.accept(builder);
+
+        // configurations aren't configurable by users
+        builder.sslProvider(engineType.sslProvider());
+        final ApplicationProtocolConfig alpnConfig = new ApplicationProtocolConfig(
+                Protocol.ALPN,
+                // NO_ADVERTISE is currently the only mode supported by both OpenSsl and JDK providers.
+                SelectorFailureBehavior.NO_ADVERTISE,
+                // ACCEPT is currently the only mode supported by both OpenSsl and JDK providers.
+                SelectedListenerFailureBehavior.ACCEPT, alpn);
+        builder.applicationProtocolConfig(alpnConfig);
+        builder.endpointIdentificationAlgorithm(hostnameVerification);
+
         try {
             return builder.build();
         } catch (Exception e) {
@@ -280,7 +289,7 @@ public final class ClientTlsSpec {
     }
 
     static ClientTlsSpec fromProvider(SessionProtocol protocol, @Nullable TlsKeyPair tlsKeyPair,
-                                      @Nullable List<X509Certificate> trustAnchors, ClientTlsConfig tlsConfig,
+                                      List<X509Certificate> trustAnchors, ClientTlsConfig tlsConfig,
                                       TlsEngineType tlsEngineType) {
         final Set<String> versions = SslContextUtil.supportedProtocols(tlsEngineType.sslProvider());
         final Set<String> alpn;
@@ -301,6 +310,27 @@ public final class ClientTlsSpec {
             verifierFactories = ImmutableList.of(new IgnoreHostsPeerVerifierFactory(tlsConfig.insecureHosts()));
         }
         return new ClientTlsSpec(versions, alpn, cipherSuites, privateKey, certChain, trustAnchors, "HTTPS",
-                                 verifierFactories, tlsEngineType);
+                                 verifierFactories, tlsEngineType, tlsConfig.tlsCustomizer());
+    }
+
+    static ClientTlsSpec fromFactoryOptions(TlsEngineType tlsEngineType, SessionProtocol sessionProtocol,
+                                            boolean tlsNoVerifySet, Set<String> insecureHosts,
+                                            Consumer<? super SslContextBuilder> customizer) {
+        final Set<String> versions = SslContextUtil.supportedProtocols(tlsEngineType.sslProvider());
+        final Set<String> alpn;
+        if (sessionProtocol.isExplicitHttp1()) {
+            alpn = ImmutableSet.of(ApplicationProtocolNames.HTTP_1_1);
+        } else {
+            alpn = ImmutableSet.of(ApplicationProtocolNames.HTTP_2, ApplicationProtocolNames.HTTP_1_1);
+        }
+        final List<String> cipherSuites = SslContextUtil.DEFAULT_CIPHERS;
+        List<TlsPeerVerifierFactory> verifierFactories = ImmutableList.of();
+        if (tlsNoVerifySet) {
+            verifierFactories = ImmutableList.of(NoVerifyPeerVerifierFactory.INSTANCE);
+        } else if (!insecureHosts.isEmpty()) {
+            verifierFactories = ImmutableList.of(new IgnoreHostsPeerVerifierFactory(insecureHosts));
+        }
+        return new ClientTlsSpec(versions, alpn, cipherSuites, null, null, ImmutableList.of(), "HTTPS",
+                                 verifierFactories, tlsEngineType, customizer);
     }
 }

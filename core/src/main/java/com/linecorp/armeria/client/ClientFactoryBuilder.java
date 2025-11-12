@@ -51,6 +51,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 
 import com.linecorp.armeria.client.proxy.ProxyConfig;
@@ -1124,7 +1125,15 @@ public final class ClientFactoryBuilder implements TlsSetters {
      * Returns a newly-created {@link ClientFactory} based on the properties of this builder.
      */
     public ClientFactory build() {
-        return new DefaultClientFactory(new HttpClientFactory(buildOptions(), autoCloseConnectionPoolListener));
+        final ClientFactoryOptions options = buildOptions();
+        final ImmutableMap.Builder<SessionProtocol, ClientTlsSpec> tlsSpecBuilder = ImmutableMap.builder();
+        for (SessionProtocol sessionProtocol: SessionProtocol.httpsValues()) {
+            tlsSpecBuilder.put(sessionProtocol, ClientTlsSpec.fromFactoryOptions(
+                                       options.tlsEngineType(), sessionProtocol, tlsNoVerifySet,
+                                       ImmutableSet.copyOf(insecureHosts), options.tlsCustomizer()));
+        }
+        return new DefaultClientFactory(new HttpClientFactory(options, autoCloseConnectionPoolListener,
+                                                              tlsSpecBuilder.build()));
     }
 
     @Override

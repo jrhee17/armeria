@@ -24,6 +24,7 @@ import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.function.BiConsumer;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 
 import com.linecorp.armeria.client.HttpChannelPool.PoolKey;
@@ -285,14 +286,20 @@ final class HttpClientDelegate implements HttpClient {
                 keyPair = tlsProvider.keyPair("*");
             }
             final ClientTlsConfig config = factory.options().tlsConfig();
-            List<X509Certificate> certs = tlsProvider.trustedCertificates(authority);
+            List<X509Certificate> certs = null;
+            if (authority != null) {
+                certs = tlsProvider.trustedCertificates(authority);
+            }
             if (certs == null) {
                 certs = tlsProvider.trustedCertificates("*");
+            }
+            if (certs == null) {
+                certs = ImmutableList.of();
             }
             return ClientTlsSpec.fromProvider(protocol, keyPair, certs,
                                               config, factory.options().tlsEngineType());
         }
-        return ClientTlsSpec.FACTORY_DEFAULT_MARKER;
+        return factory.tlsSpec(protocol.withTls());
     }
 
     private void resolveProxyConfig(SessionProtocol protocol, Endpoint endpoint, ClientRequestContext ctx,

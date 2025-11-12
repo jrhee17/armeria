@@ -105,7 +105,8 @@ final class HttpChannelPool implements AsyncCloseable {
     HttpChannelPool(HttpClientFactory clientFactory, EventLoop eventLoop,
                     SslContext sslCtxHttp1Or2, SslContext sslCtxHttp1Only,
                     SslContextFactory sslContextFactory,
-                    ConnectionPoolListener listener) {
+                    ConnectionPoolListener listener, Map<SessionProtocol, SslContext> defaultSslContexts,
+                    Map<SessionProtocol, ClientTlsSpec> tlsSpecs) {
         this.clientFactory = clientFactory;
         this.eventLoop = eventLoop;
         this.listener = listener;
@@ -121,7 +122,7 @@ final class HttpChannelPool implements AsyncCloseable {
         assert connectTimeoutMillisBoxed != null;
         connectTimeoutMillis = connectTimeoutMillisBoxed;
         bootstraps = new Bootstraps(clientFactory, eventLoop, sslCtxHttp1Or2, sslCtxHttp1Only,
-                                    sslContextFactory);
+                                    sslContextFactory, defaultSslContexts, tlsSpecs);
     }
 
     private void configureProxy(Channel ch, ProxyConfig proxyConfig, SessionProtocol desiredProtocol,
