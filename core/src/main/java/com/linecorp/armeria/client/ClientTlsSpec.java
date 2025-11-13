@@ -91,8 +91,9 @@ public final class ClientTlsSpec {
     private final List<TlsPeerVerifierFactory> verifierFactories;
     private final TlsEngineType engineType;
 
-    // transient fields that are not used for caching
     private final Consumer<? super SslContextBuilder> customizer;
+
+    // transient fields that are not used for caching
     private final List<X509Certificate> allCertificates;
 
     ClientTlsSpec(Set<String> protocols, Set<String> alpn,
@@ -135,13 +136,15 @@ public final class ClientTlsSpec {
                Objects.equal(trustAnchors, tlsSpec.trustAnchors) &&
                Objects.equal(hostnameVerification, tlsSpec.hostnameVerification) &&
                Objects.equal(verifierFactories, tlsSpec.verifierFactories) &&
-               engineType == tlsSpec.engineType;
+               engineType == tlsSpec.engineType &&
+               // ClientTlsConfig defines its own customizer, so a reference check is done for the customizer
+               customizer == tlsSpec.customizer;
     }
 
     @Override
     public int hashCode() {
         return Objects.hashCode(protocols, alpn, cipherSuites12, privateKey, certChain, trustAnchors,
-                                hostnameVerification, verifierFactories, engineType);
+                                hostnameVerification, verifierFactories, engineType, customizer);
     }
 
     @Override
