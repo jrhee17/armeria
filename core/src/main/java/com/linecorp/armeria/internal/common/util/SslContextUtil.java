@@ -19,6 +19,7 @@ package com.linecorp.armeria.internal.common.util;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import java.net.IDN;
 import java.security.KeyStore;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.net.HostAndPort;
 
 import com.linecorp.armeria.client.ClientTlsSpec;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -54,6 +56,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
+import io.netty.util.NetUtil;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.internal.EmptyArrays;
 
@@ -286,6 +289,31 @@ public final class SslContextUtil {
             i++;
         }
         return ks;
+    }
+
+    @Nullable
+    public static String authorityToServerName(@Nullable String authority) {
+        if (authority == null) {
+            return null;
+        }
+        final HostAndPort hostAndPort = HostAndPort.fromString(authority);
+        String serverName = hostAndPort.getHost();
+        if (NetUtil.isValidIpV4Address(serverName) || NetUtil.isValidIpV6Address(serverName)) {
+            return null;
+        }
+        serverName = IDN.toASCII(serverName, IDN.USE_STD3_ASCII_RULES);
+
+        if (serverName.endsWith(".")) {
+            // Remove the trailing dot of the host name because SNI does not allow it.
+            // https://lists.w3.org/Archives/Public/ietf-http-wg/2016JanMar/0430.html
+            serverName = serverName.substring(0, serverName.length() - 1);
+        }
+
+        serverName = serverName.trim();
+        if (serverName.isEmpty()) {
+            return null;
+        }
+        return serverName;
     }
 
     // https://datatracker.ietf.org/doc/html/rfc7540#appendix-A

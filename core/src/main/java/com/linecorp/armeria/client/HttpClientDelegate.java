@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.function.BiConsumer;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.net.HostAndPort;
 
 import com.linecorp.armeria.client.HttpChannelPool.PoolKey;
 import com.linecorp.armeria.client.endpoint.EmptyEndpointGroupException;
@@ -49,6 +48,7 @@ import com.linecorp.armeria.internal.client.DecodedHttpResponse;
 import com.linecorp.armeria.internal.client.HttpSession;
 import com.linecorp.armeria.internal.client.PooledChannel;
 import com.linecorp.armeria.internal.common.RequestContextUtil;
+import com.linecorp.armeria.internal.common.util.SslContextUtil;
 import com.linecorp.armeria.server.ProxiedAddresses;
 import com.linecorp.armeria.server.ServiceRequestContext;
 
@@ -221,14 +221,10 @@ final class HttpClientDelegate implements HttpClient {
                                               HttpRequest req, DecodedHttpResponse res,
                                               ClientConnectionTimingsBuilder timingsBuilder,
                                               ProxyConfig proxyConfig) {
-        final String authority = ctx.authority();
-        if (authority != null && endpoint.isIpAddrOnly()) {
-            final HostAndPort hostAndPort = HostAndPort.fromString(authority);
-            endpoint = endpoint.withHost(hostAndPort.getHost());
+        final String serverName = SslContextUtil.authorityToServerName(ctx.authority());
+        if (serverName != null) {
+            endpoint = endpoint.withHost(serverName);
         }
-        // Remove the trailing dot of the host name because SNI does not allow it.
-        // https://lists.w3.org/Archives/Public/ietf-http-wg/2016JanMar/0430.html
-        endpoint = endpoint.withoutTrailingDot();
 
         final SessionProtocol protocol = ctx.sessionProtocol();
         final TlsProvider tlsProvider = factory.options().tlsProvider();
