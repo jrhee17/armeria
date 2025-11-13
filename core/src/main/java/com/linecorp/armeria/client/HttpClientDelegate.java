@@ -232,10 +232,8 @@ final class HttpClientDelegate implements HttpClient {
         endpoint = endpoint.withoutTrailingDot();
 
         final SessionProtocol protocol = ctx.sessionProtocol();
-        // Injection point has to be here so that the per-request tls config is respected
-        final ClientTlsSpec tlsSpec;
         final TlsProvider tlsProvider = factory.options().tlsProvider();
-        tlsSpec = getClientTlsSpec(ctx, endpoint, protocol, tlsProvider, proxyConfig);
+        final ClientTlsSpec tlsSpec = getClientTlsSpec(ctx, endpoint, protocol, tlsProvider, proxyConfig);
 
         final PoolKey key = new PoolKey(endpoint, proxyConfig, tlsSpec);
         final HttpChannelPool pool;
@@ -264,13 +262,14 @@ final class HttpClientDelegate implements HttpClient {
         }
     }
 
+    @Nullable
     private ClientTlsSpec getClientTlsSpec(ClientRequestContext ctx, Endpoint endpoint,
                                            SessionProtocol protocol,
                                            TlsProvider tlsProvider, ProxyConfig proxyConfig) {
         final boolean proxyTls = proxyConfig instanceof ConnectProxyConfig &&
                                  ((ConnectProxyConfig) proxyConfig).useTls();
         if (!protocol.isTls() && !proxyTls) {
-            return ClientTlsSpec.NO_TLS;
+            return null;
         }
         final ClientTlsSpec reqTlsSpec = ctx.attr(ClientTlsSpec.ATTR);
         if (reqTlsSpec != null) {

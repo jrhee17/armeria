@@ -122,7 +122,7 @@ final class Bootstraps {
      * {@link SessionProtocol} and {@link SerializationFormat}.
      */
     Bootstrap getOrCreate(SocketAddress remoteAddress, SessionProtocol desiredProtocol,
-                          SerializationFormat serializationFormat, ClientTlsSpec tlsSpec) {
+                          SerializationFormat serializationFormat, @Nullable ClientTlsSpec tlsSpec) {
         if (!httpAndHttpsValues().contains(desiredProtocol)) {
             throw new IllegalArgumentException("Unsupported session protocol: " + desiredProtocol);
         }
@@ -133,7 +133,7 @@ final class Bootstraps {
                                                eventLoop.getClass().getName());
         }
 
-        if (!desiredProtocol.isTls()) {
+        if (!desiredProtocol.isTls() || tlsSpec == null) {
             return select(isDomainSocket, desiredProtocol, serializationFormat);
         }
         final ClientTlsSpec defaultTlsSpec = tlsSpecs.get(desiredProtocol);
@@ -163,10 +163,10 @@ final class Bootstraps {
     }
 
     SslContext getOrCreateSslContext(SocketAddress remoteAddress, SessionProtocol desiredProtocol,
-                                     ClientTlsSpec tlsSpec) {
+                                     @Nullable ClientTlsSpec tlsSpec) {
         final SessionProtocol protocol = desiredProtocol.withTls();
         final ClientTlsSpec factoryTlsSpec = tlsSpecs.get(protocol);
-        if (Objects.equals(factoryTlsSpec, tlsSpec)) {
+        if (tlsSpec == null || Objects.equals(factoryTlsSpec, tlsSpec)) {
             final SslContext defaultSslContext = defaultSslContexts.get(protocol);
             assert defaultSslContext != null;
             return defaultSslContext;

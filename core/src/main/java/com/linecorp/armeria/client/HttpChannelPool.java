@@ -126,7 +126,7 @@ final class HttpChannelPool implements AsyncCloseable {
     }
 
     private void configureProxy(Channel ch, ProxyConfig proxyConfig, SessionProtocol desiredProtocol,
-                                ClientTlsSpec tlsSpec) {
+                                @Nullable ClientTlsSpec tlsSpec) {
         if (proxyConfig.proxyType() == ProxyType.DIRECT) {
             return;
         }
@@ -624,10 +624,11 @@ final class HttpChannelPool implements AsyncCloseable {
     static final class PoolKey {
         final Endpoint endpoint;
         final ProxyConfig proxyConfig;
+        @Nullable
         private final ClientTlsSpec tlsSpec;
         private final int hashCode;
 
-        PoolKey(Endpoint endpoint, ProxyConfig proxyConfig, ClientTlsSpec tlsSpec) {
+        PoolKey(Endpoint endpoint, ProxyConfig proxyConfig, @Nullable ClientTlsSpec tlsSpec) {
             this.endpoint = endpoint;
             this.proxyConfig = proxyConfig;
             this.tlsSpec = tlsSpec;
@@ -660,7 +661,7 @@ final class HttpChannelPool implements AsyncCloseable {
             return hashCode == that.hashCode &&
                    endpoint.equals(that.endpoint) &&
                    proxyConfig.equals(that.proxyConfig) &&
-                   tlsSpec.equals(that.tlsSpec);
+                   Objects.equals(tlsSpec, that.tlsSpec);
         }
 
         @Override
@@ -676,7 +677,7 @@ final class HttpChannelPool implements AsyncCloseable {
             final boolean isDomainSocket = endpoint.isDomainSocket();
             final String proxyConfigStr = proxyConfig.proxyType() != ProxyType.DIRECT ? proxyConfig.toString()
                                                                                       : null;
-            final String tlsSpecStr = tlsSpec != ClientTlsSpec.NO_TLS ? tlsSpec.toString() : null;
+            final String tlsSpecStr = tlsSpec != null ? tlsSpec.toString() : null;
             try (TemporaryThreadLocals tempThreadLocals = TemporaryThreadLocals.acquire()) {
                 final StringBuilder buf = tempThreadLocals.stringBuilder();
                 buf.append('{').append(host);

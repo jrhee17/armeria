@@ -16,16 +16,13 @@
 
 package com.linecorp.armeria.client;
 
-import java.net.Socket;
 import java.security.KeyStore;
 import java.security.PrivateKey;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
-import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509ExtendedTrustManager;
@@ -37,12 +34,12 @@ import com.google.common.collect.ImmutableSet;
 
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.TlsKeyPair;
-import com.linecorp.armeria.common.TlsPeerVerifier;
 import com.linecorp.armeria.common.TlsPeerVerifier.TlsPeerVerifierFactory;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.IgnoreHostsPeerVerifierFactory;
+import com.linecorp.armeria.internal.common.util.MinifiedBouncyCastleProvider;
 import com.linecorp.armeria.internal.common.util.SslContextUtil;
 
 import io.netty.handler.ssl.ApplicationProtocolConfig;
@@ -64,12 +61,6 @@ public final class ClientTlsSpec {
                                                ApplicationProtocolNames.HTTP_1_1),
             ImmutableList.of(), null, ImmutableList.of(), ImmutableList.of(),
             null, ImmutableList.of(), TlsEngineType.JDK, ignored -> {});
-
-    static final ClientTlsSpec FACTORY_DEFAULT =
-            new ClientTlsSpec(ImmutableSet.of(), ImmutableSet.of(ApplicationProtocolNames.HTTP_2,
-                                                                 ApplicationProtocolNames.HTTP_1_1),
-                              ImmutableList.of(), null, ImmutableList.of(), ImmutableList.of(),
-                              null, ImmutableList.of(), TlsEngineType.JDK, ignored -> {});
 
     public static final AttributeKey<ClientTlsSpec> ATTR = AttributeKey.valueOf(ClientTlsSpec.class, "attr");
 
@@ -173,40 +164,31 @@ public final class ClientTlsSpec {
      * TBU.
      */
     public SslContext toSslContext() {
-        if (this == NO_TLS) {
-            throw new IllegalStateException();
-        }
+        return MinifiedBouncyCastleProvider.call(() -> {
+            try {
+                return getSslContext0();
+            } catch (Exception e) {
+                return Exceptions.throwUnsafely(e);
+            }
+        });
+    }
+
+    private SslContext getSslContext0() throws Exception {
         final SslContextBuilder builder = SslContextBuilder.forClient();
 
         if (privateKey != null) {
             builder.keyManager(privateKey, certChain);
         }
         X509ExtendedTrustManager pkix = null;
-        try {
-            final TrustManagerFactory trustManagerFactory =
-                    TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-            if (!trustAnchors.isEmpty()) {
-                final KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
-                ks.load(null, null);
-                int i = 1;
-                for (X509Certificate cert: trustAnchors) {
-                    final String alias = Integer.toString(i);
-                    ks.setCertificateEntry(alias, cert);
-                    i++;
-                }
-                trustManagerFactory.init(ks);
-            } else {
-                // system default
-                trustManagerFactory.init((KeyStore) null);
+        final TrustManagerFactory trustManagerFactory =
+                TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        final KeyStore ks = toKeyStore(trustAnchors);
+        trustManagerFactory.init(ks);
+        for (TrustManager tm : trustManagerFactory.getTrustManagers()) {
+            if (tm instanceof X509ExtendedTrustManager) {
+                pkix = (X509ExtendedTrustManager) tm;
+                break;
             }
-            for (TrustManager tm : trustManagerFactory.getTrustManagers()) {
-                if (tm instanceof X509ExtendedTrustManager) {
-                    pkix = (X509ExtendedTrustManager) tm;
-                    break;
-                }
-            }
-        } catch (Exception e) {
-            return Exceptions.throwUnsafely(e);
         }
         if (pkix == null) {
             throw new IllegalStateException("No X.509 X509ExtendedTrustManager from TMF");
@@ -227,68 +209,23 @@ public final class ClientTlsSpec {
                 SelectedListenerFailureBehavior.ACCEPT, alpn);
         builder.applicationProtocolConfig(alpnConfig);
         builder.endpointIdentificationAlgorithm(hostnameVerification);
-
-        try {
-            return builder.build();
-        } catch (Exception e) {
-            return Exceptions.throwUnsafely(e);
-        }
+        return builder.build();
     }
 
-    private static class VerifierBasedTrustManager extends X509ExtendedTrustManager {
-
-        private final X509ExtendedTrustManager delegate;
-        private final List<TlsPeerVerifierFactory> verifierFactories;
-
-        VerifierBasedTrustManager(X509ExtendedTrustManager delegate,
-                                  List<TlsPeerVerifierFactory> verifierFactories) {
-            this.delegate = delegate;
-            this.verifierFactories = verifierFactories;
+    @Nullable
+    private static KeyStore toKeyStore(List<X509Certificate> trustAnchors) throws Exception {
+        if (trustAnchors.isEmpty()) {
+            return null;
         }
-
-        @Override
-        public void checkServerTrusted(X509Certificate[] chain, String authType, Socket socket)
-                throws CertificateException {
-            throw new UnsupportedOperationException();
+        final KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
+        ks.load(null, null);
+        int i = 1;
+        for (X509Certificate cert: trustAnchors) {
+            final String alias = Integer.toString(i);
+            ks.setCertificateEntry(alias, cert);
+            i++;
         }
-
-        @Override
-        public void checkServerTrusted(X509Certificate[] chain, String authType, SSLEngine engine)
-                throws CertificateException {
-            TlsPeerVerifier verifier = (unused0, unused1, unused2) ->
-                    delegate.checkServerTrusted(chain, authType, engine);
-            for (TlsPeerVerifierFactory verifierFactory : verifierFactories) {
-                verifier = verifierFactory.create(verifier);
-            }
-            verifier.verify(chain, engine.getPeerHost(), engine.getHandshakeSession());
-        }
-
-        @Override
-        public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkClientTrusted(X509Certificate[] chain, String authType, SSLEngine engine)
-                throws CertificateException {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void checkClientTrusted(X509Certificate[] chain, String authType, Socket socket)
-                throws CertificateException {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public X509Certificate[] getAcceptedIssuers() {
-            return delegate.getAcceptedIssuers();
-        }
+        return ks;
     }
 
     static ClientTlsSpec fromProvider(SessionProtocol protocol, @Nullable TlsKeyPair tlsKeyPair,
