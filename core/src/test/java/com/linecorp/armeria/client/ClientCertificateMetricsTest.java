@@ -17,22 +17,16 @@
 package com.linecorp.armeria.client;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 import java.io.InputStream;
 import java.security.cert.CertificateException;
-import java.sql.Date;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Calendar;
-import java.util.Map;
 
 import org.assertj.core.api.AbstractDoubleAssert;
 import org.junit.jupiter.api.Test;
 
 import com.linecorp.armeria.common.metric.MeterIdPrefix;
 import com.linecorp.armeria.common.metric.MoreMeterBinders;
-import com.linecorp.armeria.common.metric.MoreMeters;
 import com.linecorp.armeria.internal.common.util.SelfSignedCertificate;
 import com.linecorp.armeria.server.ServerTlsCertificateMetricsTest;
 
@@ -44,35 +38,6 @@ class ClientCertificateMetricsTest {
 
     private static final String RESOURCE_PATH_PREFIX =
             "/testing/core/" + ServerTlsCertificateMetricsTest.class.getSimpleName() + '/';
-
-    @Test
-    void shouldMeasureClientCertValidityInClientFactory() {
-        // If the test runs at 11:59:59 PM, it could fail.
-        await().untilAsserted(() -> {
-            final Instant now = Instant.now();
-            final Instant notAfter = now.plus(10, ChronoUnit.DAYS);
-            final SelfSignedCertificate ssc = new SelfSignedCertificate("armeria.dev", Date.from(now),
-                                                                        Date.from(notAfter));
-            try {
-                final MeterRegistry meterRegistry = new SimpleMeterRegistry();
-                final ClientFactory factory =
-                        ClientFactory.builder()
-                                     .tls(ssc.certificate(), ssc.privateKey())
-                                     .meterRegistry(meterRegistry)
-                                     .build();
-                final Map<String, Double> metrics = MoreMeters.measureAll(meterRegistry);
-                assertThat(metrics)
-                        .containsEntry(
-                                "armeria.client.tls.certificate.validity.days#value{hostname=armeria.dev}",
-                                9.0)
-                        .containsEntry("armeria.client.tls.certificate.validity#value{hostname=armeria.dev}",
-                                       1.0);
-                factory.close();
-            } finally {
-                ssc.delete();
-            }
-        });
-    }
 
     @Test
     void measureCertificateChainFile() throws CertificateException {

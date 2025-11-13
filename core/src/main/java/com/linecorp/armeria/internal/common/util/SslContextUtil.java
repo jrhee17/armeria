@@ -74,9 +74,9 @@ public final class SslContextUtil {
                                                                          "TLS_AES_128_GCM_SHA256");
 
     public static final List<String> DEFAULT_CIPHERS = ImmutableList.<String>builder()
-            .addAll(TLS_V13_CIPHERS)
-            .addAll(Http2SecurityUtil.CIPHERS)
-            .build();
+                                                                    .addAll(TLS_V13_CIPHERS)
+                                                                    .addAll(Http2SecurityUtil.CIPHERS)
+                                                                    .build();
 
     public static final List<String> DEFAULT_PROTOCOLS = ImmutableList.of("TLSv1.3", "TLSv1.2");
 
@@ -94,7 +94,7 @@ public final class SslContextUtil {
      * TLSv1.3 (if supported), and TLSv1.2.
      */
     public static SslContext createSslContext(
-            Supplier<SslContextBuilder> builderSupplier, boolean noOverwriteAlpn,
+            Supplier<SslContextBuilder> builderSupplier, boolean forceHttp1,
             TlsEngineType tlsEngineType, boolean tlsAllowUnsafeCiphers,
             @Nullable Consumer<? super SslContextBuilder> userCustomizer,
             @Nullable List<X509Certificate> keyCertChainCaptor) {
@@ -133,7 +133,7 @@ public final class SslContextUtil {
 
             // We called user customization logic before setting ALPN to make sure they don't break
             // compatibility with HTTP/2.
-            if (!noOverwriteAlpn) {
+            if (!forceHttp1) {
                 builder.applicationProtocolConfig(ALPN_CONFIG);
             }
             maybeCaptureKeyCertChain(builder, keyCertChainCaptor);
@@ -142,18 +142,7 @@ public final class SslContextUtil {
             boolean success = false;
             try {
                 sslContext = builder.build();
-
-                final Set<String> ciphers = ImmutableSet.copyOf(sslContext.cipherSuites());
-                checkState(!ciphers.isEmpty(),
-                           "SSLContext has no cipher suites enabled. " +
-                           "You must specify at least one cipher suite.");
-
-                if (noOverwriteAlpn) {
-                    // Skip validation
-                } else {
-                    validateHttp2Ciphers(ciphers, tlsAllowUnsafeCiphers);
-                }
-
+                validateSslContext(forceHttp1 || tlsAllowUnsafeCiphers, sslContext);
                 success = true;
                 return sslContext;
             } catch (SSLException e) {
@@ -167,6 +156,16 @@ public final class SslContextUtil {
                 }
             }
         });
+    }
+
+    public static void validateSslContext(boolean tlsAllowUnsafeCiphers, SslContext sslContext) {
+        final Set<String> ciphers = ImmutableSet.copyOf(sslContext.cipherSuites());
+        checkState(!ciphers.isEmpty(),
+                   "SSLContext has no cipher suites enabled. " +
+                   "You must specify at least one cipher suite.");
+        if (sslContext.applicationProtocolNegotiator().protocols().contains(ApplicationProtocolNames.HTTP_2)) {
+            validateHttp2Ciphers(ciphers, tlsAllowUnsafeCiphers);
+        }
     }
 
     private static void maybeCaptureKeyCertChain(SslContextBuilder sslContextBuilder,
@@ -196,7 +195,7 @@ public final class SslContextUtil {
         }
     }
 
-    private static void validateHttp2Ciphers(Set<String> ciphers, boolean tlsAllowUnsafeCiphers) {
+    static void validateHttp2Ciphers(Set<String> ciphers, boolean tlsAllowUnsafeCiphers) {
         if (!ciphers.contains(ESSENTIAL_HTTP2_CIPHER_SUITE)) {
             if (tlsAllowUnsafeCiphers) {
                 if (!warnedMissingEssentialCipherSuite) {

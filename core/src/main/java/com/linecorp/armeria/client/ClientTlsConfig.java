@@ -36,7 +36,7 @@ import io.netty.handler.ssl.SslContextBuilder;
 @UnstableApi
 public final class ClientTlsConfig extends AbstractTlsConfig {
 
-    static final ClientTlsConfig NOOP = builder().build();
+    public static final ClientTlsConfig NOOP = builder().build();
 
     /**
      * Returns a new {@link ClientTlsConfigBuilder}.

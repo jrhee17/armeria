@@ -56,12 +56,6 @@ import io.netty.util.AttributeKey;
  */
 public final class ClientTlsSpec {
 
-    static final ClientTlsSpec NO_TLS = new ClientTlsSpec(
-            ImmutableSet.of(), ImmutableSet.of(ApplicationProtocolNames.HTTP_2,
-                                               ApplicationProtocolNames.HTTP_1_1),
-            ImmutableList.of(), null, ImmutableList.of(), ImmutableList.of(),
-            null, ImmutableList.of(), TlsEngineType.JDK, ignored -> {});
-
     public static final AttributeKey<ClientTlsSpec> ATTR = AttributeKey.valueOf(ClientTlsSpec.class, "attr");
 
     private final Set<String> protocols;
@@ -117,6 +111,9 @@ public final class ClientTlsSpec {
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) {
             return false;
+        }
+        if (this == o) {
+            return true;
         }
         final ClientTlsSpec tlsSpec = (ClientTlsSpec) o;
         return Objects.equal(protocols, tlsSpec.protocols) &&

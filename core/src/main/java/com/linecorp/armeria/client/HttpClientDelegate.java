@@ -29,7 +29,6 @@ import com.google.common.net.HostAndPort;
 
 import com.linecorp.armeria.client.HttpChannelPool.PoolKey;
 import com.linecorp.armeria.client.endpoint.EmptyEndpointGroupException;
-import com.linecorp.armeria.client.proxy.ConnectProxyConfig;
 import com.linecorp.armeria.client.proxy.HAProxyConfig;
 import com.linecorp.armeria.client.proxy.ProxyConfig;
 import com.linecorp.armeria.client.proxy.ProxyType;
@@ -233,7 +232,7 @@ final class HttpClientDelegate implements HttpClient {
 
         final SessionProtocol protocol = ctx.sessionProtocol();
         final TlsProvider tlsProvider = factory.options().tlsProvider();
-        final ClientTlsSpec tlsSpec = getClientTlsSpec(ctx, endpoint, protocol, tlsProvider, proxyConfig);
+        final ClientTlsSpec tlsSpec = getClientTlsSpec(ctx, endpoint, protocol, tlsProvider);
 
         final PoolKey key = new PoolKey(endpoint, proxyConfig, tlsSpec);
         final HttpChannelPool pool;
@@ -262,15 +261,8 @@ final class HttpClientDelegate implements HttpClient {
         }
     }
 
-    @Nullable
     private ClientTlsSpec getClientTlsSpec(ClientRequestContext ctx, Endpoint endpoint,
-                                           SessionProtocol protocol,
-                                           TlsProvider tlsProvider, ProxyConfig proxyConfig) {
-        final boolean proxyTls = proxyConfig instanceof ConnectProxyConfig &&
-                                 ((ConnectProxyConfig) proxyConfig).useTls();
-        if (!protocol.isTls() && !proxyTls) {
-            return null;
-        }
+                                           SessionProtocol protocol, TlsProvider tlsProvider) {
         final ClientTlsSpec reqTlsSpec = ctx.attr(ClientTlsSpec.ATTR);
         if (reqTlsSpec != null) {
             return reqTlsSpec;
@@ -298,7 +290,8 @@ final class HttpClientDelegate implements HttpClient {
             return ClientTlsSpec.fromProvider(protocol, keyPair, certs,
                                               config, factory.options().tlsEngineType());
         }
-        return factory.tlsSpec(protocol.withTls());
+        // proxies may use TLS, so just return the default spec
+        return factory.defaultSslContexts().getClientTlsSpec(protocol.withTls());
     }
 
     private void resolveProxyConfig(SessionProtocol protocol, Endpoint endpoint, ClientRequestContext ctx,

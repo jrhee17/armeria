@@ -40,6 +40,7 @@ import com.linecorp.armeria.common.metric.MeterIdPrefix;
 import com.linecorp.armeria.common.metric.MoreMeterBinders;
 import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
+import com.linecorp.armeria.internal.common.util.SslContextUtil;
 import com.linecorp.armeria.server.ServerTlsConfig;
 
 import io.micrometer.core.instrument.MeterRegistry;
@@ -72,6 +73,21 @@ public final class SslContextFactory {
     private final boolean allowsUnsafeCiphers;
 
     private final ReentrantShortLock lock = new ReentrantShortLock();
+
+    public SslContextFactory(TlsProvider tlsProvider, TlsEngineType engineType,
+                             AbstractTlsConfig tlsConfig, boolean allowsUnsafeCiphers,
+                             MeterRegistry meterRegistry) {
+        // TODO(ikhoon): Support OPENSSL_REFCNT engine type.
+        assert engineType.sslProvider() != SslProvider.OPENSSL_REFCNT;
+
+        this.tlsProvider = tlsProvider;
+        this.engineType = engineType;
+        this.meterRegistry = meterRegistry;
+        this.tlsConfig = tlsConfig != ClientTlsConfig.NOOP ? tlsConfig : null;
+        meterIdPrefix = tlsConfig.meterIdPrefix();
+        this.allowsUnsafeCiphers = tlsConfig != ClientTlsConfig.NOOP ?
+                                   tlsConfig.allowsUnsafeCiphers() : allowsUnsafeCiphers;
+    }
 
     public SslContextFactory(TlsProvider tlsProvider, TlsEngineType engineType,
                              @Nullable AbstractTlsConfig tlsConfig, MeterRegistry meterRegistry) {
@@ -117,6 +133,13 @@ public final class SslContextFactory {
         try {
             final SslContextHolder contextHolder =
                     cache2.computeIfAbsent(clientTlsSpec, unused -> {
+                        final SslContext sslContext = clientTlsSpec.toSslContext();
+                        try {
+                            SslContextUtil.validateSslContext(allowsUnsafeCiphers, sslContext);
+                        } catch (Exception e) {
+                            ReferenceCountUtil.release(sslContext);
+                            throw e;
+                        }
                         CloseableMeterBinder meterBinder = null;
                         final List<X509Certificate> certs = clientTlsSpec.allCertificates();
                         if (!certs.isEmpty()) {
@@ -124,7 +147,7 @@ public final class SslContextFactory {
                             meterBinder = MoreMeterBinders.certificateMetrics(certs, meterIdPrefix);
                             meterBinder.bindTo(meterRegistry);
                         }
-                        return new SslContextHolder(clientTlsSpec.toSslContext(), meterBinder);
+                        return new SslContextHolder(sslContext, meterBinder);
                     });
             contextHolder.retain();
             reverseCache2.putIfAbsent(contextHolder.sslContext(), clientTlsSpec);
