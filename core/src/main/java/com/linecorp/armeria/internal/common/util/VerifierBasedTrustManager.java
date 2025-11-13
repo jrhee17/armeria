@@ -14,7 +14,7 @@
  * under the License.
  */
 
-package com.linecorp.armeria.client;
+package com.linecorp.armeria.internal.common.util;
 
 import java.net.Socket;
 import java.security.cert.CertificateException;

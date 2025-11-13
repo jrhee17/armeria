@@ -19,15 +19,18 @@ package com.linecorp.armeria.internal.common.util;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import java.lang.reflect.Field;
+import java.security.KeyStore;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import javax.net.ssl.SSLException;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509ExtendedTrustManager;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +39,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import com.linecorp.armeria.client.ClientTlsSpec;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.common.util.TlsEngineType;
 
 import io.netty.handler.codec.http2.Http2SecurityUtil;
@@ -96,30 +101,13 @@ public final class SslContextUtil {
     public static SslContext createSslContext(
             Supplier<SslContextBuilder> builderSupplier, boolean forceHttp1,
             TlsEngineType tlsEngineType, boolean tlsAllowUnsafeCiphers,
-            @Nullable Consumer<? super SslContextBuilder> userCustomizer,
-            @Nullable List<X509Certificate> keyCertChainCaptor) {
+            @Nullable Consumer<? super SslContextBuilder> userCustomizer) {
 
         return MinifiedBouncyCastleProvider.call(() -> {
             final SslContextBuilder builder = builderSupplier.get();
             final SslProvider provider = tlsEngineType.sslProvider();
             builder.sslProvider(provider);
-            final Set<String> supportedProtocols = supportedProtocols(provider);
-            final List<String> protocols = DEFAULT_PROTOCOLS.stream()
-                                                            .filter(supportedProtocols::contains)
-                                                            .collect(toImmutableList());
-            if (protocols.isEmpty()) {
-                throw new IllegalStateException(provider + " supports none of " + DEFAULT_PROTOCOLS);
-            }
-
-            if (!warnedUnsupportedProtocols && DEFAULT_PROTOCOLS.size() != protocols.size()) {
-                warnedUnsupportedProtocols = true;
-                if (logger.isDebugEnabled()) {
-                    final List<String> missingProtocols = DEFAULT_PROTOCOLS.stream()
-                                                                           .filter(p -> !protocols.contains(p))
-                                                                           .collect(toImmutableList());
-                    logger.debug("{} does not support: {}", provider, missingProtocols);
-                }
-            }
+            final List<String> protocols = filterProtocols(DEFAULT_PROTOCOLS, provider);
 
             // Set endpoint identification algorithm so that JDK's default X509TrustManager implementation
             // performs host name checks. This options is effective only for clients.
@@ -136,7 +124,6 @@ public final class SslContextUtil {
             if (!forceHttp1) {
                 builder.applicationProtocolConfig(ALPN_CONFIG);
             }
-            maybeCaptureKeyCertChain(builder, keyCertChainCaptor);
 
             SslContext sslContext = null;
             boolean success = false;
@@ -158,6 +145,27 @@ public final class SslContextUtil {
         });
     }
 
+    private static List<String> filterProtocols(Collection<String> protocols, SslProvider provider) {
+        final Set<String> supportedProtocols = supportedProtocols(provider);
+        final List<String> filtered = protocols.stream()
+                                               .filter(supportedProtocols::contains)
+                                               .collect(toImmutableList());
+        if (filtered.isEmpty()) {
+            throw new IllegalStateException(provider + " supports none of " + protocols);
+        }
+
+        if (!warnedUnsupportedProtocols && protocols.size() != filtered.size()) {
+            warnedUnsupportedProtocols = true;
+            if (logger.isDebugEnabled()) {
+                final List<String> missingProtocols = protocols.stream()
+                                                               .filter(p -> !filtered.contains(p))
+                                                               .collect(toImmutableList());
+                logger.debug("{} does not support: {}", provider, missingProtocols);
+            }
+        }
+        return filtered;
+    }
+
     public static void validateSslContext(boolean tlsAllowUnsafeCiphers, SslContext sslContext) {
         final Set<String> ciphers = ImmutableSet.copyOf(sslContext.cipherSuites());
         checkState(!ciphers.isEmpty(),
@@ -165,25 +173,6 @@ public final class SslContextUtil {
                    "You must specify at least one cipher suite.");
         if (sslContext.applicationProtocolNegotiator().protocols().contains(ApplicationProtocolNames.HTTP_2)) {
             validateHttp2Ciphers(ciphers, tlsAllowUnsafeCiphers);
-        }
-    }
-
-    private static void maybeCaptureKeyCertChain(SslContextBuilder sslContextBuilder,
-                                                 @Nullable List<X509Certificate> keyCertChainCaptor) {
-        if (keyCertChainCaptor == null) {
-            return;
-        }
-        try {
-            // TODO(ikhoon): Open an issue to Netty to expose `keyCertChain` in `SslContextBuilder`.
-            final Field keyCertChain = SslContextBuilder.class.getDeclaredField("keyCertChain");
-            keyCertChain.setAccessible(true);
-            final X509Certificate[] certificates = (X509Certificate[]) keyCertChain.get(sslContextBuilder);
-            if (certificates == null || certificates.length == 0) {
-                return;
-            }
-            keyCertChainCaptor.addAll(Arrays.asList(certificates));
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            logger.warn("Failed to access keyCertChain in {}", SslContextBuilder.class, e);
         }
     }
 
@@ -226,6 +215,77 @@ public final class SslContextUtil {
         return "Attempted to configure TLS with a bad cipher suite (" + cipher + "). " +
                "Do not use any cipher suites listed in " +
                "https://datatracker.ietf.org/doc/html/rfc7540#appendix-A";
+    }
+
+    /**
+     * TBU.
+     */
+    public static SslContext toSslContext(ClientTlsSpec clientTlsSpec) {
+        return MinifiedBouncyCastleProvider.call(() -> {
+            try {
+                return getSslContext0(clientTlsSpec);
+            } catch (Exception e) {
+                return Exceptions.throwUnsafely(e);
+            }
+        });
+    }
+
+    private static SslContext getSslContext0(ClientTlsSpec clientTlsSpec) throws Exception {
+        final SslContextBuilder builder = SslContextBuilder.forClient();
+
+        if (clientTlsSpec.privateKey() != null) {
+            builder.keyManager(clientTlsSpec.privateKey(), clientTlsSpec.certChain());
+        }
+
+        X509ExtendedTrustManager pkix = null;
+        final TrustManagerFactory trustManagerFactory =
+                TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        final KeyStore ks = toKeyStore(clientTlsSpec.trustAnchors());
+        trustManagerFactory.init(ks);
+        for (TrustManager tm : trustManagerFactory.getTrustManagers()) {
+            if (tm instanceof X509ExtendedTrustManager) {
+                pkix = (X509ExtendedTrustManager) tm;
+                break;
+            }
+        }
+        if (pkix == null) {
+            throw new IllegalStateException("No X.509 X509ExtendedTrustManager from TMF");
+        }
+        builder.trustManager(new VerifierBasedTrustManager(pkix, clientTlsSpec.verifierFactories()));
+        final List<String> protocols = filterProtocols(clientTlsSpec.protocols(),
+                                                       clientTlsSpec.engineType().sslProvider());
+        builder.protocols(protocols);
+        builder.ciphers(clientTlsSpec.cipherSuites12(), SupportedCipherSuiteFilter.INSTANCE);
+
+        clientTlsSpec.tlsCustomizer().accept(builder);
+
+        // configurations aren't configurable by users
+        builder.sslProvider(clientTlsSpec.engineType().sslProvider());
+        final ApplicationProtocolConfig alpnConfig = new ApplicationProtocolConfig(
+                Protocol.ALPN,
+                // NO_ADVERTISE is currently the only mode supported by both OpenSsl and JDK providers.
+                SelectorFailureBehavior.NO_ADVERTISE,
+                // ACCEPT is currently the only mode supported by both OpenSsl and JDK providers.
+                SelectedListenerFailureBehavior.ACCEPT, clientTlsSpec.alpn());
+        builder.applicationProtocolConfig(alpnConfig);
+        builder.endpointIdentificationAlgorithm(clientTlsSpec.hostnameVerification());
+        return builder.build();
+    }
+
+    @Nullable
+    private static KeyStore toKeyStore(List<X509Certificate> trustAnchors) throws Exception {
+        if (trustAnchors.isEmpty()) {
+            return null;
+        }
+        final KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
+        ks.load(null, null);
+        int i = 1;
+        for (X509Certificate cert: trustAnchors) {
+            final String alias = Integer.toString(i);
+            ks.setCertificateEntry(alias, cert);
+            i++;
+        }
+        return ks;
     }
 
     // https://datatracker.ietf.org/doc/html/rfc7540#appendix-A

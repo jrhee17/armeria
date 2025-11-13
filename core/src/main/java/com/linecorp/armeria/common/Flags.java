@@ -654,7 +654,7 @@ public final class Flags {
                     /* forceHttp1 */ false,
                     tlsEngineType,
                     /* tlsAllowUnsafeCiphers */ false,
-                    null, null).newEngine(ByteBufAllocator.DEFAULT);
+                    null).newEngine(ByteBufAllocator.DEFAULT);
             logger.info("All available SSL protocols: {}",
                         ImmutableList.copyOf(engine.getSupportedProtocols()));
             logger.info("Default enabled SSL protocols: {}", SslContextUtil.DEFAULT_PROTOCOLS);

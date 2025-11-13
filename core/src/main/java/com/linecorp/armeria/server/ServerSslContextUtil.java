@@ -101,7 +101,7 @@ final class ServerSslContextUtil {
             @Nullable Consumer<? super SslContextBuilder> tlsCustomizer) {
         return SslContextUtil
                 .createSslContext(sslContextBuilderSupplier,/* forceHttp1 */ false, tlsEngineType,
-                                  tlsAllowUnsafeCiphers, tlsCustomizer, null);
+                                  tlsAllowUnsafeCiphers, tlsCustomizer);
     }
 
     private static void unwrap(SSLEngine engine, ByteBuffer packetBuf) throws SSLException {

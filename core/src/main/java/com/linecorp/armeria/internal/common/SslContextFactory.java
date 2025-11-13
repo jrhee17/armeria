@@ -133,7 +133,7 @@ public final class SslContextFactory {
         try {
             final SslContextHolder contextHolder =
                     cache2.computeIfAbsent(clientTlsSpec, unused -> {
-                        final SslContext sslContext = clientTlsSpec.toSslContext();
+                        final SslContext sslContext = SslContextUtil.toSslContext(clientTlsSpec);
                         try {
                             SslContextUtil.validateSslContext(allowsUnsafeCiphers, sslContext);
                         } catch (Exception e) {
@@ -252,7 +252,7 @@ public final class SslContextFactory {
                         return contextBuilder;
                     },
                     false, engineType, allowsUnsafeCiphers,
-                    null, null);
+                    null);
         } else {
             final boolean forceHttp1 = mode == SslContextMode.CLIENT_HTTP1_ONLY;
             return createSslContext(
@@ -268,7 +268,7 @@ public final class SslContextFactory {
                         applyTlsConfig(contextBuilder);
                         return contextBuilder;
                     },
-                    forceHttp1, engineType, allowsUnsafeCiphers, null, null);
+                    forceHttp1, engineType, allowsUnsafeCiphers, null);
         }
     }
 
@@ -405,6 +405,7 @@ public final class SslContextFactory {
             if (meterBinder != null) {
                 meterBinder.close();
             }
+            ReferenceCountUtil.release(sslContext);
         }
     }
 }

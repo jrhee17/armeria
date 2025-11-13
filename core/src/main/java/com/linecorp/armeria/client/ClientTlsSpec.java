@@ -16,16 +16,11 @@
 
 package com.linecorp.armeria.client;
 
-import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
-
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509ExtendedTrustManager;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
@@ -36,18 +31,11 @@ import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.TlsPeerVerifier.TlsPeerVerifierFactory;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.IgnoreHostsPeerVerifierFactory;
-import com.linecorp.armeria.internal.common.util.MinifiedBouncyCastleProvider;
 import com.linecorp.armeria.internal.common.util.SslContextUtil;
 
-import io.netty.handler.ssl.ApplicationProtocolConfig;
-import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolNames;
-import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.util.AttributeKey;
 
@@ -76,7 +64,7 @@ public final class ClientTlsSpec {
     private final List<TlsPeerVerifierFactory> verifierFactories;
     private final TlsEngineType engineType;
 
-    private final Consumer<? super SslContextBuilder> customizer;
+    private final Consumer<? super SslContextBuilder> tlsCustomizer;
 
     // transient fields that are not used for caching
     private final List<X509Certificate> allCertificates;
@@ -87,7 +75,7 @@ public final class ClientTlsSpec {
                   List<X509Certificate> trustAnchors,
                   @Nullable String hostnameVerification,
                   List<TlsPeerVerifierFactory> verifierFactories, TlsEngineType engineType,
-                  Consumer<? super SslContextBuilder> customizer) {
+                  Consumer<? super SslContextBuilder> tlsCustomizer) {
         this.protocols = protocols;
         this.alpn = alpn;
         this.cipherSuites12 = cipherSuites12;
@@ -97,7 +85,7 @@ public final class ClientTlsSpec {
         this.hostnameVerification = hostnameVerification;
         this.verifierFactories = verifierFactories;
         this.engineType = engineType;
-        this.customizer = customizer;
+        this.tlsCustomizer = tlsCustomizer;
 
         final ImmutableList.Builder<X509Certificate> builder = ImmutableList.builder();
         if (certChain != null) {
@@ -126,13 +114,13 @@ public final class ClientTlsSpec {
                Objects.equal(verifierFactories, tlsSpec.verifierFactories) &&
                engineType == tlsSpec.engineType &&
                // ClientTlsConfig defines its own customizer, so a reference check is done for the customizer
-               customizer == tlsSpec.customizer;
+               tlsCustomizer == tlsSpec.tlsCustomizer;
     }
 
     @Override
     public int hashCode() {
         return Objects.hashCode(protocols, alpn, cipherSuites12, privateKey, certChain, trustAnchors,
-                                hostnameVerification, verifierFactories, engineType, customizer);
+                                hostnameVerification, verifierFactories, engineType, tlsCustomizer);
     }
 
     @Override
@@ -160,69 +148,71 @@ public final class ClientTlsSpec {
     /**
      * TBU.
      */
-    public SslContext toSslContext() {
-        return MinifiedBouncyCastleProvider.call(() -> {
-            try {
-                return getSslContext0();
-            } catch (Exception e) {
-                return Exceptions.throwUnsafely(e);
-            }
-        });
+    public Set<String> protocols() {
+        return protocols;
     }
 
-    private SslContext getSslContext0() throws Exception {
-        final SslContextBuilder builder = SslContextBuilder.forClient();
-
-        if (privateKey != null) {
-            builder.keyManager(privateKey, certChain);
-        }
-        X509ExtendedTrustManager pkix = null;
-        final TrustManagerFactory trustManagerFactory =
-                TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        final KeyStore ks = toKeyStore(trustAnchors);
-        trustManagerFactory.init(ks);
-        for (TrustManager tm : trustManagerFactory.getTrustManagers()) {
-            if (tm instanceof X509ExtendedTrustManager) {
-                pkix = (X509ExtendedTrustManager) tm;
-                break;
-            }
-        }
-        if (pkix == null) {
-            throw new IllegalStateException("No X.509 X509ExtendedTrustManager from TMF");
-        }
-        builder.trustManager(new VerifierBasedTrustManager(pkix, verifierFactories));
-        builder.protocols(protocols);
-        builder.ciphers(cipherSuites12);
-
-        customizer.accept(builder);
-
-        // configurations aren't configurable by users
-        builder.sslProvider(engineType.sslProvider());
-        final ApplicationProtocolConfig alpnConfig = new ApplicationProtocolConfig(
-                Protocol.ALPN,
-                // NO_ADVERTISE is currently the only mode supported by both OpenSsl and JDK providers.
-                SelectorFailureBehavior.NO_ADVERTISE,
-                // ACCEPT is currently the only mode supported by both OpenSsl and JDK providers.
-                SelectedListenerFailureBehavior.ACCEPT, alpn);
-        builder.applicationProtocolConfig(alpnConfig);
-        builder.endpointIdentificationAlgorithm(hostnameVerification);
-        return builder.build();
+    /**
+     * TBU.
+     */
+    public Set<String> alpn() {
+        return alpn;
     }
 
-    @Nullable
-    private static KeyStore toKeyStore(List<X509Certificate> trustAnchors) throws Exception {
-        if (trustAnchors.isEmpty()) {
-            return null;
-        }
-        final KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
-        ks.load(null, null);
-        int i = 1;
-        for (X509Certificate cert: trustAnchors) {
-            final String alias = Integer.toString(i);
-            ks.setCertificateEntry(alias, cert);
-            i++;
-        }
-        return ks;
+    /**
+     * TBU.
+     */
+    public List<String> cipherSuites12() {
+        return cipherSuites12;
+    }
+
+    /**
+     * TBU.
+     */
+    public @Nullable PrivateKey privateKey() {
+        return privateKey;
+    }
+
+    /**
+     * TBU.
+     */
+    public @Nullable List<X509Certificate> certChain() {
+        return certChain;
+    }
+
+    /**
+     * TBU.
+     */
+    public List<X509Certificate> trustAnchors() {
+        return trustAnchors;
+    }
+
+    /**
+     * TBU.
+     */
+    public @Nullable String hostnameVerification() {
+        return hostnameVerification;
+    }
+
+    /**
+     * TBU.
+     */
+    public List<TlsPeerVerifierFactory> verifierFactories() {
+        return verifierFactories;
+    }
+
+    /**
+     * TBU.
+     */
+    public TlsEngineType engineType() {
+        return engineType;
+    }
+
+    /**
+     * TBU.
+     */
+    public Consumer<? super SslContextBuilder> tlsCustomizer() {
+        return tlsCustomizer;
     }
 
     static ClientTlsSpec fromProvider(SessionProtocol protocol, @Nullable TlsKeyPair tlsKeyPair,
