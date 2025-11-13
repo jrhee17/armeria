@@ -850,10 +850,6 @@ public final class DefaultClientRequestContext
         if (authority == null) {
             authority = internalRequestHeaders.get(HttpHeaderNames.HOST);
         }
-        final Endpoint endpoint = this.endpoint;
-        if (authority == null && endpoint != null) {
-            authority = endpoint.authority();
-        }
         return authority;
     }
 

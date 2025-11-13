@@ -221,12 +221,15 @@ final class HttpClientDelegate implements HttpClient {
                                               HttpRequest req, DecodedHttpResponse res,
                                               ClientConnectionTimingsBuilder timingsBuilder,
                                               ProxyConfig proxyConfig) {
-        final String serverName = SslContextUtil.authorityToServerName(ctx.authority());
-        if (serverName != null) {
-            endpoint = endpoint.withHost(serverName);
-        }
-
         final SessionProtocol protocol = ctx.sessionProtocol();
+        if (protocol.isTls() && endpoint.isIpAddrOnly()) {
+            final String serverName = SslContextUtil.authorityToServerName(ctx.authority());
+            if (serverName != null) {
+                endpoint = endpoint.withHost(serverName);
+            }
+        }
+        endpoint = endpoint.withoutTrailingDot();
+
         final TlsProvider tlsProvider = factory.options().tlsProvider();
         final ClientTlsSpec tlsSpec = getClientTlsSpec(ctx, endpoint, protocol, tlsProvider);
 
@@ -259,11 +262,8 @@ final class HttpClientDelegate implements HttpClient {
 
     private ClientTlsSpec getClientTlsSpec(ClientRequestContext ctx, Endpoint endpoint,
                                            SessionProtocol protocol, TlsProvider tlsProvider) {
-        final ClientTlsSpec reqTlsSpec = ctx.attr(ClientTlsSpec.ATTR);
-        if (reqTlsSpec != null) {
-            return reqTlsSpec;
-        }
         if (tlsProvider != NullTlsProvider.INSTANCE) {
+
             TlsKeyPair keyPair = null;
             final String authority = endpoint.toSocketAddress(-1).getHostString();
             if (authority != null) {

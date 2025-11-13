@@ -37,14 +37,11 @@ import com.linecorp.armeria.internal.common.util.SslContextUtil;
 
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.util.AttributeKey;
 
 /**
  * TBU.
  */
 public final class ClientTlsSpec {
-
-    public static final AttributeKey<ClientTlsSpec> ATTR = AttributeKey.valueOf(ClientTlsSpec.class, "attr");
 
     private final Set<String> protocols;
     private final Set<String> alpn;
