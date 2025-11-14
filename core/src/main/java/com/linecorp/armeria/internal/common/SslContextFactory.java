@@ -141,7 +141,12 @@ public final class SslContextFactory {
                             throw e;
                         }
                         CloseableMeterBinder meterBinder = null;
-                        final List<X509Certificate> certs = clientTlsSpec.allCertificates();
+                        final ImmutableList.Builder<X509Certificate> certsBuilder = ImmutableList.builder();
+                        if (clientTlsSpec.tlsKeyPair() != null) {
+                            certsBuilder.addAll(clientTlsSpec.tlsKeyPair().certificateChain());
+                        }
+                        final List<X509Certificate> certs =
+                                certsBuilder.addAll(clientTlsSpec.trustAnchors()).build();
                         if (!certs.isEmpty()) {
                             final MeterIdPrefix meterIdPrefix = meterIdPrefix(SslContextMode.CLIENT);
                             meterBinder = MoreMeterBinders.certificateMetrics(certs, meterIdPrefix);

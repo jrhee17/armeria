@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import com.linecorp.armeria.client.ClientTlsSpec;
+import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.common.util.TlsEngineType;
@@ -219,9 +220,6 @@ public final class SslContextUtil {
                "https://datatracker.ietf.org/doc/html/rfc7540#appendix-A";
     }
 
-    /**
-     * TBU.
-     */
     public static SslContext toSslContext(ClientTlsSpec clientTlsSpec) {
         return MinifiedBouncyCastleProvider.call(() -> {
             try {
@@ -235,8 +233,9 @@ public final class SslContextUtil {
     private static SslContext getSslContext0(ClientTlsSpec clientTlsSpec) throws Exception {
         final SslContextBuilder builder = SslContextBuilder.forClient();
 
-        if (clientTlsSpec.privateKey() != null) {
-            builder.keyManager(clientTlsSpec.privateKey(), clientTlsSpec.certChain());
+        final TlsKeyPair keyPair = clientTlsSpec.tlsKeyPair();
+        if (keyPair != null) {
+            builder.keyManager(keyPair.privateKey(), keyPair.certificateChain());
         }
 
         X509ExtendedTrustManager pkix = null;

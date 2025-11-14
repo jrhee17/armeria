@@ -44,9 +44,8 @@ final class DefaultSslContexts {
                        Consumer<? super SslContextBuilder> tlsCustomizer) {
         final ImmutableMap.Builder<SessionProtocol, ClientTlsSpec> tlsSpecsBuilder = ImmutableMap.builder();
         for (SessionProtocol sessionProtocol: SessionProtocol.httpsValues()) {
-            final ClientTlsSpec tlsSpec = ClientTlsSpec.fromFactoryOptions(
-                    tlsEngineType, sessionProtocol, tlsNoVerifySet,
-                    ImmutableSet.copyOf(insecureHosts), tlsCustomizer);
+            final ClientTlsSpec tlsSpec = ClientTlsSpec.of(tlsEngineType, sessionProtocol, tlsNoVerifySet,
+                                                           insecureHosts, tlsCustomizer);
             tlsSpecsBuilder.put(sessionProtocol, tlsSpec);
         }
         tlsSpecs =  tlsSpecsBuilder.build();
@@ -63,7 +62,7 @@ final class DefaultSslContexts {
         assert contexts != null : "DefaultSslContexts not initialized.";
         final SslContext sslContext = contexts.get(sessionProtocol);
         checkArgument(sslContext != null, "Unsupported protocol '%s'. Only TLS-enabled protocols" +
-                                             " have a default ClientTlsSpec.", sessionProtocol);
+                                          " have a default ClientTlsSpec.", sessionProtocol);
         return sslContext;
     }
 
