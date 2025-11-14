@@ -45,39 +45,35 @@ import io.netty.handler.ssl.SslContextBuilder;
  */
 public final class ClientTlsSpec {
 
-    public static final ClientTlsSpec DEFAULT = of(Flags.tlsEngineType(), ImmutableSet.of(HTTP_2, HTTP_1_1),
-                                                   false, ImmutableSet.of(), ignore -> {});
+    private static final ClientTlsSpec DEFAULT = of(Flags.tlsEngineType(), ImmutableSet.of(HTTP_2, HTTP_1_1),
+                                                    false, ImmutableSet.of(), ignore -> {});
 
     private final Set<String> protocols;
-    private final Set<String> alpn;
-
-    private final List<String> cipherSuites12;
-
+    private final Set<String> alpnProtocols;
+    private final List<String> ciphers;
     @Nullable
     private final TlsKeyPair tlsKeyPair;
     // empty: use the system default, otherwise: use user-provided trust anchors
-    private final List<X509Certificate> trustAnchors;
-
+    private final List<X509Certificate> trustedCertificates;
     @Nullable
-    private final String hostnameVerification;
-
+    private final String endpointIdentificationAlgorithm;
     private final List<TlsPeerVerifierFactory> verifierFactories;
     private final TlsEngineType engineType;
 
     private final Consumer<? super SslContextBuilder> tlsCustomizer;
 
-    ClientTlsSpec(Set<String> protocols, Set<String> alpn,
-                  List<String> cipherSuites12, @Nullable TlsKeyPair tlsKeyPair,
-                  List<X509Certificate> trustAnchors,
-                  @Nullable String hostnameVerification,
+    ClientTlsSpec(Set<String> protocols, Set<String> alpnProtocols,
+                  List<String> ciphers, @Nullable TlsKeyPair tlsKeyPair,
+                  List<X509Certificate> trustedCertificates,
+                  @Nullable String endpointIdentificationAlgorithm,
                   List<TlsPeerVerifierFactory> verifierFactories, TlsEngineType engineType,
                   Consumer<? super SslContextBuilder> tlsCustomizer) {
         this.protocols = protocols;
-        this.alpn = alpn;
-        this.cipherSuites12 = cipherSuites12;
+        this.alpnProtocols = alpnProtocols;
+        this.ciphers = ciphers;
         this.tlsKeyPair = tlsKeyPair;
-        this.trustAnchors = trustAnchors;
-        this.hostnameVerification = hostnameVerification;
+        this.trustedCertificates = trustedCertificates;
+        this.endpointIdentificationAlgorithm = endpointIdentificationAlgorithm;
         this.verifierFactories = verifierFactories;
         this.engineType = engineType;
         this.tlsCustomizer = tlsCustomizer;
@@ -93,11 +89,11 @@ public final class ClientTlsSpec {
         }
         final ClientTlsSpec tlsSpec = (ClientTlsSpec) o;
         return Objects.equal(protocols, tlsSpec.protocols) &&
-               Objects.equal(alpn, tlsSpec.alpn) &&
-               Objects.equal(cipherSuites12, tlsSpec.cipherSuites12) &&
+               Objects.equal(alpnProtocols, tlsSpec.alpnProtocols) &&
+               Objects.equal(ciphers, tlsSpec.ciphers) &&
                Objects.equal(tlsKeyPair, tlsSpec.tlsKeyPair) &&
-               Objects.equal(trustAnchors, tlsSpec.trustAnchors) &&
-               Objects.equal(hostnameVerification, tlsSpec.hostnameVerification) &&
+               Objects.equal(trustedCertificates, tlsSpec.trustedCertificates) &&
+               Objects.equal(endpointIdentificationAlgorithm, tlsSpec.endpointIdentificationAlgorithm) &&
                Objects.equal(verifierFactories, tlsSpec.verifierFactories) &&
                engineType == tlsSpec.engineType &&
                // ClientTlsConfig defines its own customizer, so a reference check is done for the customizer
@@ -106,19 +102,19 @@ public final class ClientTlsSpec {
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(protocols, alpn, cipherSuites12, tlsKeyPair, trustAnchors,
-                                hostnameVerification, verifierFactories, engineType, tlsCustomizer);
+        return Objects.hashCode(protocols, alpnProtocols, ciphers, tlsKeyPair, trustedCertificates,
+                                endpointIdentificationAlgorithm, verifierFactories, engineType,
+                                System.identityHashCode(tlsCustomizer));
     }
 
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
                           .add("protocols", protocols)
-                          .add("alpn", alpn)
-                          .add("cipherSuites12", cipherSuites12)
+                          .add("ciphers", ciphers)
                           .add("tlsKeyPair", tlsKeyPair)
-                          .add("trustAnchors", trustAnchors)
-                          .add("hostnameVerification", hostnameVerification)
+                          .add("trustedCertificates", trustedCertificates)
+                          .add("endpointIdentificationAlgorithm", endpointIdentificationAlgorithm)
                           .add("verifierFactories", verifierFactories)
                           .add("engineType", engineType)
                           .toString();
@@ -134,15 +130,15 @@ public final class ClientTlsSpec {
     /**
      * TBU.
      */
-    public Set<String> alpn() {
-        return alpn;
+    public Set<String> alpnProtocols() {
+        return alpnProtocols;
     }
 
     /**
      * TBU.
      */
-    public List<String> cipherSuites12() {
-        return cipherSuites12;
+    public List<String> ciphers() {
+        return ciphers;
     }
 
     /**
@@ -155,15 +151,15 @@ public final class ClientTlsSpec {
     /**
      * TBU.
      */
-    public List<X509Certificate> trustAnchors() {
-        return trustAnchors;
+    public List<X509Certificate> trustedCertificates() {
+        return trustedCertificates;
     }
 
     /**
      * TBU.
      */
-    public @Nullable String hostnameVerification() {
-        return hostnameVerification;
+    public @Nullable String endpointIdentificationAlgorithm() {
+        return endpointIdentificationAlgorithm;
     }
 
     /**
@@ -188,23 +184,23 @@ public final class ClientTlsSpec {
     }
 
     static ClientTlsSpec fromProvider(SessionProtocol protocol, @Nullable TlsKeyPair tlsKeyPair,
-                                      List<X509Certificate> trustAnchors, ClientTlsConfig tlsConfig,
+                                      List<X509Certificate> trustedCertificates, ClientTlsConfig tlsConfig,
                                       TlsEngineType tlsEngineType) {
         final Set<String> versions = SslContextUtil.supportedProtocols(tlsEngineType.sslProvider());
-        final Set<String> alpn;
+        final Set<String> alpnProtocols;
         if (protocol.isExplicitHttp1()) {
-            alpn = ImmutableSet.of(HTTP_1_1);
+            alpnProtocols = ImmutableSet.of(HTTP_1_1);
         } else {
-            alpn = ImmutableSet.of(HTTP_2, HTTP_1_1);
+            alpnProtocols = ImmutableSet.of(HTTP_2, HTTP_1_1);
         }
-        final List<String> cipherSuites = SslContextUtil.DEFAULT_CIPHERS;
+        final List<String> ciphers = SslContextUtil.DEFAULT_CIPHERS;
         List<TlsPeerVerifierFactory> verifierFactories = ImmutableList.of();
         if (tlsConfig.tlsNoVerifySet()) {
             verifierFactories = ImmutableList.of(NoVerifyPeerVerifierFactory.INSTANCE);
         } else if (!tlsConfig.insecureHosts().isEmpty()) {
             verifierFactories = ImmutableList.of(new IgnoreHostsPeerVerifierFactory(tlsConfig.insecureHosts()));
         }
-        return new ClientTlsSpec(versions, alpn, cipherSuites, tlsKeyPair, trustAnchors, "HTTPS",
+        return new ClientTlsSpec(versions, alpnProtocols, ciphers, tlsKeyPair, trustedCertificates, "HTTPS",
                                  verifierFactories, tlsEngineType, tlsConfig.tlsCustomizer());
     }
 
@@ -218,20 +214,20 @@ public final class ClientTlsSpec {
     static ClientTlsSpec of(TlsEngineType tlsEngineType, SessionProtocol sessionProtocol,
                             boolean tlsNoVerifySet, Set<String> insecureHosts,
                             Consumer<? super SslContextBuilder> customizer) {
-        final Set<String> alpn;
+        final Set<String> applicationProtocols;
         if (sessionProtocol.isExplicitHttp1()) {
-            alpn = ImmutableSet.of(HTTP_1_1);
+            applicationProtocols = ImmutableSet.of(HTTP_1_1);
         } else {
-            alpn = ImmutableSet.of(HTTP_2, HTTP_1_1);
+            applicationProtocols = ImmutableSet.of(HTTP_2, HTTP_1_1);
         }
-        return of(tlsEngineType, alpn, tlsNoVerifySet, insecureHosts, customizer);
+        return of(tlsEngineType, applicationProtocols, tlsNoVerifySet, insecureHosts, customizer);
     }
 
-    static ClientTlsSpec of(TlsEngineType tlsEngineType, Set<String> alpn,
+    static ClientTlsSpec of(TlsEngineType tlsEngineType, Set<String> applicationProtocols,
                             boolean tlsNoVerifySet, Set<String> insecureHosts,
                             Consumer<? super SslContextBuilder> customizer) {
         final Set<String> versions = SslContextUtil.supportedProtocols(tlsEngineType.sslProvider());
-        final List<String> cipherSuites = SslContextUtil.DEFAULT_CIPHERS;
+        final List<String> ciphers = SslContextUtil.DEFAULT_CIPHERS;
         List<TlsPeerVerifierFactory> verifierFactories = ImmutableList.of();
         if (tlsNoVerifySet) {
             verifierFactories = ImmutableList.of(NoVerifyPeerVerifierFactory.INSTANCE);
@@ -239,7 +235,7 @@ public final class ClientTlsSpec {
             verifierFactories =
                     ImmutableList.of(new IgnoreHostsPeerVerifierFactory(ImmutableSet.copyOf(insecureHosts)));
         }
-        return new ClientTlsSpec(versions, alpn, cipherSuites, null, ImmutableList.of(), "HTTPS",
+        return new ClientTlsSpec(versions, applicationProtocols, ciphers, null, ImmutableList.of(), "HTTPS",
                                  verifierFactories, tlsEngineType, customizer);
     }
 }

@@ -146,7 +146,7 @@ public final class SslContextFactory {
                             certsBuilder.addAll(clientTlsSpec.tlsKeyPair().certificateChain());
                         }
                         final List<X509Certificate> certs =
-                                certsBuilder.addAll(clientTlsSpec.trustAnchors()).build();
+                                certsBuilder.addAll(clientTlsSpec.trustedCertificates()).build();
                         if (!certs.isEmpty()) {
                             final MeterIdPrefix meterIdPrefix = meterIdPrefix(SslContextMode.CLIENT);
                             meterBinder = MoreMeterBinders.certificateMetrics(certs, meterIdPrefix);

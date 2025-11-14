@@ -241,7 +241,7 @@ public final class SslContextUtil {
         X509ExtendedTrustManager pkix = null;
         final TrustManagerFactory trustManagerFactory =
                 TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        final KeyStore ks = toKeyStore(clientTlsSpec.trustAnchors());
+        final KeyStore ks = toKeyStore(clientTlsSpec.trustedCertificates());
         trustManagerFactory.init(ks);
         for (TrustManager tm : trustManagerFactory.getTrustManagers()) {
             if (tm instanceof X509ExtendedTrustManager) {
@@ -256,7 +256,7 @@ public final class SslContextUtil {
         final List<String> protocols = filterProtocols(clientTlsSpec.protocols(),
                                                        clientTlsSpec.engineType().sslProvider());
         builder.protocols(protocols);
-        builder.ciphers(clientTlsSpec.cipherSuites12(), SupportedCipherSuiteFilter.INSTANCE);
+        builder.ciphers(clientTlsSpec.ciphers(), SupportedCipherSuiteFilter.INSTANCE);
 
         // configurations aren't configurable by users
         builder.sslProvider(clientTlsSpec.engineType().sslProvider());
@@ -265,9 +265,9 @@ public final class SslContextUtil {
                 // NO_ADVERTISE is currently the only mode supported by both OpenSsl and JDK providers.
                 SelectorFailureBehavior.NO_ADVERTISE,
                 // ACCEPT is currently the only mode supported by both OpenSsl and JDK providers.
-                SelectedListenerFailureBehavior.ACCEPT, clientTlsSpec.alpn());
+                SelectedListenerFailureBehavior.ACCEPT, clientTlsSpec.alpnProtocols());
         builder.applicationProtocolConfig(alpnConfig);
-        builder.endpointIdentificationAlgorithm(clientTlsSpec.hostnameVerification());
+        builder.endpointIdentificationAlgorithm(clientTlsSpec.endpointIdentificationAlgorithm());
 
         clientTlsSpec.tlsCustomizer().accept(builder);
 
