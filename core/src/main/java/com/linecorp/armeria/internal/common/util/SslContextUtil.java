@@ -295,6 +295,8 @@ public final class SslContextUtil {
         builder.protocols(protocols);
         builder.ciphers(tlsSpec.ciphers(), SupportedCipherSuiteFilter.INSTANCE);
 
+        tlsSpec.tlsCustomizer().accept(builder);
+
         // configurations aren't configurable by users
         builder.sslProvider(tlsSpec.engineType().sslProvider());
         final ApplicationProtocolConfig alpnConfig = new ApplicationProtocolConfig(
@@ -304,8 +306,6 @@ public final class SslContextUtil {
                 // ACCEPT is currently the only mode supported by both OpenSsl and JDK providers.
                 SelectedListenerFailureBehavior.ACCEPT, tlsSpec.alpnProtocols());
         builder.applicationProtocolConfig(alpnConfig);
-
-        tlsSpec.tlsCustomizer().accept(builder);
     }
 
     @Nullable

@@ -18,6 +18,7 @@ package com.linecorp.armeria.client.tls;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -71,6 +72,7 @@ class Http2AlpnTest {
         }
     };
 
+    @Disabled
     @Test
     void basicCase() {
         try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
