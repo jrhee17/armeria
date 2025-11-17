@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import com.linecorp.armeria.common.AbstractTlsSpec;
-import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.TlsPeerVerifier.TlsPeerVerifierFactory;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -150,8 +149,6 @@ public final class ServerTlsSpec extends AbstractTlsSpec {
         @Nullable
         private TlsKeyPair tlsKeyPair;
         @Nullable
-        private TlsEngineType engineType;
-        @Nullable
         private Consumer<SslContextBuilder> tlsCustomizer;
         @Nullable
         private KeyManagerFactory keyManagerFactory;
@@ -160,36 +157,29 @@ public final class ServerTlsSpec extends AbstractTlsSpec {
 
         private ServerTlsSpecBuilder() {}
 
-        ServerTlsSpecBuilder(@Nullable TlsKeyPair tlsKeyPair,@Nullable TlsEngineType engineType,
+        ServerTlsSpecBuilder(@Nullable TlsKeyPair tlsKeyPair,
                              @Nullable Consumer<SslContextBuilder> tlsCustomizer,
                              @Nullable KeyManagerFactory keyManagerFactory,
                              @Nullable Boolean tlsSelfSigned) {
             this.tlsKeyPair = tlsKeyPair;
-            this.engineType = engineType;
             this.tlsCustomizer = tlsCustomizer;
             this.keyManagerFactory = keyManagerFactory;
             this.tlsSelfSigned = tlsSelfSigned;
         }
 
-        ServerTlsSpec build() {
+        ServerTlsSpec build(TlsEngineType tlsEngineType) {
             if (tlsKeyPair == null && keyManagerFactory == null) {
                 throw new IllegalStateException("Cannot call tlsCustomizer() without tls() or tlsSelfSigned()");
             }
             assert keyManagerFactory == null || tlsKeyPair == null;
-            final TlsEngineType engineType = firstNonNull(this.engineType, Flags.tlsEngineType());
             final Consumer<SslContextBuilder> tlsCustomizer = firstNonNull(this.tlsCustomizer, NOOP);
-            return new ServerTlsSpec(tlsKeyPair, engineType, tlsCustomizer, keyManagerFactory,
+            return new ServerTlsSpec(tlsKeyPair, tlsEngineType, tlsCustomizer, keyManagerFactory,
                                      ImmutableList.of(), ClientAuth.NONE);
         }
 
-        ServerTlsSpecBuilder tlsKeyPair(@Nullable TlsKeyPair tlsKeyPair) {
-            checkState(keyManagerFactory == null, "tls(KeyManagerFactory) already set)");
+        ServerTlsSpecBuilder tlsKeyPair(TlsKeyPair tlsKeyPair) {
+            checkState(keyManagerFactory == null && this.tlsKeyPair == null, "tls() has already been set");
             this.tlsKeyPair = tlsKeyPair;
-            return this;
-        }
-
-        ServerTlsSpecBuilder engineType(TlsEngineType engineType) {
-            this.engineType = engineType;
             return this;
         }
 
@@ -213,12 +203,12 @@ public final class ServerTlsSpec extends AbstractTlsSpec {
         }
 
         ServerTlsSpecBuilder keyManagerFactory(KeyManagerFactory keyManagerFactory) {
-            checkState(tlsKeyPair == null, "tls() already set)");
+            checkState(this.keyManagerFactory == null && tlsKeyPair == null, "tls() has already been set");
             this.keyManagerFactory = keyManagerFactory;
             return this;
         }
 
-        ServerTlsSpecBuilder tlsSelfSigned(@Nullable Boolean tlsSelfSigned) {
+        ServerTlsSpecBuilder tlsSelfSigned(boolean tlsSelfSigned) {
             this.tlsSelfSigned = tlsSelfSigned;
             return this;
         }
@@ -231,6 +221,10 @@ public final class ServerTlsSpec extends AbstractTlsSpec {
             return tlsKeyPair != null || keyManagerFactory != null || Boolean.TRUE.equals(tlsSelfSigned);
         }
 
+        boolean shouldTlsSelfSign() {
+            return Boolean.TRUE.equals(tlsSelfSigned);
+        }
+
         void validate() {
             if (!isParameterSet() && tlsCustomizer != null) {
                 throw new IllegalStateException("Cannot call tlsCustomizer() without tls() or tlsSelfSigned()");
@@ -238,8 +232,7 @@ public final class ServerTlsSpec extends AbstractTlsSpec {
         }
 
         ServerTlsSpecBuilder copy() {
-            return new ServerTlsSpecBuilder(tlsKeyPair, engineType, tlsCustomizer,
-                                            keyManagerFactory, tlsSelfSigned);
+            return new ServerTlsSpecBuilder(tlsKeyPair, tlsCustomizer, keyManagerFactory, tlsSelfSigned);
         }
     }
 }
