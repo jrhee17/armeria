@@ -33,6 +33,7 @@ import com.linecorp.armeria.common.AbstractTlsSpec;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.TlsPeerVerifier.TlsPeerVerifierFactory;
+import com.linecorp.armeria.common.TlsProvider;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.IgnoreHostsPeerVerifierFactory;
@@ -128,6 +129,23 @@ public final class ClientTlsSpec extends AbstractTlsSpec {
         }
         return new ClientTlsSpec(versions, applicationProtocols, ciphers, null, ImmutableList.of(),
                                  verifierFactories, tlsEngineType, customizer, "HTTPS");
+    }
+
+    /**
+     * TBU.
+     */
+    public static ClientTlsSpec fromProvider(TlsProvider tlsProvider, TlsEngineType tlsEngineType) {
+        final Set<String> versions = SslContextUtil.supportedProtocols(tlsEngineType.sslProvider());
+        final Set<String> alpnProtocols = ImmutableSet.of(HTTP_2, HTTP_1_1);
+        final List<String> ciphers = SslContextUtil.DEFAULT_CIPHERS;
+        final List<TlsPeerVerifierFactory> verifierFactories = ImmutableList.of();
+        final TlsKeyPair tlsKeyPair = tlsProvider.keyPair("*");
+        List<X509Certificate> trustedCertificates = tlsProvider.trustedCertificates("*");
+        if (trustedCertificates == null) {
+            trustedCertificates = ImmutableList.of();
+        }
+        return new ClientTlsSpec(versions, alpnProtocols, ciphers, tlsKeyPair, trustedCertificates,
+                                 verifierFactories, tlsEngineType, DEFAULT.tlsCustomizer(), "HTTPS");
     }
 
     static ClientTlsSpec fromProvider(SessionProtocol protocol, @Nullable TlsKeyPair tlsKeyPair,

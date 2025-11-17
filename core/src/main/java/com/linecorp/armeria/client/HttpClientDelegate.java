@@ -263,7 +263,6 @@ final class HttpClientDelegate implements HttpClient {
     private ClientTlsSpec getClientTlsSpec(ClientRequestContext ctx, Endpoint endpoint,
                                            SessionProtocol protocol, TlsProvider tlsProvider) {
         if (tlsProvider != NullTlsProvider.INSTANCE) {
-
             TlsKeyPair keyPair = null;
             final String authority = endpoint.toSocketAddress(-1).getHostString();
             if (authority != null) {

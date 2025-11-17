@@ -57,12 +57,12 @@ import com.yahoo.athenz.zpe.pkey.PublicKeyStore;
 import com.yahoo.rdl.Struct;
 
 import com.linecorp.armeria.client.ClientFactory;
+import com.linecorp.armeria.client.ClientTlsSpec;
 import com.linecorp.armeria.client.athenz.ZtsBaseClient;
 import com.linecorp.armeria.common.TlsProvider;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.SslContextFactory;
-import com.linecorp.armeria.internal.common.SslContextFactory.SslContextMode;
 
 import io.netty.handler.ssl.JdkSslContext;
 
@@ -240,8 +240,8 @@ final class MinifiedAuthZpeClient {
         final TlsProvider tlsProvider = clientFactory.options().tlsProvider();
         final SslContextFactory sslContextFactory = new SslContextFactory(tlsProvider, TlsEngineType.JDK,
                                                                           null, clientFactory.meterRegistry());
-        final JdkSslContext sslContext = (JdkSslContext) sslContextFactory.getOrCreate(SslContextMode.CLIENT,
-                                                                                       "*");
+        final ClientTlsSpec clientTlsSpec = ClientTlsSpec.fromProvider(tlsProvider, TlsEngineType.JDK);
+        final JdkSslContext sslContext = (JdkSslContext) sslContextFactory.getOrCreate(clientTlsSpec);
         return new JwtsSigningKeyResolver(ztsUri + oauth2KeysPath, sslContext.context(), proxyUriStr);
     }
 
