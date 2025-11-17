@@ -44,10 +44,6 @@ import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.SessionProtocol;
-import com.linecorp.armeria.common.TlsKeyPair;
-import com.linecorp.armeria.common.TlsProvider;
-import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.SslContextFactory;
 import com.linecorp.armeria.server.annotation.ExceptionHandlerFunction;
 import com.linecorp.armeria.server.annotation.Get;
@@ -64,12 +60,7 @@ class VirtualHostAnnotatedServiceBindingBuilderTest {
     private static final ExceptionHandlerFunction handlerFunction = (ctx, req, cause) -> HttpResponse.of(501);
     private static final JacksonResponseConverterFunction customJacksonResponseConverterFunction =
             customJacksonResponseConverterFunction();
-    private static final SslContextFactory sslContextFactory = new SslContextFactory(new TlsProvider() {
-        @Override
-        public @Nullable TlsKeyPair keyPair(String hostname) {
-            return null;
-        }
-    }, TlsEngineType.OPENSSL, null, Flags.meterRegistry());
+    private static final SslContextFactory sslContextFactory = new SslContextFactory(Flags.meterRegistry());
 
     private static JacksonResponseConverterFunction customJacksonResponseConverterFunction() {
         final ObjectMapper objectMapper = new ObjectMapper();

@@ -137,7 +137,8 @@ final class Bootstraps {
                                    SessionProtocol desiredProtocol,
                                    SerializationFormat serializationFormat, ClientTlsSpec tlsSpec) {
         final boolean webSocket = serializationFormat == SerializationFormat.WS;
-        final SslContext sslContext = sslContextFactory.getOrCreate(tlsSpec);
+        final SslContext sslContext =
+                sslContextFactory.getOrCreate(tlsSpec, clientFactory.options().tlsAllowUnsafeCiphers());
         return newBootstrap(baseBootstrap, desiredProtocol, sslContext, webSocket, true);
     }
 
@@ -149,15 +150,15 @@ final class Bootstraps {
         return bootstrap;
     }
 
-    SslContext getOrCreateSslContext(ClientTlsSpec tlsSpec) {
-        return sslContextFactory.getOrCreate(tlsSpec);
+    SslContext getOrCreateSslContext(ClientTlsSpec tlsSpec, boolean allowUnsafeCiphers) {
+        return sslContextFactory.getOrCreate(tlsSpec, allowUnsafeCiphers);
     }
 
     void maybeRelease(@Nullable SslContext sslContext) {
         if (sslContext == null) {
             return;
         }
-        sslContextFactory.release2(sslContext);
+        sslContextFactory.release(sslContext);
     }
 
     private ChannelInitializer<Channel> clientChannelInitializer(SessionProtocol p, @Nullable SslContext sslCtx,

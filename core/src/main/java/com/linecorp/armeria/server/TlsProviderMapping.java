@@ -70,6 +70,6 @@ final class TlsProviderMapping implements Mapping<String, SslContext> {
     }
 
     void release(SslContext sslContext) {
-        sslContextFactory.release2(sslContext);
+        sslContextFactory.release(sslContext);
     }
 }

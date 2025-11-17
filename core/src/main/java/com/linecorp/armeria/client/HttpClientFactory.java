@@ -46,8 +46,8 @@ import com.linecorp.armeria.common.RequestContext;
 import com.linecorp.armeria.common.Scheme;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
-import com.linecorp.armeria.common.TlsProvider;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.metric.MeterIdPrefix;
 import com.linecorp.armeria.common.util.AsyncCloseableSupport;
 import com.linecorp.armeria.common.util.ReleasableHolder;
 import com.linecorp.armeria.common.util.ShutdownHooks;
@@ -164,11 +164,13 @@ final class HttpClientFactory implements ClientFactory {
             unixBaseBootstrap = null;
         }
 
-        final TlsProvider tlsProvider = options.tlsProvider();
-        sslContextFactory = new SslContextFactory(tlsProvider, options.tlsEngineType(), options.tlsConfig(),
-                                                  options.tlsAllowUnsafeCiphers(), options.meterRegistry());
+        MeterIdPrefix meterIdPrefix = null;
+        if (options.tlsConfig() != ClientTlsConfig.NOOP) {
+            meterIdPrefix = options.tlsConfig().meterIdPrefix();
+        }
+        sslContextFactory = new SslContextFactory(meterIdPrefix, options.meterRegistry());
         this.defaultSslContexts = defaultSslContexts;
-        defaultSslContexts.initialize(sslContextFactory);
+        defaultSslContexts.initialize(sslContextFactory, options.tlsAllowUnsafeCiphers());
 
         http2InitialConnectionWindowSize = options.http2InitialConnectionWindowSize();
         http2InitialStreamWindowSize = options.http2InitialStreamWindowSize();

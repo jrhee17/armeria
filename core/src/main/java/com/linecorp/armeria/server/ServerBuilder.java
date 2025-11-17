@@ -88,6 +88,7 @@ import com.linecorp.armeria.common.TlsSetters;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.logging.RequestOnlyLog;
+import com.linecorp.armeria.common.metric.MeterIdPrefix;
 import com.linecorp.armeria.common.util.BlockingTaskExecutor;
 import com.linecorp.armeria.common.util.DomainSocketAddress;
 import com.linecorp.armeria.common.util.EventLoopGroups;
@@ -2336,13 +2337,8 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
         final ServerErrorHandler errorHandler = ServerErrorHandlerDecorators.decorate(
                 this.errorHandler == null ? ServerErrorHandler.ofDefault()
                                           : this.errorHandler.orElse(ServerErrorHandler.ofDefault()));
-        final SslContextFactory sslContextFactory =
-                new SslContextFactory(new TlsProvider() {
-                    @Override
-                    public @Nullable TlsKeyPair keyPair(String hostname) {
-                        return null;
-                    }
-                }, TlsEngineType.JDK, tlsConfig, meterRegistry);
+        final MeterIdPrefix meterIdPrefix = tlsConfig != null ? tlsConfig.meterIdPrefix() : null;
+        final SslContextFactory sslContextFactory = new SslContextFactory(meterIdPrefix, meterRegistry);
         final VirtualHost defaultVirtualHost =
                 defaultVirtualHostBuilder.build(virtualHostTemplate, dependencyInjector,
                                                 unloggedExceptionsReporter, errorHandler,

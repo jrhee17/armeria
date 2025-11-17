@@ -1483,7 +1483,7 @@ public final class VirtualHostBuilder implements TlsSetters, ServiceConfigsBuild
 
         final SslContext sslContext = sslContext(template, sslContextFactory);
         if (sslContext != null && tlsProvider != null) {
-            sslContextFactory.release2(sslContext);
+            sslContextFactory.release(sslContext);
             throw new IllegalStateException("Cannot configure TLS settings with a TlsProvider");
         }
 
@@ -1570,7 +1570,7 @@ public final class VirtualHostBuilder implements TlsSetters, ServiceConfigsBuild
         } finally {
             if (releaseSslContextOnFailure) {
                 if (sslContext != null) {
-                    sslContextFactory.release2(sslContext);
+                    sslContextFactory.release(sslContext);
                 }
             }
         }

@@ -41,10 +41,6 @@ import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.SuccessFunction;
-import com.linecorp.armeria.common.TlsKeyPair;
-import com.linecorp.armeria.common.TlsProvider;
-import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.SslContextFactory;
 
 import io.netty.handler.ssl.SslContextBuilder;
@@ -52,12 +48,7 @@ import io.netty.handler.ssl.SslContextBuilder;
 class VirtualHostBuilderTest {
 
     private static final VirtualHostBuilder template = Server.builder().virtualHostTemplate;
-    private static final SslContextFactory sslContextFactory = new SslContextFactory(new TlsProvider() {
-        @Override
-        public @Nullable TlsKeyPair keyPair(String hostname) {
-            return null;
-        }
-    }, TlsEngineType.OPENSSL, null, Flags.meterRegistry());
+    private static final SslContextFactory sslContextFactory = new SslContextFactory(Flags.meterRegistry());
 
     @Test
     void defaultVirtualHost() {
