@@ -24,7 +24,6 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
 
 import org.assertj.core.api.AbstractDoubleAssert;
 import org.junit.jupiter.api.Test;
@@ -120,14 +119,12 @@ public class ServerTlsCertificateMetricsTest {
         assertThat(validityGauges.size()).isEqualTo(2);
         assertThat(daysValidityGauges.size()).isEqualTo(2);
 
-        System.out.println(MoreMeters.measureAll(meterRegistry).keySet().stream().filter(k -> k.contains(CERT_VALIDITY_DAYS_GAUGE_NAME)).collect(
-                Collectors.toList()));
         assertThat(meterRegistry.find(CERT_VALIDITY_GAUGE_NAME)
                                 .tag("hostname", commonName)
                                 .tag("hostname.pattern", "*") // default virtual host
                                 .gauge().value()).isOne();
         assertThat(meterRegistry.find(CERT_VALIDITY_GAUGE_NAME)
-                                .tag("hostname", commonName)
+                                .tag("hostname", hostnamePattern)
                                 .tag("hostname.pattern", hostnamePattern) // non-default virtual host
                                 .gauge().value()).isOne();
         assertThat(meterRegistry.find(CERT_VALIDITY_DAYS_GAUGE_NAME)
@@ -135,7 +132,7 @@ public class ServerTlsCertificateMetricsTest {
                                 .tag("hostname.pattern", "*") // default virtual host
                                 .gauge().value()).isPositive();
         assertThat(meterRegistry.find(CERT_VALIDITY_DAYS_GAUGE_NAME)
-                                .tag("hostname", commonName)
+                                .tag("hostname", hostnamePattern)
                                 .tag("hostname.pattern", hostnamePattern) // non-default virtual host
                                 .gauge().value()).isPositive();
     }
