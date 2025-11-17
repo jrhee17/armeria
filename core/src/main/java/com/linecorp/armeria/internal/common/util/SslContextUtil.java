@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
@@ -40,11 +41,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import com.linecorp.armeria.client.ClientTlsSpec;
+import com.linecorp.armeria.common.AbstractTlsSpec;
 import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.SchemeAndAuthority;
+import com.linecorp.armeria.server.ServerTlsSpec;
 
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
@@ -52,6 +55,7 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolNames;
+import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
@@ -230,6 +234,16 @@ public final class SslContextUtil {
         });
     }
 
+    public static SslContext toSslContext(ServerTlsSpec serverTlsSpec) {
+        return MinifiedBouncyCastleProvider.call(() -> {
+            try {
+                return getSslContext0(serverTlsSpec);
+            } catch (Exception e) {
+                return Exceptions.throwUnsafely(e);
+            }
+        });
+    }
+
     private static SslContext getSslContext0(ClientTlsSpec clientTlsSpec) throws Exception {
         final SslContextBuilder builder = SslContextBuilder.forClient();
 
@@ -237,11 +251,34 @@ public final class SslContextUtil {
         if (keyPair != null) {
             builder.keyManager(keyPair.privateKey(), keyPair.certificateChain());
         }
+        builder.endpointIdentificationAlgorithm(clientTlsSpec.endpointIdentificationAlgorithm());
 
+        applyCommonConfigs(clientTlsSpec, builder);
+
+        return builder.build();
+    }
+
+    private static SslContext getSslContext0(ServerTlsSpec serverTlsSpec) throws Exception {
+        final SslContextBuilder contextBuilder;
+        final TlsKeyPair keyPair = serverTlsSpec.tlsKeyPair();
+        if (keyPair != null) {
+            contextBuilder = SslContextBuilder.forServer(keyPair.privateKey(), keyPair.certificateChain());
+        } else {
+            final KeyManagerFactory keyManagerFactory = serverTlsSpec.keyManagerFactory();
+            assert keyManagerFactory != null;
+            contextBuilder = SslContextBuilder.forServer(keyManagerFactory);
+        }
+        contextBuilder.clientAuth(ClientAuth.valueOf(serverTlsSpec.clientAuth()));
+        applyCommonConfigs(serverTlsSpec, contextBuilder);
+        return contextBuilder.build();
+    }
+
+    private static void applyCommonConfigs(AbstractTlsSpec tlsSpec, SslContextBuilder builder)
+            throws Exception {
         X509ExtendedTrustManager pkix = null;
         final TrustManagerFactory trustManagerFactory =
                 TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        final KeyStore ks = toKeyStore(clientTlsSpec.trustedCertificates());
+        final KeyStore ks = toKeyStore(tlsSpec.trustedCertificates());
         trustManagerFactory.init(ks);
         for (TrustManager tm : trustManagerFactory.getTrustManagers()) {
             if (tm instanceof X509ExtendedTrustManager) {
@@ -252,26 +289,23 @@ public final class SslContextUtil {
         if (pkix == null) {
             throw new IllegalStateException("No X.509 X509ExtendedTrustManager from TMF");
         }
-        builder.trustManager(new VerifierBasedTrustManager(pkix, clientTlsSpec.verifierFactories()));
-        final List<String> protocols = filterProtocols(clientTlsSpec.protocols(),
-                                                       clientTlsSpec.engineType().sslProvider());
+        builder.trustManager(new VerifierBasedTrustManager(pkix, tlsSpec.verifierFactories()));
+        final List<String> protocols = filterProtocols(tlsSpec.protocols(),
+                                                       tlsSpec.engineType().sslProvider());
         builder.protocols(protocols);
-        builder.ciphers(clientTlsSpec.ciphers(), SupportedCipherSuiteFilter.INSTANCE);
+        builder.ciphers(tlsSpec.ciphers(), SupportedCipherSuiteFilter.INSTANCE);
 
         // configurations aren't configurable by users
-        builder.sslProvider(clientTlsSpec.engineType().sslProvider());
+        builder.sslProvider(tlsSpec.engineType().sslProvider());
         final ApplicationProtocolConfig alpnConfig = new ApplicationProtocolConfig(
                 Protocol.ALPN,
                 // NO_ADVERTISE is currently the only mode supported by both OpenSsl and JDK providers.
                 SelectorFailureBehavior.NO_ADVERTISE,
                 // ACCEPT is currently the only mode supported by both OpenSsl and JDK providers.
-                SelectedListenerFailureBehavior.ACCEPT, clientTlsSpec.alpnProtocols());
+                SelectedListenerFailureBehavior.ACCEPT, tlsSpec.alpnProtocols());
         builder.applicationProtocolConfig(alpnConfig);
-        builder.endpointIdentificationAlgorithm(clientTlsSpec.endpointIdentificationAlgorithm());
 
-        clientTlsSpec.tlsCustomizer().accept(builder);
-
-        return builder.build();
+        tlsSpec.tlsCustomizer().accept(builder);
     }
 
     @Nullable
