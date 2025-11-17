@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import com.linecorp.armeria.client.ClientTlsConfig;
 import com.linecorp.armeria.client.ClientTlsSpec;
 import com.linecorp.armeria.common.AbstractTlsConfig;
+import com.linecorp.armeria.common.AbstractTlsSpec;
 import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.TlsProvider;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -42,6 +43,7 @@ import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.util.ReentrantShortLock;
 import com.linecorp.armeria.internal.common.util.SslContextUtil;
 import com.linecorp.armeria.server.ServerTlsConfig;
+import com.linecorp.armeria.server.ServerTlsSpec;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.handler.ssl.SslContext;
@@ -53,15 +55,15 @@ import io.netty.util.ReferenceCountUtil;
 public final class SslContextFactory {
 
     private static final MeterIdPrefix SERVER_METER_ID_PREFIX =
-            new MeterIdPrefix("armeria.server", "hostname.pattern", "UNKNOWN");
+            new MeterIdPrefix("armeria.server");
     private static final MeterIdPrefix CLIENT_METER_ID_PREFIX =
             new MeterIdPrefix("armeria.client");
 
     private final Map<CacheKey, SslContextHolder> cache = new HashMap<>();
     private final Map<SslContext, CacheKey> reverseCache = new HashMap<>();
 
-    private final Map<ClientTlsSpec, SslContextHolder> cache2 = new HashMap<>();
-    private final Map<SslContext, ClientTlsSpec> reverseCache2 = new HashMap<>();
+    private final Map<AbstractTlsSpec, SslContextHolder> cache2 = new HashMap<>();
+    private final Map<SslContext, AbstractTlsSpec> reverseCache2 = new HashMap<>();
 
     private final TlsProvider tlsProvider;
     private final TlsEngineType engineType;
@@ -128,6 +130,40 @@ public final class SslContextFactory {
         }
     }
 
+    public SslContext getOrCreate(ServerTlsSpec serverTlsSpec, boolean allowsUnsafeCiphers) {
+        lock.lock();
+        try {
+            final SslContextHolder contextHolder =
+                    cache2.computeIfAbsent(serverTlsSpec, unused -> {
+                        final SslContext sslContext = SslContextUtil.toSslContext(serverTlsSpec);
+                        try {
+                            SslContextUtil.validateSslContext(allowsUnsafeCiphers, sslContext);
+                        } catch (Exception e) {
+                            ReferenceCountUtil.release(sslContext);
+                            throw e;
+                        }
+                        CloseableMeterBinder meterBinder = null;
+                        final ImmutableList.Builder<X509Certificate> certsBuilder = ImmutableList.builder();
+                        if (serverTlsSpec.tlsKeyPair() != null) {
+                            certsBuilder.addAll(serverTlsSpec.tlsKeyPair().certificateChain());
+                        }
+                        final List<X509Certificate> certs =
+                                certsBuilder.addAll(serverTlsSpec.trustedCertificates()).build();
+                        if (!certs.isEmpty()) {
+                            final MeterIdPrefix meterIdPrefix = meterIdPrefix(SslContextMode.SERVER);
+                            meterBinder = MoreMeterBinders.certificateMetrics(certs, meterIdPrefix);
+                            meterBinder.bindTo(meterRegistry);
+                        }
+                        return new SslContextHolder(sslContext, meterBinder);
+                    });
+            contextHolder.retain();
+            reverseCache2.putIfAbsent(contextHolder.sslContext(), serverTlsSpec);
+            return contextHolder.sslContext();
+        } finally {
+            lock.unlock();
+        }
+    }
+
     public SslContext getOrCreate(ClientTlsSpec clientTlsSpec) {
         lock.lock();
         try {
@@ -165,7 +201,7 @@ public final class SslContextFactory {
     public void release2(SslContext sslContext) {
         lock.lock();
         try {
-            final ClientTlsSpec cacheKey = reverseCache2.get(sslContext);
+            final AbstractTlsSpec cacheKey = reverseCache2.get(sslContext);
             final SslContextHolder contextHolder = cache2.get(cacheKey);
             assert contextHolder != null : "sslContext not found in the cache: " + sslContext;
 

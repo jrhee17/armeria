@@ -82,6 +82,7 @@ import com.linecorp.armeria.common.util.BlockingTaskExecutor;
 import com.linecorp.armeria.common.util.EventLoopGroups;
 import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.common.util.TlsEngineType;
+import com.linecorp.armeria.internal.common.SslContextFactory;
 import com.linecorp.armeria.internal.common.util.SelfSignedCertificate;
 import com.linecorp.armeria.internal.common.util.SslContextUtil;
 import com.linecorp.armeria.internal.server.RouteDecoratingService;
@@ -99,7 +100,6 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.util.AsciiString;
-import io.netty.util.ReferenceCountUtil;
 
 /**
  * Builds a new {@link VirtualHost}.
@@ -1319,7 +1319,8 @@ public final class VirtualHostBuilder implements TlsSetters, ServiceConfigsBuild
      */
     VirtualHost build(VirtualHostBuilder template, DependencyInjector dependencyInjector,
                       @Nullable UnloggedExceptionsReporter unloggedExceptionsReporter,
-                      ServerErrorHandler serverErrorHandler, @Nullable TlsProvider tlsProvider) {
+                      ServerErrorHandler serverErrorHandler, @Nullable TlsProvider tlsProvider,
+                      SslContextFactory sslContextFactory) {
         requireNonNull(template, "template");
 
         if (defaultHostname == null) {
@@ -1480,9 +1481,9 @@ public final class VirtualHostBuilder implements TlsSetters, ServiceConfigsBuild
             tlsEngineType = Flags.tlsEngineType();
         }
 
-        final SslContext sslContext = sslContext(template);
+        final SslContext sslContext = sslContext(template, sslContextFactory);
         if (sslContext != null && tlsProvider != null) {
-            ReferenceCountUtil.release(sslContext);
+            sslContextFactory.release2(sslContext);
             throw new IllegalStateException("Cannot configure TLS settings with a TlsProvider");
         }
 
@@ -1521,7 +1522,7 @@ public final class VirtualHostBuilder implements TlsSetters, ServiceConfigsBuild
     }
 
     @Nullable
-    private SslContext sslContext(VirtualHostBuilder template) {
+    private SslContext sslContext(VirtualHostBuilder template, SslContextFactory sslContextFactory) {
         if (portBased) {
             return null;
         }
@@ -1560,7 +1561,7 @@ public final class VirtualHostBuilder implements TlsSetters, ServiceConfigsBuild
             }
 
             final ServerTlsSpec finalTlsSpec = tlsSpecBuilder.build();
-            sslContext = SslContextUtil.toSslContext(finalTlsSpec);
+            sslContext = sslContextFactory.getOrCreate(finalTlsSpec, tlsAllowUnsafeCiphers);
             SslContextUtil.validateSslContext(tlsAllowUnsafeCiphers, sslContext);
             validateSslContext(sslContext, finalTlsSpec.engineType());
             checkState(sslContext.isServer(), "sslContextBuilder built a client SSL context.");
@@ -1568,7 +1569,9 @@ public final class VirtualHostBuilder implements TlsSetters, ServiceConfigsBuild
             releaseSslContextOnFailure = false;
         } finally {
             if (releaseSslContextOnFailure) {
-                ReferenceCountUtil.release(sslContext);
+                if (sslContext != null) {
+                    sslContextFactory.release2(sslContext);
+                }
             }
         }
         return sslContext;

@@ -77,19 +77,20 @@ public final class ServerTlsSpec extends AbstractTlsSpec {
         keyManagerFactory = null;
     }
 
-    private ServerTlsSpec(@Nullable TlsKeyPair tlsKeyPair,
-                          TlsEngineType engineType, Consumer<SslContextBuilder> tlsCustomizer,
-                          @Nullable KeyManagerFactory keyManagerFactory) {
+    ServerTlsSpec(@Nullable TlsKeyPair tlsKeyPair,
+                  TlsEngineType engineType, Consumer<SslContextBuilder> tlsCustomizer,
+                  @Nullable KeyManagerFactory keyManagerFactory,
+                  @Nullable List<X509Certificate> trustedCertificates, ClientAuth clientAuth) {
         super(SslContextUtil.supportedProtocols(engineType.sslProvider()),
               ImmutableSet.of(HTTP_2, HTTP_1_1),
               SslContextUtil.DEFAULT_CIPHERS,
               tlsKeyPair,
-              ImmutableList.of(),
+              trustedCertificates != null ? ImmutableList.copyOf(trustedCertificates) : ImmutableList.of(),
               ImmutableList.of(),
               engineType,
               tlsCustomizer);
         this.keyManagerFactory = keyManagerFactory;
-        clientAuth = ClientAuth.NONE;
+        this.clientAuth = clientAuth;
     }
 
     /**
@@ -177,11 +178,8 @@ public final class ServerTlsSpec extends AbstractTlsSpec {
             assert keyManagerFactory == null || tlsKeyPair == null;
             final TlsEngineType engineType = firstNonNull(this.engineType, Flags.tlsEngineType());
             final Consumer<SslContextBuilder> tlsCustomizer = firstNonNull(this.tlsCustomizer, NOOP);
-            return new ServerTlsSpec(tlsKeyPair, engineType, tlsCustomizer, keyManagerFactory);
-        }
-
-        private static <T> @Nullable T nullableFirstNonNull(@Nullable T first, @Nullable T second) {
-            return first == null ? second : first;
+            return new ServerTlsSpec(tlsKeyPair, engineType, tlsCustomizer, keyManagerFactory,
+                                     ImmutableList.of(), ClientAuth.NONE);
         }
 
         ServerTlsSpecBuilder tlsKeyPair(@Nullable TlsKeyPair tlsKeyPair) {
@@ -226,10 +224,6 @@ public final class ServerTlsSpec extends AbstractTlsSpec {
         }
 
         boolean isKeyPairSet() {
-            return tlsKeyPair != null || keyManagerFactory != null;
-        }
-
-        boolean shouldBuild() {
             return tlsKeyPair != null || keyManagerFactory != null;
         }
 

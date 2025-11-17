@@ -16,16 +16,20 @@
 
 package com.linecorp.armeria.client.tls;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import com.linecorp.armeria.client.BlockingWebClient;
 import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ClientRequestContextCaptor;
 import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.client.SessionProtocolNegotiationException;
+import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.client.WebClient;
-import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.server.ServerBuilder;
@@ -71,11 +75,15 @@ class Http2AlpnTest {
     void basicCase() {
         try (ClientRequestContextCaptor captor = Clients.newContextCaptor()) {
             final ClientFactory cf = ClientFactory.insecure();
-            final AggregatedHttpResponse res = WebClient.builder(SessionProtocol.H2, server.httpsEndpoint())
-                                                        .factory(cf)
-                                                        .build()
-                                                        .blocking().get("/");
-            System.out.println(res);
+            final BlockingWebClient client = WebClient.builder(SessionProtocol.H2, server.httpsEndpoint())
+                                                      .factory(cf)
+                                                      .build()
+                                                      .blocking();
+            assertThatThrownBy(() -> client.get("/"))
+                    .isInstanceOf(UnprocessedRequestException.class)
+                    .cause()
+                    .isInstanceOf(SessionProtocolNegotiationException.class)
+                    .hasMessageContaining("expected: h2, actual: h1");
             final ClientRequestContext ctx = captor.get();
             assert ctx.sessionProtocol() == SessionProtocol.H2;
         }

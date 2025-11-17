@@ -20,7 +20,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 import java.net.InetSocketAddress;
-import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -49,8 +48,6 @@ import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.TlsProvider;
 import com.linecorp.armeria.common.annotation.Nullable;
-import com.linecorp.armeria.common.metric.MeterIdPrefix;
-import com.linecorp.armeria.common.metric.MoreMeterBinders;
 import com.linecorp.armeria.common.util.AsyncCloseableSupport;
 import com.linecorp.armeria.common.util.ReleasableHolder;
 import com.linecorp.armeria.common.util.ShutdownHooks;
@@ -84,16 +81,6 @@ final class HttpClientFactory implements ClientFactory {
                   .flatMap(p -> Stream.of(Scheme.of(SerializationFormat.NONE, p),
                                           Scheme.of(SerializationFormat.WS, p)))
                   .collect(toImmutableSet());
-
-    private static void setupTlsMetrics(List<X509Certificate> certificates, MeterRegistry registry) {
-        final MeterIdPrefix meterIdPrefix = new MeterIdPrefix("armeria.client");
-        try {
-            MoreMeterBinders.certificateMetrics(certificates, meterIdPrefix)
-                            .bindTo(registry);
-        } catch (Exception ex) {
-            logger.warn("Failed to set up TLS certificate metrics: {}", certificates, ex);
-        }
-    }
 
     private final EventLoopGroup workerGroup;
     private final boolean shutdownWorkerGroupOnClose;

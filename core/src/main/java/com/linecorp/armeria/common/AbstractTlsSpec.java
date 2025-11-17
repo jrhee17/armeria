@@ -29,7 +29,6 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import com.linecorp.armeria.client.ClientTlsSpec;
 import com.linecorp.armeria.common.TlsPeerVerifier.TlsPeerVerifierFactory;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.TlsEngineType;
@@ -147,7 +146,7 @@ public class AbstractTlsSpec {
         if (this == o) {
             return true;
         }
-        final ClientTlsSpec tlsSpec = (ClientTlsSpec) o;
+        final AbstractTlsSpec tlsSpec = (AbstractTlsSpec) o;
         return Objects.equal(protocols, tlsSpec.protocols()) &&
                Objects.equal(alpnProtocols, tlsSpec.alpnProtocols()) &&
                Objects.equal(ciphers, tlsSpec.ciphers()) &&

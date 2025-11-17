@@ -24,9 +24,18 @@ import org.junit.jupiter.api.Test;
 import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.TlsProvider;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.TlsEngineType;
+import com.linecorp.armeria.internal.common.SslContextFactory;
 
 class TlsProviderMappingTest {
+
+    private static final SslContextFactory factory = new SslContextFactory(new TlsProvider() {
+        @Override
+        public @Nullable TlsKeyPair keyPair(String hostname) {
+            return null;
+        }
+    }, TlsEngineType.OPENSSL, null, Flags.meterRegistry());
 
     @Test
     void testNoDefault() {
@@ -39,7 +48,7 @@ class TlsProviderMappingTest {
         final TlsProviderMapping mapping = new TlsProviderMapping(tlsProvider,
                                                                   TlsEngineType.OPENSSL,
                                                                   ServerTlsConfig.builder().build(),
-                                                                  Flags.meterRegistry());
+                                                                  factory);
         assertThat(mapping.map("example.com")).isNotNull();
         assertThat(mapping.map("api.example.com")).isNotNull();
         assertThatThrownBy(() -> mapping.map("web.example.com"))
@@ -64,7 +73,7 @@ class TlsProviderMappingTest {
         final TlsProviderMapping mapping = new TlsProviderMapping(tlsProvider,
                                                                   TlsEngineType.OPENSSL,
                                                                   ServerTlsConfig.builder().build(),
-                                                                  Flags.meterRegistry());
+                                                                  factory);
         assertThat(mapping.map("example.com")).isNotNull();
         assertThat(mapping.map("api.example.com")).isNotNull();
         assertThat(mapping.map("web.example.com")).isNotNull();
