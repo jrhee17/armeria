@@ -45,7 +45,6 @@ public abstract class AbstractTlsSpec {
     private final List<String> ciphers;
     @Nullable
     private final TlsKeyPair tlsKeyPair;
-    // empty: use the system default, otherwise: use user-provided trust anchors
     private final List<X509Certificate> trustedCertificates;
     private final List<TlsPeerVerifierFactory> verifierFactories;
     private final TlsEngineType engineType;

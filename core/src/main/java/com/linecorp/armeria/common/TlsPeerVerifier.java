@@ -33,5 +33,4 @@ public interface TlsPeerVerifier {
      * TBU.
      */
     void verify(X509Certificate[] chain, String authType, SSLEngine engine) throws CertificateException;
-
 }
