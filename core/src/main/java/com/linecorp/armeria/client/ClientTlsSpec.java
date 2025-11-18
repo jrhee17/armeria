@@ -18,6 +18,7 @@ package com.linecorp.armeria.client;
 
 import static io.netty.handler.ssl.ApplicationProtocolNames.HTTP_1_1;
 import static io.netty.handler.ssl.ApplicationProtocolNames.HTTP_2;
+import static java.util.Objects.requireNonNull;
 
 import java.security.cert.X509Certificate;
 import java.util.List;
@@ -30,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import com.linecorp.armeria.common.AbstractTlsSpec;
+import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.TlsPeerVerifier.TlsPeerVerifierFactory;
@@ -46,7 +48,10 @@ import io.netty.handler.ssl.SslContextBuilder;
  */
 public final class ClientTlsSpec extends AbstractTlsSpec {
 
-    private static final ClientTlsSpec DEFAULT = new ClientTlsSpec();
+    private static final ClientTlsSpec DEFAULT = new ClientTlsSpecBuilder().build();
+    private static final ClientTlsSpec UNSAFE_DEFAULT =
+            new ClientTlsSpecBuilder().verifierFactories(NoVerifyPeerVerifierFactory.of())
+                                      .build();
 
     @Nullable
     private final String endpointIdentificationAlgorithm;
@@ -60,10 +65,6 @@ public final class ClientTlsSpec extends AbstractTlsSpec {
         super(protocols, alpnProtocols, ciphers, tlsKeyPair, trustedCertificates, verifierFactories, engineType,
               tlsCustomizer);
         this.endpointIdentificationAlgorithm = endpointIdentificationAlgorithm;
-    }
-
-    private ClientTlsSpec() {
-        endpointIdentificationAlgorithm = "HTTPS";
     }
 
     @Override
@@ -122,13 +123,20 @@ public final class ClientTlsSpec extends AbstractTlsSpec {
         final List<String> ciphers = SslContextUtil.DEFAULT_CIPHERS;
         List<TlsPeerVerifierFactory> verifierFactories = ImmutableList.of();
         if (tlsNoVerifySet) {
-            verifierFactories = ImmutableList.of(NoVerifyPeerVerifierFactory.INSTANCE);
+            verifierFactories = ImmutableList.of(NoVerifyPeerVerifierFactory.of());
         } else if (!insecureHosts.isEmpty()) {
             verifierFactories =
                     ImmutableList.of(new IgnoreHostsPeerVerifierFactory(ImmutableSet.copyOf(insecureHosts)));
         }
         return new ClientTlsSpec(versions, applicationProtocols, ciphers, null, ImmutableList.of(),
                                  verifierFactories, tlsEngineType, customizer, "HTTPS");
+    }
+
+    /**
+     * TBU.
+     */
+    public static ClientTlsSpec ofUnsafe() {
+        return UNSAFE_DEFAULT;
     }
 
     /**
@@ -161,11 +169,160 @@ public final class ClientTlsSpec extends AbstractTlsSpec {
         final List<String> ciphers = SslContextUtil.DEFAULT_CIPHERS;
         List<TlsPeerVerifierFactory> verifierFactories = ImmutableList.of();
         if (tlsConfig.tlsNoVerifySet()) {
-            verifierFactories = ImmutableList.of(NoVerifyPeerVerifierFactory.INSTANCE);
+            verifierFactories = ImmutableList.of(NoVerifyPeerVerifierFactory.of());
         } else if (!tlsConfig.insecureHosts().isEmpty()) {
             verifierFactories = ImmutableList.of(new IgnoreHostsPeerVerifierFactory(tlsConfig.insecureHosts()));
         }
         return new ClientTlsSpec(versions, alpnProtocols, ciphers, tlsKeyPair, trustedCertificates,
                                  verifierFactories, tlsEngineType, tlsConfig.tlsCustomizer(), "HTTPS");
+    }
+
+    /**
+     * Returns a new {@link ClientTlsSpecBuilder}.
+     */
+    public static ClientTlsSpecBuilder builder() {
+        return new ClientTlsSpecBuilder();
+    }
+
+    /**
+     * Builds a {@link ClientTlsSpec}.
+     */
+    public static final class ClientTlsSpecBuilder {
+
+        private Set<String> protocols = SslContextUtil.supportedProtocols(Flags.tlsEngineType().sslProvider());
+        private Set<String> alpnProtocols = ImmutableSet.of(HTTP_2, HTTP_1_1);
+        private List<String> ciphers = SslContextUtil.DEFAULT_CIPHERS;
+        @Nullable
+        private TlsKeyPair tlsKeyPair;
+        private List<X509Certificate> trustedCertificates = ImmutableList.of();
+        private List<TlsPeerVerifierFactory> verifierFactories = ImmutableList.of();
+        private TlsEngineType engineType = Flags.tlsEngineType();
+        private Consumer<? super SslContextBuilder> tlsCustomizer = ignore -> {};
+        @Nullable
+        private String endpointIdentificationAlgorithm = "HTTPS";
+
+        private ClientTlsSpecBuilder() {}
+
+        /**
+         * Sets the TLS protocols to use.
+         */
+        public ClientTlsSpecBuilder protocols(String... protocols) {
+            this.protocols = ImmutableSet.copyOf(protocols);
+            return this;
+        }
+
+        /**
+         * Sets the TLS protocols to use.
+         */
+        public ClientTlsSpecBuilder protocols(Iterable<String> protocols) {
+            this.protocols = ImmutableSet.copyOf(protocols);
+            return this;
+        }
+
+        /**
+         * Sets the ALPN protocols to use.
+         */
+        public ClientTlsSpecBuilder alpnProtocols(String... alpnProtocols) {
+            this.alpnProtocols = ImmutableSet.copyOf(alpnProtocols);
+            return this;
+        }
+
+        /**
+         * Sets the ALPN protocols to use.
+         */
+        public ClientTlsSpecBuilder alpnProtocols(Iterable<String> alpnProtocols) {
+            this.alpnProtocols = ImmutableSet.copyOf(alpnProtocols);
+            return this;
+        }
+
+        /**
+         * Sets the cipher suites to use.
+         */
+        public ClientTlsSpecBuilder ciphers(String... ciphers) {
+            this.ciphers = ImmutableList.copyOf(ciphers);
+            return this;
+        }
+
+        /**
+         * Sets the cipher suites to use.
+         */
+        public ClientTlsSpecBuilder ciphers(Iterable<String> ciphers) {
+            this.ciphers = ImmutableList.copyOf(ciphers);
+            return this;
+        }
+
+        /**
+         * Sets the TLS key pair to use for client authentication.
+         */
+        public ClientTlsSpecBuilder keyPair(TlsKeyPair tlsKeyPair) {
+            this.tlsKeyPair = requireNonNull(tlsKeyPair, "tlsKeyPair");
+            return this;
+        }
+
+        /**
+         * Sets the trusted certificates to use for server verification.
+         */
+        public ClientTlsSpecBuilder trustedCertificates(X509Certificate... trustedCertificates) {
+            this.trustedCertificates = ImmutableList.copyOf(trustedCertificates);
+            return this;
+        }
+
+        /**
+         * Sets the trusted certificates to use for server verification.
+         */
+        public ClientTlsSpecBuilder trustedCertificates(Iterable<X509Certificate> trustedCertificates) {
+            this.trustedCertificates = ImmutableList.copyOf(trustedCertificates);
+            return this;
+        }
+
+        /**
+         * Sets the TLS peer verifier factories to use.
+         */
+        public ClientTlsSpecBuilder verifierFactories(TlsPeerVerifierFactory... verifierFactories) {
+            this.verifierFactories = ImmutableList.copyOf(verifierFactories);
+            return this;
+        }
+
+        /**
+         * Sets the TLS peer verifier factories to use.
+         */
+        public ClientTlsSpecBuilder verifierFactories(Iterable<TlsPeerVerifierFactory> verifierFactories) {
+            this.verifierFactories = ImmutableList.copyOf(verifierFactories);
+            return this;
+        }
+
+        /**
+         * Sets the TLS engine type to use.
+         */
+        public ClientTlsSpecBuilder engineType(TlsEngineType engineType) {
+            this.engineType = requireNonNull(engineType, "engineType");
+            return this;
+        }
+
+        /**
+         * Sets the customizer for the {@link SslContextBuilder}.
+         */
+        public ClientTlsSpecBuilder tlsCustomizer(Consumer<? super SslContextBuilder> tlsCustomizer) {
+            this.tlsCustomizer = requireNonNull(tlsCustomizer, "tlsCustomizer");
+            return this;
+        }
+
+        /**
+         * Sets the endpoint identification algorithm to use.
+         */
+        public ClientTlsSpecBuilder endpointIdentificationAlgorithm(String endpointIdentificationAlgorithm) {
+            this.endpointIdentificationAlgorithm = requireNonNull(endpointIdentificationAlgorithm,
+                                                                  "endpointIdentificationAlgorithm");
+            return this;
+        }
+
+        /**
+         * Returns a newly created {@link ClientTlsSpec} with the properties set so far.
+         */
+        public ClientTlsSpec build() {
+            return new ClientTlsSpec(protocols, alpnProtocols, ciphers, tlsKeyPair, trustedCertificates,
+                                     verifierFactories, engineType, tlsCustomizer,
+                                     endpointIdentificationAlgorithm);
+        }
     }
 }

@@ -24,11 +24,8 @@ import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLException;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509ExtendedTrustManager;
@@ -45,7 +42,6 @@ import com.linecorp.armeria.common.AbstractTlsSpec;
 import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Exceptions;
-import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.SchemeAndAuthority;
 import com.linecorp.armeria.server.ServerTlsSpec;
 
@@ -62,7 +58,6 @@ import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import io.netty.util.NetUtil;
 import io.netty.util.ReferenceCountUtil;
-import io.netty.util.internal.EmptyArrays;
 
 /**
  * Utilities for configuring {@link SslContextBuilder}.
@@ -101,55 +96,59 @@ public final class SslContextUtil {
     private static boolean warnedMissingEssentialCipherSuite;
     private static boolean warnedBadCipherSuite;
 
-    /**
-     * Creates a {@link SslContext} with Armeria's defaults, enabling support for HTTP/2,
-     * TLSv1.3 (if supported), and TLSv1.2.
-     */
-    public static SslContext createSslContext(
-            Supplier<SslContextBuilder> builderSupplier, boolean forceHttp1,
-            TlsEngineType tlsEngineType, boolean tlsAllowUnsafeCiphers,
-            @Nullable Consumer<? super SslContextBuilder> userCustomizer) {
+    public static SslContext toSslContext(ClientTlsSpec clientTlsSpec, boolean allowUnsafeCiphers) {
+        SslContext sslContext = null;
+        try {
+            sslContext = toSslContext0(clientTlsSpec);
+            validateSslContext(allowUnsafeCiphers, sslContext);
+        } catch (Exception e) {
+            ReferenceCountUtil.release(sslContext);
+            return Exceptions.throwUnsafely(e);
+        }
+        return sslContext;
+    }
 
+    public static SslContext toSslContext(ServerTlsSpec serverTlsSpec, boolean allowUnsafeCiphers) {
         return MinifiedBouncyCastleProvider.call(() -> {
-            final SslContextBuilder builder = builderSupplier.get();
-            final SslProvider provider = tlsEngineType.sslProvider();
-            builder.sslProvider(provider);
-            final List<String> protocols = filterProtocols(DEFAULT_PROTOCOLS, provider);
-
-            // Set endpoint identification algorithm so that JDK's default X509TrustManager implementation
-            // performs host name checks. This options is effective only for clients.
-            builder.endpointIdentificationAlgorithm("HTTPS");
-            builder.protocols(protocols.toArray(EmptyArrays.EMPTY_STRINGS))
-                   .ciphers(DEFAULT_CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
-
-            if (userCustomizer != null) {
-                userCustomizer.accept(builder);
-            }
-
-            // We called user customization logic before setting ALPN to make sure they don't break
-            // compatibility with HTTP/2.
-            if (!forceHttp1) {
-                builder.applicationProtocolConfig(ALPN_CONFIG);
-            }
-
             SslContext sslContext = null;
-            boolean success = false;
             try {
-                sslContext = builder.build();
-                validateSslContext(forceHttp1 || tlsAllowUnsafeCiphers, sslContext);
-                success = true;
-                return sslContext;
-            } catch (SSLException e) {
-                throw new IllegalStateException(
-                        "Could not initialize SSL context. Ensure that netty-tcnative is " +
-                        "on the path, this is running on Java 11+, or user customization " +
-                        "of the SSL context is supported by the environment.", e);
-            } finally {
-                if (!success && sslContext != null) {
-                    ReferenceCountUtil.release(sslContext);
-                }
+                sslContext = toSslContext0(serverTlsSpec);
+                validateSslContext(allowUnsafeCiphers, sslContext);
+            } catch (Exception e) {
+                ReferenceCountUtil.release(sslContext);
+                return Exceptions.throwUnsafely(e);
             }
+            return sslContext;
         });
+    }
+
+    private static SslContext toSslContext0(ClientTlsSpec clientTlsSpec) throws Exception {
+        final SslContextBuilder builder = SslContextBuilder.forClient();
+
+        final TlsKeyPair keyPair = clientTlsSpec.tlsKeyPair();
+        if (keyPair != null) {
+            builder.keyManager(keyPair.privateKey(), keyPair.certificateChain());
+        }
+        builder.endpointIdentificationAlgorithm(clientTlsSpec.endpointIdentificationAlgorithm());
+
+        applyCommonConfigs(clientTlsSpec, builder);
+
+        return builder.build();
+    }
+
+    private static SslContext toSslContext0(ServerTlsSpec serverTlsSpec) throws Exception {
+        final SslContextBuilder contextBuilder;
+        final TlsKeyPair keyPair = serverTlsSpec.tlsKeyPair();
+        if (keyPair != null) {
+            contextBuilder = SslContextBuilder.forServer(keyPair.privateKey(), keyPair.certificateChain());
+        } else {
+            final KeyManagerFactory keyManagerFactory = serverTlsSpec.keyManagerFactory();
+            assert keyManagerFactory != null;
+            contextBuilder = SslContextBuilder.forServer(keyManagerFactory);
+        }
+        contextBuilder.clientAuth(ClientAuth.valueOf(serverTlsSpec.clientAuth()));
+        applyCommonConfigs(serverTlsSpec, contextBuilder);
+        return contextBuilder.build();
     }
 
     private static List<String> filterProtocols(Collection<String> protocols, SslProvider provider) {
@@ -173,7 +172,7 @@ public final class SslContextUtil {
         return filtered;
     }
 
-    public static void validateSslContext(boolean tlsAllowUnsafeCiphers, SslContext sslContext) {
+    private static void validateSslContext(boolean tlsAllowUnsafeCiphers, SslContext sslContext) {
         final Set<String> ciphers = ImmutableSet.copyOf(sslContext.cipherSuites());
         checkState(!ciphers.isEmpty(),
                    "SSLContext has no cipher suites enabled. " +
@@ -224,81 +223,37 @@ public final class SslContextUtil {
                "https://datatracker.ietf.org/doc/html/rfc7540#appendix-A";
     }
 
-    public static SslContext toSslContext(ClientTlsSpec clientTlsSpec) {
-        return MinifiedBouncyCastleProvider.call(() -> {
-            try {
-                return getSslContext0(clientTlsSpec);
-            } catch (Exception e) {
-                return Exceptions.throwUnsafely(e);
-            }
-        });
-    }
-
-    public static SslContext toSslContext(ServerTlsSpec serverTlsSpec) {
-        return MinifiedBouncyCastleProvider.call(() -> {
-            try {
-                return getSslContext0(serverTlsSpec);
-            } catch (Exception e) {
-                return Exceptions.throwUnsafely(e);
-            }
-        });
-    }
-
-    private static SslContext getSslContext0(ClientTlsSpec clientTlsSpec) throws Exception {
-        final SslContextBuilder builder = SslContextBuilder.forClient();
-
-        final TlsKeyPair keyPair = clientTlsSpec.tlsKeyPair();
-        if (keyPair != null) {
-            builder.keyManager(keyPair.privateKey(), keyPair.certificateChain());
-        }
-        builder.endpointIdentificationAlgorithm(clientTlsSpec.endpointIdentificationAlgorithm());
-
-        applyCommonConfigs(clientTlsSpec, builder);
-
-        return builder.build();
-    }
-
-    private static SslContext getSslContext0(ServerTlsSpec serverTlsSpec) throws Exception {
-        final SslContextBuilder contextBuilder;
-        final TlsKeyPair keyPair = serverTlsSpec.tlsKeyPair();
-        if (keyPair != null) {
-            contextBuilder = SslContextBuilder.forServer(keyPair.privateKey(), keyPair.certificateChain());
-        } else {
-            final KeyManagerFactory keyManagerFactory = serverTlsSpec.keyManagerFactory();
-            assert keyManagerFactory != null;
-            contextBuilder = SslContextBuilder.forServer(keyManagerFactory);
-        }
-        contextBuilder.clientAuth(ClientAuth.valueOf(serverTlsSpec.clientAuth()));
-        applyCommonConfigs(serverTlsSpec, contextBuilder);
-        return contextBuilder.build();
-    }
-
     private static void applyCommonConfigs(AbstractTlsSpec tlsSpec, SslContextBuilder builder)
             throws Exception {
-        X509ExtendedTrustManager pkix = null;
-        final TrustManagerFactory trustManagerFactory =
-                TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        final KeyStore ks = toKeyStore(tlsSpec.trustedCertificates());
-        trustManagerFactory.init(ks);
-        for (TrustManager tm : trustManagerFactory.getTrustManagers()) {
-            if (tm instanceof X509ExtendedTrustManager) {
-                pkix = (X509ExtendedTrustManager) tm;
-                break;
+        if (tlsSpec.verifierFactories().isEmpty()) {
+            builder.trustManager(tlsSpec.trustedCertificates());
+        } else {
+            X509ExtendedTrustManager pkix = null;
+            final TrustManagerFactory trustManagerFactory =
+                    TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            final KeyStore ks = toKeyStore(tlsSpec.trustedCertificates());
+            trustManagerFactory.init(ks);
+            for (TrustManager tm : trustManagerFactory.getTrustManagers()) {
+                if (tm instanceof X509ExtendedTrustManager) {
+                    pkix = (X509ExtendedTrustManager) tm;
+                    break;
+                }
             }
+            if (pkix == null) {
+                throw new IllegalStateException("No X.509 X509ExtendedTrustManager from TMF");
+            }
+            builder.trustManager(new VerifierBasedTrustManager(pkix, tlsSpec.verifierFactories()));
         }
-        if (pkix == null) {
-            throw new IllegalStateException("No X.509 X509ExtendedTrustManager from TMF");
-        }
-        builder.trustManager(new VerifierBasedTrustManager(pkix, tlsSpec.verifierFactories()));
+
         final List<String> protocols = filterProtocols(tlsSpec.protocols(),
                                                        tlsSpec.engineType().sslProvider());
         builder.protocols(protocols);
         builder.ciphers(tlsSpec.ciphers(), SupportedCipherSuiteFilter.INSTANCE);
+        builder.sslProvider(tlsSpec.engineType().sslProvider());
 
         tlsSpec.tlsCustomizer().accept(builder);
 
         // configurations aren't configurable by users
-        builder.sslProvider(tlsSpec.engineType().sslProvider());
         final ApplicationProtocolConfig alpnConfig = new ApplicationProtocolConfig(
                 Protocol.ALPN,
                 // NO_ADVERTISE is currently the only mode supported by both OpenSsl and JDK providers.

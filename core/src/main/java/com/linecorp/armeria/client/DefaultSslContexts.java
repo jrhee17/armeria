@@ -65,13 +65,12 @@ final class DefaultSslContexts {
         return sslContext;
     }
 
-    void initialize(SslContextFactory factory, boolean allowUnsafeCiphers) {
+    void initialize(SslContextFactory factory) {
         assert contexts == null : "DefaultSslContexts initialized more than once.";
         // register the default contexts to the factory so that they can be tracked via metrics
         contexts = tlsSpecs.entrySet().stream()
-                           .collect(ImmutableMap.toImmutableMap(
-                                   Entry::getKey,
-                                   e -> factory.getOrCreate(e.getValue(), allowUnsafeCiphers)));
+                           .collect(ImmutableMap.toImmutableMap(Entry::getKey,
+                                                                e -> factory.getOrCreate(e.getValue())));
     }
 
     void release(SslContextFactory factory) {

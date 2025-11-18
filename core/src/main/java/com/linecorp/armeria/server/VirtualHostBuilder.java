@@ -84,7 +84,6 @@ import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.SslContextFactory;
 import com.linecorp.armeria.internal.common.util.SelfSignedCertificate;
-import com.linecorp.armeria.internal.common.util.SslContextUtil;
 import com.linecorp.armeria.internal.server.RouteDecoratingService;
 import com.linecorp.armeria.internal.server.RouteUtil;
 import com.linecorp.armeria.internal.server.annotation.AnnotatedServiceExtensions;
@@ -1513,7 +1512,6 @@ public final class VirtualHostBuilder implements TlsSetters, ServiceConfigsBuild
                     this.tlsAllowUnsafeCiphers : template.tlsAllowUnsafeCiphers;
 
             sslContext = sslContextFactory.getOrCreate(serverTlsSpec, tlsAllowUnsafeCiphers);
-            SslContextUtil.validateSslContext(tlsAllowUnsafeCiphers, sslContext);
             validateSslContext(sslContext, serverTlsSpec.engineType());
             checkState(sslContext.isServer(), "sslContextBuilder built a client SSL context.");
 

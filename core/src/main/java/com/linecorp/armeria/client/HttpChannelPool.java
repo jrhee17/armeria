@@ -160,8 +160,7 @@ final class HttpChannelPool implements AsyncCloseable {
         ch.pipeline().addFirst(proxyHandler);
 
         if (proxyConfig instanceof ConnectProxyConfig && ((ConnectProxyConfig) proxyConfig).useTls()) {
-            final boolean allowUnsafeCiphers = clientFactory.options().tlsAllowUnsafeCiphers();
-            final SslContext sslCtx = bootstraps.getOrCreateSslContext(tlsSpec, allowUnsafeCiphers);
+            final SslContext sslCtx = bootstraps.getOrCreateSslContext(tlsSpec);
             ch.pipeline().addFirst(sslCtx.newHandler(ch.alloc(), proxyAddress.getHostString(),
                                                      proxyAddress.getPort()));
             ch.closeFuture().addListener(unused -> bootstraps.maybeRelease(sslCtx));

@@ -168,9 +168,10 @@ final class HttpClientFactory implements ClientFactory {
         if (options.tlsConfig() != ClientTlsConfig.NOOP) {
             meterIdPrefix = options.tlsConfig().meterIdPrefix();
         }
-        sslContextFactory = new SslContextFactory(meterIdPrefix, options.meterRegistry());
+        sslContextFactory = new SslContextFactory(meterIdPrefix, options.meterRegistry(),
+                                                  options.tlsAllowUnsafeCiphers());
         this.defaultSslContexts = defaultSslContexts;
-        defaultSslContexts.initialize(sslContextFactory, options.tlsAllowUnsafeCiphers());
+        defaultSslContexts.initialize(sslContextFactory);
 
         http2InitialConnectionWindowSize = options.http2InitialConnectionWindowSize();
         http2InitialStreamWindowSize = options.http2InitialStreamWindowSize();

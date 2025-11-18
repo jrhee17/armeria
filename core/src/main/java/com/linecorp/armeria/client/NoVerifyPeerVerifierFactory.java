@@ -26,9 +26,19 @@ import com.google.common.base.MoreObjects;
 import com.linecorp.armeria.common.TlsPeerVerifier;
 import com.linecorp.armeria.common.TlsPeerVerifier.TlsPeerVerifierFactory;
 
-final class NoVerifyPeerVerifierFactory implements TlsPeerVerifierFactory {
+/**
+ * TBU.
+ */
+public final class NoVerifyPeerVerifierFactory implements TlsPeerVerifierFactory {
 
-    static final NoVerifyPeerVerifierFactory INSTANCE = new NoVerifyPeerVerifierFactory();
+    private static final NoVerifyPeerVerifierFactory INSTANCE = new NoVerifyPeerVerifierFactory();
+
+    /**
+     * TBU.
+     */
+    public static NoVerifyPeerVerifierFactory of() {
+        return INSTANCE;
+    }
 
     private NoVerifyPeerVerifierFactory() {}
 

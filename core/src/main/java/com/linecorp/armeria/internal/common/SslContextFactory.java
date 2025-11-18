@@ -49,6 +49,7 @@ public final class SslContextFactory {
     private final Map<SslContext, AbstractTlsSpec> reverseCache = new HashMap<>();
 
     private final MeterRegistry meterRegistry;
+    private boolean allowUnsafeCiphers;
     @Nullable
     private final MeterIdPrefix meterIdPrefix;
 
@@ -63,18 +64,20 @@ public final class SslContextFactory {
         this.meterRegistry = meterRegistry;
     }
 
+    public SslContextFactory(@Nullable MeterIdPrefix meterIdPrefix, MeterRegistry meterRegistry,
+                             boolean allowUnsafeCiphers) {
+        this.meterIdPrefix = meterIdPrefix;
+        this.meterRegistry = meterRegistry;
+        this.allowUnsafeCiphers = allowUnsafeCiphers;
+    }
+
     public SslContext getOrCreate(ServerTlsSpec serverTlsSpec, boolean allowsUnsafeCiphers) {
         lock.lock();
         try {
             final SslContextHolder contextHolder =
                     cache.computeIfAbsent(serverTlsSpec, unused -> {
-                        final SslContext sslContext = SslContextUtil.toSslContext(serverTlsSpec);
-                        try {
-                            SslContextUtil.validateSslContext(allowsUnsafeCiphers, sslContext);
-                        } catch (Exception e) {
-                            ReferenceCountUtil.release(sslContext);
-                            throw e;
-                        }
+                        final SslContext sslContext =
+                                SslContextUtil.toSslContext(serverTlsSpec, allowsUnsafeCiphers);
                         CloseableMeterBinder meterBinder = null;
                         final ImmutableList.Builder<X509Certificate> certsBuilder = ImmutableList.builder();
                         if (serverTlsSpec.tlsKeyPair() != null) {
@@ -97,18 +100,13 @@ public final class SslContextFactory {
         }
     }
 
-    public SslContext getOrCreate(ClientTlsSpec clientTlsSpec, boolean allowUnsafeCiphers) {
+    public SslContext getOrCreate(ClientTlsSpec clientTlsSpec) {
         lock.lock();
         try {
             final SslContextHolder contextHolder =
                     cache.computeIfAbsent(clientTlsSpec, unused -> {
-                        final SslContext sslContext = SslContextUtil.toSslContext(clientTlsSpec);
-                        try {
-                            SslContextUtil.validateSslContext(allowUnsafeCiphers, sslContext);
-                        } catch (Exception e) {
-                            ReferenceCountUtil.release(sslContext);
-                            throw e;
-                        }
+                        final SslContext sslContext = SslContextUtil.toSslContext(clientTlsSpec,
+                                                                                  allowUnsafeCiphers);
                         CloseableMeterBinder meterBinder = null;
                         final ImmutableList.Builder<X509Certificate> certsBuilder = ImmutableList.builder();
                         if (clientTlsSpec.tlsKeyPair() != null) {

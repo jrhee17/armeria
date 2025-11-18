@@ -240,8 +240,7 @@ final class MinifiedAuthZpeClient {
         final TlsProvider tlsProvider = clientFactory.options().tlsProvider();
         final SslContextFactory sslContextFactory = new SslContextFactory(null, clientFactory.meterRegistry());
         final ClientTlsSpec clientTlsSpec = ClientTlsSpec.fromProvider(tlsProvider, TlsEngineType.JDK);
-        final JdkSslContext sslContext = (JdkSslContext) sslContextFactory.getOrCreate(
-                clientTlsSpec, clientFactory.options().tlsAllowUnsafeCiphers());
+        final JdkSslContext sslContext = (JdkSslContext) sslContextFactory.getOrCreate(clientTlsSpec);
         return new JwtsSigningKeyResolver(ztsUri + oauth2KeysPath, sslContext.context(), proxyUriStr);
     }
 
