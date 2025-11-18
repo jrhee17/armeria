@@ -35,7 +35,7 @@ import com.google.common.collect.ImmutableSet;
 
 import com.linecorp.armeria.common.AbstractTlsSpec;
 import com.linecorp.armeria.common.TlsKeyPair;
-import com.linecorp.armeria.common.TlsPeerVerifier.TlsPeerVerifierFactory;
+import com.linecorp.armeria.common.TlsPeerVerifierFactory;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.util.SslContextUtil;
@@ -74,6 +74,11 @@ public final class ServerTlsSpec extends AbstractTlsSpec {
     ServerTlsSpec() {
         clientAuth = ClientAuth.NONE;
         keyManagerFactory = null;
+    }
+
+    @Override
+    public boolean isServer() {
+        return true;
     }
 
     ServerTlsSpec(@Nullable TlsKeyPair tlsKeyPair,

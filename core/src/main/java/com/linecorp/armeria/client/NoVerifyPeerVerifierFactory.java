@@ -19,17 +19,17 @@ package com.linecorp.armeria.client;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
-import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLEngine;
 
 import com.google.common.base.MoreObjects;
 
 import com.linecorp.armeria.common.TlsPeerVerifier;
-import com.linecorp.armeria.common.TlsPeerVerifier.TlsPeerVerifierFactory;
+import com.linecorp.armeria.common.TlsPeerVerifierFactory;
 
 /**
  * TBU.
  */
-public final class NoVerifyPeerVerifierFactory implements TlsPeerVerifierFactory {
+public final class NoVerifyPeerVerifierFactory implements TlsPeerVerifierFactory, TlsPeerVerifier {
 
     private static final NoVerifyPeerVerifierFactory INSTANCE = new NoVerifyPeerVerifierFactory();
 
@@ -44,16 +44,16 @@ public final class NoVerifyPeerVerifierFactory implements TlsPeerVerifierFactory
 
     @Override
     public TlsPeerVerifier create(TlsPeerVerifier delegate) {
-        return new TlsPeerVerifier() {
-            @Override
-            public void verify(X509Certificate[] chain, String peerHost, SSLSession sslSession)
-                    throws CertificateException {
-            }
-        };
+        return this;
     }
 
     @Override
     public String signature() {
         return MoreObjects.toStringHelper(this).toString();
+    }
+
+    @Override
+    public void verify(X509Certificate[] chain, String authType, SSLEngine engine)
+            throws CertificateException {
     }
 }

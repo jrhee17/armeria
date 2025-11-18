@@ -16,22 +16,17 @@
 
 package com.linecorp.armeria.common;
 
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-
-import javax.net.ssl.SSLEngine;
-
-import com.linecorp.armeria.common.annotation.UnstableApi;
-
 /**
  * TBU.
  */
-@UnstableApi
-public interface TlsPeerVerifier {
+public interface TlsPeerVerifierFactory {
+    /**
+     * TBU.
+     */
+    TlsPeerVerifier create(TlsPeerVerifier delegate);
 
     /**
      * TBU.
      */
-    void verify(X509Certificate[] chain, String authType, SSLEngine engine) throws CertificateException;
-
+    String signature();
 }

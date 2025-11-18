@@ -25,17 +25,27 @@ import javax.net.ssl.SSLEngine;
 import javax.net.ssl.X509ExtendedTrustManager;
 
 import com.linecorp.armeria.common.TlsPeerVerifier;
-import com.linecorp.armeria.common.TlsPeerVerifier.TlsPeerVerifierFactory;
+import com.linecorp.armeria.common.TlsPeerVerifierFactory;
 
 final class VerifierBasedTrustManager extends X509ExtendedTrustManager {
 
     private final X509ExtendedTrustManager delegate;
-    private final List<TlsPeerVerifierFactory> verifierFactories;
+    private final TlsPeerVerifier verifier;
 
     VerifierBasedTrustManager(X509ExtendedTrustManager delegate,
-                              List<TlsPeerVerifierFactory> verifierFactories) {
+                              List<TlsPeerVerifierFactory> verifierFactories,
+                              boolean isServer) {
         this.delegate = delegate;
-        this.verifierFactories = verifierFactories;
+        TlsPeerVerifier verifier;
+        if (isServer) {
+            verifier = this::checkServerTrusted;
+        } else {
+            verifier =  this::checkClientTrusted;
+        }
+        for (TlsPeerVerifierFactory verifierFactory : verifierFactories) {
+            verifier = verifierFactory.create(verifier);
+        }
+        this.verifier = verifier;
     }
 
     @Override
@@ -47,12 +57,7 @@ final class VerifierBasedTrustManager extends X509ExtendedTrustManager {
     @Override
     public void checkServerTrusted(X509Certificate[] chain, String authType, SSLEngine engine)
             throws CertificateException {
-        TlsPeerVerifier verifier = (unused0, unused1, unused2) ->
-                delegate.checkServerTrusted(chain, authType, engine);
-        for (TlsPeerVerifierFactory verifierFactory : verifierFactories) {
-            verifier = verifierFactory.create(verifier);
-        }
-        verifier.verify(chain, engine.getPeerHost(), engine.getHandshakeSession());
+        verifier.verify(chain, authType, engine);
     }
 
     @Override
@@ -68,12 +73,7 @@ final class VerifierBasedTrustManager extends X509ExtendedTrustManager {
     @Override
     public void checkClientTrusted(X509Certificate[] chain, String authType, SSLEngine engine)
             throws CertificateException {
-        TlsPeerVerifier verifier = (unused0, unused1, unused2) ->
-                delegate.checkClientTrusted(chain, authType, engine);
-        for (TlsPeerVerifierFactory verifierFactory : verifierFactories) {
-            verifier = verifierFactory.create(verifier);
-        }
-        verifier.verify(chain, engine.getPeerHost(), engine.getHandshakeSession());
+        verifier.verify(chain, authType, engine);
     }
 
     @Override

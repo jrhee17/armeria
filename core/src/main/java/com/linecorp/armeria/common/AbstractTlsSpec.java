@@ -29,7 +29,6 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import com.linecorp.armeria.common.TlsPeerVerifier.TlsPeerVerifierFactory;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.util.SslContextUtil;
@@ -39,7 +38,8 @@ import io.netty.handler.ssl.SslContextBuilder;
 /**
  * TBU.
  */
-public class AbstractTlsSpec {
+public abstract class AbstractTlsSpec {
+
     private final Set<String> protocols;
     private final Set<String> alpnProtocols;
     private final List<String> ciphers;
@@ -137,6 +137,11 @@ public class AbstractTlsSpec {
     public Consumer<? super SslContextBuilder> tlsCustomizer() {
         return tlsCustomizer;
     }
+
+    /**
+     * TBU.
+     */
+    public abstract boolean isServer();
 
     @Override
     public boolean equals(@Nullable Object o) {

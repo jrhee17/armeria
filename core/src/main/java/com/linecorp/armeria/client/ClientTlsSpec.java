@@ -34,7 +34,7 @@ import com.linecorp.armeria.common.AbstractTlsSpec;
 import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.TlsKeyPair;
-import com.linecorp.armeria.common.TlsPeerVerifier.TlsPeerVerifierFactory;
+import com.linecorp.armeria.common.TlsPeerVerifierFactory;
 import com.linecorp.armeria.common.TlsProvider;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.TlsEngineType;
@@ -65,6 +65,11 @@ public final class ClientTlsSpec extends AbstractTlsSpec {
         super(protocols, alpnProtocols, ciphers, tlsKeyPair, trustedCertificates, verifierFactories, engineType,
               tlsCustomizer);
         this.endpointIdentificationAlgorithm = endpointIdentificationAlgorithm;
+    }
+
+    @Override
+    public boolean isServer() {
+        return false;
     }
 
     @Override

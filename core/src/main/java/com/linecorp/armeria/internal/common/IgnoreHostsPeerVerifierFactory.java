@@ -22,7 +22,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
 import com.linecorp.armeria.common.TlsPeerVerifier;
-import com.linecorp.armeria.common.TlsPeerVerifier.TlsPeerVerifierFactory;
+import com.linecorp.armeria.common.TlsPeerVerifierFactory;
 
 public final class IgnoreHostsPeerVerifierFactory implements TlsPeerVerifierFactory {
 
@@ -34,11 +34,12 @@ public final class IgnoreHostsPeerVerifierFactory implements TlsPeerVerifierFact
 
     @Override
     public TlsPeerVerifier create(TlsPeerVerifier delegate) {
-        return (chain, peerHost, sslSession) -> {
+        return (chain, authType, engine) -> {
+            final String peerHost = engine.getPeerHost();
             if (hosts.contains(peerHost)) {
                 return;
             }
-            delegate.verify(chain, peerHost, sslSession);
+            delegate.verify(chain, authType, engine);
         };
     }
 

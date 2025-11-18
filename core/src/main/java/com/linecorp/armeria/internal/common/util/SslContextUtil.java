@@ -242,7 +242,8 @@ public final class SslContextUtil {
             if (pkix == null) {
                 throw new IllegalStateException("No X.509 X509ExtendedTrustManager from TMF");
             }
-            builder.trustManager(new VerifierBasedTrustManager(pkix, tlsSpec.verifierFactories()));
+            builder.trustManager(new VerifierBasedTrustManager(pkix, tlsSpec.verifierFactories(),
+                                                               tlsSpec.isServer()));
         }
 
         final List<String> protocols = filterProtocols(tlsSpec.protocols(),
