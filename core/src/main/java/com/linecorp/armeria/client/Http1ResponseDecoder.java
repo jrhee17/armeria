@@ -92,7 +92,7 @@ final class Http1ResponseDecoder extends AbstractHttpResponseDecoder implements 
             keepAliveHandler = new Http1ClientKeepAliveHandler(
                     channel, this, keepAliveTimer, idleTimeoutMillis,
                     pingIntervalMillis, maxConnectionAgeMillis, maxNumRequestsPerConnection,
-                    keepAliveOnPing);
+                    keepAliveOnPing, clientFactory.connectionPoolListener());
         } else {
             keepAliveHandler = new NoopKeepAliveHandler();
         }

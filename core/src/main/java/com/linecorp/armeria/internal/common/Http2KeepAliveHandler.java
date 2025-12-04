@@ -28,7 +28,9 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 
+import com.linecorp.armeria.client.ConnectionPoolListener;
 import com.linecorp.armeria.common.Flags;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.micrometer.core.instrument.Timer;
@@ -70,9 +72,9 @@ public abstract class Http2KeepAliveHandler extends AbstractKeepAliveHandler {
     protected Http2KeepAliveHandler(Channel channel, Http2FrameWriter frameWriter, String name,
                                     Timer keepAliveTimer, long idleTimeoutMillis, long pingIntervalMillis,
                                     long maxConnectionAgeMillis, int maxNumRequestsPerConnection,
-                                    boolean keepAliveOnPing) {
+                                    boolean keepAliveOnPing, ConnectionPoolListener connectionPoolListener) {
         super(channel, name, keepAliveTimer, idleTimeoutMillis, pingIntervalMillis,
-              maxConnectionAgeMillis, maxNumRequestsPerConnection, keepAliveOnPing);
+              maxConnectionAgeMillis, maxNumRequestsPerConnection, keepAliveOnPing, connectionPoolListener);
         this.channel = requireNonNull(channel, "channel");
         this.frameWriter = requireNonNull(frameWriter, "frameWriter");
     }
@@ -87,11 +89,13 @@ public abstract class Http2KeepAliveHandler extends AbstractKeepAliveHandler {
         lastPingPayload = random.nextLong();
         final ChannelFuture future = frameWriter.writePing(ctx, false, lastPingPayload, ctx.newPromise());
         ctx.flush();
+        connectionPoolListener().onPingSent(SessionProtocol.H2, channel(), lastPingPayload);
         return future;
     }
 
     @Override
     public final void onPingAck(long data) {
+        connectionPoolListener().onPingReceived(SessionProtocol.H2, channel, data);
         final long elapsed = getStopwatchElapsedInNanos();
         if (!isGoodPingAck(data)) {
             return;

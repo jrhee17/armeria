@@ -73,7 +73,7 @@ final class Http2ClientConnectionHandler extends AbstractHttp2ConnectionHandler 
         return new Http2ClientKeepAliveHandler(
                 channel, encoder.frameWriter(), keepAliveTimer,
                 idleTimeoutMillis, pingIntervalMillis, maxConnectionAgeMillis, maxNumRequestsPerConnection,
-                keepAliveOnPing);
+                keepAliveOnPing, clientFactory.connectionPoolListener());
     }
 
     Http2ResponseDecoder responseDecoder() {

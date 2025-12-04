@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.RequestHeaders;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.client.HttpSession;
 import com.linecorp.armeria.internal.client.UserAgentUtil;
@@ -46,9 +47,10 @@ final class Http1ClientKeepAliveHandler extends Http1KeepAliveHandler {
     Http1ClientKeepAliveHandler(Channel channel, Http1ResponseDecoder decoder,
                                 Timer keepAliveTimer, long idleTimeoutMillis, long pingIntervalMillis,
                                 long maxConnectionAgeMillis, int maxNumRequestsPerConnection,
-                                boolean keepAliveOnPing) {
+                                boolean keepAliveOnPing, ConnectionPoolListener connectionPoolListener) {
         super(channel, "client", keepAliveTimer, idleTimeoutMillis,
-              pingIntervalMillis, maxConnectionAgeMillis, maxNumRequestsPerConnection, keepAliveOnPing);
+              pingIntervalMillis, maxConnectionAgeMillis, maxNumRequestsPerConnection, keepAliveOnPing,
+              connectionPoolListener);
         httpSession = HttpSession.get(requireNonNull(channel, "channel"));
         this.decoder = requireNonNull(decoder, "decoder");
     }
@@ -65,6 +67,7 @@ final class Http1ClientKeepAliveHandler extends Http1KeepAliveHandler {
         decoder.setPingReqId(id);
         final ChannelFuture future = encoder.writeHeaders(id, 0, HTTP1_PING_REQUEST, true, ctx.newPromise());
         ctx.flush();
+        connectionPoolListener().onPingSent(SessionProtocol.H2, channel(), id);
         return future;
     }
 

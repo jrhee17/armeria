@@ -27,6 +27,9 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 
+import com.linecorp.armeria.client.ConnectionPoolListener;
+import com.linecorp.armeria.client.ConnectionPoolListener.CloseReason;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Exceptions;
 
@@ -64,6 +67,7 @@ public abstract class AbstractKeepAliveHandler implements KeepAliveHandler {
     private final long connectionIdleTimeNanos;
     private long lastConnectionIdleTime;
     private final boolean keepAliveOnPing;
+    private final ConnectionPoolListener connectionPoolListener;
 
     @Nullable
     private ScheduledFuture<?> pingIdleTimeout;
@@ -90,12 +94,21 @@ public abstract class AbstractKeepAliveHandler implements KeepAliveHandler {
                                        long idleTimeoutMillis, long pingIntervalMillis,
                                        long maxConnectionAgeMillis, long maxNumRequestsPerConnection,
                                        boolean keepAliveOnPing) {
+        this(channel, name, keepAliveTimer, idleTimeoutMillis, pingIntervalMillis, maxConnectionAgeMillis, maxNumRequestsPerConnection,
+             keepAliveOnPing, ConnectionPoolListener.noop());
+    }
+
+    protected AbstractKeepAliveHandler(Channel channel, String name, Timer keepAliveTimer,
+                                       long idleTimeoutMillis, long pingIntervalMillis,
+                                       long maxConnectionAgeMillis, long maxNumRequestsPerConnection,
+                                       boolean keepAliveOnPing, ConnectionPoolListener connectionPoolListener) {
         this.channel = channel;
         this.name = name;
         isServer = "server".equals(name);
         this.keepAliveTimer = keepAliveTimer;
         this.maxNumRequestsPerConnection = maxNumRequestsPerConnection;
         this.keepAliveOnPing = keepAliveOnPing;
+        this.connectionPoolListener = connectionPoolListener;
 
         if (idleTimeoutMillis <= 0) {
             connectionIdleTimeNanos = 0;
@@ -114,6 +127,14 @@ public abstract class AbstractKeepAliveHandler implements KeepAliveHandler {
         } else {
             maxConnectionAgeNanos = TimeUnit.MILLISECONDS.toNanos(maxConnectionAgeMillis);
         }
+    }
+
+    public final ConnectionPoolListener connectionPoolListener() {
+        return connectionPoolListener;
+    }
+
+    public final Channel channel() {
+        return channel;
     }
 
     @Override
@@ -192,7 +213,7 @@ public abstract class AbstractKeepAliveHandler implements KeepAliveHandler {
     }
 
     @Override
-    public final void onPing() {
+    public void onPing() {
         if (pingState == PingState.SHUTDOWN) {
             return;
         }
@@ -217,6 +238,7 @@ public abstract class AbstractKeepAliveHandler implements KeepAliveHandler {
     @Override
     public void disconnectWhenFinished() {
         disconnectWhenFinished = true;
+        connectionPoolListener.onCloseEvent(SessionProtocol.H2, channel, CloseReason.UNKNOWN);
     }
 
     @Override
@@ -269,6 +291,7 @@ public abstract class AbstractKeepAliveHandler implements KeepAliveHandler {
             return;
         }
         logger.debug("{} Closing an idle channel", channel);
+        connectionPoolListener().onCloseEvent(SessionProtocol.H2, channel, CloseReason.PING_TIMEOUT);
         pingState = PingState.SHUTDOWN;
         channel.close().addListener(future -> {
             if (future.isSuccess()) {
@@ -378,6 +401,8 @@ public abstract class AbstractKeepAliveHandler implements KeepAliveHandler {
                         pingState = PingState.SHUTDOWN;
                         logger.debug("{} Closing an idle {} connection", ctx.channel(), name);
                         ctx.channel().close();
+                        connectionPoolListener().onCloseEvent(SessionProtocol.H2, channel,
+                                                              CloseReason.CONNECTION_IDLE);
                     }
                 } catch (Exception e) {
                     if (!warn) {
@@ -442,6 +467,8 @@ public abstract class AbstractKeepAliveHandler implements KeepAliveHandler {
         protected void run(ChannelHandlerContext ctx) {
             try {
                 isMaxConnectionAgeExceeded = true;
+                connectionPoolListener().onCloseEvent(SessionProtocol.H2, channel,
+                                                      CloseReason.MAX_CONNECTION_AGE);
 
                 // A connection exceeding the max age will be closed with:
                 // - HTTP/2 server: Sending GOAWAY frame after writing headers

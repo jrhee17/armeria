@@ -27,6 +27,7 @@ import com.linecorp.armeria.common.util.Ticker;
 import com.linecorp.armeria.common.util.Unwrappable;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import io.netty.channel.Channel;
 import io.netty.util.AttributeMap;
 
 /**
@@ -128,6 +129,25 @@ public interface ConnectionPoolListener extends Unwrappable, SafeCloseable {
                           InetSocketAddress remoteAddr,
                           InetSocketAddress localAddr,
                           AttributeMap attrs) throws Exception;
+
+    enum CloseReason {
+        PING_TIMEOUT,
+        CONNECTION_IDLE,
+        MAX_CONNECTION_AGE,
+        UNKNOWN,
+    }
+
+    default void onCloseEvent(SessionProtocol protocol,
+                              Channel channel,
+                              CloseReason reason) {}
+
+    default void onPingSent(SessionProtocol protocol,
+                            Channel channel,
+                            long data) {}
+
+    default void onPingReceived(SessionProtocol protocol,
+                                Channel channel,
+                                long data) {}
 
     @Override
     default ConnectionPoolListener unwrap() {

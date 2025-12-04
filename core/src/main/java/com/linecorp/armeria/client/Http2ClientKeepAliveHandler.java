@@ -28,11 +28,11 @@ final class Http2ClientKeepAliveHandler extends Http2KeepAliveHandler {
     Http2ClientKeepAliveHandler(Channel channel, Http2FrameWriter frameWriter, Timer keepAliveTimer,
                                 long idleTimeoutMillis, long pingIntervalMillis,
                                 long maxConnectionAgeMillis, int maxNumRequestsPerConnection,
-                                boolean keepAliveOnPing) {
+                                boolean keepAliveOnPing, ConnectionPoolListener connectionPoolListener) {
 
         super(channel, frameWriter, "client", keepAliveTimer,
               idleTimeoutMillis, pingIntervalMillis, maxConnectionAgeMillis, maxNumRequestsPerConnection,
-              keepAliveOnPing);
+              keepAliveOnPing, connectionPoolListener);
     }
 
     @Override
