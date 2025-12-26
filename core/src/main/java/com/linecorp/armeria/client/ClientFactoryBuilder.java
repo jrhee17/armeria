@@ -71,6 +71,7 @@ import com.linecorp.armeria.common.util.EventLoopGroups;
 import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.RequestContextUtil;
 import com.linecorp.armeria.internal.common.util.ChannelUtil;
+import com.linecorp.armeria.server.GracefulShutdown;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.channel.ChannelOption;
@@ -1000,6 +1001,12 @@ public final class ClientFactoryBuilder implements TlsSetters {
     public ClientFactoryBuilder http1HeaderNaming(Http1HeaderNaming http1HeaderNaming) {
         requireNonNull(http1HeaderNaming, "http1HeaderNaming");
         option(ClientFactoryOptions.HTTP1_HEADER_NAMING, http1HeaderNaming);
+        return this;
+    }
+
+    public ClientFactoryBuilder eventLoopGracefulShutdown(GracefulShutdown gracefulShutdown) {
+        requireNonNull(gracefulShutdown, "gracefulShutdown");
+        option(ClientFactoryOptions.EVENT_LOOP_GRACEFUL_SHUTDOWN, gracefulShutdown);
         return this;
     }
 

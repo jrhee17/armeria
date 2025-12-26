@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -56,6 +57,7 @@ import com.linecorp.armeria.internal.client.ClientBuilderParamsUtil;
 import com.linecorp.armeria.internal.common.ClientSslContextFactory;
 import com.linecorp.armeria.internal.common.RequestTargetCache;
 import com.linecorp.armeria.internal.common.util.ChannelUtil;
+import com.linecorp.armeria.server.GracefulShutdown;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.bootstrap.Bootstrap;
@@ -462,12 +464,16 @@ final class HttpClientFactory implements ClientFactory {
             }
             bootstrapSslContexts.release(sslContextFactory);
             if (shutdownWorkerGroupOnClose) {
-                workerGroup.shutdownGracefully().addListener((FutureListener<Object>) f -> {
-                    if (f.cause() != null) {
-                        logger.warn("Failed to shut down a worker group:", f.cause());
-                    }
-                    future.complete(null);
-                });
+                final GracefulShutdown gracefulShutdown = options.eventLoopGracefulShutdown();
+                workerGroup.shutdownGracefully(gracefulShutdown.quietPeriod().toMillis(),
+                                               gracefulShutdown.timeout().toMillis(),
+                                               TimeUnit.MILLISECONDS)
+                           .addListener((FutureListener<Object>) f -> {
+                               if (f.cause() != null) {
+                                   logger.warn("Failed to shut down a worker group:", f.cause());
+                               }
+                               future.complete(null);
+                           });
             } else {
                 future.complete(null);
             }

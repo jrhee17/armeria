@@ -43,6 +43,7 @@ import com.linecorp.armeria.common.outlier.OutlierDetection;
 import com.linecorp.armeria.common.util.AbstractOptions;
 import com.linecorp.armeria.common.util.TlsEngineType;
 import com.linecorp.armeria.internal.common.util.ChannelUtil;
+import com.linecorp.armeria.server.GracefulShutdown;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.channel.ChannelOption;
@@ -329,6 +330,9 @@ public final class ClientFactoryOptions
      */
     public static final ClientFactoryOption<Http1HeaderNaming> HTTP1_HEADER_NAMING =
             ClientFactoryOption.define("HTTP1_HEADER_NAMING", Http1HeaderNaming.ofDefault());
+
+    public static final ClientFactoryOption<GracefulShutdown> EVENT_LOOP_GRACEFUL_SHUTDOWN =
+            ClientFactoryOption.define("EVENT_LOOP_GRACEFUL_SHUTDOWN", GracefulShutdown.disabled());
 
     /**
      * The {@link ChannelOption}s of the sockets created by the {@link ClientFactory}.
@@ -743,5 +747,9 @@ public final class ClientFactoryOptions
     @UnstableApi
     public Consumer<? super ChannelPipeline> channelPipelineCustomizer() {
         return get(CHANNEL_PIPELINE_CUSTOMIZER);
+    }
+
+    public GracefulShutdown eventLoopGracefulShutdown() {
+        return get(EVENT_LOOP_GRACEFUL_SHUTDOWN);
     }
 }
