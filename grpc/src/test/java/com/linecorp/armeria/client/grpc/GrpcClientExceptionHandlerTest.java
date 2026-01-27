@@ -22,16 +22,18 @@ import static org.awaitility.Awaitility.await;
 
 import java.util.Deque;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.linecorp.armeria.common.ContentTooLargeException;
-import com.linecorp.armeria.common.grpc.GrpcExceptionHandlerFunction;
-import com.linecorp.armeria.internal.common.grpc.TestServiceImpl;
+import com.linecorp.armeria.client.HttpClient;
+import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerClient;
+import com.linecorp.armeria.client.circuitbreaker.CircuitBreakerRule;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
@@ -56,27 +58,35 @@ class GrpcClientExceptionHandlerTest {
         protected void configure(ServerBuilder sb) {
             sb.service(
                     GrpcService.builder()
-                               .addService(new TestServiceImpl(Executors.newSingleThreadScheduledExecutor()))
+                               .addService(new TestServiceGrpc.TestServiceImplBase() {
+
+                               })
                                .build());
         }
     };
 
+    private static final Logger logger = LoggerFactory.getLogger(GrpcClientExceptionHandlerTest.class.getName());
+
     @Test
     void requestLengthExceeded() {
-        final GrpcExceptionHandlerFunction exceptionHandler =
-                GrpcExceptionHandlerFunction.builder()
-                                            .on(ContentTooLargeException.class, Status.FAILED_PRECONDITION)
-                                            .build();
+        final Function<? super HttpClient, CircuitBreakerClient> cb =
+                CircuitBreakerClient.builder(CircuitBreakerRule.builder()
+                                                               .onGrpcTrailers((ctx, trailers) -> {
+                                                                   logger.info("grpc-status invoked for ctx: {}", ctx);
+                                                                   return trailers.containsInt("grpc-status",
+                                                                                               Code.UNIMPLEMENTED.value());
+                                                               })
+                                                               .thenSuccess())
+                                    .newDecorator();
         final TestServiceBlockingStub stub =
                 GrpcClients.builder(server.httpUri())
-                           .maxResponseLength(1)
-                           .exceptionHandler(exceptionHandler)
+                           .decorator(cb)
                            .build(TestServiceBlockingStub.class);
         assertThatThrownBy(() -> stub.unaryCall(SimpleRequest.getDefaultInstance()))
                 .isInstanceOf(StatusRuntimeException.class)
                 .extracting(e -> ((StatusRuntimeException) e).getStatus())
                 .extracting(Status::getCode)
-                .isEqualTo(Code.FAILED_PRECONDITION);
+                .isEqualTo(Code.UNIMPLEMENTED);
     }
 
     @Test
