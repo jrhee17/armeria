@@ -1,7 +1,7 @@
 /*
- * Copyright 2024 LINE Corporation
+ * Copyright 2026 LY Corporation
  *
- * LINE Corporation licenses this file to you under the Apache License,
+ * LY Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
  * with the License. You may obtain a copy of the License at:
  *
@@ -14,14 +14,16 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds.client.endpoint;
+package com.linecorp.armeria.xds;
 
-import com.linecorp.armeria.client.ClientRequestContext;
-import com.linecorp.armeria.client.Endpoint;
-import com.linecorp.armeria.common.annotation.Nullable;
+/**
+ * TBU.
+ */
+public final class MissingXdsResourceException extends XdsResourceException {
 
-interface LoadBalancer extends LoadBalancerState {
+    private static final long serialVersionUID = -3769529407892638288L;
 
-    @Nullable
-    Endpoint selectNow(ClientRequestContext ctx);
+    MissingXdsResourceException(XdsType type, String name) {
+        super(type, name);
+    }
 }
