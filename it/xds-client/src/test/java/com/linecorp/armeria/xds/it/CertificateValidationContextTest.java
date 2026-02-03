@@ -47,6 +47,7 @@ import io.envoyproxy.controlplane.cache.v3.Snapshot;
 import io.envoyproxy.controlplane.server.V3DiscoveryServer;
 import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.Secret;
+import io.envoyproxy.pgv.ValidationException;
 
 class CertificateValidationContextTest {
 
@@ -178,6 +179,74 @@ class CertificateValidationContextTest {
 
             await().untilAsserted(() -> assertThat(errorRef.get()).isNotNull());
             assertThat(errorRef.get()).isInstanceOf(CertificateException.class);
+        }
+    }
+
+    @Test
+    void invalidSpkiPinFailsSnapshot() throws Exception {
+        final String secretYaml =
+                """
+                name: validation-certs
+                validation_context:
+                  verify_certificate_spki:
+                    - "not-base64"
+                """;
+        final Secret secret = XdsResourceReader.fromYaml(secretYaml, Secret.class);
+        version.incrementAndGet();
+        cache.setSnapshot(GROUP, Snapshot.create(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
+                                                 ImmutableList.of(), ImmutableList.of(secret),
+                                                 version.toString()));
+
+        final String bootstrapStr = sdsBootstrapYaml.formatted(
+                server.httpPort(),
+                certificate1.privateKeyFile().toPath().toString(),
+                certificate1.certificateFile().toPath().toString());
+        final Bootstrap bootstrap = XdsResourceReader.fromYaml(bootstrapStr, Bootstrap.class);
+
+        final AtomicReference<Throwable> errorRef = new AtomicReference<>();
+        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap)) {
+            xdsBootstrap.listenerRoot("my-listener").addSnapshotWatcher((snapshot, t) -> {
+                if (t != null) {
+                    errorRef.set(t);
+                }
+            });
+
+            await().untilAsserted(() -> assertThat(errorRef.get()).isNotNull());
+            assertThat(errorRef.get()).hasRootCauseInstanceOf(ValidationException.class);
+        }
+    }
+
+    @Test
+    void invalidCertHashPinFailsSnapshot() throws Exception {
+        final String secretYaml =
+                """
+                name: validation-certs
+                validation_context:
+                  verify_certificate_hash:
+                    - "abc"
+                """;
+        final Secret secret = XdsResourceReader.fromYaml(secretYaml, Secret.class);
+        version.incrementAndGet();
+        cache.setSnapshot(GROUP, Snapshot.create(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
+                                                 ImmutableList.of(), ImmutableList.of(secret),
+                                                 version.toString()));
+
+        final String bootstrapStr = sdsBootstrapYaml.formatted(
+                server.httpPort(),
+                certificate1.privateKeyFile().toPath().toString(),
+                certificate1.certificateFile().toPath().toString());
+        final Bootstrap bootstrap = XdsResourceReader.fromYaml(bootstrapStr, Bootstrap.class);
+
+        final AtomicReference<Throwable> errorRef = new AtomicReference<>();
+        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap)) {
+            xdsBootstrap.listenerRoot("my-listener").addSnapshotWatcher((snapshot, t) -> {
+                if (t != null) {
+                    errorRef.set(t);
+                }
+            });
+
+            await().untilAsserted(() -> assertThat(errorRef.get()).isNotNull());
+            assertThat(errorRef.get()).hasRootCauseInstanceOf(ValidationException.class);
         }
     }
 
