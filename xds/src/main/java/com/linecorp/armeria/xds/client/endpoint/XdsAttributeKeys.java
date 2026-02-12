@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.xds.client.endpoint;
 
+import com.linecorp.armeria.xds.TransportSocketSnapshot;
+
 import io.envoyproxy.envoy.config.core.v3.Metadata;
 import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
@@ -33,6 +35,8 @@ final class XdsAttributeKeys {
             AttributeKey.valueOf(XdsAttributeKeys.class, "ROUTE_CONFIG");
     static final AttributeKey<Metadata> ROUTE_METADATA_MATCH =
             AttributeKey.valueOf(XdsAttributeKeys.class, "ROUTE_METADATA_MATCH");
+    static final AttributeKey<TransportSocketSnapshot> TRANSPORT_SOCKET_SNAPSHOT_KEY =
+            AttributeKey.valueOf(XdsAttributeKeys.class, "TRANSPORT_SOCKET_SNAPSHOT_KEY");
 
     private XdsAttributeKeys() {}
 }

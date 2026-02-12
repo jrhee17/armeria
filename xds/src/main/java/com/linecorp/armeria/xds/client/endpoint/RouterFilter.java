@@ -18,9 +18,7 @@ package com.linecorp.armeria.xds.client.endpoint;
 
 import static com.linecorp.armeria.xds.client.endpoint.XdsAttributeKeys.ROUTE_CONFIG;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
-
+import com.linecorp.armeria.client.ClientTlsSpec;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.PreClient;
 import com.linecorp.armeria.client.PreClientRequestContext;
@@ -33,14 +31,10 @@ import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.RouteEntry;
+import com.linecorp.armeria.xds.TransportSocketSnapshot;
 import com.linecorp.armeria.xds.internal.XdsCommonUtil;
 
-import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
-
 final class RouterFilter<I extends Request, O extends Response> implements Preprocessor<I, O> {
-
-    RouterFilter(Function<CompletableFuture<O>, O> futureConverter) {
-    }
 
     @Override
     public O execute(PreClient<I, O> delegate, PreClientRequestContext ctx, I req) throws Exception {
@@ -77,13 +71,6 @@ final class RouterFilter<I extends Request, O extends Response> implements Prepr
             ctx.setResponseTimeoutMillis(responseTimeoutMillis);
         }
 
-        final UpstreamTlsContext tlsContext = clusterSnapshot.xdsResource().upstreamTlsContext();
-        if (tlsContext != null) {
-            ctx.setSessionProtocol(SessionProtocol.HTTPS);
-        } else {
-            ctx.setSessionProtocol(SessionProtocol.HTTP);
-        }
-
         final XdsLoadBalancer loadBalancer = clusterSnapshot.loadBalancer();
         if (loadBalancer == null) {
             final UnprocessedRequestException e = UnprocessedRequestException.of(
@@ -94,7 +81,23 @@ final class RouterFilter<I extends Request, O extends Response> implements Prepr
         }
 
         final Endpoint endpoint = loadBalancer.selectNow(ctx);
+        if (endpoint != null) {
+            final TransportSocketSnapshot transportSocket =
+                    endpoint.attr(XdsAttributeKeys.TRANSPORT_SOCKET_SNAPSHOT_KEY);
+            assert transportSocket != null;
+            setTlsParams(ctx, transportSocket);
+        }
         return execute0(delegate, ctx, req, endpoint);
+    }
+
+    private void setTlsParams(PreClientRequestContext ctx, TransportSocketSnapshot transportSocket) {
+        final ClientTlsSpec clientTlsSpec = transportSocket.clientTlsSpec();
+        if (clientTlsSpec == null) {
+            ctx.setSessionProtocol(SessionProtocol.HTTP);
+            return;
+        }
+        ctx.setSessionProtocol(SessionProtocol.HTTPS);
+        ctx.setClientTlsSpec(clientTlsSpec);
     }
 
     private O execute0(PreClient<I, O> delegate, PreClientRequestContext ctx, I req,
