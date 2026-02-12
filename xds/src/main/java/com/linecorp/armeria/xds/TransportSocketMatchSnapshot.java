@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.xds;
 
+import com.linecorp.armeria.common.annotation.UnstableApi;
+
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.TransportSocketMatch;
 
 /**
@@ -23,6 +25,7 @@ import io.envoyproxy.envoy.config.cluster.v3.Cluster.TransportSocketMatch;
  * {@link TransportSocketSnapshot}. This allows conditional transport socket selection
  * based on endpoint metadata matching.
  */
+@UnstableApi
 public final class TransportSocketMatchSnapshot implements Snapshot<TransportSocketMatch> {
 
     private final TransportSocketMatch transportSocketMatch;

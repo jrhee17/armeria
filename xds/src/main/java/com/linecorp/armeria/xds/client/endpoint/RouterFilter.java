@@ -18,7 +18,6 @@ package com.linecorp.armeria.xds.client.endpoint;
 
 import static com.linecorp.armeria.xds.client.endpoint.XdsAttributeKeys.ROUTE_CONFIG;
 
-import com.linecorp.armeria.client.ClientTlsSpec;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.PreClient;
 import com.linecorp.armeria.client.PreClientRequestContext;
@@ -26,12 +25,10 @@ import com.linecorp.armeria.client.Preprocessor;
 import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.Response;
-import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.RouteEntry;
-import com.linecorp.armeria.xds.TransportSocketSnapshot;
 import com.linecorp.armeria.xds.internal.XdsCommonUtil;
 
 final class RouterFilter<I extends Request, O extends Response> implements Preprocessor<I, O> {
@@ -81,23 +78,7 @@ final class RouterFilter<I extends Request, O extends Response> implements Prepr
         }
 
         final Endpoint endpoint = loadBalancer.selectNow(ctx);
-        if (endpoint != null) {
-            final TransportSocketSnapshot transportSocket =
-                    endpoint.attr(XdsAttributeKeys.TRANSPORT_SOCKET_SNAPSHOT_KEY);
-            assert transportSocket != null;
-            setTlsParams(ctx, transportSocket);
-        }
         return execute0(delegate, ctx, req, endpoint);
-    }
-
-    private void setTlsParams(PreClientRequestContext ctx, TransportSocketSnapshot transportSocket) {
-        final ClientTlsSpec clientTlsSpec = transportSocket.clientTlsSpec();
-        if (clientTlsSpec == null) {
-            ctx.setSessionProtocol(SessionProtocol.HTTP);
-            return;
-        }
-        ctx.setSessionProtocol(SessionProtocol.HTTPS);
-        ctx.setClientTlsSpec(clientTlsSpec);
     }
 
     private O execute0(PreClient<I, O> delegate, PreClientRequestContext ctx, I req,
@@ -109,6 +90,7 @@ final class RouterFilter<I extends Request, O extends Response> implements Prepr
             }
             throw UnprocessedRequestException.of(new TimeoutException("Failed to select an endpoint."));
         }
+        XdsCommonUtil.setTlsParams(ctx, endpoint);
         ctx.setEndpointGroup(endpoint);
         return delegate.execute(ctx, req);
     }

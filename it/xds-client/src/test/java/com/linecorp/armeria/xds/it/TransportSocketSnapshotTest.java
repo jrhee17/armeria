@@ -282,6 +282,41 @@ class TransportSocketSnapshotTest {
                               "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
                 """;
 
+    @ParameterizedTest
+    @MethodSource("testDataSources")
+    void staticCombined(String secretYamlTemplate, SecretProvider keyProvider,
+                        SecretProvider certProvider) throws Exception {
+        final String serviceKey = keyProvider.getSecret(certificate.privateKeyFile());
+        final String serviceCert = certProvider.getSecret(certificate.certificateFile());
+        final String caCert = certProvider.getSecret(certificate.certificateFile());
+        final String bootstrapStr = combinedBootstrap.formatted(secretYamlTemplate.formatted(serviceKey),
+                                                                secretYamlTemplate.formatted(serviceCert),
+                                                                secretYamlTemplate.formatted(caCert));
+        final Bootstrap bootstrap = XdsResourceReader.fromYaml(bootstrapStr, Bootstrap.class);
+        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap)) {
+            final ListenerRoot listenerRoot = xdsBootstrap.listenerRoot("my-listener");
+            final AtomicReference<ListenerSnapshot> snapshotRef = new AtomicReference<>();
+            listenerRoot.addSnapshotWatcher((snapshot, t) -> {
+                if (snapshot != null) {
+                    snapshotRef.set(snapshot);
+                }
+            });
+
+            await().untilAsserted(() -> assertThat(snapshotRef.get()).isNotNull());
+            final ListenerSnapshot listenerSnapshot = snapshotRef.get();
+            final TransportSocketSnapshot
+                    tlsSnapshot = listenerSnapshot.routeSnapshot().virtualHostSnapshots().get(0)
+                                                  .routeEntries().get(0).clusterSnapshot().transportSocket();
+            final TlsCertificateSnapshot certSnapshot = tlsSnapshot.tlsCertificate();
+            assertThat(certSnapshot).isNotNull();
+            assertThat(certSnapshot.tlsKeyPair()).isEqualTo(certificate.tlsKeyPair());
+
+            final CertificateValidationContextSnapshot validationContext = tlsSnapshot.validationContext();
+            assertThat(validationContext).isNotNull();
+            assertThat(validationContext.trustedCa()).containsExactly(certificate.certificate());
+        }
+    }
+
     //language=YAML
     private static final String validationContextWithPinsBootstrap =
             """
@@ -342,41 +377,6 @@ class TransportSocketSnapshotTest {
                             typed_config:
                               "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
                 """;
-
-    @ParameterizedTest
-    @MethodSource("testDataSources")
-    void staticCombined(String secretYamlTemplate, SecretProvider keyProvider,
-                        SecretProvider certProvider) throws Exception {
-        final String serviceKey = keyProvider.getSecret(certificate.privateKeyFile());
-        final String serviceCert = certProvider.getSecret(certificate.certificateFile());
-        final String caCert = certProvider.getSecret(certificate.certificateFile());
-        final String bootstrapStr = combinedBootstrap.formatted(secretYamlTemplate.formatted(serviceKey),
-                                                                secretYamlTemplate.formatted(serviceCert),
-                                                                secretYamlTemplate.formatted(caCert));
-        final Bootstrap bootstrap = XdsResourceReader.fromYaml(bootstrapStr, Bootstrap.class);
-        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap)) {
-            final ListenerRoot listenerRoot = xdsBootstrap.listenerRoot("my-listener");
-            final AtomicReference<ListenerSnapshot> snapshotRef = new AtomicReference<>();
-            listenerRoot.addSnapshotWatcher((snapshot, t) -> {
-                if (snapshot != null) {
-                    snapshotRef.set(snapshot);
-                }
-            });
-
-            await().untilAsserted(() -> assertThat(snapshotRef.get()).isNotNull());
-            final ListenerSnapshot listenerSnapshot = snapshotRef.get();
-            final TransportSocketSnapshot
-                    tlsSnapshot = listenerSnapshot.routeSnapshot().virtualHostSnapshots().get(0)
-                                                  .routeEntries().get(0).clusterSnapshot().transportSocket();
-            final TlsCertificateSnapshot certSnapshot = tlsSnapshot.tlsCertificate();
-            assertThat(certSnapshot).isNotNull();
-            assertThat(certSnapshot.tlsKeyPair()).isEqualTo(certificate.tlsKeyPair());
-
-            final CertificateValidationContextSnapshot validationContext = tlsSnapshot.validationContext();
-            assertThat(validationContext).isNotNull();
-            assertThat(validationContext.trustedCa()).containsExactly(certificate.certificate());
-        }
-    }
 
     @ParameterizedTest
     @MethodSource("testDataSources")

@@ -73,6 +73,7 @@ class CertificateValidationContextTest {
     @RegisterExtension
     static final SelfSignedCertificateExtension certificate2 = new SelfSignedCertificateExtension();
 
+    //language=YAML
     private static final String sdsBootstrapYaml =
             """
             dynamic_resources:
@@ -150,6 +151,7 @@ class CertificateValidationContextTest {
         final File invalidCaFile = new File(tempDir, "invalid_ca.pem");
         Files.writeString(invalidCaFile.toPath(), "this is not a valid CA certificate");
 
+        //language=YAML
         final String secretYaml =
                 """
                 name: validation-certs
@@ -184,6 +186,7 @@ class CertificateValidationContextTest {
 
     @Test
     void invalidSpkiPinFailsSnapshot() throws Exception {
+        //language=YAML
         final String secretYaml =
                 """
                 name: validation-certs
@@ -218,6 +221,7 @@ class CertificateValidationContextTest {
 
     @Test
     void invalidCertHashPinFailsSnapshot() throws Exception {
+        //language=YAML
         final String secretYaml =
                 """
                 name: validation-certs
@@ -255,8 +259,9 @@ class CertificateValidationContextTest {
         final File multiCaFile = new File(tempDir, "multi_ca.pem");
         final String cert1Content = Files.readString(certificate1.certificateFile().toPath());
         final String cert2Content = Files.readString(certificate2.certificateFile().toPath());
-        Files.writeString(multiCaFile.toPath(), cert1Content + "\n" + cert2Content);
+        Files.writeString(multiCaFile.toPath(), cert1Content + '\n' + cert2Content);
 
+        //language=YAML
         final String secretYaml =
                 """
                 name: validation-certs
@@ -304,6 +309,7 @@ class CertificateValidationContextTest {
         final File caFile = new File(tempDir, "ca.pem");
         Files.copy(certificate2.certificateFile().toPath(), caFile.toPath());
 
+        //language=YAML
         final String secretYaml =
                 """
                 name: validation-certs
@@ -343,6 +349,7 @@ class CertificateValidationContextTest {
         }
     }
 
+    //language=YAML
     private static final String combinedValidationContextBootstrap =
             """
             dynamic_resources:
@@ -422,6 +429,7 @@ class CertificateValidationContextTest {
         final File caFile = new File(tempDir, "ca.pem");
         Files.copy(certificate2.certificateFile().toPath(), caFile.toPath());
 
+        //language=YAML
         final String secretYaml =
                 """
                 name: validation-certs
@@ -469,6 +477,7 @@ class CertificateValidationContextTest {
         final File caFile = new File(tempDir, "ca.pem");
         Files.copy(certificate2.certificateFile().toPath(), caFile.toPath());
 
+        //language=YAML
         final String secretYaml =
                 """
                 name: validation-certs

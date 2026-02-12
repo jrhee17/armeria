@@ -19,7 +19,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -27,6 +26,7 @@ import javax.net.ssl.SSLEngine;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.ByteString;
 
 import com.linecorp.armeria.common.TlsPeerVerifier;
 import com.linecorp.armeria.common.TlsPeerVerifierFactory;
@@ -34,11 +34,11 @@ import com.linecorp.armeria.common.annotation.Nullable;
 
 final class PinnedPeerVerifierFactory implements TlsPeerVerifierFactory {
 
-    private final List<byte[]> spkiPins;
-    private final List<byte[]> certHashPins;
+    private final List<ByteString> spkiPins;
+    private final List<ByteString> certHashPins;
 
-    PinnedPeerVerifierFactory(@Nullable List<byte[]> spkiPins,
-                              @Nullable List<byte[]> certHashPins) {
+    PinnedPeerVerifierFactory(@Nullable List<ByteString> spkiPins,
+                              @Nullable List<ByteString> certHashPins) {
         this.spkiPins = spkiPins != null ? ImmutableList.copyOf(spkiPins) : ImmutableList.of();
         this.certHashPins = certHashPins != null ? ImmutableList.copyOf(certHashPins) : ImmutableList.of();
     }
@@ -69,9 +69,9 @@ final class PinnedPeerVerifierFactory implements TlsPeerVerifierFactory {
 
     private boolean matchesSpki(X509Certificate cert) throws CertificateException {
         final byte[] spki = cert.getPublicKey().getEncoded();
-        final byte[] digest = sha256(spki);
-        for (byte[] pin : spkiPins) {
-            if (Arrays.equals(pin, digest)) {
+        final ByteString digest = ByteString.copyFrom(sha256(spki));
+        for (ByteString pin : spkiPins) {
+            if (pin.equals(digest)) {
                 return true;
             }
         }
@@ -79,9 +79,9 @@ final class PinnedPeerVerifierFactory implements TlsPeerVerifierFactory {
     }
 
     private boolean matchesCertHash(X509Certificate cert) throws CertificateException {
-        final byte[] digest = sha256(cert.getEncoded());
-        for (byte[] pin : certHashPins) {
-            if (Arrays.equals(pin, digest)) {
+        final ByteString digest = ByteString.copyFrom(sha256(cert.getEncoded()));
+        for (ByteString pin : certHashPins) {
+            if (pin.equals(digest)) {
                 return true;
             }
         }

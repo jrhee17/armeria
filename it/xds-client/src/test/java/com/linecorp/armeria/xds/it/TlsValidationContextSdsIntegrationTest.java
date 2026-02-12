@@ -87,6 +87,7 @@ class TlsValidationContextSdsIntegrationTest {
     static final SelfSignedCertificateExtension otherCert = new SelfSignedCertificateExtension("localhost");
 
     // language=YAML
+    //language=YAML
     private static final String bootstrapTemplate =
             """
             dynamic_resources:
@@ -154,6 +155,7 @@ class TlsValidationContextSdsIntegrationTest {
 
     @Test
     void validationContextRecoversAfterInvalidSecret() throws Exception {
+        //language=YAML
         final String invalidSecretYaml =
                 """
                 name: validation-certs
@@ -238,6 +240,7 @@ class TlsValidationContextSdsIntegrationTest {
 
     private static String validationContextSecret(File caFile) throws Exception {
         final byte[] caBytes = Files.readAllBytes(caFile.toPath());
+        //language=YAML
         return """
                name: validation-certs
                validation_context:

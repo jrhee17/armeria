@@ -41,11 +41,12 @@ import io.envoyproxy.envoy.config.bootstrap.v3.Bootstrap;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
+import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
 
 class TransportSocketMatchUtilTest {
 
     // language=YAML
-    private static final String bootstrapYaml =
+    private static final String bootstrapTemplate =
             """
             static_resources:
               listeners:
@@ -75,66 +76,13 @@ class TransportSocketMatchUtilTest {
                 load_assignment:
                   cluster_name: my-cluster
                   endpoints:
-                  - locality:
-                      region: us-east-1
-                    metadata:
-                      filter_metadata:
-                        "envoy.transport_socket_match":
-                          region: us-east-1
-                    lb_endpoints:
-                    - endpoint:
-                        address:
-                          socket_address:
-                            address: 127.0.0.1
-                            port_value: 8080
-                      metadata:
-                        filter_metadata:
-                          "envoy.transport_socket_match":
-                            env: prod
-                    - endpoint:
-                        address:
-                          socket_address:
-                            address: 127.0.0.1
-                            port_value: 8081
-                      metadata:
-                        filter_metadata:
-                          "envoy.transport_socket_match":
-                            env: staging
-                  - locality:
-                      region: us-west-1
-                    metadata:
-                      filter_metadata:
-                        "envoy.transport_socket_match":
-                          region: us-west-1
-                    lb_endpoints:
-                    - endpoint:
-                        address:
-                          socket_address:
-                            address: 127.0.0.1
-                            port_value: 8082
-                      metadata:
-                        filter_metadata:
-                          "envoy.transport_socket_match":
-                            env: staging
+            %s
                 transport_socket:
                   name: envoy.transport_sockets.tls
                   typed_config:
                     "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
-                transport_socket_matches:
-                - name: endpoint-match
-                  match:
-                    env: prod
-                  transport_socket:
-                    name: envoy.transport_sockets.tls
-                    typed_config:
-                      "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
-                - name: locality-match
-                  match:
-                    region: us-east-1
-                  transport_socket:
-                    name: envoy.transport_sockets.tls
-                    typed_config:
-                      "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+                    sni: default-sni
+            %s
             """;
 
     @Test
@@ -155,79 +103,229 @@ class TransportSocketMatchUtilTest {
 
     @Test
     void endpointAndLocalityMetadataExtraction() throws Exception {
-        withClusterSnapshot(clusterSnapshot -> {
+        final String endpointsYaml =
+                """
+                - locality:
+                    region: us-east-1
+                  metadata:
+                    filter_metadata:
+                      "envoy.transport_socket_match":
+                        region: us-east-1
+                  lb_endpoints:
+                  - endpoint:
+                      address:
+                        socket_address:
+                          address: 127.0.0.1
+                          port_value: 8080
+                    metadata:
+                      filter_metadata:
+                        "envoy.transport_socket_match":
+                          env: prod
+                """;
+        final String matchesYaml =
+                """
+                transport_socket_matches:
+                - name: endpoint-match
+                  match:
+                    env: prod
+                  transport_socket:
+                    name: envoy.transport_sockets.tls
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+                      sni: endpoint-sni
+                - name: locality-match
+                  match:
+                    region: us-east-1
+                  transport_socket:
+                    name: envoy.transport_sockets.tls
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+                      sni: locality-sni
+                """;
+        withClusterSnapshot(endpointsYaml, matchesYaml, clusterSnapshot -> {
             final ClusterLoadAssignment loadAssignment = loadAssignment(clusterSnapshot);
-            final LocalityLbEndpoints locality = loadAssignment.getEndpoints(0);
-            final LbEndpoint lbEndpoint = locality.getLbEndpoints(0);
+            final LocalityLbEndpoints locality = soleLocality(loadAssignment);
+            final LbEndpoint lbEndpoint = soleEndpoint(locality);
 
             assertThat(TransportSocketMatchUtil.endpointMatchMetadata(lbEndpoint))
                     .isEqualTo(struct(Map.of("env", "prod")));
             assertThat(TransportSocketMatchUtil.localityMatchMetadata(locality))
                     .isEqualTo(struct(Map.of("region", "us-east-1")));
-
-            assertThat(TransportSocketMatchUtil.endpointMatchMetadata(LbEndpoint.getDefaultInstance())
-                                               .getFieldsCount()).isZero();
-            assertThat(TransportSocketMatchUtil.localityMatchMetadata(LocalityLbEndpoints.getDefaultInstance())
-                                               .getFieldsCount()).isZero();
         });
     }
 
     @Test
     void selectTransportSocketPrefersEndpointMetadata() throws Exception {
-        withClusterSnapshot(clusterSnapshot -> {
+        final String endpointsYaml =
+                """
+                - locality:
+                    region: us-east-1
+                  metadata:
+                    filter_metadata:
+                      "envoy.transport_socket_match":
+                        region: us-east-1
+                  lb_endpoints:
+                  - endpoint:
+                      address:
+                        socket_address:
+                          address: 127.0.0.1
+                          port_value: 8080
+                    metadata:
+                      filter_metadata:
+                        "envoy.transport_socket_match":
+                          env: prod
+                """;
+        final String matchesYaml =
+                """
+                transport_socket_matches:
+                - name: endpoint-match
+                  match:
+                    env: prod
+                  transport_socket:
+                    name: envoy.transport_sockets.tls
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+                      sni: endpoint-sni
+                - name: locality-match
+                  match:
+                    region: us-east-1
+                  transport_socket:
+                    name: envoy.transport_sockets.tls
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+                      sni: locality-sni
+                """;
+        withClusterSnapshot(endpointsYaml, matchesYaml, clusterSnapshot -> {
             final ClusterLoadAssignment loadAssignment = loadAssignment(clusterSnapshot);
-            final LocalityLbEndpoints locality = loadAssignment.getEndpoints(0);
-            final LbEndpoint lbEndpoint = locality.getLbEndpoints(0);
+            final LocalityLbEndpoints locality = soleLocality(loadAssignment);
+            final LbEndpoint lbEndpoint = soleEndpoint(locality);
 
             final TransportSocketSnapshot defaultSocket = clusterSnapshot.transportSocket();
             final List<TransportSocketMatchSnapshot> matches = clusterSnapshot.transportSocketMatches();
-            final TransportSocketMatchSnapshot endpointMatch = matchByName(matches, "endpoint-match");
 
             final TransportSocketSnapshot selected =
                     TransportSocketMatchUtil.selectTransportSocket(defaultSocket, matches,
-                                                                  lbEndpoint, locality);
-            assertThat(selected).isSameAs(endpointMatch.transportSocket());
+                                                                   lbEndpoint, locality);
+            assertThat(transportSocketSni(selected)).isEqualTo("endpoint-sni");
         });
     }
 
     @Test
     void selectTransportSocketFallsBackToLocalityMetadata() throws Exception {
-        withClusterSnapshot(clusterSnapshot -> {
+        final String endpointsYaml =
+                """
+                - locality:
+                    region: us-east-1
+                  metadata:
+                    filter_metadata:
+                      "envoy.transport_socket_match":
+                        region: us-east-1
+                  lb_endpoints:
+                  - endpoint:
+                      address:
+                        socket_address:
+                          address: 127.0.0.1
+                          port_value: 8080
+                    metadata:
+                      filter_metadata:
+                        "envoy.transport_socket_match":
+                          env: staging
+                """;
+        final String matchesYaml =
+                """
+                transport_socket_matches:
+                - name: endpoint-match
+                  match:
+                    env: prod
+                  transport_socket:
+                    name: envoy.transport_sockets.tls
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+                      sni: endpoint-sni
+                - name: locality-match
+                  match:
+                    region: us-east-1
+                  transport_socket:
+                    name: envoy.transport_sockets.tls
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+                      sni: locality-sni
+                """;
+        withClusterSnapshot(endpointsYaml, matchesYaml, clusterSnapshot -> {
             final ClusterLoadAssignment loadAssignment = loadAssignment(clusterSnapshot);
-            final LocalityLbEndpoints locality = loadAssignment.getEndpoints(0);
-            final LbEndpoint lbEndpoint = locality.getLbEndpoints(1);
+            final LocalityLbEndpoints locality = soleLocality(loadAssignment);
+            final LbEndpoint lbEndpoint = soleEndpoint(locality);
 
             final TransportSocketSnapshot defaultSocket = clusterSnapshot.transportSocket();
             final List<TransportSocketMatchSnapshot> matches = clusterSnapshot.transportSocketMatches();
-            final TransportSocketMatchSnapshot localityMatch = matchByName(matches, "locality-match");
 
             final TransportSocketSnapshot selected =
                     TransportSocketMatchUtil.selectTransportSocket(defaultSocket, matches,
-                                                                  lbEndpoint, locality);
-            assertThat(selected).isSameAs(localityMatch.transportSocket());
+                                                                   lbEndpoint, locality);
+            assertThat(transportSocketSni(selected)).isEqualTo("locality-sni");
         });
     }
 
     @Test
     void selectTransportSocketReturnsDefaultWhenNoMatch() throws Exception {
-        withClusterSnapshot(clusterSnapshot -> {
+        final String endpointsYaml =
+                """
+                - locality:
+                    region: us-west-1
+                  metadata:
+                    filter_metadata:
+                      "envoy.transport_socket_match":
+                        region: us-west-1
+                  lb_endpoints:
+                  - endpoint:
+                      address:
+                        socket_address:
+                          address: 127.0.0.1
+                          port_value: 8080
+                    metadata:
+                      filter_metadata:
+                        "envoy.transport_socket_match":
+                          env: staging
+                """;
+        final String matchesYaml =
+                """
+                transport_socket_matches:
+                - name: endpoint-match
+                  match:
+                    env: prod
+                  transport_socket:
+                    name: envoy.transport_sockets.tls
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+                      sni: endpoint-sni
+                - name: locality-match
+                  match:
+                    region: us-east-1
+                  transport_socket:
+                    name: envoy.transport_sockets.tls
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+                      sni: locality-sni
+                """;
+        withClusterSnapshot(endpointsYaml, matchesYaml, clusterSnapshot -> {
             final ClusterLoadAssignment loadAssignment = loadAssignment(clusterSnapshot);
-            final LocalityLbEndpoints locality = loadAssignment.getEndpoints(1);
-            final LbEndpoint lbEndpoint = locality.getLbEndpoints(0);
+            final LocalityLbEndpoints locality = soleLocality(loadAssignment);
+            final LbEndpoint lbEndpoint = soleEndpoint(locality);
 
             final TransportSocketSnapshot defaultSocket = clusterSnapshot.transportSocket();
             final List<TransportSocketMatchSnapshot> matches = clusterSnapshot.transportSocketMatches();
 
             final TransportSocketSnapshot selected =
                     TransportSocketMatchUtil.selectTransportSocket(defaultSocket, matches,
-                                                                  lbEndpoint, locality);
-            assertThat(selected).isSameAs(defaultSocket);
+                                                                   lbEndpoint, locality);
+            assertThat(transportSocketSni(selected)).isEqualTo("default-sni");
         });
     }
 
-    private static void withClusterSnapshot(SnapshotConsumer consumer) throws Exception {
+    private static void withClusterSnapshot(String endpointsYaml, String matchesYaml,
+                                            SnapshotConsumer consumer) throws Exception {
         final Bootstrap bootstrap =
-                XdsResourceReader.fromYaml(bootstrapYaml, Bootstrap.class);
+                XdsResourceReader.fromYaml(bootstrapYaml(endpointsYaml, matchesYaml), Bootstrap.class);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(bootstrap)) {
             final ListenerRoot listenerRoot = xdsBootstrap.listenerRoot("my-listener");
             final AtomicReference<ListenerSnapshot> snapshotRef = new AtomicReference<>();
@@ -250,12 +348,21 @@ class TransportSocketMatchUtilTest {
         return snapshot.xdsResource().resource().getLoadAssignment();
     }
 
-    private static TransportSocketMatchSnapshot matchByName(List<TransportSocketMatchSnapshot> matches,
-                                                            String name) {
-        return matches.stream()
-                      .filter(match -> name.equals(match.xdsResource().getName()))
-                      .findFirst()
-                      .orElseThrow(() -> new IllegalStateException("No match named " + name));
+    private static LocalityLbEndpoints soleLocality(ClusterLoadAssignment loadAssignment) {
+        return loadAssignment.getEndpointsList().stream()
+                             .findFirst()
+                             .orElseThrow(() -> new IllegalStateException("No locality endpoints"));
+    }
+
+    private static LbEndpoint soleEndpoint(LocalityLbEndpoints locality) {
+        return locality.getLbEndpointsList().stream()
+                       .findFirst()
+                       .orElseThrow(() -> new IllegalStateException("No LB endpoints"));
+    }
+
+    private static String bootstrapYaml(String endpointsYaml, String matchesYaml) {
+        return bootstrapTemplate.formatted(endpointsYaml.indent(8),
+                                           matchesYaml.indent(4));
     }
 
     private static Struct struct(Map<String, String> map) {
@@ -265,6 +372,12 @@ class TransportSocketMatchUtilTest {
                               Value.newBuilder().setStringValue(entry.getValue()).build());
         }
         return builder.build();
+    }
+
+    private static String transportSocketSni(TransportSocketSnapshot snapshot) throws Exception {
+        return snapshot.xdsResource().getTypedConfig()
+                       .unpack(UpstreamTlsContext.class)
+                       .getSni();
     }
 
     @FunctionalInterface

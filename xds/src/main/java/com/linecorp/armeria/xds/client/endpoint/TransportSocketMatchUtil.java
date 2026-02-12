@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 
@@ -62,6 +63,7 @@ final class TransportSocketMatchUtil {
         return null;
     }
 
+    @VisibleForTesting
     static boolean matches(Struct criteria, Struct endpointMetadata) {
         if (criteria.getFieldsCount() == 0) {
             return true;

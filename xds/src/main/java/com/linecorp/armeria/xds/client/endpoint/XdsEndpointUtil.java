@@ -41,6 +41,7 @@ import com.linecorp.armeria.xds.ClusterXdsResource;
 import com.linecorp.armeria.xds.EndpointSnapshot;
 import com.linecorp.armeria.xds.TransportSocketMatchSnapshot;
 import com.linecorp.armeria.xds.TransportSocketSnapshot;
+import com.linecorp.armeria.xds.internal.XdsCommonUtil;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.RefreshRate;
@@ -202,13 +203,13 @@ final class XdsEndpointUtil {
                                .withIpAddr(socketAddress.getAddress())
                                .withAttr(XdsAttributeKeys.LB_ENDPOINT_KEY, lbEndpoint)
                                .withAttr(XdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints)
-                               .withAttr(XdsAttributeKeys.TRANSPORT_SOCKET_SNAPSHOT_KEY, matchedTransport)
+                               .withAttr(XdsCommonUtil.TRANSPORT_SOCKET_SNAPSHOT_KEY, matchedTransport)
                                .withWeight(weight);
         } else {
             endpoint = Endpoint.of(socketAddress.getAddress())
                                .withAttr(XdsAttributeKeys.LB_ENDPOINT_KEY, lbEndpoint)
                                .withAttr(XdsAttributeKeys.LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints)
-                               .withAttr(XdsAttributeKeys.TRANSPORT_SOCKET_SNAPSHOT_KEY, matchedTransport)
+                               .withAttr(XdsCommonUtil.TRANSPORT_SOCKET_SNAPSHOT_KEY, matchedTransport)
                                .withWeight(weight);
         }
         if (socketAddress.hasPortValue()) {
@@ -224,7 +225,7 @@ final class XdsEndpointUtil {
                                           LocalityLbEndpoints localityLbEndpoints) {
         final TransportSocketSnapshot matched = TransportSocketMatchUtil.selectTransportSocket(
                 transportSocket, transportSocketMatches, lbEndpoint, localityLbEndpoints);
-        return endpoint.withAttr(XdsAttributeKeys.TRANSPORT_SOCKET_SNAPSHOT_KEY, matched);
+        return endpoint.withAttr(XdsCommonUtil.TRANSPORT_SOCKET_SNAPSHOT_KEY, matched);
     }
 
     static int endpointWeight(LbEndpoint lbEndpoint) {

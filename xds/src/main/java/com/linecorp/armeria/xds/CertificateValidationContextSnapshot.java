@@ -27,6 +27,7 @@ import java.util.Locale;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
+import com.google.protobuf.ByteString;
 
 import com.linecorp.armeria.common.TlsPeerVerifierFactory;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -45,13 +46,9 @@ public final class CertificateValidationContextSnapshot implements Snapshot<Cert
     private final CertificateValidationContext resource;
     @Nullable
     private final List<X509Certificate> trustedCa;
-    private final List<byte[]> verifyCertificateSpkiPins;
-    private final List<byte[]> verifyCertificateHashPins;
+    private final List<ByteString> verifyCertificateSpkiPins;
+    private final List<ByteString> verifyCertificateHashPins;
     private final List<SanMatcher> typedSanMatchers;
-
-    CertificateValidationContextSnapshot(CertificateValidationContext resource) {
-        this(resource, null);
-    }
 
     CertificateValidationContextSnapshot(CertificateValidationContext resource,
                                          @Nullable List<X509Certificate> trustedCa) {
@@ -63,7 +60,7 @@ public final class CertificateValidationContextSnapshot implements Snapshot<Cert
         for (SubjectAltNameMatcher matcher : resource.getMatchTypedSubjectAltNamesList()) {
             final SubjectAltNameMatcher.SanType sanType = matcher.getSanType();
             if (sanType == SubjectAltNameMatcher.SanType.OTHER_NAME) {
-                continue;
+                throw new IllegalArgumentException("Unsupported SAN type: OTHER_NAME");
             }
             parsedSanMatchers.add(new SanMatcher(sanType,
                                                  new StringMatcherImpl(matcher.getMatcher())));
@@ -100,33 +97,33 @@ public final class CertificateValidationContextSnapshot implements Snapshot<Cert
         return builder.build();
     }
 
-    private static List<byte[]> decodeSpkiPins(List<String> pins) {
+    private static List<ByteString> decodeSpkiPins(List<String> pins) {
         if (pins.isEmpty()) {
             return Collections.emptyList();
         }
-        final List<byte[]> decoded = new ArrayList<>(pins.size());
+        final List<ByteString> decoded = new ArrayList<>(pins.size());
         for (String pin : pins) {
-            decoded.add(Base64.getDecoder().decode(pin));
+            decoded.add(ByteString.copyFrom(Base64.getDecoder().decode(pin)));
         }
         return ImmutableList.copyOf(decoded);
     }
 
-    private static List<byte[]> decodeCertificateHashPins(List<String> pins) {
+    private static List<ByteString> decodeCertificateHashPins(List<String> pins) {
         if (pins.isEmpty()) {
             return Collections.emptyList();
         }
-        final List<byte[]> decoded = new ArrayList<>(pins.size());
+        final List<ByteString> decoded = new ArrayList<>(pins.size());
         for (String pin : pins) {
             decoded.add(decodeHex(pin));
         }
         return ImmutableList.copyOf(decoded);
     }
 
-    private static byte[] decodeHex(String pin) {
+    private static ByteString decodeHex(String pin) {
         final String normalized = pin.replace(":", "").toUpperCase(Locale.ROOT);
         if (normalized.length() % 2 != 0) {
             throw new IllegalArgumentException("Invalid certificate hash length: " + pin);
         }
-        return BaseEncoding.base16().decode(normalized);
+        return ByteString.copyFrom(BaseEncoding.base16().decode(normalized));
     }
 }

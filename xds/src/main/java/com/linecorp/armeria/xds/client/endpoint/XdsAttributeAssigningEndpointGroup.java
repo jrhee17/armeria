@@ -29,6 +29,7 @@ import com.linecorp.armeria.client.endpoint.DynamicEndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.xds.TransportSocketMatchSnapshot;
 import com.linecorp.armeria.xds.TransportSocketSnapshot;
+import com.linecorp.armeria.xds.internal.XdsCommonUtil;
 
 import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
@@ -60,7 +61,7 @@ final class XdsAttributeAssigningEndpointGroup extends DynamicEndpointGroup
                          .map(endpoint ->
                                       endpoint.withAttr(LB_ENDPOINT_KEY, lbEndpoint)
                                               .withAttr(LOCALITY_LB_ENDPOINTS_KEY, localityLbEndpoints)
-                                              .withAttr(XdsAttributeKeys.TRANSPORT_SOCKET_SNAPSHOT_KEY, matched)
+                                              .withAttr(XdsCommonUtil.TRANSPORT_SOCKET_SNAPSHOT_KEY, matched)
                                               .withWeight(XdsEndpointUtil.endpointWeight(lbEndpoint)))
                          .collect(Collectors.toList());
         setEndpoints(mappedEndpoints);

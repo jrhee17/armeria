@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LY Corporation
+ * Copyright 2026 LY Corporation
  *
  * LY Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -15,8 +15,6 @@
  */
 
 package com.linecorp.armeria.xds.client.endpoint;
-
-import com.linecorp.armeria.xds.TransportSocketSnapshot;
 
 import io.envoyproxy.envoy.config.core.v3.Metadata;
 import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
@@ -35,8 +33,6 @@ final class XdsAttributeKeys {
             AttributeKey.valueOf(XdsAttributeKeys.class, "ROUTE_CONFIG");
     static final AttributeKey<Metadata> ROUTE_METADATA_MATCH =
             AttributeKey.valueOf(XdsAttributeKeys.class, "ROUTE_METADATA_MATCH");
-    static final AttributeKey<TransportSocketSnapshot> TRANSPORT_SOCKET_SNAPSHOT_KEY =
-            AttributeKey.valueOf(XdsAttributeKeys.class, "TRANSPORT_SOCKET_SNAPSHOT_KEY");
 
     private XdsAttributeKeys() {}
 }

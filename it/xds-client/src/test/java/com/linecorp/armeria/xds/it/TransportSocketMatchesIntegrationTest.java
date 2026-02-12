@@ -55,6 +55,7 @@ class TransportSocketMatchesIntegrationTest {
     static final SelfSignedCertificateExtension otherCert = new SelfSignedCertificateExtension("localhost");
 
     // language=YAML
+    //language=YAML
     private static final String bootstrapTemplate =
             """
             static_resources:
