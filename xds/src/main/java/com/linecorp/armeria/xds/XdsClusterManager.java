@@ -118,4 +118,5 @@ final class XdsClusterManager implements SafeCloseable {
         }
         loadBalancerFactoryPool.close();
     }
+
 }

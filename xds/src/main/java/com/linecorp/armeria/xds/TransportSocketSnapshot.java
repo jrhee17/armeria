@@ -35,6 +35,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
 import io.envoyproxy.envoy.config.core.v3.TransportSocket;
+import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
 
 /**
  * A snapshot of a {@link TransportSocket} resource with its associated TLS configuration.
@@ -68,7 +69,7 @@ public final class TransportSocketSnapshot implements Snapshot<TransportSocket> 
         this.transportSocket = transportSocket;
         this.tlsCertificate = tlsCertificate.orElse(null);
         this.validationContext = validationContext.orElse(null);
-        clientTlsSpec = buildClientTlsSpec(this.tlsCertificate, this.validationContext);
+        clientTlsSpec = buildClientTlsSpec(transportSocket, this.tlsCertificate, this.validationContext);
     }
 
     @Override
@@ -101,9 +102,33 @@ public final class TransportSocketSnapshot implements Snapshot<TransportSocket> 
     }
 
     private static ClientTlsSpec buildClientTlsSpec(
+            TransportSocket transportSocket,
             @Nullable TlsCertificateSnapshot tlsCertificate,
             @Nullable CertificateValidationContextSnapshot validationContext) {
         final ClientTlsSpecBuilder specBuilder = ClientTlsSpec.builder();
+        // Apply ALPN protocols from UpstreamTlsContext so that Istio's inbound filter-chain
+        // match (which requires "istio"/"istio-http/1.1"/"istio-h2") is satisfied.
+        if ("envoy.transport_sockets.tls".equals(transportSocket.getName()) &&
+            transportSocket.hasTypedConfig()) {
+            try {
+                final UpstreamTlsContext tlsCtx =
+                        transportSocket.getTypedConfig().unpack(UpstreamTlsContext.class);
+                final List<String> alpn =
+                        tlsCtx.getCommonTlsContext().getAlpnProtocolsList();
+                if (!alpn.isEmpty()) {
+                    // Filter out "istio-peer-exchange": that ALPN triggers Envoy's binary
+                    // peer-metadata exchange before HTTP, which Armeria doesn't implement.
+                    // "istio" does plain mTLS without the metadata exchange and is sufficient
+                    // for service-to-service communication via XdsHttpPreprocessor.
+                    final List<String> filteredAlpn = alpn.stream()
+                            .filter(a -> !"istio-peer-exchange".equals(a))
+                            .collect(java.util.stream.Collectors.toList());
+                    specBuilder.alpnProtocols(filteredAlpn.isEmpty() ? alpn : filteredAlpn);
+                }
+            } catch (com.google.protobuf.InvalidProtocolBufferException ignored) {
+                // not an UpstreamTlsContext — leave defaults
+            }
+        }
         final ImmutableList.Builder<TlsPeerVerifierFactory> verifiersBuilder = ImmutableList.builder();
         if (validationContext != null) {
             final boolean systemRootCerts = validationContext.xdsResource().hasSystemRootCerts();

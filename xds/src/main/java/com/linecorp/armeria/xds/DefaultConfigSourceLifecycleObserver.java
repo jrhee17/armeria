@@ -25,6 +25,8 @@ import org.slf4j.LoggerFactory;
 import com.linecorp.armeria.common.metric.MeterIdPrefix;
 
 import io.envoyproxy.envoy.config.core.v3.ConfigSource.ConfigSourceSpecifierCase;
+import io.envoyproxy.envoy.service.discovery.v3.DeltaDiscoveryRequest;
+import io.envoyproxy.envoy.service.discovery.v3.DeltaDiscoveryResponse;
 import io.envoyproxy.envoy.service.discovery.v3.DiscoveryRequest;
 import io.envoyproxy.envoy.service.discovery.v3.DiscoveryResponse;
 import io.micrometer.core.instrument.Counter;
@@ -104,7 +106,30 @@ final class DefaultConfigSourceLifecycleObserver implements ConfigSourceLifecycl
 
     @Override
     public void requestSent(DiscoveryRequest request) {
-        logger.debug("{} Sending discovery request: {}", loggingIdentifier, request);
+        if (logger.isTraceEnabled()) {
+            logger.trace("{} Sending discovery request: {}", loggingIdentifier, request);
+        } else if (logger.isDebugEnabled()) {
+            logger.debug("{} Sending discovery request: type_url={}, subscribe_count={}, version_info={}, nonce={}",
+                         loggingIdentifier, request.getTypeUrl(),
+                         request.getResourceNamesList().size(),
+                         request.getVersionInfo(), request.getResponseNonce());
+        }
+        streamRequestCounter.increment();
+    }
+
+    @Override
+    public void requestSent(DeltaDiscoveryRequest request) {
+        if (logger.isTraceEnabled()) {
+            logger.trace("{} Sending discovery request: {}", loggingIdentifier, request);
+        } else if (logger.isDebugEnabled()) {
+            logger.debug("{} Sending discovery request: type_url={}, subscribe_count={}, unsubscribe_count={}, " +
+                         "initial_versions_count={}, nonce={}",
+                         loggingIdentifier, request.getTypeUrl(),
+                         request.getResourceNamesSubscribeCount(),
+                         request.getResourceNamesUnsubscribeCount(),
+                         request.getInitialResourceVersionsCount(),
+                         request.getResponseNonce());
+        }
         streamRequestCounter.increment();
     }
 
@@ -112,6 +137,24 @@ final class DefaultConfigSourceLifecycleObserver implements ConfigSourceLifecycl
     public void responseReceived(DiscoveryResponse value) {
         if (logger.isTraceEnabled()) {
             logger.trace("{} Received discovery response: {}", loggingIdentifier, value);
+        } else if (logger.isDebugEnabled()) {
+            logger.debug("{} Received discovery response: type_url={}, resources_count={}, version_info={}, nonce={}",
+                         loggingIdentifier, value.getTypeUrl(), value.getResourcesCount(),
+                         value.getVersionInfo(), value.getNonce());
+        }
+        streamResponseCounter.increment();
+    }
+
+    @Override
+    public void responseReceived(DeltaDiscoveryResponse value) {
+        if (logger.isTraceEnabled()) {
+            logger.trace("{} Received discovery response: {}", loggingIdentifier, value);
+        } else if (logger.isDebugEnabled()) {
+            logger.debug("{} Received discovery response: type_url={}, resources_count={}, removed_count={}, " +
+                         "system_version_info={}, nonce={}",
+                         loggingIdentifier, value.getTypeUrl(), value.getResourcesCount(),
+                         value.getRemovedResourcesCount(), value.getSystemVersionInfo(),
+                         value.getNonce());
         }
         streamResponseCounter.increment();
     }
@@ -127,6 +170,24 @@ final class DefaultConfigSourceLifecycleObserver implements ConfigSourceLifecycl
 
     @Override
     public void resourceRejected(XdsType type, DiscoveryResponse response,
+                                 Map<String, Throwable> rejectedResources) {
+        if (!rejectedResources.isEmpty()) {
+            logger.warn("{} Rejected resources: {}", loggingIdentifier, rejectedResources);
+        }
+        resourceParseRejectedCounter.increment(rejectedResources.size());
+    }
+
+    @Override
+    public void resourceUpdated(XdsType type, DeltaDiscoveryResponse response,
+                                Map<String, Object> updatedResources) {
+        if (!updatedResources.isEmpty()) {
+            logger.debug("{} Updating resources: {}", loggingIdentifier, updatedResources);
+        }
+        resourceParseSuccessCounter.increment(updatedResources.size());
+    }
+
+    @Override
+    public void resourceRejected(XdsType type, DeltaDiscoveryResponse response,
                                  Map<String, Throwable> rejectedResources) {
         if (!rejectedResources.isEmpty()) {
             logger.warn("{} Rejected resources: {}", loggingIdentifier, rejectedResources);

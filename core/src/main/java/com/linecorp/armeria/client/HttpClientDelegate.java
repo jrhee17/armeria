@@ -22,6 +22,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.cert.X509Certificate;
 import java.util.List;
+import java.util.Set;
 import java.util.function.BiConsumer;
 
 import com.linecorp.armeria.client.HttpChannelPool.PoolKey;
@@ -49,6 +50,7 @@ import com.linecorp.armeria.internal.client.HttpSession;
 import com.linecorp.armeria.internal.client.PooledChannel;
 import com.linecorp.armeria.internal.common.RequestContextUtil;
 import com.linecorp.armeria.internal.common.SchemeAndAuthority;
+import com.linecorp.armeria.internal.common.util.SslContextUtil;
 import com.linecorp.armeria.server.ProxiedAddresses;
 import com.linecorp.armeria.server.ServiceRequestContext;
 
@@ -285,7 +287,14 @@ final class HttpClientDelegate implements HttpClient {
                                            TlsProvider tlsProvider, ClientRequestContext ctx) {
         final ClientTlsSpec reqTlsSpec = ctx.clientTlsSpec();
         if (reqTlsSpec != null) {
-            return reqTlsSpec.toBuilder().alpnProtocols(sessionProtocol).build();
+            // Only override ALPN with session-protocol defaults when the spec carries default ALPN.
+            // If a custom ALPN was set (e.g. Istio's "istio-peer-exchange"), preserve it.
+            final Set<String> alpn = reqTlsSpec.alpnProtocols();
+            if (SslContextUtil.DEFAULT_ALPN_PROTOCOLS.equals(alpn) ||
+                SslContextUtil.DEFAULT_HTTP1_ALPN_PROTOCOLS.equals(alpn)) {
+                return reqTlsSpec.toBuilder().alpnProtocols(sessionProtocol).build();
+            }
+            return reqTlsSpec;
         }
         if (tlsProvider != NullTlsProvider.INSTANCE) {
             TlsKeyPair keyPair = null;

@@ -68,9 +68,41 @@ public final class ParsedFilterConfig {
         return new ParsedFilterConfig(filterName, config, optional, disabled);
     }
 
+    /**
+     * Creates a {@link ParsedFilterConfig} using a pre-resolved {@link HttpFilterFactory}.
+     * Unlike the registry-based {@link #of(String, Any, boolean, boolean)}, config-type mismatches
+     * are silently ignored so that no-op factories (e.g. {@code Empty}-typed) can be used for
+     * Envoy/Istio filters whose proto descriptors are not on the classpath.
+     */
+    static ParsedFilterConfig ofForFactory(
+            HttpFilterFactory<?> filterFactory, Any config, boolean disabled) {
+        requireNonNull(filterFactory, "filterFactory");
+        requireNonNull(config, "config");
+        return new ParsedFilterConfig(tryParseConfig(config, filterFactory.configClass()), disabled);
+    }
+
+    @Nullable
+    private static <T extends Message> T tryParseConfig(Any config, Class<? extends T> clazz) {
+        if (config == Any.getDefaultInstance()) {
+            return null;
+        }
+        try {
+            return XdsValidatorIndexRegistry.unpack(config, clazz);
+        } catch (IllegalArgumentException e) {
+            // Config type doesn't match the factory's configClass (e.g. a no-op factory using
+            // Empty.class). Fall back to the factory's defaultConfig().
+            return null;
+        }
+    }
+
     @Nullable
     private final Object parsedConfig;
     private final boolean disabled;
+
+    private ParsedFilterConfig(@Nullable Object parsedConfig, boolean disabled) {
+        this.parsedConfig = parsedConfig;
+        this.disabled = disabled;
+    }
 
     private ParsedFilterConfig(String filterName, Any config, boolean optional, boolean disabled) {
         final HttpFilterFactory<?> filterFactory = HttpFilterFactoryRegistry.filterFactory(filterName);

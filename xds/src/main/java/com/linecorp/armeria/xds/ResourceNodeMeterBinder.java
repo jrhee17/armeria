@@ -17,6 +17,10 @@
 package com.linecorp.armeria.xds;
 
 import java.util.Locale;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.linecorp.armeria.common.metric.MeterIdPrefix;
 
@@ -31,28 +35,32 @@ import io.micrometer.core.instrument.MeterRegistry;
  */
 final class ResourceNodeMeterBinder implements ResourceWatcher<XdsResource> {
 
-    private final MeterRegistry meterRegistry;
-    private long updatedRevision;
+    private static final ConcurrentHashMap<MeterRegistry, ConcurrentHashMap<Key, SharedMeters>>
+            sharedMeters = new ConcurrentHashMap<>();
+
+    static ResourceNodeMeterBinder acquire(MeterRegistry meterRegistry,
+                                           MeterIdPrefix meterIdPrefix, XdsType type,
+                                           String resourceName) {
+        final Key key = new Key(type, resourceName);
+        final ConcurrentHashMap<Key, SharedMeters> registryMeters =
+                sharedMeters.computeIfAbsent(meterRegistry, ignored -> new ConcurrentHashMap<>());
+        final SharedMeters meters = registryMeters.compute(key, (ignored, existing) -> {
+            if (existing != null) {
+                existing.refCount.incrementAndGet();
+                return existing;
+            }
+            return new SharedMeters(meterRegistry, meterIdPrefix, type, resourceName);
+        });
+        return new ResourceNodeMeterBinder(key, meters);
+    }
+
+    private final Key key;
+    private final SharedMeters meters;
     private boolean closed;
 
-    private final Gauge revisionGauge;
-    private final Counter errorCounter;
-    private final Counter missingCounter;
-
-    ResourceNodeMeterBinder(MeterRegistry meterRegistry,
-                            MeterIdPrefix meterIdPrefix, XdsType type, String resourceName) {
-        this.meterRegistry = meterRegistry;
-        meterIdPrefix = meterIdPrefix.withTags("name", resourceName,
-                                               "type", type.name().toLowerCase(Locale.ROOT));
-        revisionGauge = Gauge.builder(meterIdPrefix.name("resource.node.revision"), () -> updatedRevision)
-                             .tags(meterIdPrefix.tags())
-                             .register(meterRegistry);
-        errorCounter = Counter.builder(meterIdPrefix.name("resource.node.error"))
-                              .tags(meterIdPrefix.tags())
-                              .register(meterRegistry);
-        missingCounter = Counter.builder(meterIdPrefix.name("resource.node.missing"))
-                                .tags(meterIdPrefix.tags())
-                                .register(meterRegistry);
+    private ResourceNodeMeterBinder(Key key, SharedMeters meters) {
+        this.key = key;
+        this.meters = meters;
     }
 
     void close() {
@@ -60,23 +68,86 @@ final class ResourceNodeMeterBinder implements ResourceWatcher<XdsResource> {
             return;
         }
         closed = true;
-        meterRegistry.remove(revisionGauge);
-        meterRegistry.remove(errorCounter);
-        meterRegistry.remove(missingCounter);
+        if (meters.refCount.decrementAndGet() == 0) {
+            meters.meterRegistry.remove(meters.revisionGauge);
+            meters.meterRegistry.remove(meters.errorCounter);
+            meters.meterRegistry.remove(meters.missingCounter);
+            final ConcurrentHashMap<Key, SharedMeters> registryMeters =
+                    sharedMeters.get(meters.meterRegistry);
+            if (registryMeters != null) {
+                registryMeters.remove(key, meters);
+                if (registryMeters.isEmpty()) {
+                    sharedMeters.remove(meters.meterRegistry, registryMeters);
+                }
+            }
+        }
     }
 
     @Override
     public void onError(XdsType type, String resourceName, Throwable t) {
-        errorCounter.increment();
+        meters.errorCounter.increment();
     }
 
     @Override
     public void onResourceDoesNotExist(XdsType type, String resourceName) {
-        missingCounter.increment();
+        meters.missingCounter.increment();
     }
 
     @Override
     public void onChanged(XdsResource update) {
-        updatedRevision = update.revision();
+        meters.updatedRevision.set(update.revision());
+    }
+
+    private static final class SharedMeters {
+        private final MeterRegistry meterRegistry;
+        private final AtomicLong updatedRevision = new AtomicLong();
+        private final AtomicInteger refCount = new AtomicInteger(1);
+        private final Gauge revisionGauge;
+        private final Counter errorCounter;
+        private final Counter missingCounter;
+
+        private SharedMeters(MeterRegistry meterRegistry,
+                             MeterIdPrefix meterIdPrefix, XdsType type, String resourceName) {
+            this.meterRegistry = meterRegistry;
+            meterIdPrefix = meterIdPrefix.withTags("name", resourceName,
+                                                   "type", type.name().toLowerCase(Locale.ROOT));
+            revisionGauge = Gauge.builder(meterIdPrefix.name("resource.node.revision"),
+                                          updatedRevision, value -> (double) value.get())
+                                 .tags(meterIdPrefix.tags())
+                                 .register(meterRegistry);
+            errorCounter = Counter.builder(meterIdPrefix.name("resource.node.error"))
+                                  .tags(meterIdPrefix.tags())
+                                  .register(meterRegistry);
+            missingCounter = Counter.builder(meterIdPrefix.name("resource.node.missing"))
+                                    .tags(meterIdPrefix.tags())
+                                    .register(meterRegistry);
+        }
+    }
+
+    private static final class Key {
+        private final XdsType type;
+        private final String resourceName;
+
+        private Key(XdsType type, String resourceName) {
+            this.type = type;
+            this.resourceName = resourceName;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            final Key other = (Key) obj;
+            return type == other.type && resourceName.equals(other.resourceName);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(type, resourceName);
+        }
     }
 }

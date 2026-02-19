@@ -51,8 +51,8 @@ final class EndpointStream extends RefCountedStream<EndpointSnapshot> {
             return Subscription.noop();
         }
         assert configSource != null;
-        return new ResourceNodeAdapter<EndpointXdsResource>(configSource, context,
-                                                            resourceName, XdsType.ENDPOINT)
+        return new ResourceNodeAdapter<EndpointXdsResource>(configSource, context, resourceName,
+                                                            XdsType.ENDPOINT)
                 .map(EndpointSnapshot::new)
                 .subscribe(watcher);
     }

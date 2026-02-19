@@ -61,6 +61,18 @@ public final class ClientTlsSpecBuilder extends AbstractTlsSpecBuilder<ClientTls
         return this;
     }
 
+    /**
+     * Sets the ALPN protocol names to advertise during the TLS handshake.
+     * When non-empty, these replace the default HTTP ALPN protocols.
+     */
+    public ClientTlsSpecBuilder alpnProtocols(java.util.Collection<String> alpnProtocols) {
+        requireNonNull(alpnProtocols, "alpnProtocols");
+        if (!alpnProtocols.isEmpty()) {
+            this.alpnProtocols = com.google.common.collect.ImmutableSet.copyOf(alpnProtocols);
+        }
+        return this;
+    }
+
     ClientTlsSpecBuilder tlsCustomizer(Consumer<? super SslContextBuilder> tlsCustomizer) {
         this.tlsCustomizer = requireNonNull(tlsCustomizer, "tlsCustomizer");
         return this;

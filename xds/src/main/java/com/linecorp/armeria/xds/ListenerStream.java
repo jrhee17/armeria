@@ -58,19 +58,19 @@ final class ListenerStream extends RefCountedStream<ListenerSnapshot> {
                                  .subscribe(watcher);
         }
         return new ResourceNodeAdapter<ListenerXdsResource>(configSource, context, resourceName, LISTENER)
-                .switchMap(resource -> resource2snapshot(resource, configSource))
+                .switchMapEager(resource -> resource2snapshot(resource, configSource))
                 .subscribe(watcher);
     }
 
-    private SnapshotStream<ListenerSnapshot> resource2snapshot(ListenerXdsResource resource,
-                                                               @Nullable ConfigSource parentConfigSource) {
+    private SnapshotStream<ListenerSnapshot> resource2snapshot(
+            ListenerXdsResource resource, @Nullable ConfigSource parentConfigSource) {
         SnapshotStream<ListenerSnapshot> node = null;
         final HttpConnectionManager connectionManager = resource.connectionManager();
         if (connectionManager != null) {
             if (connectionManager.hasRouteConfig()) {
                 final RouteConfiguration routeConfig = connectionManager.getRouteConfig();
-                node = new RouteStream(context, routeConfig)
-                        .map(routeSnapshot -> new ListenerSnapshot(resource, routeSnapshot));
+                node = new RouteStream(context, routeConfig, resource)
+                        .map(routeSnapshot -> new ListenerSnapshot(resource, routeSnapshot, context));
             } else if (connectionManager.hasRds()) {
                 final Rds rds = connectionManager.getRds();
                 final String routeName = rds.getRouteConfigName();
@@ -81,12 +81,12 @@ final class ListenerStream extends RefCountedStream<ListenerSnapshot> {
                     return SnapshotStream.error(new XdsResourceException(LISTENER, resourceName,
                                                                          "config source not found"));
                 }
-                node = new RouteStream(configSource, routeName, context)
-                        .map(routeSnapshot -> new ListenerSnapshot(resource, routeSnapshot));
+                node = new RouteStream(configSource, routeName, context, resource)
+                        .map(routeSnapshot -> new ListenerSnapshot(resource, routeSnapshot, context));
             }
         }
         if (node == null) {
-            node = SnapshotStream.just(new ListenerSnapshot(resource));
+            node = SnapshotStream.just(new ListenerSnapshot(resource, context));
         }
         return node;
     }

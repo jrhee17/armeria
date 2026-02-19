@@ -20,6 +20,8 @@ import java.util.Map;
 
 import com.linecorp.armeria.common.util.SafeCloseable;
 
+import io.envoyproxy.envoy.service.discovery.v3.DeltaDiscoveryRequest;
+import io.envoyproxy.envoy.service.discovery.v3.DeltaDiscoveryResponse;
 import io.envoyproxy.envoy.service.discovery.v3.DiscoveryRequest;
 import io.envoyproxy.envoy.service.discovery.v3.DiscoveryResponse;
 
@@ -28,6 +30,10 @@ interface ConfigSourceLifecycleObserver extends SafeCloseable {
     default void requestSent(DiscoveryRequest request) {}
 
     default void responseReceived(DiscoveryResponse value) {}
+
+    default void requestSent(DeltaDiscoveryRequest request) {}
+
+    default void responseReceived(DeltaDiscoveryResponse value) {}
 
     default void streamOpened() {}
 
@@ -39,6 +45,12 @@ interface ConfigSourceLifecycleObserver extends SafeCloseable {
                                  Map<String, Object> updatedResources) {}
 
     default void resourceRejected(XdsType type, DiscoveryResponse response,
+                                  Map<String, Throwable> rejectedResources) {}
+
+    default void resourceUpdated(XdsType type, DeltaDiscoveryResponse response,
+                                 Map<String, Object> updatedResources) {}
+
+    default void resourceRejected(XdsType type, DeltaDiscoveryResponse response,
                                   Map<String, Throwable> rejectedResources) {}
 
     @Override

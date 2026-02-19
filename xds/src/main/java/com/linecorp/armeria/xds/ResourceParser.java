@@ -22,6 +22,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Any;
 import com.google.protobuf.Message;
+import io.envoyproxy.envoy.service.discovery.v3.Resource;
 
 abstract class ResourceParser<I extends Message, O extends XdsResource> {
 
@@ -29,9 +30,9 @@ abstract class ResourceParser<I extends Message, O extends XdsResource> {
 
     abstract Class<I> clazz();
 
-    abstract O parse(I message, String version, long revision);
+    abstract O parse(I message, String version);
 
-    ParsedResourcesHolder parseResources(List<Any> resources, String version, long revision) {
+    ParsedResourcesHolder parseResources(List<Any> resources, String version) {
         final ImmutableMap.Builder<String, Object> parsedResources = ImmutableMap.builder();
         final ImmutableMap.Builder<String, Throwable> invalidResources = ImmutableMap.builder();
 
@@ -49,7 +50,41 @@ abstract class ResourceParser<I extends Message, O extends XdsResource> {
             final String name = name(unpackedMessage);
             final O resourceUpdate;
             try {
-                resourceUpdate = parse(unpackedMessage, version, revision);
+                resourceUpdate = parse(unpackedMessage, version);
+            } catch (Exception e) {
+                invalidResources.put(name, e);
+                continue;
+            }
+
+            // Resource parsed successfully.
+            parsedResources.put(name, resourceUpdate);
+        }
+
+        return new ParsedResourcesHolder(parsedResources.buildKeepingLast(),
+                                         invalidResources.buildKeepingLast());
+    }
+
+    ParsedResourcesHolder parseDeltaResources(List<Resource> resources, String systemVersionInfo) {
+        final ImmutableMap.Builder<String, Object> parsedResources = ImmutableMap.builder();
+        final ImmutableMap.Builder<String, Throwable> invalidResources = ImmutableMap.builder();
+
+        for (int i = 0; i < resources.size(); i++) {
+            final Resource resource = resources.get(i);
+
+            final I unpackedMessage;
+            try {
+                unpackedMessage = resource.getResource().unpack(clazz());
+            } catch (Exception e) {
+                final String genName = String.format("generated_%s_%s", i, clazz().getSimpleName());
+                invalidResources.put(genName, e);
+                continue;
+            }
+            final String name = resource.getName();
+            final O resourceUpdate;
+            try {
+                final String version = !systemVersionInfo.isEmpty() ? systemVersionInfo
+                                                                     : resource.getVersion();
+                resourceUpdate = parse(unpackedMessage, version);
             } catch (Exception e) {
                 invalidResources.put(name, e);
                 continue;

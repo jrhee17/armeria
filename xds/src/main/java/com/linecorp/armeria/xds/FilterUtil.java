@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.function.Function;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Any;
@@ -33,14 +32,13 @@ import com.linecorp.armeria.client.ClientPreprocessors;
 import com.linecorp.armeria.client.ClientPreprocessorsBuilder;
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
-import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.RpcPreprocessor;
-import com.linecorp.armeria.client.retry.RetryingClient;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.xds.filter.HttpFilterFactory;
 import com.linecorp.armeria.xds.filter.HttpFilterFactoryRegistry;
 
+import io.envoyproxy.envoy.config.route.v3.RetryPolicy;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter.ConfigTypeCase;
@@ -88,7 +86,7 @@ final class FilterUtil {
 
     static ClientDecoration buildUpstreamFilter(
             List<HttpFilter> httpFilters, Map<String, ParsedFilterConfig> filterConfigs,
-            @Nullable Function<? super HttpClient, RetryingClient> retryingDecorator) {
+            @Nullable RetryPolicy retryPolicy) {
         final ClientDecorationBuilder builder = ClientDecoration.builder();
         for (int i = httpFilters.size() - 1; i >= 0; i--) {
             final HttpFilter httpFilter = httpFilters.get(i);
@@ -103,23 +101,26 @@ final class FilterUtil {
             builder.add(xdsFilter.httpDecorator());
             builder.addRpc(xdsFilter.rpcDecorator());
         }
-        if (retryingDecorator != null) {
+        if (retryPolicy != null) {
             // add the retrying decorator as the first (outermost) decorator if exists
-            builder.add(retryingDecorator);
+            builder.add(new RetryStateFactory(retryPolicy).retryingDecorator());
         }
         return builder.build();
     }
 
     @Nullable
     private static XdsFilter<?> xdsHttpFilter(HttpFilter httpFilter,
-                                              @Nullable ParsedFilterConfig parsedFilterConfig) {
+                                               @Nullable ParsedFilterConfig parsedFilterConfig) {
         final HttpFilterFactory<?> filterFactory =
                 HttpFilterFactoryRegistry.filterFactory(httpFilter.getName());
         if (filterFactory == null) {
-            if (httpFilter.getIsOptional()) {
-                return null;
+            if (!httpFilter.getIsOptional()) {
+                throw new IllegalArgumentException(
+                        "Unknown HTTP filter '" + httpFilter.getName() +
+                        "': no HttpFilterFactory registered. Register an SPI " +
+                        "HttpFilterFactory implementation to handle this filter.");
             }
-            throw new IllegalArgumentException("Couldn't find filter factory: " + httpFilter.getName());
+            return null;
         }
         checkArgument(httpFilter.getConfigTypeCase() == ConfigTypeCase.TYPED_CONFIG ||
                       httpFilter.getConfigTypeCase() == ConfigTypeCase.CONFIGTYPE_NOT_SET,
@@ -140,8 +141,8 @@ final class FilterUtil {
             if (filterConfig != null) {
                 this.filterConfig = filterConfig;
             } else {
-                this.filterConfig = ParsedFilterConfig.of(httpFilter.getName(), httpFilter.getTypedConfig(),
-                                                          httpFilter.getIsOptional(), httpFilter.getDisabled());
+                this.filterConfig = ParsedFilterConfig.ofForFactory(
+                        filterFactory, httpFilter.getTypedConfig(), httpFilter.getDisabled());
             }
             config = this.filterConfig.parsedConfig(filterFactory.defaultConfig());
         }

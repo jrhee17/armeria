@@ -13,14 +13,16 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
+package com.linecorp.armeria.xds.it;
 
-package com.linecorp.armeria.xds;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-import java.util.Collection;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-interface XdsStreamState {
-
-    void retryOrClose(boolean closedByError);
-
-    Collection<String> watchedResources(XdsType type);
-}
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@ExtendWith(DockerAvailableCondition.class)
+public @interface EnabledIfDockerAvailable {}

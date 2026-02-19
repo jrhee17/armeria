@@ -100,4 +100,5 @@ final class ListenerManager implements SafeCloseable {
             subscription.close();
         }
     }
+
 }

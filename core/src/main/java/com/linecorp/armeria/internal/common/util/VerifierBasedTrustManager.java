@@ -40,9 +40,15 @@ final class VerifierBasedTrustManager extends X509ExtendedTrustManager {
         this.isServer = isServer;
         TlsPeerVerifier verifier;
         if (isServer) {
-            verifier = delegate::checkClientTrusted;
+            // Use the 2-arg overload to do CA chain validation only, without engine-based
+            // hostname verification. Peer identity is delegated to the verifierFactories.
+            verifier = (chain, authType, engine) -> delegate.checkClientTrusted(chain, authType);
         } else {
-            verifier = delegate::checkServerTrusted;
+            // Use the 2-arg overload to do CA chain validation only, without engine-based
+            // hostname/IP verification. This is required for Istio mTLS where peers present
+            // SPIFFE URI SANs instead of DNS/IP SANs; peer identity is verified by the
+            // SanPeerVerifierFactory added by the xDS transport socket configuration.
+            verifier = (chain, authType, engine) -> delegate.checkServerTrusted(chain, authType);
         }
         for (TlsPeerVerifierFactory verifierFactory : verifierFactories) {
             verifier = verifierFactory.create(verifier);

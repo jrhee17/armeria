@@ -33,9 +33,9 @@ final class ResourceNodeAdapter<T extends XdsResource> extends RefCountedStream<
         this.context = context;
         this.name = name;
         this.type = type;
-        resourceNodeMeterBinder = new ResourceNodeMeterBinder(context.meterRegistry(),
-                                                              context.meterIdPrefix(),
-                                                              type, name);
+        resourceNodeMeterBinder = ResourceNodeMeterBinder.acquire(context.meterRegistry(),
+                                                                  context.meterIdPrefix(),
+                                                                  type, name);
     }
 
     @Override

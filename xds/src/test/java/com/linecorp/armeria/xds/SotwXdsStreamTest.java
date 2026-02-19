@@ -21,19 +21,14 @@ import static org.awaitility.Awaitility.await;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Duration;
-import com.google.protobuf.Message;
 
 import com.linecorp.armeria.client.grpc.GrpcClients;
 import com.linecorp.armeria.client.retry.Backoff;
@@ -41,13 +36,15 @@ import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.common.EventLoopExtension;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
-import com.linecorp.armeria.xds.SotwXdsStream.ActualStream;
-
 import io.envoyproxy.controlplane.cache.v3.SimpleCache;
 import io.envoyproxy.controlplane.cache.v3.Snapshot;
 import io.envoyproxy.controlplane.server.V3DiscoveryServer;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
+import io.envoyproxy.envoy.config.core.v3.ApiConfigSource;
+import io.envoyproxy.envoy.config.core.v3.ApiConfigSource.ApiType;
+import io.envoyproxy.envoy.config.core.v3.ConfigSource;
 import io.envoyproxy.envoy.config.core.v3.Node;
+import io.envoyproxy.envoy.service.discovery.v3.DiscoveryRequest;
 import io.envoyproxy.envoy.service.discovery.v3.DiscoveryResponse;
 
 class SotwXdsStreamTest {
@@ -87,26 +84,32 @@ class SotwXdsStreamTest {
     @RegisterExtension
     static EventLoopExtension eventLoop = new EventLoopExtension();
 
-    static class TestResponseHandler implements XdsResponseHandler {
+    static class RecordingLifecycleObserver implements ConfigSourceLifecycleObserver {
 
         private final List<DiscoveryResponse> responses = new ArrayList<>();
-        private final List<String> resets = new ArrayList<>();
+        private final List<DiscoveryRequest> requests = new ArrayList<>();
 
-        public List<DiscoveryResponse> getResponses() {
+        List<DiscoveryResponse> responses() {
             return responses;
         }
 
-        public void clear() {
+        List<DiscoveryRequest> requests() {
+            return requests;
+        }
+
+        void clear() {
             responses.clear();
-            resets.clear();
+            requests.clear();
         }
 
         @Override
-        public <I extends Message, O extends XdsResource> void handleResponse(
-                ResourceParser<I, O> resourceParser, DiscoveryResponse value, ActualStream sender,
-                ConfigSourceLifecycleObserver observer) {
+        public void requestSent(DiscoveryRequest request) {
+            requests.add(request);
+        }
+
+        @Override
+        public void responseReceived(DiscoveryResponse value) {
             responses.add(value);
-            sender.ackResponse(resourceParser.type(), value.getVersionInfo(), value.getNonce());
         }
     }
 
@@ -114,25 +117,29 @@ class SotwXdsStreamTest {
     void basicCase() throws Exception {
         final SotwDiscoveryStub stub = SotwDiscoveryStub.ads(GrpcClients.builder(server.httpUri()));
         final DummyResourceWatcher watcher = new DummyResourceWatcher();
-        final SubscriberStorage subscriberStorage = new SubscriberStorage(eventLoop.get(), 15_000);
-        final TestResponseHandler responseHandler = new TestResponseHandler();
-        try (SotwXdsStream stream = new SotwXdsStream(stub, SERVER_INFO, Backoff.ofDefault(), eventLoop.get(),
-                                                      responseHandler, subscriberStorage,
-                                                      lifecycleObserver)) {
+        final StateCoordinator stateCoordinator = new StateCoordinator(eventLoop.get(), 15_000, false);
+        final RecordingLifecycleObserver lifecycleObserver = new RecordingLifecycleObserver();
+        final Backoff backoff = Backoff.ofDefault();
+        try (AdsXdsStream stream =
+                     AdsXdsStream.of(
+                             owner -> new SotwActualStream(stub, owner, stateCoordinator, eventLoop.get(),
+                                                           lifecycleObserver, backoff, SERVER_INFO),
+                             backoff, eventLoop.get(), stateCoordinator, lifecycleObserver,
+                             XdsType.discoverableTypes())) {
 
             await().pollDelay(100, TimeUnit.MILLISECONDS)
-                   .untilAsserted(() -> assertThat(responseHandler.getResponses()).isEmpty());
+                   .untilAsserted(() -> assertThat(lifecycleObserver.responses()).isEmpty());
 
-            subscriberStorage.register(XdsType.CLUSTER, clusterName, watcher);
+            stateCoordinator.register(XdsType.CLUSTER, clusterName, watcher);
             stream.start();
 
             // check if the initial cache update is done
-            await().until(() -> !responseHandler.getResponses().isEmpty());
-            assertThat(responseHandler.getResponses()).allSatisfy(res -> {
+            await().until(() -> !lifecycleObserver.responses().isEmpty());
+            assertThat(lifecycleObserver.responses()).allSatisfy(res -> {
                 final Cluster expected = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
                 assertThat(res.getResources(0).unpack(Cluster.class)).isEqualTo(expected);
             });
-            responseHandler.clear();
+            lifecycleObserver.clear();
 
             // check if a cache update is propagated to the handler
             cache.setSnapshot(
@@ -142,16 +149,16 @@ class SotwXdsStreamTest {
                             ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
                             ImmutableList.of(), "2"));
 
-            await().until(() -> !responseHandler.getResponses().isEmpty());
-            assertThat(responseHandler.getResponses()).allSatisfy(res -> {
+            await().until(() -> !lifecycleObserver.responses().isEmpty());
+            assertThat(lifecycleObserver.responses()).allSatisfy(res -> {
                 final Cluster expected = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
                 assertThat(res.getResources(0).unpack(Cluster.class)).isEqualTo(expected);
             });
-            responseHandler.clear();
+            lifecycleObserver.clear();
 
             // now the stream is stopped, so no more updates
             stream.stop();
-            await().until(() -> stream.actualStream == null);
+            await().until(() -> stream.actualStream() == null);
 
             cache.setSnapshot(
                     GROUP,
@@ -161,7 +168,7 @@ class SotwXdsStreamTest {
                             ImmutableList.of(), "3"));
 
             await().pollDelay(100, TimeUnit.MILLISECONDS)
-                   .untilAsserted(() -> assertThat(responseHandler.getResponses()).isEmpty());
+                   .untilAsserted(() -> assertThat(lifecycleObserver.responses()).isEmpty());
         }
     }
 
@@ -169,29 +176,34 @@ class SotwXdsStreamTest {
     void restart() throws Exception {
         final SotwDiscoveryStub stub = SotwDiscoveryStub.ads(GrpcClients.builder(server.httpUri()));
         final DummyResourceWatcher watcher = new DummyResourceWatcher();
-        final SubscriberStorage subscriberStorage = new SubscriberStorage(eventLoop.get(), 15_000);
-        final TestResponseHandler responseHandler = new TestResponseHandler();
+        final StateCoordinator stateCoordinator = new StateCoordinator(eventLoop.get(), 15_000, false);
+        final RecordingLifecycleObserver lifecycleObserver = new RecordingLifecycleObserver();
+        final Backoff backoff = Backoff.ofDefault();
 
-        try (SotwXdsStream stream = new SotwXdsStream(stub, SERVER_INFO, Backoff.ofDefault(), eventLoop.get(),
-                                                      responseHandler, subscriberStorage, lifecycleObserver)) {
+        try (AdsXdsStream stream =
+                     AdsXdsStream.of(
+                             owner -> new SotwActualStream(stub, owner, stateCoordinator, eventLoop.get(),
+                                                           lifecycleObserver, backoff, SERVER_INFO),
+                             backoff, eventLoop.get(), stateCoordinator, lifecycleObserver,
+                             XdsType.discoverableTypes())) {
 
             await().pollDelay(100, TimeUnit.MILLISECONDS)
-                   .untilAsserted(() -> assertThat(responseHandler.getResponses()).isEmpty());
+                   .untilAsserted(() -> assertThat(lifecycleObserver.responses()).isEmpty());
 
-            subscriberStorage.register(XdsType.CLUSTER, clusterName, watcher);
+            stateCoordinator.register(XdsType.CLUSTER, clusterName, watcher);
             stream.start();
 
             // check if the initial cache update is done
-            await().until(() -> !responseHandler.getResponses().isEmpty());
-            assertThat(responseHandler.getResponses()).allSatisfy(res -> {
+            await().until(() -> !lifecycleObserver.responses().isEmpty());
+            assertThat(lifecycleObserver.responses()).allSatisfy(res -> {
                 final Cluster expected = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
                 assertThat(res.getResources(0).unpack(Cluster.class)).isEqualTo(expected);
             });
-            responseHandler.clear();
+            lifecycleObserver.clear();
 
             // stop the stream and verify there are no updates
             stream.stop();
-            await().until(() -> stream.actualStream == null);
+            await().until(() -> stream.actualStream() == null);
 
             cache.setSnapshot(
                     GROUP,
@@ -200,12 +212,12 @@ class SotwXdsStreamTest {
                             ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
                             ImmutableList.of(), "2"));
             await().pollDelay(100, TimeUnit.MILLISECONDS)
-                   .untilAsserted(() -> assertThat(responseHandler.getResponses()).isEmpty());
+                   .untilAsserted(() -> assertThat(lifecycleObserver.responses()).isEmpty());
 
             // restart the thread and verify that the handle receives the update
             stream.start();
-            await().until(() -> !responseHandler.getResponses().isEmpty());
-            assertThat(responseHandler.getResponses()).allSatisfy(res -> {
+            await().until(() -> !lifecycleObserver.responses().isEmpty());
+            assertThat(lifecycleObserver.responses()).allSatisfy(res -> {
                 final Cluster expected = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
                 assertThat(res.getResources(0).unpack(Cluster.class)).isEqualTo(expected);
             });
@@ -216,46 +228,31 @@ class SotwXdsStreamTest {
     void errorHandling() throws Exception {
         final SotwDiscoveryStub stub = SotwDiscoveryStub.ads(GrpcClients.builder(server.httpUri()));
         final DummyResourceWatcher watcher = new DummyResourceWatcher();
-        final SubscriberStorage subscriberStorage = new SubscriberStorage(eventLoop.get(), 15_000);
-        final AtomicInteger cntRef = new AtomicInteger();
-        final CountDownLatch latch = new CountDownLatch(1);
-        final TestResponseHandler responseHandler = new TestResponseHandler() {
-            @Override
-            public <I extends Message, O extends XdsResource> void handleResponse(
-                    ResourceParser<I, O> resourceParser, DiscoveryResponse value, ActualStream sender,
-                    ConfigSourceLifecycleObserver observer) {
-                if (cntRef.getAndIncrement() < 3) {
-                    sender.onError(new Exception("error"));
-                    return;
-                }
-                try {
-                    latch.await();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-                super.handleResponse(resourceParser, value, sender, observer);
-            }
-        };
+        final StateCoordinator stateCoordinator = new StateCoordinator(eventLoop.get(), 15_000, false);
+        final RecordingLifecycleObserver lifecycleObserver = new RecordingLifecycleObserver();
+        final Backoff backoff = Backoff.ofDefault();
 
-        try (SotwXdsStream stream = new SotwXdsStream(stub, SERVER_INFO, Backoff.ofDefault(), eventLoop.get(),
-                                                      responseHandler, subscriberStorage, lifecycleObserver)) {
+        cache.setSnapshot(
+                GROUP,
+                Snapshot.create(
+                        ImmutableList.of(createInvalidCluster(clusterName, 1)),
+                        ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
+                        ImmutableList.of(), "1"));
+
+        try (AdsXdsStream stream =
+                     AdsXdsStream.of(
+                             owner -> new SotwActualStream(stub, owner, stateCoordinator, eventLoop.get(),
+                                                           lifecycleObserver, backoff, SERVER_INFO),
+                             backoff, eventLoop.get(), stateCoordinator, lifecycleObserver,
+                             XdsType.discoverableTypes())) {
 
             await().pollDelay(100, TimeUnit.MILLISECONDS)
-                   .untilAsserted(() -> assertThat(responseHandler.getResponses()).isEmpty());
+                   .untilAsserted(() -> assertThat(lifecycleObserver.responses()).isEmpty());
 
-            subscriberStorage.register(XdsType.CLUSTER, clusterName, watcher);
+            stateCoordinator.register(XdsType.CLUSTER, clusterName, watcher);
             stream.start();
 
-            await().untilAtomic(cntRef, Matchers.greaterThanOrEqualTo(3));
-            assertThat(responseHandler.getResponses()).isEmpty();
-
-            latch.countDown();
-            // Once an update is done, the handler will eventually receive the new update
-            await().until(() -> !responseHandler.getResponses().isEmpty());
-            assertThat(responseHandler.getResponses()).allSatisfy(res -> {
-                final Cluster expected = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
-                assertThat(res.getResources(0).unpack(Cluster.class)).isEqualTo(expected);
-            });
+            await().until(() -> lifecycleObserver.requests().stream().anyMatch(DiscoveryRequest::hasErrorDetail));
         }
     }
 
@@ -263,43 +260,45 @@ class SotwXdsStreamTest {
     void nackResponse() throws Exception {
         final SotwDiscoveryStub stub = SotwDiscoveryStub.ads(GrpcClients.builder(server.httpUri()));
         final DummyResourceWatcher watcher = new DummyResourceWatcher();
-        final SubscriberStorage subscriberStorage = new SubscriberStorage(eventLoop.get(), 15_000);
-        final AtomicBoolean ackRef = new AtomicBoolean();
-        final AtomicInteger nackResponses = new AtomicInteger();
-        final TestResponseHandler responseHandler = new TestResponseHandler() {
-            @Override
-            public <I extends Message, O extends XdsResource> void handleResponse(
-                    ResourceParser<I, O> resourceParser, DiscoveryResponse value, ActualStream sender,
-                    ConfigSourceLifecycleObserver observer) {
-                if (ackRef.get()) {
-                    super.handleResponse(resourceParser, value, sender, observer);
-                } else {
-                    nackResponses.incrementAndGet();
-                    sender.nackResponse(XdsType.CLUSTER, value.getNonce(), "temporarily unavailable");
-                }
-            }
-        };
+        final StateCoordinator stateCoordinator = new StateCoordinator(eventLoop.get(), 15_000, false);
+        final RecordingLifecycleObserver lifecycleObserver = new RecordingLifecycleObserver();
+        final Backoff backoff = Backoff.ofDefault();
 
-        try (SotwXdsStream stream = new SotwXdsStream(
-                stub, SERVER_INFO, Backoff.ofDefault(), eventLoop.get(), responseHandler,
-                subscriberStorage, lifecycleObserver)) {
+        cache.setSnapshot(
+                GROUP,
+                Snapshot.create(
+                        ImmutableList.of(createInvalidCluster(clusterName, 1)),
+                        ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
+                        ImmutableList.of(), "1"));
+
+        try (AdsXdsStream stream =
+                     AdsXdsStream.of(
+                             owner -> new SotwActualStream(stub, owner, stateCoordinator, eventLoop.get(),
+                                                           lifecycleObserver, backoff, SERVER_INFO),
+                             backoff, eventLoop.get(), stateCoordinator, lifecycleObserver,
+                             XdsType.discoverableTypes())) {
 
             await().pollDelay(100, TimeUnit.MILLISECONDS)
-                   .untilAsserted(() -> assertThat(responseHandler.getResponses()).isEmpty());
+                   .untilAsserted(() -> assertThat(lifecycleObserver.responses()).isEmpty());
 
-            subscriberStorage.register(XdsType.CLUSTER, clusterName, watcher);
+            stateCoordinator.register(XdsType.CLUSTER, clusterName, watcher);
             stream.start();
 
-            await().untilAtomic(nackResponses, Matchers.greaterThan(2));
-            assertThat(responseHandler.getResponses()).isEmpty();
-            ackRef.set(true);
+            await().until(() -> lifecycleObserver.requests().stream().anyMatch(DiscoveryRequest::hasErrorDetail));
+
+            cache.setSnapshot(
+                    GROUP,
+                    Snapshot.create(
+                            ImmutableList.of(createCluster(clusterName, 1)),
+                            ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
+                            ImmutableList.of(), "2"));
 
             // Once an update is done, the handler will eventually receive the new update
-            await().until(() -> !responseHandler.getResponses().isEmpty());
-            assertThat(responseHandler.getResponses()).allSatisfy(res -> {
+            await().untilAsserted(() -> assertThat(lifecycleObserver.responses()).anySatisfy(res -> {
+                assertThat(res.getVersionInfo()).isEqualTo("2");
                 final Cluster expected = cache.getSnapshot(GROUP).clusters().resources().get(clusterName);
                 assertThat(res.getResources(0).unpack(Cluster.class)).isEqualTo(expected);
-            });
+            }));
         }
     }
 
@@ -307,6 +306,21 @@ class SotwXdsStreamTest {
         return Cluster.newBuilder()
                       .setName(clusterName)
                       .setConnectTimeout(Duration.newBuilder().setSeconds(connectTimeout))
+                      .build();
+    }
+
+    static Cluster createInvalidCluster(String clusterName, long connectTimeout) {
+        final ApiConfigSource apiConfigSource = ApiConfigSource.newBuilder()
+                                                               .setApiType(ApiType.GRPC)
+                                                               .build();
+        final ConfigSource configSource = ConfigSource.newBuilder()
+                                                      .setApiConfigSource(apiConfigSource)
+                                                      .build();
+        return Cluster.newBuilder()
+                      .setName(clusterName)
+                      .setConnectTimeout(Duration.newBuilder().setSeconds(connectTimeout))
+                      .setEdsClusterConfig(Cluster.EdsClusterConfig.newBuilder()
+                                                                   .setEdsConfig(configSource))
                       .build();
     }
 }
