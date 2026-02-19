@@ -85,9 +85,12 @@ jwt = "4.5.0"
 kafka = "3.9.1"
 kotlin = "2.3.0"
 kotlin-coroutine = "1.10.2"
+kindcontainer = "2.0.0"
 krotodc = "1.2.2"
 ktlint-gradle-plugin = "14.0.1"
 kubernetes-client = "7.5.2"
+# used by :it:istio
+istio = "1.29.0"
 logback12 = "1.2.13"
 logback13 = "1.3.14"
 logback14 = "1.4.14"
@@ -846,6 +849,9 @@ exclusions = ["org.slf4j:slf4j-api"]
 module = "io.fabric8:kubernetes-client"
 version.ref = "kubernetes-client"
 exclusions = ["io.fabric8:kubernetes-httpclient-okhttp", "org.slf4j:slf4j-api"]
+[libraries.kubernetes-httpclient-okhttp]
+module = "io.fabric8:kubernetes-httpclient-okhttp"
+version.ref = "kubernetes-client"
 [libraries.kubernetes-server-mock]
 module = "io.fabric8:kubernetes-server-mock"
 version.ref = "kubernetes-client"
@@ -1402,6 +1408,9 @@ version.ref = "spring-boot4"
 module = "org.testcontainers:testcontainers"
 [libraries.testcontainers-consul]
 module = "org.testcontainers:testcontainers-consul"
+[libraries.kindcontainer]
+module = "com.dajudge.kindcontainer:kindcontainer"
+version.ref = "kindcontainer"
 [libraries.testcontainers-junit-jupiter]
 module = "org.testcontainers:testcontainers-junit-jupiter"
 
