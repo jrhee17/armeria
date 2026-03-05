@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Claude plugin for the Armeria microservice framework, providing AI-assisted guidance for common development tasks",
-    "version": "0.0.2"
+    "version": "0.0.1"
   },
   "plugins": [
     {
       "name": "armeria",
       "source": {
         "source": "git-subdir",
-        "url": "https://github.com/jrhee17/armeria.git",
+        "url": "https://github.com/line/armeria.git",
         "path": "site-new/src/content/community/claude-plugin"
       }
     }
