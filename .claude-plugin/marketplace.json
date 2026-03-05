@@ -12,8 +12,8 @@
     {
       "name": "armeria",
       "source": {
-        "url": "git-subdir",
-        "repo": "https://github.com/jrhee17/armeria.git",
+        "source": "git-subdir",
+        "url": "https://github.com/jrhee17/armeria.git",
         "path": "site-new/src/content/community/claude-plugin"
       }
     }
