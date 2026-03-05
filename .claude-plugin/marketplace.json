@@ -1,5 +1,5 @@
 {
-  "name": "Armeria Claude Plugins",
+  "name": "armeria-plugins",
   "owner": {
     "name": "armerian",
     "email": "dl_armeria@linecorp.com"
@@ -12,11 +12,10 @@
     {
       "name": "armeria",
       "source": {
-        "source": "git-subdir",
-        "repo": "line/armeria",
-        "subdir": "site-new/src/content/community/claude-plugin"
-      },
-      "description": "Deployment automation tools"
+        "url": "git-subdir",
+        "repo": "https://github.com/jrhee17/armeria.git",
+        "path": "site-new/src/content/community/claude-plugin"
+      }
     }
   ]
 }
