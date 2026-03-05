@@ -1,0 +1,17 @@
+{
+  "id": "armeria",
+  "name": "Armeria Assistant",
+  "version": "0.1.0",
+  "description": "Claude plugin for the Armeria microservice framework, providing AI-assisted guidance for common development tasks",
+  "author": "LY Corporation",
+  "repository": "https://github.com/line/armeria",
+  "license": "Apache-2.0",
+  "source": "./site-new/src/content/community/claude-plugin",
+  "tags": [
+    "java",
+    "microservices",
+    "grpc",
+    "thrift",
+    "reactive"
+  ]
+}
