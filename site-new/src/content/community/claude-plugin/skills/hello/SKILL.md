@@ -1,3 +1,8 @@
+---
+name: hello-armeria
+description: Says hello for you
+---
+
 # Hello Echo Test
 
 This is a simple test skill to verify the Claude plugin is working correctly.
