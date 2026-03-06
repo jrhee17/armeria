@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Claude plugin for the Armeria microservice framework, providing AI-assisted guidance for common development tasks",
-    "version": "0.0.1"
+    "version": "0.0.3"
   },
   "plugins": [
     {
