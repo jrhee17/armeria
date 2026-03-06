@@ -13,8 +13,8 @@
       "name": "armeria",
       "source": {
         "source": "git-subdir",
-        "url": "https://github.com/line/armeria.git",
-        "path": "site-new/src/content/community/claude-plugin"
+        "url": "https://github.com/jrhee17/armeria.git",
+        "path": "tools/claude-plugins/armeria"
       }
     }
   ]
