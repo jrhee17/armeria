@@ -117,6 +117,11 @@ Server.builder()
   separate rewrite decorator if needed; add later only if necessary.
 
 ## Next Steps (if proceeding)
-1) Rewire internals to use the shared decorator implementation without changing public APIs.
-2) Expose the decorator and its builder as public API after the internal consolidation lands.
-3) Expose the decorator via DocService once the public API is stable.
+1) Rewire internals to use the shared decorator implementation without changing public APIs or behavior.
+   - Preserve decorator order: existing user/server decorators should run **before** HTTP/JSON transcoding
+     (i.e., apply the transcoding decorator last in `GrpcServiceBuilder.enableHttpJsonTranscoding(...)`).
+2) Adjust type hierarchy:
+   - `UnframedGrpcService` implements `GrpcService`.
+   - `HttpJsonTranscodingService` becomes a pure decorator (no `GrpcService`).
+3) Expose the decorator and its builder as public API after the internal consolidation lands.
+4) Expose the decorator via DocService once the public API is stable.
