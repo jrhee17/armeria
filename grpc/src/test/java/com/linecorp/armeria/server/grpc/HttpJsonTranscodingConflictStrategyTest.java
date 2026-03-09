@@ -31,7 +31,7 @@ import com.google.api.HttpRule;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.it.grpc.HttpJsonTranscodingTestService;
 import com.linecorp.armeria.server.Route;
-import com.linecorp.armeria.server.grpc.HttpJsonTranscodingService.TranscodingSpec;
+import com.linecorp.armeria.server.grpc.HttpJsonTranscodingEngine.TranscodingSpec;
 
 class HttpJsonTranscodingConflictStrategyTest {
 

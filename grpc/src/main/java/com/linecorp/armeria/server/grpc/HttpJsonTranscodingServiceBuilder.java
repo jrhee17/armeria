@@ -62,8 +62,8 @@ import com.google.protobuf.Value;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.server.Route;
-import com.linecorp.armeria.server.grpc.HttpJsonTranscodingService.Field;
-import com.linecorp.armeria.server.grpc.HttpJsonTranscodingService.TranscodingSpec;
+import com.linecorp.armeria.server.grpc.HttpJsonTranscodingEngine.Field;
+import com.linecorp.armeria.server.grpc.HttpJsonTranscodingEngine.TranscodingSpec;
 
 import io.grpc.MethodDescriptor.MethodType;
 import io.grpc.ServerMethodDefinition;
