@@ -115,13 +115,18 @@ Server.builder()
   resolved via the delegate chain.
 - Path prefix / rewrite is intentionally not part of the initial decorator API. Use route binding or a
   separate rewrite decorator if needed; add later only if necessary.
+## Shared Transcoding Engine (Composition)
+- Extract the HTTP/JSON ↔ gRPC conversion logic into a small, package‑private “engine” that has no direct
+  dependency on server‑only types beyond what’s needed for request/response conversion.
+- Thin adapters (server `GrpcService`, pure `HttpService` decorator, and a future client/proxy adapter)
+  should delegate to the same engine.
+- Keep `HttpJsonTranscodingService` as a `GrpcService` to preserve `routes()` and existing behaviors;
+  introduce a separate pure decorator that uses the same engine.
 
 ## Next Steps (if proceeding)
-1) Rewire internals to use the shared decorator implementation without changing public APIs or behavior.
-   - Preserve decorator order: existing user/server decorators should run **before** HTTP/JSON transcoding
-     (i.e., apply the transcoding decorator last in `GrpcServiceBuilder.enableHttpJsonTranscoding(...)`).
+1) Rewire internals to use a shared transcoding engine + adapter without changing public APIs or behavior.
 2) Adjust type hierarchy:
-   - `UnframedGrpcService` implements `GrpcService`.
-   - `HttpJsonTranscodingService` becomes a pure decorator (no `GrpcService`).
+   - Keep `HttpJsonTranscodingService` as a `GrpcService` that delegates to the engine.
+   - Introduce a pure decorator class that delegates to the engine.
 3) Expose the decorator and its builder as public API after the internal consolidation lands.
 4) Expose the decorator via DocService once the public API is stable.
