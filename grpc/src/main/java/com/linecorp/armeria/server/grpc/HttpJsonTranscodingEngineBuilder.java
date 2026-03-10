@@ -72,28 +72,26 @@ import io.grpc.protobuf.ProtoMethodDescriptorSupplier;
 import io.grpc.protobuf.ProtoServiceDescriptorSupplier;
 import io.netty.util.internal.StringUtil;
 
-final class HttpJsonTranscodingServiceBuilder {
+final class HttpJsonTranscodingEngineBuilder {
 
-    private static final Logger logger = LoggerFactory.getLogger(HttpJsonTranscodingServiceBuilder.class);
+    private static final Logger logger = LoggerFactory.getLogger(HttpJsonTranscodingEngineBuilder.class);
 
     private final Map<Descriptors.MethodDescriptor, HttpRule> httpRules = new HashMap<>();
 
-    private final GrpcService delegate;
     private final Map<String, GrpcMethod> methods;
 
     private final HttpJsonTranscodingOptions options;
 
-    HttpJsonTranscodingServiceBuilder(GrpcService delegate,
-                                      Map<String, GrpcMethod> methods,
-                                      HttpJsonTranscodingOptions options) {
-        this.delegate = delegate;
+    HttpJsonTranscodingEngineBuilder(Map<String, GrpcMethod> methods,
+                                     HttpJsonTranscodingOptions options) {
         this.methods = methods;
         this.options = options;
     }
 
-    static HttpJsonTranscodingServiceBuilder of(GrpcService delegate, HttpJsonTranscodingOptions options) {
+    static HttpJsonTranscodingEngineBuilder of(Iterable<ServerServiceDefinition> serviceDefinitions,
+                                               HttpJsonTranscodingOptions options) {
         final Map<String, GrpcMethod> methods = new HashMap<>();
-        for (ServerServiceDefinition serviceDefinition : delegate.services()) {
+        for (ServerServiceDefinition serviceDefinition : serviceDefinitions) {
             final Descriptors.ServiceDescriptor serviceDesc = serviceDescriptor(serviceDefinition);
             if (serviceDesc == null) {
                 continue;
@@ -108,9 +106,8 @@ final class HttpJsonTranscodingServiceBuilder {
                 methods.put(methodDesc.getFullName(), new GrpcMethod(methodDefinition, methodDesc));
             }
         }
-        final HttpJsonTranscodingServiceBuilder builder = new HttpJsonTranscodingServiceBuilder(delegate,
-                                                                                                methods,
-                                                                                                options);
+        final HttpJsonTranscodingEngineBuilder builder =
+                new HttpJsonTranscodingEngineBuilder(methods, options);
         if (!options.ignoreProtoHttpRule()) {
             for (GrpcMethod method : methods.values()) {
                 final MethodOptions methodOptions = method.descriptor.getOptions();
@@ -352,12 +349,13 @@ final class HttpJsonTranscodingServiceBuilder {
         routeAndSpecs.put(route, spec);
     }
 
-    GrpcService build() {
+    @Nullable
+    HttpJsonTranscodingEngine build() {
         if (httpRules.isEmpty()) {
-            return delegate;
+            return null;
         }
         final Map<Route, TranscodingSpec> routeAndSpecs = buildRouteAndSpecs();
-        return new HttpJsonTranscodingService(delegate, routeAndSpecs, options);
+        return new HttpJsonTranscodingEngine(routeAndSpecs, options);
     }
 
     private void registerHttpRule(Descriptors.MethodDescriptor method, HttpRule httpRule) {

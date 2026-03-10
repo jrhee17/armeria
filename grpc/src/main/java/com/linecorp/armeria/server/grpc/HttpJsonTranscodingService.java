@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.server.grpc;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -52,10 +54,14 @@ final class HttpJsonTranscodingService extends SimpleDecoratingHttpService
     HttpJsonTranscodingService(GrpcService delegate,
                                Map<Route, TranscodingSpec> routeAndSpecs,
                                HttpJsonTranscodingOptions httpJsonTranscodingOptions) {
+        this(delegate, new HttpJsonTranscodingEngine(routeAndSpecs, httpJsonTranscodingOptions));
+    }
+
+    HttpJsonTranscodingService(GrpcService delegate, HttpJsonTranscodingEngine engine) {
         super(delegate);
         this.delegate = delegate;
-        engine = new HttpJsonTranscodingEngine(routeAndSpecs, httpJsonTranscodingOptions);
-        routes = buildRoutes(delegate.routes(), engine.routes());
+        this.engine = requireNonNull(engine, "engine");
+        routes = buildRoutes(delegate.routes(), this.engine.routes());
     }
 
     @Nullable
