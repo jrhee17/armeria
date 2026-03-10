@@ -78,6 +78,7 @@ import com.linecorp.armeria.internal.common.JacksonUtil;
 import com.linecorp.armeria.internal.server.grpc.HttpEndpointSpecification;
 import com.linecorp.armeria.internal.server.grpc.HttpEndpointSpecification.Parameter;
 import com.linecorp.armeria.internal.server.grpc.HttpEndpointSupport;
+import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.HttpStatusException;
 import com.linecorp.armeria.server.Route;
 import com.linecorp.armeria.server.ServiceRequestContext;
@@ -88,23 +89,26 @@ import com.linecorp.armeria.unsafe.PooledObjects;
 
 import io.grpc.ServerMethodDefinition;
 
-final class HttpJsonTranscodingEngine extends AbstractUnframedGrpcService
-        implements HttpEndpointSupport {
+final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
     private static final Logger logger = LoggerFactory.getLogger(HttpJsonTranscodingEngine.class);
     private static final ObjectMapper mapper = JacksonUtil.newDefaultObjectMapper();
 
+    private final HttpService delegate;
+    private final UnframedGrpcErrorHandler unframedGrpcErrorHandler;
     private final Map<Route, TranscodingSpec> routeAndSpecs;
     private final Set<Route> routes;
 
-    HttpJsonTranscodingEngine(GrpcService delegate,
+    HttpJsonTranscodingEngine(HttpService delegate, Set<Route> delegateRoutes,
                               Map<Route, TranscodingSpec> routeAndSpecs,
                               HttpJsonTranscodingOptions httpJsonTranscodingOptions) {
-        super(delegate, httpJsonTranscodingOptions.errorHandler());
+        this.delegate = delegate;
+        requireNonNull(delegateRoutes, "delegateRoutes");
+        unframedGrpcErrorHandler = httpJsonTranscodingOptions.errorHandler();
         this.routeAndSpecs = routeAndSpecs;
 
-        final LinkedHashSet<Route> linkedHashSet = new LinkedHashSet<>(delegate.routes().size() +
+        final LinkedHashSet<Route> linkedHashSet = new LinkedHashSet<>(delegateRoutes.size() +
                                                                        routeAndSpecs.size());
-        linkedHashSet.addAll(delegate.routes());
+        linkedHashSet.addAll(delegateRoutes);
 
         routeAndSpecs.entrySet().stream().sorted((o1, o2) -> {
             if (o1.getValue().hasVerb()) {
@@ -146,31 +150,16 @@ final class HttpJsonTranscodingEngine extends AbstractUnframedGrpcService
                                              spec.httpRule());
     }
 
-    /**
-     * Returns the {@link Route}s which are supported by this service and the {@code delegate}.
-     */
-    @Override
-    public Set<Route> routes() {
+    Set<Route> routes() {
         return routes;
     }
 
-    @Nullable
-    @Override
-    public ServerMethodDefinition<?, ?> methodDefinition(ServiceRequestContext ctx) {
-        final TranscodingSpec spec = routeAndSpecs.get(ctx.config().mappedRoute());
-        if (spec != null) {
-            return spec.method();
-        }
-        return super.methodDefinition(ctx);
-    }
-
-    @Override
     public HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
         final TranscodingSpec spec = routeAndSpecs.get(ctx.config().mappedRoute());
         if (spec != null) {
             return serve0(ctx, req, spec);
         }
-        return unwrap().serve(ctx, req);
+        return delegate.serve(ctx, req);
     }
 
     Map<Route, TranscodingSpec> routeAndSpecs() {
@@ -215,9 +204,9 @@ final class HttpJsonTranscodingEngine extends AbstractUnframedGrpcService
                             requestContent = convertToJson(ctx, clientRequest, spec);
                         }
 
-                        frameAndServe(unwrap(), ctx, grpcHeaders.build(),
-                                      requestContent, responseFuture,
-                                      generateResponseConverter(spec));
+                        AbstractUnframedGrpcService.frameAndServe(
+                                delegate, ctx, grpcHeaders.build(), requestContent, responseFuture,
+                                unframedGrpcErrorHandler, generateResponseConverter(spec));
                     } catch (IllegalArgumentException iae) {
                         responseFuture.completeExceptionally(
                                 HttpStatusException.of(HttpStatus.BAD_REQUEST, iae));

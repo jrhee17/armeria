@@ -132,8 +132,9 @@ class UnframedGrpcServiceTest {
                                                                .build();
         final AggregatedHttpResponse framedResponse = AggregatedHttpResponse.of(responseHeaders,
                                                                                 HttpData.wrap(byteBuf));
-        UnframedGrpcService.deframeAndRespond(ctx, framedResponse, res, UnframedGrpcErrorHandler.of(),
-                                              contentType(MediaType.PROTOBUF));
+        AbstractUnframedGrpcService.deframeAndRespond(ctx, framedResponse, res,
+                                                      UnframedGrpcErrorHandler.of(),
+                                                      contentType(MediaType.PROTOBUF));
         assertThat(byteBuf.refCnt()).isZero();
     }
 

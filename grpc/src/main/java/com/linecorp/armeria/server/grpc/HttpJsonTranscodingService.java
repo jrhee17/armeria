@@ -16,14 +16,13 @@
 
 package com.linecorp.armeria.server.grpc;
 
-import static java.util.Objects.requireNonNull;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import com.google.common.annotations.VisibleForTesting;
 
+import com.linecorp.armeria.common.ExchangeType;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.SerializationFormat;
@@ -31,6 +30,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.server.grpc.HttpEndpointSpecification;
 import com.linecorp.armeria.internal.server.grpc.HttpEndpointSupport;
 import com.linecorp.armeria.server.Route;
+import com.linecorp.armeria.server.RoutingContext;
 import com.linecorp.armeria.server.ServiceRequestContext;
 import com.linecorp.armeria.server.SimpleDecoratingHttpService;
 import com.linecorp.armeria.server.grpc.HttpJsonTranscodingEngine.TranscodingSpec;
@@ -43,17 +43,16 @@ import io.grpc.ServerServiceDefinition;
  */
 final class HttpJsonTranscodingService extends SimpleDecoratingHttpService
         implements GrpcService, HttpEndpointSupport {
+    private final GrpcService delegate;
     private final HttpJsonTranscodingEngine engine;
 
     HttpJsonTranscodingService(GrpcService delegate,
                                Map<Route, TranscodingSpec> routeAndSpecs,
                                HttpJsonTranscodingOptions httpJsonTranscodingOptions) {
-        this(new HttpJsonTranscodingEngine(delegate, routeAndSpecs, httpJsonTranscodingOptions));
-    }
-
-    HttpJsonTranscodingService(HttpJsonTranscodingEngine engine) {
-        super(engine);
-        this.engine = requireNonNull(engine, "engine");
+        super(delegate);
+        this.delegate = delegate;
+        engine = new HttpJsonTranscodingEngine(delegate, delegate.routes(), routeAndSpecs,
+                                               httpJsonTranscodingOptions);
     }
 
     @Nullable
@@ -71,29 +70,38 @@ final class HttpJsonTranscodingService extends SimpleDecoratingHttpService
     }
 
     @Override
+    public ExchangeType exchangeType(RoutingContext routingContext) {
+        return AbstractUnframedGrpcService.exchangeType(routingContext, delegate);
+    }
+
+    @Override
     public boolean isFramed() {
-        return engine.isFramed();
+        return false;
     }
 
     @Override
     public List<ServerServiceDefinition> services() {
-        return engine.services();
+        return delegate.services();
     }
 
     @Override
     public Map<Route, ServerMethodDefinition<?, ?>> methodsByRoute() {
-        return engine.methodsByRoute();
+        return delegate.methodsByRoute();
     }
 
     @Override
     public Set<SerializationFormat> supportedSerializationFormats() {
-        return engine.supportedSerializationFormats();
+        return delegate.supportedSerializationFormats();
     }
 
     @Nullable
     @Override
     public ServerMethodDefinition<?, ?> methodDefinition(ServiceRequestContext ctx) {
-        return engine.methodDefinition(ctx);
+        final TranscodingSpec spec = engine.routeAndSpecs().get(ctx.config().mappedRoute());
+        if (spec != null) {
+            return spec.method();
+        }
+        return delegate.methodDefinition(ctx);
     }
 
     @Override

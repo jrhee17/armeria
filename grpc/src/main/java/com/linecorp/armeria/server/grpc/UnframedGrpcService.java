@@ -18,12 +18,15 @@ package com.linecorp.armeria.server.grpc;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.AggregationOptions;
+import com.linecorp.armeria.common.ExchangeType;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
@@ -39,12 +42,14 @@ import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.Route;
+import com.linecorp.armeria.server.RoutingContext;
 import com.linecorp.armeria.server.ServiceRequestContext;
 import com.linecorp.armeria.server.SimpleDecoratingHttpService;
 import com.linecorp.armeria.server.encoding.EncodingService;
 
 import io.grpc.MethodDescriptor.MethodType;
 import io.grpc.ServerMethodDefinition;
+import io.grpc.ServerServiceDefinition;
 
 /**
  * A {@link SimpleDecoratingHttpService} which allows {@link GrpcService} to serve requests without the framing
@@ -61,20 +66,37 @@ import io.grpc.ServerMethodDefinition;
  *     </li>
  * </ul>
  */
-final class UnframedGrpcService extends AbstractUnframedGrpcService {
+final class UnframedGrpcService extends SimpleDecoratingHttpService implements GrpcService {
 
     private final GrpcService delegate;
     private final HandlerRegistry registry;
+    private final UnframedGrpcErrorHandler unframedGrpcErrorHandler;
 
     /**
      * Creates a new instance that decorates the specified {@link HttpService}.
      */
     UnframedGrpcService(GrpcService delegate, HandlerRegistry registry,
                         UnframedGrpcErrorHandler unframedGrpcErrorHandler) {
-        super(delegate, unframedGrpcErrorHandler);
+        super(delegate);
         this.delegate = delegate;
         this.registry = registry;
+        this.unframedGrpcErrorHandler = unframedGrpcErrorHandler;
         checkArgument(delegate.isFramed(), "Decorated service must be a framed GrpcService.");
+    }
+
+    @Override
+    public Set<Route> routes() {
+        return delegate.routes();
+    }
+
+    @Override
+    public ExchangeType exchangeType(RoutingContext routingContext) {
+        return AbstractUnframedGrpcService.exchangeType(routingContext, (HttpService) unwrap());
+    }
+
+    @Override
+    public boolean isFramed() {
+        return false;
     }
 
     @Nullable
@@ -91,6 +113,16 @@ final class UnframedGrpcService extends AbstractUnframedGrpcService {
     @Override
     public Map<Route, ServerMethodDefinition<?, ?>> methodsByRoute() {
         return registry.methodsByRoute();
+    }
+
+    @Override
+    public List<ServerServiceDefinition> services() {
+        return delegate.services();
+    }
+
+    @Override
+    public Set<SerializationFormat> supportedSerializationFormats() {
+        return delegate.supportedSerializationFormats();
     }
 
     @Override
@@ -165,8 +197,9 @@ final class UnframedGrpcService extends AbstractUnframedGrpcService {
                                            builder -> builder.contentType(contentType));
                                    return AggregatedHttpResponse.of(headers, response.content());
                                };
-                       frameAndServe(unwrap(), ctx, grpcHeaders.build(), clientRequest.content(),
-                                     responseFuture, responseConverter);
+                       AbstractUnframedGrpcService.frameAndServe(
+                               unwrap(), ctx, grpcHeaders.build(), clientRequest.content(),
+                               responseFuture, unframedGrpcErrorHandler, responseConverter);
                    }
                }
                return null;
