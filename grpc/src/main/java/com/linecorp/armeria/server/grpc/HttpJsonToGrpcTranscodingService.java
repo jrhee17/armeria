@@ -17,6 +17,7 @@
 package com.linecorp.armeria.server.grpc;
 
 import java.util.Map;
+import java.util.Set;
 
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
@@ -24,16 +25,15 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.server.grpc.HttpEndpointSpecification;
 import com.linecorp.armeria.internal.server.grpc.HttpEndpointSupport;
 import com.linecorp.armeria.server.HttpService;
+import com.linecorp.armeria.server.HttpServiceWithRoutes;
 import com.linecorp.armeria.server.Route;
 import com.linecorp.armeria.server.ServiceRequestContext;
-import com.linecorp.armeria.server.SimpleDecoratingHttpService;
 import com.linecorp.armeria.server.grpc.HttpJsonTranscodingEngine.TranscodingSpec;
 
 /**
- * Converts HTTP/JSON request to gRPC request and delegates it to the given {@link GrpcService}.
+ * Converts HTTP/JSON request to gRPC request and delegates it to the given {@link HttpService}.
  */
-final class HttpJsonToGrpcTranscodingService extends SimpleDecoratingHttpService
-        implements HttpEndpointSupport {
+final class HttpJsonToGrpcTranscodingService implements HttpServiceWithRoutes, HttpEndpointSupport {
 
     private final HttpService delegate;
     private final HttpJsonTranscodingEngine engine;
@@ -41,7 +41,6 @@ final class HttpJsonToGrpcTranscodingService extends SimpleDecoratingHttpService
     HttpJsonToGrpcTranscodingService(GrpcService delegate,
                                      Map<Route, TranscodingSpec> routeAndSpecs,
                                      HttpJsonTranscodingOptions httpJsonTranscodingOptions) {
-        super(delegate);
         this.delegate = delegate;
         engine = new HttpJsonTranscodingEngine(routeAndSpecs, httpJsonTranscodingOptions);
     }
@@ -50,6 +49,11 @@ final class HttpJsonToGrpcTranscodingService extends SimpleDecoratingHttpService
     @Override
     public HttpEndpointSpecification httpEndpointSpecification(Route route) {
         return engine.httpEndpointSpecification(route);
+    }
+
+    @Override
+    public Set<Route> routes() {
+        return engine.routes();
     }
 
     @Override
