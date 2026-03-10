@@ -132,9 +132,8 @@ class UnframedGrpcServiceTest {
                                                                .build();
         final AggregatedHttpResponse framedResponse = AggregatedHttpResponse.of(responseHeaders,
                                                                                 HttpData.wrap(byteBuf));
-        AbstractUnframedGrpcService.deframeAndRespond(ctx, framedResponse, res,
-                                                      UnframedGrpcErrorHandler.of(),
-                                                      contentType(MediaType.PROTOBUF));
+        new UnframedGrpcSupport(UnframedGrpcErrorHandler.of())
+                .deframeAndRespond(ctx, framedResponse, res, contentType(MediaType.PROTOBUF));
         assertThat(byteBuf.refCnt()).isZero();
     }
 
@@ -147,8 +146,8 @@ class UnframedGrpcServiceTest {
                                                                .build();
         final AggregatedHttpResponse framedResponse = AggregatedHttpResponse
                 .of(responseHeaders, HttpData.wrap(byteBuf));
-        AbstractUnframedGrpcService.deframeAndRespond(ctx, framedResponse, res, UnframedGrpcErrorHandler.of(),
-                                                      contentType(MediaType.PROTOBUF));
+        new UnframedGrpcSupport(UnframedGrpcErrorHandler.of())
+                .deframeAndRespond(ctx, framedResponse, res, contentType(MediaType.PROTOBUF));
         assertThat(byteBuf.refCnt()).isZero();
     }
 
@@ -161,8 +160,8 @@ class UnframedGrpcServiceTest {
                                                                .build();
         final AggregatedHttpResponse framedResponse = AggregatedHttpResponse.of(responseHeaders,
                                                                                 HttpData.wrap(byteBuf));
-        AbstractUnframedGrpcService.deframeAndRespond(ctx, framedResponse, res, UnframedGrpcErrorHandler.of(),
-                                                      contentType(MediaType.PROTOBUF));
+        new UnframedGrpcSupport(UnframedGrpcErrorHandler.of())
+                .deframeAndRespond(ctx, framedResponse, res, contentType(MediaType.PROTOBUF));
         assertThat(byteBuf.refCnt()).isZero();
     }
 
@@ -176,8 +175,8 @@ class UnframedGrpcServiceTest {
                                                                .build();
         final AggregatedHttpResponse framedResponse = AggregatedHttpResponse
                 .of(responseHeaders, HttpData.wrap(byteBuf));
-        AbstractUnframedGrpcService.deframeAndRespond(ctx, framedResponse, res, UnframedGrpcErrorHandler.of(),
-                                                      contentType(MediaType.PROTOBUF));
+        new UnframedGrpcSupport(UnframedGrpcErrorHandler.of())
+                .deframeAndRespond(ctx, framedResponse, res, contentType(MediaType.PROTOBUF));
         assertThat(HttpResponse.of(res).aggregate().get().status()).isEqualTo(HttpStatus.OK);
     }
 

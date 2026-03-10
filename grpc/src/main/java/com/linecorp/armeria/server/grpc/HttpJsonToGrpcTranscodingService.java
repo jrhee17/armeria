@@ -23,6 +23,7 @@ import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.internal.server.grpc.HttpEndpointSpecification;
 import com.linecorp.armeria.internal.server.grpc.HttpEndpointSupport;
+import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.Route;
 import com.linecorp.armeria.server.ServiceRequestContext;
 import com.linecorp.armeria.server.SimpleDecoratingHttpService;
@@ -34,14 +35,15 @@ import com.linecorp.armeria.server.grpc.HttpJsonTranscodingEngine.TranscodingSpe
 final class HttpJsonToGrpcTranscodingService extends SimpleDecoratingHttpService
         implements HttpEndpointSupport {
 
+    private final HttpService delegate;
     private final HttpJsonTranscodingEngine engine;
 
     HttpJsonToGrpcTranscodingService(GrpcService delegate,
                                      Map<Route, TranscodingSpec> routeAndSpecs,
                                      HttpJsonTranscodingOptions httpJsonTranscodingOptions) {
         super(delegate);
-        engine = new HttpJsonTranscodingEngine(delegate, delegate.routes(), routeAndSpecs,
-                                               httpJsonTranscodingOptions);
+        this.delegate = delegate;
+        engine = new HttpJsonTranscodingEngine(routeAndSpecs, httpJsonTranscodingOptions);
     }
 
     @Nullable
@@ -52,6 +54,6 @@ final class HttpJsonToGrpcTranscodingService extends SimpleDecoratingHttpService
 
     @Override
     public HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
-        return engine.serve(ctx, req);
+        return engine.serve(ctx, req, delegate);
     }
 }

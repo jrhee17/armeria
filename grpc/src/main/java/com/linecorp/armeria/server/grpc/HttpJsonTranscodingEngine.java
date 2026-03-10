@@ -93,23 +93,16 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
     private static final Logger logger = LoggerFactory.getLogger(HttpJsonTranscodingEngine.class);
     private static final ObjectMapper mapper = JacksonUtil.newDefaultObjectMapper();
 
-    private final HttpService delegate;
-    private final UnframedGrpcErrorHandler unframedGrpcErrorHandler;
+    private final UnframedGrpcSupport unframedGrpcSupport;
     private final Map<Route, TranscodingSpec> routeAndSpecs;
     private final Set<Route> routes;
 
-    HttpJsonTranscodingEngine(HttpService delegate, Set<Route> delegateRoutes,
-                              Map<Route, TranscodingSpec> routeAndSpecs,
+    HttpJsonTranscodingEngine(Map<Route, TranscodingSpec> routeAndSpecs,
                               HttpJsonTranscodingOptions httpJsonTranscodingOptions) {
-        this.delegate = delegate;
-        requireNonNull(delegateRoutes, "delegateRoutes");
-        unframedGrpcErrorHandler = httpJsonTranscodingOptions.errorHandler();
+        unframedGrpcSupport = new UnframedGrpcSupport(httpJsonTranscodingOptions.errorHandler());
         this.routeAndSpecs = routeAndSpecs;
 
-        final LinkedHashSet<Route> linkedHashSet = new LinkedHashSet<>(delegateRoutes.size() +
-                                                                       routeAndSpecs.size());
-        linkedHashSet.addAll(delegateRoutes);
-
+        final LinkedHashSet<Route> linkedHashSet = new LinkedHashSet<>(routeAndSpecs.size());
         routeAndSpecs.entrySet().stream().sorted((o1, o2) -> {
             if (o1.getValue().hasVerb()) {
                 return -1;
@@ -134,7 +127,7 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
             return null;
         }
         final Set<String> paramNames = spec.pathVariables().stream().map(PathVariable::name)
-                                                         .collect(toImmutableSet());
+                                           .collect(toImmutableSet());
         final Map<String, Parameter> parameterTypes =
                 spec.originalFields().entrySet().stream().collect(
                         toImmutableMap(Entry::getKey,
@@ -154,10 +147,11 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
         return routes;
     }
 
-    public HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
+    HttpResponse serve(ServiceRequestContext ctx, HttpRequest req,
+                       HttpService delegate) throws Exception {
         final TranscodingSpec spec = routeAndSpecs.get(ctx.config().mappedRoute());
         if (spec != null) {
-            return serve0(ctx, req, spec);
+            return serve0(ctx, req, spec, delegate);
         }
         return delegate.serve(ctx, req);
     }
@@ -167,7 +161,7 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
     }
 
     private HttpResponse serve0(ServiceRequestContext ctx, HttpRequest req,
-                                TranscodingSpec spec) throws Exception {
+                                TranscodingSpec spec, HttpService delegate) throws Exception {
         final RequestHeaders clientHeaders = req.headers();
         final RequestHeadersBuilder grpcHeaders = clientHeaders.toBuilder();
         if (grpcHeaders.get(GrpcHeaderNames.GRPC_ENCODING) != null) {
@@ -204,9 +198,9 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
                             requestContent = convertToJson(ctx, clientRequest, spec);
                         }
 
-                        AbstractUnframedGrpcService.frameAndServe(
+                        unframedGrpcSupport.frameAndServe(
                                 delegate, ctx, grpcHeaders.build(), requestContent, responseFuture,
-                                unframedGrpcErrorHandler, generateResponseConverter(spec));
+                                generateResponseConverter(spec));
                     } catch (IllegalArgumentException iae) {
                         responseFuture.completeExceptionally(
                                 HttpStatusException.of(HttpStatus.BAD_REQUEST, iae));

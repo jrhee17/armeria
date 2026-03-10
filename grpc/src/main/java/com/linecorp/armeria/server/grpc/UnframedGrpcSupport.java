@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.server.grpc;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -60,11 +62,17 @@ import io.netty.util.AttributeKey;
 /**
  * Shared helpers for unframed gRPC services.
  */
-abstract class AbstractUnframedGrpcService {
+final class UnframedGrpcSupport {
 
-    private static final Logger logger = LoggerFactory.getLogger(AbstractUnframedGrpcService.class);
+    private static final Logger logger = LoggerFactory.getLogger(UnframedGrpcSupport.class);
     static final AttributeKey<Boolean> IS_UNFRAMED_GRPC =
-            AttributeKey.valueOf(AbstractUnframedGrpcService.class, "IS_UNFRAMED_GRPC");
+            AttributeKey.valueOf(UnframedGrpcSupport.class, "IS_UNFRAMED_GRPC");
+
+    private final UnframedGrpcErrorHandler errorHandler;
+
+    UnframedGrpcSupport(UnframedGrpcErrorHandler errorHandler) {
+        this.errorHandler = requireNonNull(errorHandler, "errorHandler");
+    }
 
     static ExchangeType exchangeType(RoutingContext routingContext, HttpService delegate) {
         final MediaType contentType = routingContext.headers().contentType();
@@ -85,13 +93,12 @@ abstract class AbstractUnframedGrpcService {
         return ExchangeType.BIDI_STREAMING;
     }
 
-    static void frameAndServe(
+    void frameAndServe(
             Service<HttpRequest, HttpResponse> delegate,
             ServiceRequestContext ctx,
             RequestHeaders grpcHeaders,
             HttpData content,
             CompletableFuture<HttpResponse> res,
-            UnframedGrpcErrorHandler unframedGrpcErrorHandler,
             @Nullable Function<AggregatedHttpResponse, AggregatedHttpResponse> responseConverter) {
         final HttpRequest grpcRequest;
         ctx.setAttr(IS_UNFRAMED_GRPC, true);
@@ -125,8 +132,7 @@ abstract class AbstractUnframedGrpcService {
                                     if (t != null) {
                                         res.completeExceptionally(t);
                                     } else {
-                                        deframeAndRespond(ctx, framedResponse, res, unframedGrpcErrorHandler,
-                                                          responseConverter);
+                                        deframeAndRespond(ctx, framedResponse, res, responseConverter);
                                     }
                                 }
                                 return null;
@@ -134,12 +140,11 @@ abstract class AbstractUnframedGrpcService {
     }
 
     @VisibleForTesting
-    static void deframeAndRespond(ServiceRequestContext ctx,
-                                  AggregatedHttpResponse grpcResponse,
-                                  CompletableFuture<HttpResponse> res,
-                                  UnframedGrpcErrorHandler unframedGrpcErrorHandler,
-                                  @Nullable
-                                  Function<AggregatedHttpResponse, AggregatedHttpResponse> responseConverter) {
+    void deframeAndRespond(ServiceRequestContext ctx,
+                           AggregatedHttpResponse grpcResponse,
+                           CompletableFuture<HttpResponse> res,
+                           @Nullable
+                           Function<AggregatedHttpResponse, AggregatedHttpResponse> responseConverter) {
         final HttpHeaders trailers = !grpcResponse.trailers().isEmpty() ?
                                      grpcResponse.trailers() : grpcResponse.headers();
         final String grpcStatusCode = trailers.get(GrpcHeaderNames.GRPC_STATUS);
@@ -159,7 +164,7 @@ abstract class AbstractUnframedGrpcService {
         if (grpcStatus.getCode() != Code.OK) {
             PooledObjects.close(grpcResponse.content());
             try {
-                res.complete(unframedGrpcErrorHandler.handle(ctx, grpcStatus, grpcResponse));
+                res.complete(errorHandler.handle(ctx, grpcStatus, grpcResponse));
             } catch (Exception e) {
                 res.completeExceptionally(e);
             }

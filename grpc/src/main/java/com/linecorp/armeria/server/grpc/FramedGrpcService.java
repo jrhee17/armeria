@@ -253,7 +253,7 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
                                     metadata));
                 }
             } else {
-                if (Boolean.TRUE.equals(ctx.attr(AbstractUnframedGrpcService.IS_UNFRAMED_GRPC))) {
+                if (Boolean.TRUE.equals(ctx.attr(UnframedGrpcSupport.IS_UNFRAMED_GRPC))) {
                     // For unframed gRPC, we use the default timeout.
                 } else {
                     // For framed gRPC, as per gRPC specification, if timeout is omitted a server should assume

@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.server.grpc;
 
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,14 +47,15 @@ final class HttpJsonTranscodingService extends SimpleDecoratingHttpService
         implements GrpcService, HttpEndpointSupport {
     private final GrpcService delegate;
     private final HttpJsonTranscodingEngine engine;
+    private final Set<Route> routes;
 
     HttpJsonTranscodingService(GrpcService delegate,
                                Map<Route, TranscodingSpec> routeAndSpecs,
                                HttpJsonTranscodingOptions httpJsonTranscodingOptions) {
         super(delegate);
         this.delegate = delegate;
-        engine = new HttpJsonTranscodingEngine(delegate, delegate.routes(), routeAndSpecs,
-                                               httpJsonTranscodingOptions);
+        engine = new HttpJsonTranscodingEngine(routeAndSpecs, httpJsonTranscodingOptions);
+        routes = buildRoutes(delegate.routes(), engine.routes());
     }
 
     @Nullable
@@ -66,12 +69,12 @@ final class HttpJsonTranscodingService extends SimpleDecoratingHttpService
      */
     @Override
     public Set<Route> routes() {
-        return engine.routes();
+        return routes;
     }
 
     @Override
     public ExchangeType exchangeType(RoutingContext routingContext) {
-        return AbstractUnframedGrpcService.exchangeType(routingContext, delegate);
+        return UnframedGrpcSupport.exchangeType(routingContext, delegate);
     }
 
     @Override
@@ -106,11 +109,19 @@ final class HttpJsonTranscodingService extends SimpleDecoratingHttpService
 
     @Override
     public HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
-        return engine.serve(ctx, req);
+        return engine.serve(ctx, req, delegate);
     }
 
     @VisibleForTesting
     Map<Route, TranscodingSpec> routeAndSpecs() {
         return engine.routeAndSpecs();
+    }
+
+    private static Set<Route> buildRoutes(Set<Route> delegateRoutes, Set<Route> transcodingRoutes) {
+        final LinkedHashSet<Route> linkedHashSet = new LinkedHashSet<>(delegateRoutes.size() +
+                                                                       transcodingRoutes.size());
+        linkedHashSet.addAll(delegateRoutes);
+        linkedHashSet.addAll(transcodingRoutes);
+        return Collections.unmodifiableSet(linkedHashSet);
     }
 }

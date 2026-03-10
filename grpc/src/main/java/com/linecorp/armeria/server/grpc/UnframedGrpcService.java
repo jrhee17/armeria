@@ -70,7 +70,7 @@ final class UnframedGrpcService extends SimpleDecoratingHttpService implements G
 
     private final GrpcService delegate;
     private final HandlerRegistry registry;
-    private final UnframedGrpcErrorHandler unframedGrpcErrorHandler;
+    private final UnframedGrpcSupport unframedGrpcSupport;
 
     /**
      * Creates a new instance that decorates the specified {@link HttpService}.
@@ -80,7 +80,7 @@ final class UnframedGrpcService extends SimpleDecoratingHttpService implements G
         super(delegate);
         this.delegate = delegate;
         this.registry = registry;
-        this.unframedGrpcErrorHandler = unframedGrpcErrorHandler;
+        unframedGrpcSupport = new UnframedGrpcSupport(unframedGrpcErrorHandler);
         checkArgument(delegate.isFramed(), "Decorated service must be a framed GrpcService.");
     }
 
@@ -91,7 +91,7 @@ final class UnframedGrpcService extends SimpleDecoratingHttpService implements G
 
     @Override
     public ExchangeType exchangeType(RoutingContext routingContext) {
-        return AbstractUnframedGrpcService.exchangeType(routingContext, (HttpService) unwrap());
+        return UnframedGrpcSupport.exchangeType(routingContext, (HttpService) unwrap());
     }
 
     @Override
@@ -197,9 +197,9 @@ final class UnframedGrpcService extends SimpleDecoratingHttpService implements G
                                            builder -> builder.contentType(contentType));
                                    return AggregatedHttpResponse.of(headers, response.content());
                                };
-                       AbstractUnframedGrpcService.frameAndServe(
+                       unframedGrpcSupport.frameAndServe(
                                unwrap(), ctx, grpcHeaders.build(), clientRequest.content(),
-                               responseFuture, unframedGrpcErrorHandler, responseConverter);
+                               responseFuture, responseConverter);
                    }
                }
                return null;
