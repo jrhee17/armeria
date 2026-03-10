@@ -16,7 +16,8 @@
 
 package com.linecorp.armeria.server.grpc;
 
-import java.util.Map;
+import static java.util.Objects.requireNonNull;
+
 import java.util.Set;
 
 import com.linecorp.armeria.common.HttpRequest;
@@ -28,7 +29,6 @@ import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.HttpServiceWithRoutes;
 import com.linecorp.armeria.server.Route;
 import com.linecorp.armeria.server.ServiceRequestContext;
-import com.linecorp.armeria.server.grpc.HttpJsonTranscodingEngine.TranscodingSpec;
 
 /**
  * Converts HTTP/JSON request to gRPC request and delegates it to the given {@link HttpService}.
@@ -38,11 +38,13 @@ final class HttpJsonToGrpcTranscodingService implements HttpServiceWithRoutes, H
     private final HttpService delegate;
     private final HttpJsonTranscodingEngine engine;
 
-    HttpJsonToGrpcTranscodingService(GrpcService delegate,
-                                     Map<Route, TranscodingSpec> routeAndSpecs,
-                                     HttpJsonTranscodingOptions httpJsonTranscodingOptions) {
-        this.delegate = delegate;
-        engine = new HttpJsonTranscodingEngine(routeAndSpecs, httpJsonTranscodingOptions);
+    static HttpJsonToGrpcTranscodingServiceBuilder newBuilder() {
+        return new HttpJsonToGrpcTranscodingServiceBuilder();
+    }
+
+    HttpJsonToGrpcTranscodingService(HttpService delegate, HttpJsonTranscodingEngine engine) {
+        this.delegate = requireNonNull(delegate, "delegate");
+        this.engine = requireNonNull(engine, "engine");
     }
 
     @Nullable

@@ -18,6 +18,7 @@ package com.linecorp.armeria.server.grpc;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.linecorp.armeria.server.grpc.HttpJsonTranscodingQueryParamMatchRule.ORIGINAL_FIELD;
+import static java.util.Objects.requireNonNull;
 
 import java.util.HashMap;
 import java.util.List;
@@ -65,7 +66,6 @@ import com.linecorp.armeria.server.Route;
 import com.linecorp.armeria.server.grpc.HttpJsonTranscodingEngine.Field;
 import com.linecorp.armeria.server.grpc.HttpJsonTranscodingEngine.TranscodingSpec;
 
-import io.grpc.MethodDescriptor.MethodType;
 import io.grpc.ServerMethodDefinition;
 import io.grpc.ServerServiceDefinition;
 import io.grpc.protobuf.ProtoMethodDescriptorSupplier;
@@ -78,57 +78,59 @@ final class HttpJsonTranscodingEngineBuilder {
 
     private final Map<Descriptors.MethodDescriptor, HttpRule> httpRules = new HashMap<>();
 
-    private final Map<String, GrpcMethod> methods;
+    private final Map<String, GrpcMethod> methods = new HashMap<>();
+    private HttpJsonTranscodingOptions options = HttpJsonTranscodingOptions.of();
 
-    private final HttpJsonTranscodingOptions options;
+    private HttpJsonTranscodingEngineBuilder addServiceDefinition(
+            ServerServiceDefinition serviceDefinition) {
+        requireNonNull(serviceDefinition, "serviceDefinition");
+        final Descriptors.ServiceDescriptor serviceDesc = serviceDescriptor(serviceDefinition);
+        if (serviceDesc == null) {
+            return this;
+        }
 
-    HttpJsonTranscodingEngineBuilder(Map<String, GrpcMethod> methods,
-                                     HttpJsonTranscodingOptions options) {
-        this.methods = methods;
-        this.options = options;
-    }
-
-    static HttpJsonTranscodingEngineBuilder of(Iterable<ServerServiceDefinition> serviceDefinitions,
-                                               HttpJsonTranscodingOptions options) {
-        final Map<String, GrpcMethod> methods = new HashMap<>();
-        for (ServerServiceDefinition serviceDefinition : serviceDefinitions) {
-            final Descriptors.ServiceDescriptor serviceDesc = serviceDescriptor(serviceDefinition);
-            if (serviceDesc == null) {
+        for (ServerMethodDefinition<?, ?> methodDefinition : serviceDefinition.getMethods()) {
+            final Descriptors.MethodDescriptor methodDesc = methodDescriptor(methodDefinition);
+            if (methodDesc == null) {
                 continue;
             }
-
-            for (ServerMethodDefinition<?, ?> methodDefinition : serviceDefinition.getMethods()) {
-                final Descriptors.MethodDescriptor methodDesc = methodDescriptor(methodDefinition);
-                if (methodDesc == null) {
-                    continue;
-                }
-
-                methods.put(methodDesc.getFullName(), new GrpcMethod(methodDefinition, methodDesc));
-            }
+            methods.put(methodDesc.getFullName(), new GrpcMethod(methodDefinition, methodDesc));
         }
-        final HttpJsonTranscodingEngineBuilder builder =
-                new HttpJsonTranscodingEngineBuilder(methods, options);
-        if (!options.ignoreProtoHttpRule()) {
-            for (GrpcMethod method : methods.values()) {
-                final MethodOptions methodOptions = method.descriptor.getOptions();
-                if (!methodOptions.hasExtension((ExtensionLite<MethodOptions, ?>) AnnotationsProto.http)) {
-                    continue;
-                }
+        return this;
+    }
 
-                final HttpRule httpRule = methodOptions.getExtension(
-                        (ExtensionLite<MethodOptions, HttpRule>) AnnotationsProto.http);
-                builder.registerHttpRule(method.descriptor, httpRule);
-            }
+    HttpJsonTranscodingEngineBuilder serviceDefinitions(ServerServiceDefinition... serviceDefinitions) {
+        serviceDefinitions(ImmutableList.copyOf(serviceDefinitions));
+        return this;
+    }
+
+    HttpJsonTranscodingEngineBuilder serviceDefinitions(
+            Iterable<ServerServiceDefinition> serviceDefinitions) {
+        requireNonNull(serviceDefinitions, "serviceDefinitions");
+        for (ServerServiceDefinition serviceDefinition : serviceDefinitions) {
+            addServiceDefinition(serviceDefinition);
         }
-        for (HttpRule additionalRule : options.additionalHttpRules()) {
-            final GrpcMethod method = methods.get(additionalRule.getSelector());
-            if (method == null) {
-                throw new IllegalArgumentException(
-                        "No such method for the additional HttpRule: " + additionalRule.getSelector());
-            }
-            builder.registerHttpRule(method.descriptor, additionalRule);
+        return this;
+    }
+
+    HttpJsonTranscodingEngineBuilder serviceDescriptors(
+            Descriptors.ServiceDescriptor... serviceDescriptors) {
+        serviceDescriptors(ImmutableList.copyOf(serviceDescriptors));
+        return this;
+    }
+
+    HttpJsonTranscodingEngineBuilder serviceDescriptors(
+            Iterable<Descriptors.ServiceDescriptor> serviceDescriptors) {
+        requireNonNull(serviceDescriptors, "serviceDescriptors");
+        for (Descriptors.ServiceDescriptor serviceDescriptor : serviceDescriptors) {
+            addServiceDescriptor(serviceDescriptor);
         }
-        return builder;
+        return this;
+    }
+
+    HttpJsonTranscodingEngineBuilder options(HttpJsonTranscodingOptions options) {
+        this.options = requireNonNull(options, "options");
+        return this;
     }
 
     @Nullable
@@ -351,11 +353,44 @@ final class HttpJsonTranscodingEngineBuilder {
 
     @Nullable
     HttpJsonTranscodingEngine build() {
+        registerHttpRules();
         if (httpRules.isEmpty()) {
             return null;
         }
         final Map<Route, TranscodingSpec> routeAndSpecs = buildRouteAndSpecs();
         return new HttpJsonTranscodingEngine(routeAndSpecs, options);
+    }
+
+    private void registerHttpRules() {
+        if (!httpRules.isEmpty()) {
+            return;
+        }
+        if (!options.ignoreProtoHttpRule()) {
+            for (GrpcMethod method : methods.values()) {
+                final MethodOptions methodOptions = method.descriptor.getOptions();
+                if (!methodOptions.hasExtension((ExtensionLite<MethodOptions, ?>) AnnotationsProto.http)) {
+                    continue;
+                }
+
+                final HttpRule httpRule = methodOptions.getExtension(
+                        (ExtensionLite<MethodOptions, HttpRule>) AnnotationsProto.http);
+                registerHttpRule(method.descriptor, httpRule);
+            }
+        }
+        for (HttpRule additionalRule : options.additionalHttpRules()) {
+            final GrpcMethod method = methods.get(additionalRule.getSelector());
+            if (method == null) {
+                throw new IllegalArgumentException(
+                        "No such method for the additional HttpRule: " + additionalRule.getSelector());
+            }
+            registerHttpRule(method.descriptor, additionalRule);
+        }
+    }
+
+    private void addServiceDescriptor(Descriptors.ServiceDescriptor serviceDescriptor) {
+        for (Descriptors.MethodDescriptor methodDesc : serviceDescriptor.getMethods()) {
+            methods.put(methodDesc.getFullName(), new GrpcMethod(null, methodDesc));
+        }
     }
 
     private void registerHttpRule(Descriptors.MethodDescriptor method, HttpRule httpRule) {
@@ -388,11 +423,11 @@ final class HttpJsonTranscodingEngineBuilder {
 
     private void registerRoute(Map<Route, TranscodingSpec> routeAndSpecs,
                                GrpcMethod method, HttpRule httpRule) {
-        final ServerMethodDefinition<?, ?> definition = method.definition;
-        if (definition.getMethodDescriptor().getType() != MethodType.UNARY) {
+        final Descriptors.MethodDescriptor desc = method.descriptor;
+        if (desc.isClientStreaming() || desc.isServerStreaming()) {
             logger.warn("Only unary methods can be configured with an HTTP/JSON endpoint: " +
                         "method={}, httpRule={}",
-                        definition.getMethodDescriptor().getFullMethodName(), httpRule);
+                        desc.getFullName(), httpRule);
             return;
         }
 
@@ -403,7 +438,6 @@ final class HttpJsonTranscodingEngineBuilder {
             return;
         }
 
-        final Descriptors.MethodDescriptor desc = method.descriptor;
         final Set<HttpJsonTranscodingQueryParamMatchRule> queryParamMatchRules = options.queryParamMatchRules();
         final Route route = routeAndVariables.route();
         final Map<String, Field> originalFields = buildFields(desc.getInputType(),
@@ -424,7 +458,7 @@ final class HttpJsonTranscodingEngineBuilder {
         final String responseBody = getResponseBody(topLevelFields, httpRule.getResponseBody());
 
         final TranscodingSpec newSpec = new TranscodingSpec(
-                0, httpRule, definition, desc.getService(), desc, originalFields, queryMappingFields,
+                0, httpRule, method.definition, desc.getService(), desc, originalFields, queryMappingFields,
                 routeAndVariables.pathVariables(), routeAndVariables.hasVerb(), responseBody);
         doRegisterRoute(routeAndSpecs, route, newSpec);
 
@@ -434,7 +468,7 @@ final class HttpJsonTranscodingEngineBuilder {
                     HttpJsonTranscodingRouteAndPathVariables.of(additionalHttpRule);
             if (additionalRouteAndVariables != null) {
                 final TranscodingSpec additionalSpec = new TranscodingSpec(
-                        order++, additionalHttpRule, definition, desc.getService(), desc, originalFields,
+                        order++, additionalHttpRule, method.definition, desc.getService(), desc, originalFields,
                         queryMappingFields, additionalRouteAndVariables.pathVariables(),
                         additionalRouteAndVariables.hasVerb(), responseBody);
                 doRegisterRoute(routeAndSpecs, additionalRouteAndVariables.route(), additionalSpec);
@@ -444,10 +478,12 @@ final class HttpJsonTranscodingEngineBuilder {
 
     private static final class GrpcMethod {
 
+        @Nullable
         final ServerMethodDefinition<?, ?> definition;
         final Descriptors.MethodDescriptor descriptor;
 
-        GrpcMethod(ServerMethodDefinition<?, ?> definition, Descriptors.MethodDescriptor descriptor) {
+        GrpcMethod(@Nullable ServerMethodDefinition<?, ?> definition,
+                   Descriptors.MethodDescriptor descriptor) {
             this.definition = definition;
             this.descriptor = descriptor;
         }

@@ -186,7 +186,10 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
                     responseFuture.completeExceptionally(t);
                 } else {
                     try {
-                        ctx.setAttr(FramedGrpcService.RESOLVED_GRPC_METHOD, spec.method());
+                        final ServerMethodDefinition<?, ?> method = spec.method();
+                        if (method != null) {
+                            ctx.setAttr(FramedGrpcService.RESOLVED_GRPC_METHOD, method);
+                        }
                         final HttpData requestContent;
 
                         // https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/grpc_json_transcoder_filter#sending-arbitrary-content
@@ -561,6 +564,7 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
     static final class TranscodingSpec {
         private final int order;
         private final HttpRule httpRule;
+        @Nullable
         private final ServerMethodDefinition<?, ?> method;
         private final ServiceDescriptor serviceDescriptor;
         private final MethodDescriptor methodDescriptor;
@@ -573,7 +577,7 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
 
         TranscodingSpec(int order,
                         HttpRule httpRule,
-                        ServerMethodDefinition<?, ?> method,
+                        @Nullable ServerMethodDefinition<?, ?> method,
                         ServiceDescriptor serviceDescriptor,
                         MethodDescriptor methodDescriptor,
                         Map<String, Field> originalFields,
@@ -601,7 +605,9 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
             return httpRule;
         }
 
+        @Nullable
         ServerMethodDefinition<?, ?> method() {
+            // Method definition can be null when the engine is built from descriptors only.
             return method;
         }
 

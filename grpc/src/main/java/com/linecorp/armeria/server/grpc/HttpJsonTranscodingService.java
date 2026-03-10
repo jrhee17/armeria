@@ -108,7 +108,10 @@ final class HttpJsonTranscodingService extends SimpleDecoratingHttpService
     public ServerMethodDefinition<?, ?> methodDefinition(ServiceRequestContext ctx) {
         final TranscodingSpec spec = engine.routeAndSpecs().get(ctx.config().mappedRoute());
         if (spec != null) {
-            return spec.method();
+            final ServerMethodDefinition<?, ?> method = spec.method();
+            if (method != null) {
+                return method;
+            }
         }
         return delegate.methodDefinition(ctx);
     }

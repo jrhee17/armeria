@@ -1077,8 +1077,10 @@ public final class GrpcServiceBuilder {
                 httpJsonTranscodingOptions = this.httpJsonTranscodingOptions;
             }
             final HttpJsonTranscodingEngine engine =
-                    HttpJsonTranscodingEngineBuilder.of(grpcService.services(), httpJsonTranscodingOptions)
-                                                    .build();
+                    new HttpJsonTranscodingEngineBuilder()
+                            .options(httpJsonTranscodingOptions)
+                            .serviceDefinitions(grpcService.services())
+                            .build();
             if (engine != null) {
                 grpcService = new HttpJsonTranscodingService(grpcService, engine);
             }
