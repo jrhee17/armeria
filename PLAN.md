@@ -1,12 +1,12 @@
 # PLAN
 
 ## Goal
-Use a **single** `HttpJsonToGrpcTranscodingService` decorator implementation for both:
+Use a **single** `HttpJsonToGrpcTranscodingService` service implementation for both:
 - the existing `GrpcService` HTTP/JSON transcoding feature, and
-- a standalone decorator for proxying HTTP/JSON requests to upstream gRPC services,
+- a standalone `HttpServiceWithRoutes` for proxying HTTP/JSON requests to upstream gRPC services,
 while clarifying serialization semantics and enabling optional gRPC PROTO hop.
 
-## Example (Decorator-only, full options + upstream WebClient)
+## Example (Standalone service, default options + upstream WebClient)
 ```java
 // Shared options (defaults).
 HttpJsonTranscodingOptions options = HttpJsonTranscodingOptions.of();
@@ -14,35 +14,34 @@ HttpJsonTranscodingOptions options = HttpJsonTranscodingOptions.of();
 // Delegate that forwards the (already transcoded) gRPC request upstream.
 WebClient upstream = WebClient.builder("h2c://upstream.example.com")
                               .build();
-HttpService proxy = (ctx, req) -> upstream.execute(req);
+HttpService delegate = (ctx, req) -> upstream.execute(req);
 
-Function<? super HttpService, ? extends HttpService> transcodingDecorator =
+HttpJsonToGrpcTranscodingService transcoder =
     HttpJsonToGrpcTranscodingService.newBuilder()
         .descriptorSet(Paths.get("api.pb"))
         .options(options)
+        .delegate(delegate)
         .transcodedGrpcSerializationFormat(GrpcSerializationFormats.JSON) // default
-        .newDecorator();
+        .build();
 
 Server.builder()
-      .contextPath("/proxy", ctx -> {
-          ctx.decorator(transcodingDecorator);
-          ctx.route().pathPrefix("/").build(proxy);
-      })
+      .service("/proxy", transcoder)
       .build();
 ```
 
 ## Key Conclusions So Far
 - `supportedSerializationFormats()` currently means **gRPC wire formats** a service can decode/encode.
 - `HttpJsonTranscodingService` today always emits **gRPC JSON** (`application/grpc+json`) to its delegate.
-- For a decorator/transcoder, `supportedSerializationFormats()` is misleading because the **incoming side** is HTTP/JSON, not gRPC wire formats.
-- A new decorator-facing API should explicitly expose the **gRPC hop format**, e.g.:
+- For a standalone transcoding service, `supportedSerializationFormats()` is misleading because the **incoming side** is HTTP/JSON, not gRPC wire formats.
+- A new service-facing API should explicitly expose the **gRPC hop format**, e.g.:
   - `SerializationFormat transcodedGrpcSerializationFormat()`
-- If the decorator supports PROTO on the gRPC hop, it must convert JSON ↔ proto **messages**.
+- A standalone service can own the transcoded routes, avoiding path-remapping issues and making DocService exposure straightforward.
+- If the service supports PROTO on the gRPC hop, it must convert JSON ↔ proto **messages**.
 
 ## API Direction
-- **Phase 1: no new public API.** Rewire internals to use the shared decorator implementation while
+- **Phase 1: no new public API.** Rewire internals to use the shared service implementation while
   preserving existing public surface.
-- Revisit a decorator-facing API (e.g., `transcodedGrpcSerializationFormat()`) only after internal
+- Revisit a service-facing API (e.g., `transcodedGrpcSerializationFormat()`) only after internal
   consolidation is proven.
 
 ## Behavior Modes
@@ -69,13 +68,14 @@ Server.builder()
 - If response type is `HttpBody`, build HTTP response directly from fields.
 - Otherwise serialize message to JSON via `GrpcJsonMarshaller` and apply existing `responseBody` extraction logic.
 
-## Decorator Options (HttpJsonToGrpcTranscodingService)
+## Service Options (HttpJsonToGrpcTranscodingService)
 **Required**
 - Descriptor sources (at least one):
   - `serviceDescriptor(...)` / `serviceDescriptors(...)`
   - `descriptorSet(Path|byte[])`
 - `options(HttpJsonTranscodingOptions)` (covers: ignoreProtoHttpRule, additionalHttpRules, conflictStrategy,
   queryParamMatchRules, errorHandler).
+- `delegate(HttpService)` (or equivalent functional delegate) for upstream forwarding.
 
 **Optional / advanced**
 - `transcodedGrpcSerializationFormat(SerializationFormat)` (default: gRPC JSON).
@@ -91,8 +91,8 @@ Server.builder()
 - Merge order follows **builder call order** (“first wins” on duplicate method full name).
 - Route‑level duplicates still throw (unchanged).
 
-## Pooling Conclusions (Decorator Context)
-- No pooling changes are needed just because the shared decorator is used for both `GrpcService` and standalone use.
+## Pooling Conclusions (Transcoding Service Context)
+- No pooling changes are needed just because the shared service is used for both `GrpcService` and standalone use.
 - Request path:
   - Default (unpooled) aggregation avoids extra copies given current parsing uses `content.array()`.
   - Pooled aggregation would copy into a pooled `ByteBuf` and then copy again on `array()`, so no benefit
@@ -100,33 +100,33 @@ Server.builder()
 - Response path:
   - Pooled deframed data is zero‑copy when the response is passed through (the common case).
   - If responses are always transformed (e.g., PROTO↔JSON), pooling helps less unless conversion avoids `array()`.
-- Decorator safety rule:
-  - If a decorator ignores the delegate response, it must `abort()` it to avoid pooled buffer leaks.
+- Delegate safety rule:
+  - If the transcoding service ignores the delegate response, it must `abort()` it to avoid pooled buffer leaks.
 
 ## Notes / Risks
 - gRPC JSON (`application/grpc+json`) is not commonly supported by default gRPC servers.
 - PROTO hop is more compatible with “normal” gRPC servers, but requires conversion logic.
 
-## Decorator Implementation Note
-- The same decorator implementation will be used by `GrpcService` internally and by standalone decorators.
-- `GrpcServiceBuilder.enableHttpJsonTranscoding(...)` should attach the decorator rather than return a
-  separate wrapper service.
+## Service Implementation Note
+- The same implementation will be used by `GrpcService` internally and by a standalone `HttpServiceWithRoutes`.
+- `GrpcServiceBuilder.enableHttpJsonTranscoding(...)` should use the shared engine + service adapter rather than
+  introducing a public decorator-only surface.
 - Preserve the same delegate-chain assumption: a FramedGrpcService is internally available and can be
   resolved via the delegate chain.
-- Path prefix / rewrite is intentionally not part of the initial decorator API. Use route binding or a
+- Path prefix / rewrite is intentionally not part of the initial service API. Use route binding or a
   separate rewrite decorator if needed; add later only if necessary.
 ## Shared Transcoding Engine (Composition)
 - Extract the HTTP/JSON ↔ gRPC conversion logic into a small, package‑private “engine” that has no direct
   dependency on server‑only types beyond what’s needed for request/response conversion.
-- Thin adapters (server `GrpcService`, pure `HttpService` decorator, and a future client/proxy adapter)
+- Thin adapters (server `GrpcService`, standalone `HttpServiceWithRoutes`, and a future client/proxy adapter)
   should delegate to the same engine.
 - Keep `HttpJsonTranscodingService` as a `GrpcService` to preserve `routes()` and existing behaviors;
-  introduce a separate pure decorator that uses the same engine.
+  introduce a separate standalone service that uses the same engine.
 
 ## Next Steps (if proceeding)
 1) Rewire internals to use a shared transcoding engine + adapter without changing public APIs or behavior.
 2) Adjust type hierarchy:
    - Keep `HttpJsonTranscodingService` as a `GrpcService` that delegates to the engine.
-   - Introduce a pure decorator class that delegates to the engine.
-3) Expose the decorator and its builder as public API after the internal consolidation lands.
-4) Expose the decorator via DocService once the public API is stable.
+   - Introduce a standalone `HttpJsonToGrpcTranscodingService` that implements `HttpServiceWithRoutes`.
+3) Expose the standalone service and its builder as public API after the internal consolidation lands.
+4) Expose the standalone service via DocService once the public API is stable.
