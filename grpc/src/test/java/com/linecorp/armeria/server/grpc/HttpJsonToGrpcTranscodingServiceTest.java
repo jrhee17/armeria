@@ -35,7 +35,7 @@ import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
-import testing.grpc.Transcoding;
+import testing.grpc.HttpJsonTranscodingTestServiceGrpc;
 
 class HttpJsonToGrpcTranscodingServiceTest {
 
@@ -56,19 +56,18 @@ class HttpJsonToGrpcTranscodingServiceTest {
     static final ServerExtension proxyServer = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
-            final HttpService delegate = (ctx, req) -> {
-                return WebClient.of(upstreamServer.uri(SessionProtocol.H2C)).execute(req);
-            };
+            final HttpService delegate = (ctx, req) ->
+                    WebClient.of(upstreamServer.uri(SessionProtocol.H2C)).execute(req);
 
             final HttpJsonToGrpcTranscodingService transcoder =
                     HttpJsonToGrpcTranscodingService.newBuilder(delegate)
                                                     .serviceDescriptors(
-                                                            Transcoding.getDescriptor()
-                                                                       .findServiceByName(
-                                                                               "HttpJsonTranscodingTestService"))
+                                                            HttpJsonTranscodingTestServiceGrpc
+                                                                    .getServiceDescriptor())
                                                     .build();
 
             sb.service(transcoder);
+            sb.serviceUnder("/proxy", transcoder);
         }
     };
 
@@ -76,6 +75,16 @@ class HttpJsonToGrpcTranscodingServiceTest {
     void shouldProxyHttpJsonRequest() throws Exception {
         final WebClient client = WebClient.of(proxyServer.httpUri());
         final AggregatedHttpResponse response = client.get("/v1/messages/1").aggregate().join();
+        assertThat(response.contentType()).isEqualTo(MediaType.JSON_UTF_8);
+
+        final JsonNode root = mapper.readTree(response.contentUtf8());
+        assertThat(root.get("text").asText()).isEqualTo("messages/1");
+    }
+
+    @Test
+    void shouldProxyHttpJsonRequestWithPrefix() throws Exception {
+        final WebClient client = WebClient.of(proxyServer.httpUri());
+        final AggregatedHttpResponse response = client.get("/proxy/v1/messages/1").aggregate().join();
         assertThat(response.contentType()).isEqualTo(MediaType.JSON_UTF_8);
 
         final JsonNode root = mapper.readTree(response.contentUtf8());
