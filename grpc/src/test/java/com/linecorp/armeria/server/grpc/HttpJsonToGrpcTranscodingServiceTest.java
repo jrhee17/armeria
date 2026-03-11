@@ -68,6 +68,15 @@ class HttpJsonToGrpcTranscodingServiceTest {
 
             sb.service(transcoder);
             sb.serviceUnder("/proxy", transcoder);
+
+            final GrpcService grpcService = GrpcService.builder()
+                                                       .addService(new HttpJsonTranscodingTestService())
+                                                       .build();
+            final HttpJsonToGrpcTranscodingService inProcessTranscoder =
+                    HttpJsonToGrpcTranscodingService.newBuilder(grpcService)
+                                                    .serviceDescriptors(HttpJsonTranscodingTestServiceGrpc.getServiceDescriptor())
+                                                    .build();
+            sb.serviceUnder("/inproc", inProcessTranscoder);
         }
     };
 
@@ -85,6 +94,16 @@ class HttpJsonToGrpcTranscodingServiceTest {
     void shouldProxyHttpJsonRequestWithPrefix() throws Exception {
         final WebClient client = WebClient.of(proxyServer.httpUri());
         final AggregatedHttpResponse response = client.get("/proxy/v1/messages/1").aggregate().join();
+        assertThat(response.contentType()).isEqualTo(MediaType.JSON_UTF_8);
+
+        final JsonNode root = mapper.readTree(response.contentUtf8());
+        assertThat(root.get("text").asText()).isEqualTo("messages/1");
+    }
+
+    @Test
+    void shouldProxyHttpJsonRequestInProcess() throws Exception {
+        final WebClient client = WebClient.of(proxyServer.httpUri());
+        final AggregatedHttpResponse response = client.get("/inproc/v1/messages/1").aggregate().join();
         assertThat(response.contentType()).isEqualTo(MediaType.JSON_UTF_8);
 
         final JsonNode root = mapper.readTree(response.contentUtf8());
