@@ -79,6 +79,18 @@ class HttpJsonToGrpcTranscodingServiceTest {
                                                                     .getServiceDescriptor())
                                                     .build();
             sb.serviceUnder("/inproc", inProcessTranscoder);
+
+            final GrpcService grpcServiceWithPath = GrpcService.builder()
+                                                               .addService("/custom",
+                                                                           new HttpJsonTranscodingTestService())
+                                                               .build();
+            final HttpJsonToGrpcTranscodingService inProcessTranscoderWithPath =
+                    HttpJsonToGrpcTranscodingService.newBuilder(grpcServiceWithPath)
+                                                    .serviceDescriptors(
+                                                            HttpJsonTranscodingTestServiceGrpc
+                                                                    .getServiceDescriptor())
+                                                    .build();
+            sb.serviceUnder("/inproc-path", inProcessTranscoderWithPath);
         }
     };
 
@@ -106,6 +118,17 @@ class HttpJsonToGrpcTranscodingServiceTest {
     void shouldProxyHttpJsonRequestInProcess() throws Exception {
         final WebClient client = WebClient.of(proxyServer.httpUri());
         final AggregatedHttpResponse response = client.get("/inproc/v1/messages/1").aggregate().join();
+        assertThat(response.contentType()).isEqualTo(MediaType.JSON_UTF_8);
+
+        final JsonNode root = mapper.readTree(response.contentUtf8());
+        assertThat(root.get("text").asText()).isEqualTo("messages/1");
+    }
+
+    @Test
+    void shouldProxyHttpJsonRequestInProcessWithGrpcServicePath() throws Exception {
+        final WebClient client = WebClient.of(proxyServer.httpUri());
+        final AggregatedHttpResponse response =
+                client.get("/inproc-path/v1/messages/1").aggregate().join();
         assertThat(response.contentType()).isEqualTo(MediaType.JSON_UTF_8);
 
         final JsonNode root = mapper.readTree(response.contentUtf8());
