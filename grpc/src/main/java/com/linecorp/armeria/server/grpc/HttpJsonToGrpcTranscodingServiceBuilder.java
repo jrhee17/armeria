@@ -25,21 +25,17 @@ import java.util.List;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 
-import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.server.HttpService;
 
 final class HttpJsonToGrpcTranscodingServiceBuilder {
 
     private final List<Descriptors.ServiceDescriptor> serviceDescriptors = new ArrayList<>();
-
-    @Nullable
-    private HttpService delegate;
+    private final HttpService delegate;
 
     private HttpJsonTranscodingOptions options = HttpJsonTranscodingOptions.of();
 
-    HttpJsonToGrpcTranscodingServiceBuilder delegate(HttpService delegate) {
+    HttpJsonToGrpcTranscodingServiceBuilder(HttpService delegate) {
         this.delegate = requireNonNull(delegate, "delegate");
-        return this;
     }
 
     HttpJsonToGrpcTranscodingServiceBuilder options(HttpJsonTranscodingOptions options) {
@@ -64,7 +60,6 @@ final class HttpJsonToGrpcTranscodingServiceBuilder {
     }
 
     HttpJsonToGrpcTranscodingService build() {
-        checkState(delegate != null, "delegate must be set.");
         checkState(!serviceDescriptors.isEmpty(), "serviceDescriptors must be set.");
         final HttpJsonTranscodingEngine engine =
                 new HttpJsonTranscodingEngineBuilder()

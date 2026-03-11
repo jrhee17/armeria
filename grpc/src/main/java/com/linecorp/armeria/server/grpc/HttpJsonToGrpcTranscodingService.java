@@ -38,8 +38,8 @@ final class HttpJsonToGrpcTranscodingService implements HttpServiceWithRoutes, H
     private final HttpService delegate;
     private final HttpJsonTranscodingEngine engine;
 
-    static HttpJsonToGrpcTranscodingServiceBuilder newBuilder() {
-        return new HttpJsonToGrpcTranscodingServiceBuilder();
+    static HttpJsonToGrpcTranscodingServiceBuilder newBuilder(HttpService delegate) {
+        return new HttpJsonToGrpcTranscodingServiceBuilder(delegate);
     }
 
     HttpJsonToGrpcTranscodingService(HttpService delegate, HttpJsonTranscodingEngine engine) {

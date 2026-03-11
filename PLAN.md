@@ -17,10 +17,9 @@ WebClient upstream = WebClient.builder("h2c://upstream.example.com")
 HttpService delegate = (ctx, req) -> upstream.execute(req);
 
 HttpJsonToGrpcTranscodingService transcoder =
-    HttpJsonToGrpcTranscodingService.newBuilder()
+    HttpJsonToGrpcTranscodingService.newBuilder(delegate)
         .descriptorSet(Paths.get("api.pb"))
         .options(options)
-        .delegate(delegate)
         .transcodedGrpcSerializationFormat(GrpcSerializationFormats.JSON) // default
         .build();
 
