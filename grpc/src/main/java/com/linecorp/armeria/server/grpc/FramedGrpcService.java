@@ -94,8 +94,8 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
     private static final Logger logger = LoggerFactory.getLogger(FramedGrpcService.class);
     static final Listener<?> EMPTY_LISTENER = new EmptyListener<>();
 
-    static final AttributeKey<ServerMethodDefinition<?, ?>> RESOLVED_GRPC_METHOD =
-            AttributeKey.valueOf(FramedGrpcService.class, "RESOLVED_GRPC_METHOD");
+    static final AttributeKey<HttpJsonTranscodingEngineBuilder.GrpcMethod> RESOLVED_GRPC_METHOD_INFO =
+            AttributeKey.valueOf(FramedGrpcService.class, "RESOLVED_GRPC_METHOD_INFO");
 
     static final AttributeKey<Boolean> GRPC_USE_BLOCKING_EXECUTOR =
             AttributeKey.valueOf(FramedGrpcService.class, "GRPC_USE_BLOCKING_EXECUTOR");
@@ -427,13 +427,33 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
     @Nullable
     @Override
     public ServerMethodDefinition<?, ?> methodDefinition(ServiceRequestContext ctx) {
-        // method could be set in HttpJsonTranscodingService.
-        final ServerMethodDefinition<?, ?> method =
-                lookupMethodFromAttribute ? ctx.attr(RESOLVED_GRPC_METHOD) : null;
-        if (method != null) {
-            return method;
+        ServerMethodDefinition<?, ?> methodDef = null;
+        if (lookupMethodFromAttribute) {
+            methodDef = attrMethodDefinition(ctx, registry);
         }
-        return GrpcService.super.methodDefinition(ctx);
+        if (methodDef != null) {
+            return methodDef;
+        }
+        methodDef = GrpcService.super.methodDefinition(ctx);
+        if (methodDef != null) {
+            return methodDef;
+        }
+        if (!lookupMethodFromAttribute) {
+            methodDef = attrMethodDefinition(ctx, registry);
+        }
+        return methodDef;
+    }
+
+    @Nullable
+    private static ServerMethodDefinition<?, ?> attrMethodDefinition(ServiceRequestContext ctx, HandlerRegistry registry) {
+        final HttpJsonTranscodingEngineBuilder.GrpcMethod grpcMethod = ctx.attr(RESOLVED_GRPC_METHOD_INFO);
+        if (grpcMethod != null) {
+            if (grpcMethod.definition != null) {
+                return grpcMethod.definition;
+            }
+            return registry.lookupMethod(grpcMethod.descriptor);
+        }
+        return null;
     }
 
     private static Server newDummyServer(Map<String, ServerServiceDefinition> grpcServices) {

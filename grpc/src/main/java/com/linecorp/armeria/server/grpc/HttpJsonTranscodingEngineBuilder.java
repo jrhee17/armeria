@@ -77,7 +77,6 @@ final class HttpJsonTranscodingEngineBuilder {
     private static final Logger logger = LoggerFactory.getLogger(HttpJsonTranscodingEngineBuilder.class);
 
     private final Map<Descriptors.MethodDescriptor, HttpRule> httpRules = new HashMap<>();
-
     private final Map<String, GrpcMethod> methods = new HashMap<>();
     private HttpJsonTranscodingOptions options = HttpJsonTranscodingOptions.of();
 
@@ -94,7 +93,8 @@ final class HttpJsonTranscodingEngineBuilder {
             if (methodDesc == null) {
                 continue;
             }
-            methods.put(methodDesc.getFullName(), new GrpcMethod(methodDefinition, methodDesc));
+            methods.put(methodDesc.getFullName(),
+                        new GrpcMethod(methodDefinition, methodDesc));
         }
         return this;
     }
@@ -114,15 +114,15 @@ final class HttpJsonTranscodingEngineBuilder {
     }
 
     HttpJsonTranscodingEngineBuilder serviceDescriptors(
-            Descriptors.ServiceDescriptor... serviceDescriptors) {
-        serviceDescriptors(ImmutableList.copyOf(serviceDescriptors));
+            io.grpc.ServiceDescriptor... serviceDescriptors) {
+        grpcServiceDescriptors(ImmutableList.copyOf(serviceDescriptors));
         return this;
     }
 
-    HttpJsonTranscodingEngineBuilder serviceDescriptors(
-            Iterable<Descriptors.ServiceDescriptor> serviceDescriptors) {
+    HttpJsonTranscodingEngineBuilder grpcServiceDescriptors(
+            Iterable<io.grpc.ServiceDescriptor> serviceDescriptors) {
         requireNonNull(serviceDescriptors, "serviceDescriptors");
-        for (Descriptors.ServiceDescriptor serviceDescriptor : serviceDescriptors) {
+        for (io.grpc.ServiceDescriptor serviceDescriptor : serviceDescriptors) {
             addServiceDescriptor(serviceDescriptor);
         }
         return this;
@@ -387,8 +387,9 @@ final class HttpJsonTranscodingEngineBuilder {
         }
     }
 
-    private void addServiceDescriptor(Descriptors.ServiceDescriptor serviceDescriptor) {
-        for (Descriptors.MethodDescriptor methodDesc : serviceDescriptor.getMethods()) {
+    private void addServiceDescriptor(io.grpc.ServiceDescriptor serviceDescriptor) {
+        final Descriptors.ServiceDescriptor protoDescriptor = toProtoServiceDescriptor(serviceDescriptor);
+        for (Descriptors.MethodDescriptor methodDesc : protoDescriptor.getMethods()) {
             methods.put(methodDesc.getFullName(), new GrpcMethod(null, methodDesc));
         }
     }
@@ -458,7 +459,7 @@ final class HttpJsonTranscodingEngineBuilder {
         final String responseBody = getResponseBody(topLevelFields, httpRule.getResponseBody());
 
         final TranscodingSpec newSpec = new TranscodingSpec(
-                0, httpRule, method.definition, desc.getService(), desc, originalFields, queryMappingFields,
+                0, httpRule, method, desc.getService(), desc, originalFields, queryMappingFields,
                 routeAndVariables.pathVariables(), routeAndVariables.hasVerb(), responseBody);
         doRegisterRoute(routeAndSpecs, route, newSpec);
 
@@ -468,7 +469,7 @@ final class HttpJsonTranscodingEngineBuilder {
                     HttpJsonTranscodingRouteAndPathVariables.of(additionalHttpRule);
             if (additionalRouteAndVariables != null) {
                 final TranscodingSpec additionalSpec = new TranscodingSpec(
-                        order++, additionalHttpRule, method.definition, desc.getService(), desc, originalFields,
+                        order++, additionalHttpRule, method, desc.getService(), desc, originalFields,
                         queryMappingFields, additionalRouteAndVariables.pathVariables(),
                         additionalRouteAndVariables.hasVerb(), responseBody);
                 doRegisterRoute(routeAndSpecs, additionalRouteAndVariables.route(), additionalSpec);
@@ -476,7 +477,7 @@ final class HttpJsonTranscodingEngineBuilder {
         }
     }
 
-    private static final class GrpcMethod {
+    static final class GrpcMethod {
 
         @Nullable
         final ServerMethodDefinition<?, ?> definition;
@@ -487,6 +488,21 @@ final class HttpJsonTranscodingEngineBuilder {
             this.definition = definition;
             this.descriptor = descriptor;
         }
+    }
+
+    private static Descriptors.ServiceDescriptor toProtoServiceDescriptor(
+            io.grpc.ServiceDescriptor serviceDescriptor) {
+        requireNonNull(serviceDescriptor, "serviceDescriptor");
+        final Object schema = serviceDescriptor.getSchemaDescriptor();
+        if (schema instanceof ProtoServiceDescriptorSupplier) {
+            return ((ProtoServiceDescriptorSupplier) schema).getServiceDescriptor();
+        }
+        if (schema instanceof Descriptors.ServiceDescriptor) {
+            return (Descriptors.ServiceDescriptor) schema;
+        }
+        throw new IllegalArgumentException(
+                "serviceDescriptor must provide a ProtoServiceDescriptorSupplier: " +
+                serviceDescriptor.getName());
     }
 
     /**

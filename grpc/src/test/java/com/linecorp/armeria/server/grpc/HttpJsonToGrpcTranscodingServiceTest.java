@@ -74,7 +74,9 @@ class HttpJsonToGrpcTranscodingServiceTest {
                                                        .build();
             final HttpJsonToGrpcTranscodingService inProcessTranscoder =
                     HttpJsonToGrpcTranscodingService.newBuilder(grpcService)
-                                                    .serviceDescriptors(HttpJsonTranscodingTestServiceGrpc.getServiceDescriptor())
+                                                    .serviceDescriptors(
+                                                            HttpJsonTranscodingTestServiceGrpc
+                                                                    .getServiceDescriptor())
                                                     .build();
             sb.serviceUnder("/inproc", inProcessTranscoder);
         }

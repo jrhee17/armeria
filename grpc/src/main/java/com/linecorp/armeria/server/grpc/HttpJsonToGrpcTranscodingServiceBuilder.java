@@ -23,16 +23,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.Descriptors;
 
 import com.linecorp.armeria.server.HttpService;
 
 import io.grpc.ServiceDescriptor;
-import io.grpc.protobuf.ProtoServiceDescriptorSupplier;
 
 final class HttpJsonToGrpcTranscodingServiceBuilder {
 
-    private final List<Descriptors.ServiceDescriptor> serviceDescriptors = new ArrayList<>();
+    private final List<ServiceDescriptor> serviceDescriptors = new ArrayList<>();
     private final HttpService delegate;
 
     private HttpJsonTranscodingOptions options = HttpJsonTranscodingOptions.of();
@@ -57,7 +55,7 @@ final class HttpJsonToGrpcTranscodingServiceBuilder {
             Iterable<ServiceDescriptor> serviceDescriptors) {
         requireNonNull(serviceDescriptors, "serviceDescriptors");
         for (ServiceDescriptor serviceDescriptor : serviceDescriptors) {
-            this.serviceDescriptors.add(toProtoServiceDescriptor(serviceDescriptor));
+            this.serviceDescriptors.add(serviceDescriptor);
         }
         return this;
     }
@@ -67,25 +65,11 @@ final class HttpJsonToGrpcTranscodingServiceBuilder {
         final HttpJsonTranscodingEngine engine =
                 new HttpJsonTranscodingEngineBuilder()
                         .options(options)
-                        .serviceDescriptors(serviceDescriptors)
+                        .grpcServiceDescriptors(serviceDescriptors)
                         .build();
         if (engine == null) {
             throw new IllegalStateException("No HTTP rules are configured.");
         }
         return new HttpJsonToGrpcTranscodingService(delegate, engine);
-    }
-
-    private static Descriptors.ServiceDescriptor toProtoServiceDescriptor(ServiceDescriptor serviceDescriptor) {
-        requireNonNull(serviceDescriptor, "serviceDescriptor");
-        final Object schema = serviceDescriptor.getSchemaDescriptor();
-        if (schema instanceof ProtoServiceDescriptorSupplier) {
-            return ((ProtoServiceDescriptorSupplier) schema).getServiceDescriptor();
-        }
-        if (schema instanceof Descriptors.ServiceDescriptor) {
-            return (Descriptors.ServiceDescriptor) schema;
-        }
-        throw new IllegalArgumentException(
-                "serviceDescriptor must provide a ProtoServiceDescriptorSupplier: " +
-                serviceDescriptor.getName());
     }
 }

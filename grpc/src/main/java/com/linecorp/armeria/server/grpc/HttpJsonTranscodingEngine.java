@@ -87,8 +87,6 @@ import com.linecorp.armeria.server.grpc.HttpJsonTranscodingPathParser.PathSegmen
 import com.linecorp.armeria.server.grpc.HttpJsonTranscodingPathParser.VariablePathSegment;
 import com.linecorp.armeria.unsafe.PooledObjects;
 
-import io.grpc.ServerMethodDefinition;
-
 final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
     private static final Logger logger = LoggerFactory.getLogger(HttpJsonTranscodingEngine.class);
     private static final ObjectMapper mapper = JacksonUtil.newDefaultObjectMapper();
@@ -187,10 +185,8 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
                     responseFuture.completeExceptionally(t);
                 } else {
                     try {
-                        final ServerMethodDefinition<?, ?> method = spec.method();
-                        if (method != null) {
-                            ctx.setAttr(FramedGrpcService.RESOLVED_GRPC_METHOD, method);
-                        }
+                        final HttpJsonTranscodingEngineBuilder.GrpcMethod method = spec.method();
+                        ctx.setAttr(FramedGrpcService.RESOLVED_GRPC_METHOD_INFO, method);
                         final HttpData requestContent;
 
                         // https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/grpc_json_transcoder_filter#sending-arbitrary-content
@@ -569,8 +565,7 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
     static final class TranscodingSpec {
         private final int order;
         private final HttpRule httpRule;
-        @Nullable
-        private final ServerMethodDefinition<?, ?> method;
+        private final HttpJsonTranscodingEngineBuilder.GrpcMethod method;
         private final ServiceDescriptor serviceDescriptor;
         private final MethodDescriptor methodDescriptor;
         private final Map<String, Field> originalFields;
@@ -582,7 +577,7 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
 
         TranscodingSpec(int order,
                         HttpRule httpRule,
-                        @Nullable ServerMethodDefinition<?, ?> method,
+                        HttpJsonTranscodingEngineBuilder.GrpcMethod method,
                         ServiceDescriptor serviceDescriptor,
                         MethodDescriptor methodDescriptor,
                         Map<String, Field> originalFields,
@@ -610,9 +605,7 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
             return httpRule;
         }
 
-        @Nullable
-        ServerMethodDefinition<?, ?> method() {
-            // Method definition can be null when the engine is built from descriptors only.
+        HttpJsonTranscodingEngineBuilder.GrpcMethod method() {
             return method;
         }
 
