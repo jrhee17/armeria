@@ -172,6 +172,7 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
 
         grpcHeaders.method(HttpMethod.POST)
                    .contentType(GrpcSerializationFormats.JSON.mediaType());
+        grpcHeaders.path(grpcPath(spec.methodDescriptor()));
         // All clients support no encoding, and we don't support gRPC encoding for non-framed requests, so just
         // clear the header if it's present.
         grpcHeaders.remove(GrpcHeaderNames.GRPC_ACCEPT_ENCODING);
@@ -264,6 +265,10 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
                 return AggregatedHttpResponse.of(httpResponse.headers(), convertedData);
             }
         };
+    }
+
+    private static String grpcPath(MethodDescriptor methodDescriptor) {
+        return '/' + methodDescriptor.getService().getFullName() + '/' + methodDescriptor.getName();
     }
 
     @Nullable
