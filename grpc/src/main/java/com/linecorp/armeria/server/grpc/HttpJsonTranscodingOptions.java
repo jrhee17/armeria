@@ -22,7 +22,9 @@ import java.util.Set;
 import com.google.api.HttpRule;
 import com.google.protobuf.Message;
 
+import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.UnstableApi;
+import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
 
 /**
  * User provided options for customizing {@link HttpJsonTranscodingService}.
@@ -97,4 +99,10 @@ public interface HttpJsonTranscodingOptions {
      * request transcoded from an HTTP/JSON request.
      */
     UnframedGrpcErrorHandler errorHandler();
+
+    /**
+     * Returns the {@link SerializationFormat} used for the transcoded gRPC requests sent to the delegate.
+     * By default, {@link GrpcSerializationFormats#JSON} is used.
+     */
+    SerializationFormat transcodedGrpcSerializationFormat();
 }

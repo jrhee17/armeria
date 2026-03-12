@@ -47,7 +47,8 @@ class HttpJsonToGrpcTranscodingServiceTest {
         protected void configure(ServerBuilder sb) throws Exception {
             sb.service(GrpcService.builder()
                                   .addService(new HttpJsonTranscodingTestService())
-                                  .supportedSerializationFormats(GrpcSerializationFormats.JSON)
+                                  .supportedSerializationFormats(GrpcSerializationFormats.JSON,
+                                                                 GrpcSerializationFormats.PROTO)
                                   .build());
         }
     };
@@ -68,6 +69,16 @@ class HttpJsonToGrpcTranscodingServiceTest {
 
             sb.service(transcoder);
             sb.serviceUnder("/proxy", transcoder);
+
+            final HttpJsonToGrpcTranscodingService protoTranscoder =
+                    HttpJsonToGrpcTranscodingService.newBuilder(delegate)
+                                                    .serviceDescriptors(
+                                                            HttpJsonTranscodingTestServiceGrpc
+                                                                    .getServiceDescriptor())
+                                                    .transcodedGrpcSerializationFormat(
+                                                            GrpcSerializationFormats.PROTO)
+                                                    .build();
+            sb.serviceUnder("/proto", protoTranscoder);
 
             final GrpcService grpcService = GrpcService.builder()
                                                        .addService(new HttpJsonTranscodingTestService())
@@ -108,6 +119,16 @@ class HttpJsonToGrpcTranscodingServiceTest {
     void shouldProxyHttpJsonRequestWithPrefix() throws Exception {
         final WebClient client = WebClient.of(proxyServer.httpUri());
         final AggregatedHttpResponse response = client.get("/proxy/v1/messages/1").aggregate().join();
+        assertThat(response.contentType()).isEqualTo(MediaType.JSON_UTF_8);
+
+        final JsonNode root = mapper.readTree(response.contentUtf8());
+        assertThat(root.get("text").asText()).isEqualTo("messages/1");
+    }
+
+    @Test
+    void shouldProxyHttpJsonRequestWithProtoUpstream() throws Exception {
+        final WebClient client = WebClient.of(proxyServer.httpUri());
+        final AggregatedHttpResponse response = client.get("/proto/v1/messages/1").aggregate().join();
         assertThat(response.contentType()).isEqualTo(MediaType.JSON_UTF_8);
 
         final JsonNode root = mapper.readTree(response.contentUtf8());

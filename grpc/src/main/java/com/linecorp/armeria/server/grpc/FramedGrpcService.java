@@ -445,7 +445,8 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
     }
 
     @Nullable
-    private static ServerMethodDefinition<?, ?> attrMethodDefinition(ServiceRequestContext ctx, HandlerRegistry registry) {
+    private static ServerMethodDefinition<?, ?> attrMethodDefinition(ServiceRequestContext ctx,
+                                                                     HandlerRegistry registry) {
         final HttpJsonTranscodingEngineBuilder.GrpcMethod grpcMethod = ctx.attr(RESOLVED_GRPC_METHOD_INFO);
         if (grpcMethod != null) {
             if (grpcMethod.definition != null) {

@@ -23,6 +23,8 @@ import java.util.Set;
 import com.google.api.HttpRule;
 import com.google.common.base.MoreObjects;
 
+import com.linecorp.armeria.common.SerializationFormat;
+
 final class DefaultHttpJsonTranscodingOptions implements HttpJsonTranscodingOptions {
 
     static final HttpJsonTranscodingOptions DEFAULT = HttpJsonTranscodingOptions.builder().build();
@@ -32,17 +34,20 @@ final class DefaultHttpJsonTranscodingOptions implements HttpJsonTranscodingOpti
     private final HttpJsonTranscodingConflictStrategy conflictStrategy;
     private final Set<HttpJsonTranscodingQueryParamMatchRule> queryParamMatchRules;
     private final UnframedGrpcErrorHandler errorHandler;
+    private final SerializationFormat transcodedGrpcSerializationFormat;
 
     DefaultHttpJsonTranscodingOptions(boolean ignoreProtoHttpRule,
                                       List<HttpRule> additionalHttpRules,
                                       HttpJsonTranscodingConflictStrategy conflictStrategy,
                                       Set<HttpJsonTranscodingQueryParamMatchRule> queryParamMatchRules,
-                                      UnframedGrpcErrorHandler errorHandler) {
+                                      UnframedGrpcErrorHandler errorHandler,
+                                      SerializationFormat transcodedGrpcSerializationFormat) {
         this.ignoreProtoHttpRule = ignoreProtoHttpRule;
         this.additionalHttpRules = additionalHttpRules;
         this.conflictStrategy = conflictStrategy;
         this.queryParamMatchRules = queryParamMatchRules;
         this.errorHandler = errorHandler;
+        this.transcodedGrpcSerializationFormat = transcodedGrpcSerializationFormat;
     }
 
     @Override
@@ -71,6 +76,11 @@ final class DefaultHttpJsonTranscodingOptions implements HttpJsonTranscodingOpti
     }
 
     @Override
+    public SerializationFormat transcodedGrpcSerializationFormat() {
+        return transcodedGrpcSerializationFormat;
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
@@ -83,13 +93,14 @@ final class DefaultHttpJsonTranscodingOptions implements HttpJsonTranscodingOpti
                additionalHttpRules.equals(that.additionalHttpRules()) &&
                conflictStrategy.equals(that.conflictStrategy()) &&
                queryParamMatchRules.equals(that.queryParamMatchRules()) &&
-               errorHandler.equals(that.errorHandler());
+               errorHandler.equals(that.errorHandler()) &&
+               transcodedGrpcSerializationFormat.equals(that.transcodedGrpcSerializationFormat());
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(ignoreProtoHttpRule, additionalHttpRules, conflictStrategy,
-                            queryParamMatchRules, errorHandler);
+                            queryParamMatchRules, errorHandler, transcodedGrpcSerializationFormat);
     }
 
     @Override
@@ -100,6 +111,7 @@ final class DefaultHttpJsonTranscodingOptions implements HttpJsonTranscodingOpti
                           .add("conflictStrategy", conflictStrategy)
                           .add("queryParamMatchRules", queryParamMatchRules)
                           .add("errorHandler", errorHandler)
+                          .add("transcodedGrpcSerializationFormat", transcodedGrpcSerializationFormat)
                           .toString();
     }
 }

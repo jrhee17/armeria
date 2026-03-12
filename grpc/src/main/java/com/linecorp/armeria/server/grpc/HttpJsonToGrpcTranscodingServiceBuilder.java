@@ -44,6 +44,14 @@ final class HttpJsonToGrpcTranscodingServiceBuilder {
         return this;
     }
 
+    HttpJsonToGrpcTranscodingServiceBuilder transcodedGrpcSerializationFormat(
+            com.linecorp.armeria.common.SerializationFormat transcodedGrpcSerializationFormat) {
+        options = new HttpJsonTranscodingOptionsBuilder(options)
+                .transcodedGrpcSerializationFormat(transcodedGrpcSerializationFormat)
+                .build();
+        return this;
+    }
+
     HttpJsonToGrpcTranscodingServiceBuilder serviceDescriptors(
             ServiceDescriptor... serviceDescriptors) {
         requireNonNull(serviceDescriptors, "serviceDescriptors");

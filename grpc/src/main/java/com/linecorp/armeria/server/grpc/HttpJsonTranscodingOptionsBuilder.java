@@ -33,8 +33,10 @@ import com.google.protobuf.Message;
 
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.QueryParams;
+import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
+import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
 
 /**
  * A builder for {@link HttpJsonTranscodingOptions}.
@@ -56,6 +58,8 @@ public final class HttpJsonTranscodingOptionsBuilder {
 
     private UnframedGrpcErrorHandler errorHandler = UnframedGrpcErrorHandler.ofJson();
 
+    private SerializationFormat transcodedGrpcSerializationFormat = GrpcSerializationFormats.JSON;
+
     @Nullable
     private Set<HttpJsonTranscodingQueryParamMatchRule> queryParamMatchRules;
 
@@ -70,6 +74,7 @@ public final class HttpJsonTranscodingOptionsBuilder {
         conflictStrategy(options.conflictStrategy());
         queryParamMatchRules(options.queryParamMatchRules());
         errorHandler(options.errorHandler());
+        transcodedGrpcSerializationFormat(options.transcodedGrpcSerializationFormat());
     }
 
     /**
@@ -174,6 +179,21 @@ public final class HttpJsonTranscodingOptionsBuilder {
     }
 
     /**
+     * Sets the {@link SerializationFormat} used for the transcoded gRPC requests sent to the delegate.
+     * Only {@link GrpcSerializationFormats#JSON} and {@link GrpcSerializationFormats#PROTO} are supported.
+     */
+    public HttpJsonTranscodingOptionsBuilder transcodedGrpcSerializationFormat(
+            SerializationFormat transcodedGrpcSerializationFormat) {
+        requireNonNull(transcodedGrpcSerializationFormat, "transcodedGrpcSerializationFormat");
+        checkArgument(GrpcSerializationFormats.isJson(transcodedGrpcSerializationFormat) ||
+                      GrpcSerializationFormats.isProto(transcodedGrpcSerializationFormat),
+                      "transcodedGrpcSerializationFormat must be JSON or PROTO: %s",
+                      transcodedGrpcSerializationFormat);
+        this.transcodedGrpcSerializationFormat = transcodedGrpcSerializationFormat;
+        return this;
+    }
+
+    /**
      * Returns a newly created {@link HttpJsonTranscodingOptions}.
      */
     public HttpJsonTranscodingOptions build() {
@@ -195,6 +215,7 @@ public final class HttpJsonTranscodingOptionsBuilder {
             }
         }
         return new DefaultHttpJsonTranscodingOptions(ignoreProtoHttpRule, rules, conflictStrategy,
-                                                     matchRules, errorHandler);
+                                                     matchRules, errorHandler,
+                                                     transcodedGrpcSerializationFormat);
     }
 }
