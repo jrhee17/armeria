@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
+import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.MediaType;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
@@ -45,11 +46,16 @@ class HttpJsonToGrpcTranscodingServiceTest {
     static final ServerExtension upstreamServer = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
-            sb.service(GrpcService.builder()
-                                  .addService(new HttpJsonTranscodingTestService())
-                                  .supportedSerializationFormats(GrpcSerializationFormats.JSON,
-                                                                 GrpcSerializationFormats.PROTO)
-                                  .build());
+            sb.serviceUnder("/json",
+                            GrpcService.builder()
+                                       .addService(new HttpJsonTranscodingTestService())
+                                       .supportedSerializationFormats(GrpcSerializationFormats.JSON)
+                                       .build());
+            sb.serviceUnder("/proto",
+                            GrpcService.builder()
+                                       .addService(new HttpJsonTranscodingTestService())
+                                       .supportedSerializationFormats(GrpcSerializationFormats.PROTO)
+                                       .build());
         }
     };
 
@@ -57,11 +63,12 @@ class HttpJsonToGrpcTranscodingServiceTest {
     static final ServerExtension proxyServer = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
-            final HttpService delegate = (ctx, req) ->
-                    WebClient.of(upstreamServer.uri(SessionProtocol.H2C)).execute(req);
+            final WebClient client = WebClient.of(upstreamServer.uri(SessionProtocol.H2C));
+            final HttpService jsonDelegate = prefixedProxy(client, "/json");
+            final HttpService protoDelegate = prefixedProxy(client, "/proto");
 
             final HttpJsonToGrpcTranscodingService transcoder =
-                    HttpJsonToGrpcTranscodingService.newBuilder(delegate)
+                    HttpJsonToGrpcTranscodingService.newBuilder(jsonDelegate)
                                                     .serviceDescriptors(
                                                             HttpJsonTranscodingTestServiceGrpc
                                                                     .getServiceDescriptor())
@@ -71,7 +78,7 @@ class HttpJsonToGrpcTranscodingServiceTest {
             sb.serviceUnder("/proxy", transcoder);
 
             final HttpJsonToGrpcTranscodingService protoTranscoder =
-                    HttpJsonToGrpcTranscodingService.newBuilder(delegate)
+                    HttpJsonToGrpcTranscodingService.newBuilder(protoDelegate)
                                                     .serviceDescriptors(
                                                             HttpJsonTranscodingTestServiceGrpc
                                                                     .getServiceDescriptor())
@@ -104,6 +111,15 @@ class HttpJsonToGrpcTranscodingServiceTest {
             sb.serviceUnder("/inproc-path", inProcessTranscoderWithPath);
         }
     };
+
+    private static HttpService prefixedProxy(WebClient client, String prefix) {
+        return (ctx, req) -> {
+            final HttpRequest newReq = req.mapHeaders(
+                    headers -> headers.toBuilder().path(prefix + headers.path()).build());
+            ctx.updateRequest(newReq);
+            return client.execute(newReq);
+        };
+    }
 
     @Test
     void shouldProxyHttpJsonRequest() throws Exception {
