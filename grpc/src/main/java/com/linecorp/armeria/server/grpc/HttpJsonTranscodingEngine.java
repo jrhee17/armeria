@@ -156,6 +156,9 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
 
     HttpResponse serve(ServiceRequestContext ctx, HttpRequest req,
                        HttpService delegate) throws Exception {
+        if (ctx.attr(FramedGrpcService.RESOLVED_GRPC_METHOD_INFO) != null) {
+            return delegate.serve(ctx, req);
+        }
         final TranscodingSpec spec = routeAndSpecs.get(ctx.config().mappedRoute());
         if (spec != null) {
             return serve0(ctx, req, spec, delegate);
@@ -216,7 +219,6 @@ final class HttpJsonTranscodingEngine implements HttpEndpointSupport {
                         } else {
                             transcodedRequestContent = requestContent;
                         }
-
                         unframedGrpcSupport.frameAndServe(
                                 delegate, ctx, grpcHeaders.build(), transcodedRequestContent, responseFuture,
                                 generateResponseConverter(spec, useProto));

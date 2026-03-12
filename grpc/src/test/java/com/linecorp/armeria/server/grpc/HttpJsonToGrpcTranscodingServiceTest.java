@@ -17,6 +17,10 @@
 package com.linecorp.armeria.server.grpc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -27,20 +31,31 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.MediaType;
+import com.linecorp.armeria.common.ResponseCompleteException;
+import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
+import com.linecorp.armeria.common.grpc.protocol.GrpcHeaderNames;
 import com.linecorp.armeria.internal.common.JacksonUtil;
 import com.linecorp.armeria.it.grpc.HttpJsonTranscodingTestService;
 import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
+import io.grpc.stub.StreamObserver;
 import testing.grpc.HttpJsonTranscodingTestServiceGrpc;
+import testing.grpc.Messages.SimpleRequest;
+import testing.grpc.Messages.SimpleResponse;
+import testing.grpc.TestServiceGrpc.TestServiceImplBase;
 
 class HttpJsonToGrpcTranscodingServiceTest {
 
     private static final ObjectMapper mapper = JacksonUtil.newDefaultObjectMapper();
+    private static final AtomicReference<CompletableFuture<Void>> unconsumedGrpcRequestCompletion =
+            new AtomicReference<>();
 
     @RegisterExtension
     static final ServerExtension upstreamServer = new ServerExtension() {
@@ -109,6 +124,60 @@ class HttpJsonToGrpcTranscodingServiceTest {
                                                                     .getServiceDescriptor())
                                                     .build();
             sb.serviceUnder("/inproc-path", inProcessTranscoderWithPath);
+
+            final GrpcService mismatchedGrpcService = GrpcService.builder()
+                                                                 .addService(new MismatchedTestService())
+                                                                 .build();
+            final HttpJsonToGrpcTranscodingService mismatchedTranscoder =
+                    HttpJsonToGrpcTranscodingService.newBuilder(mismatchedGrpcService)
+                                                    .serviceDescriptors(
+                                                            HttpJsonTranscodingTestServiceGrpc
+                                                                    .getServiceDescriptor())
+                                                    .build();
+            sb.serviceUnder("/mismatch", mismatchedTranscoder);
+
+            final HttpJsonToGrpcTranscodingService badDelegateTranscoder =
+                    HttpJsonToGrpcTranscodingService.newBuilder((ctx, req) -> {
+                        return HttpResponse.of(
+                                req.aggregate(ctx.eventLoop())
+                                   .thenApply(unused -> HttpResponse.of(HttpStatus.NOT_FOUND)));
+                    })
+                                                    .serviceDescriptors(
+                                                            HttpJsonTranscodingTestServiceGrpc
+                                                                    .getServiceDescriptor())
+                                                    .build();
+            sb.serviceUnder("/bad-delegate", badDelegateTranscoder);
+
+            final HttpJsonToGrpcTranscodingService abortingTranscoder =
+                    HttpJsonToGrpcTranscodingService.newBuilder((ctx, req) -> {
+                        unconsumedGrpcRequestCompletion.set(req.whenComplete());
+                        final ResponseHeaders headers =
+                                ResponseHeaders.builder(HttpStatus.OK)
+                                               .contentType(GrpcSerializationFormats.JSON.mediaType())
+                                               .add(GrpcHeaderNames.GRPC_STATUS, "0")
+                                               .build();
+                        return HttpResponse.of(headers);
+                    })
+                                                    .serviceDescriptors(
+                                                            HttpJsonTranscodingTestServiceGrpc
+                                                                    .getServiceDescriptor())
+                                                    .build();
+            sb.serviceUnder("/abort-request", abortingTranscoder);
+
+            final GrpcService grpcServiceWithTranscodingEnabled =
+                    GrpcService.builder()
+                               .addService(new HttpJsonTranscodingTestService())
+                               .enableUnframedRequests(true)
+                               .enableHttpJsonTranscoding(true)
+                               .supportedSerializationFormats(GrpcSerializationFormats.JSON)
+                               .build();
+            final HttpJsonToGrpcTranscodingService inProcessTranscoderWithTranscodingEnabled =
+                    HttpJsonToGrpcTranscodingService.newBuilder(grpcServiceWithTranscodingEnabled)
+                                                    .serviceDescriptors(
+                                                            HttpJsonTranscodingTestServiceGrpc
+                                                                    .getServiceDescriptor())
+                                                    .build();
+            sb.serviceUnder("/inproc-enabled", inProcessTranscoderWithTranscodingEnabled);
         }
     };
 
@@ -170,5 +239,61 @@ class HttpJsonToGrpcTranscodingServiceTest {
 
         final JsonNode root = mapper.readTree(response.contentUtf8());
         assertThat(root.get("text").asText()).isEqualTo("messages/1");
+    }
+
+    @Test
+    void shouldReturnUnimplementedForMismatchedService() throws Exception {
+        final WebClient client = WebClient.of(proxyServer.httpUri());
+        final AggregatedHttpResponse response =
+                client.get("/mismatch/v1/messages/1").aggregate().join();
+        assertThat(response.status()).isEqualTo(HttpStatus.NOT_IMPLEMENTED);
+        assertThat(response.contentType()).isEqualTo(MediaType.JSON_UTF_8);
+
+        final JsonNode root = mapper.readTree(response.contentUtf8());
+        assertThat(root.get("grpc-code").asText()).isEqualTo("UNIMPLEMENTED");
+    }
+
+    @Test
+    void shouldFailWhenDelegateReturnsNonGrpcResponse() {
+        final WebClient client = WebClient.of(proxyServer.httpUri());
+        final AggregatedHttpResponse response =
+                client.get("/bad-delegate/v1/messages/1").aggregate().join();
+        assertThat(response.status()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @Test
+    void shouldAbortUnconsumedGrpcRequest() {
+        final WebClient client = WebClient.of(proxyServer.httpUri());
+        final AggregatedHttpResponse response =
+                client.get("/abort-request/v1/messages/1").aggregate().join();
+        assertThat(response.status()).isEqualTo(HttpStatus.OK);
+
+        await().untilAsserted(() -> {
+            final CompletableFuture<Void> completion = unconsumedGrpcRequestCompletion.get();
+            assertThat(completion).isNotNull();
+            assertThat(completion).isDone();
+            final Throwable cause = completion.handle((unused, ex) -> ex).join();
+            assertThat(cause).isInstanceOf(ResponseCompleteException.class);
+        });
+    }
+
+    @Test
+    void shouldProxyHttpJsonRequestInProcessWithTranscodingEnabled() throws Exception {
+        final WebClient client = WebClient.of(proxyServer.httpUri());
+        final AggregatedHttpResponse response =
+                client.get("/inproc-enabled/v1/messages/1").aggregate().join();
+        assertThat(response.contentType()).isEqualTo(MediaType.JSON_UTF_8);
+
+        final JsonNode root = mapper.readTree(response.contentUtf8());
+        assertThat(root.get("text").asText()).isEqualTo("messages/1");
+    }
+
+    private static final class MismatchedTestService extends TestServiceImplBase {
+        @Override
+        public void unaryCall(SimpleRequest request,
+                              StreamObserver<SimpleResponse> responseObserver) {
+            responseObserver.onNext(SimpleResponse.newBuilder().setUsername("mismatch").build());
+            responseObserver.onCompleted();
+        }
     }
 }

@@ -38,6 +38,7 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.MediaType;
 import com.linecorp.armeria.common.RequestHeaders;
+import com.linecorp.armeria.common.ResponseCompleteException;
 import com.linecorp.armeria.common.ResponseHeadersBuilder;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
@@ -121,6 +122,7 @@ final class UnframedGrpcSupport {
         try {
             grpcResponse = delegate.serve(ctx, grpcRequest);
         } catch (Exception e) {
+            abortIfNotComplete(grpcRequest, e);
             res.completeExceptionally(e);
             return;
         }
@@ -134,9 +136,17 @@ final class UnframedGrpcSupport {
                                     } else {
                                         deframeAndRespond(ctx, framedResponse, res, responseConverter);
                                     }
+                                } finally {
+                                    abortIfNotComplete(grpcRequest, ResponseCompleteException.get());
                                 }
                                 return null;
                             });
+    }
+
+    private static void abortIfNotComplete(HttpRequest request, Throwable cause) {
+        if (!request.isComplete()) {
+            request.abort(cause);
+        }
     }
 
     @VisibleForTesting
