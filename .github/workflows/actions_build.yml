@@ -28,34 +28,13 @@ env:
 
 jobs:
   build:
-    if: github.repository == 'line/armeria'
     runs-on: ${{ matrix.on }}
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        on: [ ubicloud-standard-16, macos-latest, windows-latest ]
+        on: [ ubuntu-latest ]
         java: [ 25 ]
-        include:
-          - java: 8
-            on: ubicloud-standard-16
-          - java: 11
-            on: ubicloud-standard-16
-          - java: 17
-            on: ubicloud-standard-16
-            leak: true
-          - java: 17
-            on: ubicloud-standard-16
-            min-java: 11
-          - java: 17
-            on: ubicloud-standard-16
-            min-java: 17
-            coverage: true
-          - java: 21
-            on: ubicloud-standard-16
-            snapshot: true
-            # blockhound makes the build run about 10 minutes slower
-            blockhound: true
 
     name: build-${{ matrix.on }}-jdk-${{ matrix.java }}${{ matrix.min-java && format('-min-java-{0}', matrix.min-java) || '' }}${{ matrix.leak && '-leak' || ''}}${{ matrix.coverage && '-coverage' || ''}}${{ matrix.snapshot && '-snapshot' || ''}}${{ matrix.blockhound && '-blockhound' || ''}}
 
@@ -98,7 +77,7 @@ jobs:
       - name: Build with Gradle (Shading only)
         run: |
           ./gradlew --no-daemon --stacktrace shadedJar shadedTestJar trimShadedJar \
-          ${{ startsWith(matrix.on, 'ubicloud') && '--max-workers=8' || '--max-workers=2' }} --parallel \
+          --max-workers=2 --parallel \
           ${{ matrix.coverage && '-Pcoverage' || '' }} \
           -PnoLint \
           -PbuildJdkVersion=${{ env.BUILD_JDK_VERSION }} \
@@ -117,7 +96,7 @@ jobs:
       - name: Build with Gradle
         run: |
           ./gradlew --no-daemon --stacktrace build \
-          ${{ startsWith(matrix.on, 'ubicloud') && '--max-workers=8' || '--max-workers=2' }} --parallel \
+          --max-workers=2 --parallel \
           ${{ matrix.coverage && '-Pcoverage' || '' }} \
           ${{ matrix.leak && '-Pleak' || '' }} \
           ${{ matrix.blockhound && '-Pblockhound' || '' }} \
@@ -220,7 +199,6 @@ jobs:
           retention-days: 3
 
   lint:
-    if: github.repository == 'line/armeria'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -241,7 +219,6 @@ jobs:
           ./gradlew --no-daemon --stacktrace --max-workers=4 --parallel lint
 
   site:
-    if: github.repository == 'line/armeria'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -275,7 +252,6 @@ jobs:
           path: /home/runner/.npm/_logs/
 
   flaky-tests:
-    if: github.repository == 'line/armeria'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
