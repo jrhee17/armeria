@@ -21,6 +21,7 @@ import com.linecorp.armeria.common.annotation.UnstableApi;
 /**
  * Validates an xDS resource. Validators are loaded using Java SPI (Service Provider Interface).
  */
+@FunctionalInterface
 @UnstableApi
 public interface XdsValidatorIndex {
 

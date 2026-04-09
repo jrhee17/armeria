@@ -1,0 +1,76 @@
+/*
+ * Copyright 2025 LY Corporation
+ *
+ * LY Corporation licenses this file to you under the Apache License,
+ * version 2.0 (the "License"); you may not use this file except in compliance
+ * with the License. You may obtain a copy of the License at:
+ *
+ *   https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ */
+
+package com.linecorp.armeria.xds.api;
+
+import static java.util.Objects.requireNonNull;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.linecorp.armeria.common.annotation.UnstableApi;
+
+/**
+ * A handler that is invoked when unsupported xDS fields are detected in a protobuf message.
+ * Unsupported fields are those not annotated with {@code (armeria.xds.supported) = true}.
+ */
+@UnstableApi
+@FunctionalInterface
+public interface UnsupportedFieldHandler {
+
+    Logger logger = LoggerFactory.getLogger(UnsupportedFieldHandler.class);
+
+    /**
+     * Called when an unsupported field is detected.
+     *
+     * @param fieldPath the full dotted path of the unsupported field that is set
+     */
+    void handle(String fieldPath);
+
+    /**
+     * Returns a composed handler that first invokes this handler, then the {@code after} handler.
+     */
+    default UnsupportedFieldHandler andThen(UnsupportedFieldHandler after) {
+        requireNonNull(after, "after");
+        return fieldPath -> {
+            handle(fieldPath);
+            after.handle(fieldPath);
+        };
+    }
+
+    /**
+     * Returns a handler that logs a warning for each unsupported field path.
+     */
+    static UnsupportedFieldHandler warn() {
+        return fieldPath -> logger.warn("Unsupported xDS field detected: {}", fieldPath);
+    }
+
+    /**
+     * Returns a handler that throws an {@link IllegalArgumentException} on the first unsupported field.
+     */
+    static UnsupportedFieldHandler reject() {
+        return fieldPath -> {
+            throw new IllegalArgumentException("Unsupported xDS field detected: " + fieldPath);
+        };
+    }
+
+    /**
+     * Returns a handler that silently ignores unsupported fields.
+     */
+    static UnsupportedFieldHandler ignore() {
+        return IgnoreUnsupportedFieldHandler.INSTANCE;
+    }
+}
