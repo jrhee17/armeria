@@ -44,6 +44,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -118,7 +119,6 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http2.DefaultHttp2LocalFlowController;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.util.Mapping;
 import io.netty.util.NetUtil;
 import it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
 
@@ -243,11 +243,11 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
     private final List<ShutdownSupport> shutdownSupports = new ArrayList<>();
     private int http2MaxResetFramesPerWindow = Flags.defaultServerHttp2MaxResetFramesPerMinute();
     private int http2MaxResetFramesWindowSeconds = 60;
-    @Nullable
-    private TlsProvider tlsProvider;
-    @Nullable
-    private ServerTlsConfig tlsConfig;
+    private final ServerTlsProviderBuilder serverTlsProviderBuilder = new ServerTlsProviderBuilder();
     private Function<? super String, ? extends EventLoopGroup> bossGroupFactory = DEFAULT_BOSS_GROUP_FACTORY;
+    @Nullable
+    private ConnectionAcceptor connectionAcceptor;
+    private final List<ServerPlugin> plugins = new ArrayList<>();
 
     ServerBuilder() {
         // Set the default host-level properties.
@@ -522,6 +522,40 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
         requireNonNull(childChannelPipelineCustomizer, "childChannelPipelineCustomizer");
         this.childChannelPipelineCustomizer =
                 this.childChannelPipelineCustomizer.andThen(childChannelPipelineCustomizer);
+        return this;
+    }
+
+    /**
+     * Sets the {@link ConnectionAcceptor} that is called once per connection, before TLS
+     * negotiation, to decide whether to accept the connection. The acceptor can also store
+     * resolved policy on the {@link ConnectionContext} for use by {@link ServerTlsProvider}
+     * and service decorators.
+     *
+     * <p>When a {@link ConnectionAcceptor} is set, all HTTPS connections go through
+     * full ClientHello parsing regardless of the {@link ServerTlsProvider} type.
+     */
+    @UnstableApi
+    public ServerBuilder connectionAcceptor(ConnectionAcceptor connectionAcceptor) {
+        this.connectionAcceptor = requireNonNull(connectionAcceptor, "connectionAcceptor");
+        return this;
+    }
+
+    /**
+     * Adds a {@link ServerPlugin} that will be installed during {@link Server} construction
+     * and during {@link Server#reconfigure(ServerConfigurator)}.
+     *
+     * <p>Plugins are installed in insertion order. Each plugin's
+     * {@link ServerPlugin#install(ServerBuilder)} is called before the server configuration
+     * is built. Plugins are closed when the {@link Server} stops.
+     *
+     * <p>Note: Plugins can only be added at initial build time. Calling
+     * {@link ServerBuilder#addPlugin(ServerPlugin)} inside a {@link ServerConfigurator} passed to
+     * {@link Server#reconfigure(ServerConfigurator)} has no effect — the server uses the plugins
+     * registered at construction. Existing plugins are re-installed automatically during reconfiguration.
+     */
+    @UnstableApi
+    public ServerBuilder addPlugin(ServerPlugin plugin) {
+        plugins.add(requireNonNull(plugin, "plugin"));
         return this;
     }
 
@@ -1231,8 +1265,7 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
     @UnstableApi
     public ServerBuilder tlsProvider(TlsProvider tlsProvider) {
         requireNonNull(tlsProvider, "tlsProvider");
-        this.tlsProvider = tlsProvider;
-        tlsConfig = null;
+        serverTlsProviderBuilder.setTlsProvider(tlsProvider);
 
         if (tlsProvider.autoClose()) {
             shutdownSupports.add(ShutdownSupport.of(tlsProvider));
@@ -1269,11 +1302,25 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
     @UnstableApi
     public ServerBuilder tlsProvider(TlsProvider tlsProvider, ServerTlsConfig tlsConfig) {
         tlsProvider(tlsProvider);
-        this.tlsConfig = requireNonNull(tlsConfig, "tlsConfig");
+        serverTlsProviderBuilder.setTlsConfig(requireNonNull(tlsConfig, "tlsConfig"));
+        return this;
+    }
 
-        if (tlsProvider.autoClose()) {
-            shutdownSupports.add(ShutdownSupport.of(tlsProvider));
-        }
+    /**
+     * Adds the specified {@link ServerTlsProvider} which resolves TLS configuration from a
+     * {@link ConnectionContext}. This is used for advanced TLS resolution that depends on
+     * connection-level properties beyond hostname, such as xDS filter chain matching.
+     *
+     * <p>Multiple {@link ServerTlsProvider}s can be added by calling this method multiple times.
+     * They are tried in order, and the first non-null {@link ServerTlsSpec} wins.
+     * If all providers return {@code null}, the fallback TLS configuration from
+     * {@link #tls(TlsKeyPair)}, {@link #tlsProvider(TlsProvider)}, or VirtualHost TLS settings
+     * is used.
+     */
+    @UnstableApi
+    public ServerBuilder tlsProvider(ServerTlsProvider serverTlsProvider) {
+        requireNonNull(serverTlsProvider, "serverTlsProvider");
+        serverTlsProviderBuilder.addServerTlsProvider(serverTlsProvider);
         return this;
     }
 
@@ -2438,7 +2485,8 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
      * Returns a newly-created {@link Server} based on the configuration properties set so far.
      */
     public Server build() {
-        final Server server = new Server(buildServerConfig(ports));
+        plugins.forEach(plugin -> plugin.install(this));
+        final Server server = new Server(buildServerConfig(ports), ImmutableList.copyOf(plugins));
         serverListeners.forEach(server::addListener);
         return server;
     }
@@ -2458,7 +2506,7 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
             unloggedExceptionsReporter = null;
         }
 
-        final TlsProvider tlsProvider = this.tlsProvider;
+        final TlsProvider tlsProvider = serverTlsProviderBuilder.tlsProvider();
         if (tlsProvider != null && tlsProvider.autoClose()) {
             shutdownSupports.add(ShutdownSupport.of(tlsProvider));
         }
@@ -2466,6 +2514,7 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
         final ServerErrorHandler errorHandler = ServerErrorHandlerDecorators.decorate(
                 this.errorHandler == null ? ServerErrorHandler.ofDefault()
                                           : this.errorHandler.orElse(ServerErrorHandler.ofDefault()));
+        final ServerTlsConfig tlsConfig = serverTlsProviderBuilder.tlsConfig();
         final MeterIdPrefix meterIdPrefix = tlsConfig != null ? tlsConfig.meterIdPrefix() : null;
         final SslContextFactory sslContextFactory = new SslContextFactory(meterIdPrefix, meterRegistry);
         final VirtualHost defaultVirtualHost =
@@ -2478,9 +2527,6 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
                                                          unloggedExceptionsReporter, errorHandler,
                                                          tlsProvider, sslContextFactory))
                                    .collect(toImmutableList());
-        // Pre-populate the domain name mapping for later matching.
-        final Mapping<String, SslContext> sslContexts;
-        final SslContext defaultSslContext = findDefaultSslContext(defaultVirtualHost, virtualHosts);
         final Collection<ServerPort> ports;
 
         for (ServerPort port : this.ports) {
@@ -2515,10 +2561,15 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
             }
         }
 
-        checkState(defaultSslContext == null || tlsProvider == null,
-                   "Can't set %s with a static TLS setting", TlsProvider.class.getSimpleName());
-        if (defaultSslContext == null && tlsProvider == null) {
-            sslContexts = null;
+        // Build the ServerTlsProvider — handles all cases:
+        // 1) Direct ServerTlsProvider (e.g. xDS)
+        // 2) TlsProvider wrapped in TlsProviderAdapter
+        // 3) Static VirtualHost-based TLS via StaticTlsProvider
+        final ServerTlsProvider serverTlsProvider =
+                serverTlsProviderBuilder.build(defaultVirtualHost.tlsEngineType(),
+                                               defaultVirtualHost, virtualHosts);
+
+        if (serverTlsProvider == null) {
             if (!serverPorts.isEmpty()) {
                 ports = resolveDistinctPorts(serverPorts);
                 for (final ServerPort p : ports) {
@@ -2544,28 +2595,6 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
             } else {
                 ports = ImmutableList.of(new ServerPort(0, HTTPS));
             }
-
-            if (defaultSslContext != null) {
-                final DomainMappingBuilder<SslContext>
-                        mappingBuilder = new DomainMappingBuilder<>(defaultSslContext);
-                for (VirtualHost h : virtualHosts) {
-                    final SslContext sslCtx = h.sslContext();
-                    if (sslCtx != null) {
-                        final String originalHostnamePattern = h.originalHostnamePattern();
-                        // The SslContext for the default virtual host was added when creating
-                        // DomainMappingBuilder.
-                        if (!"*".equals(originalHostnamePattern)) {
-                            mappingBuilder.add(originalHostnamePattern, sslCtx);
-                        }
-                    }
-                }
-                sslContexts = mappingBuilder.build();
-            } else {
-                final TlsEngineType tlsEngineType = defaultVirtualHost.tlsEngineType();
-                assert tlsEngineType != null;
-                assert tlsProvider != null;
-                sslContexts = new TlsProviderMapping(tlsProvider, tlsEngineType, tlsConfig, sslContextFactory);
-            }
         }
         if (pingIntervalMillis > 0) {
             pingIntervalMillis = Math.max(pingIntervalMillis, MIN_PING_INTERVAL_MILLIS);
@@ -2586,7 +2615,7 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
         final BlockingTaskExecutor blockingTaskExecutor = defaultVirtualHost.blockingTaskExecutor();
 
         return new DefaultServerConfig(
-                ports, setSslContextIfAbsent(defaultVirtualHost, defaultSslContext),
+                ports, defaultVirtualHost,
                 virtualHosts, workerGroup, shutdownWorkerGroupOnStop, startStopExecutor, maxNumConnections,
                 idleTimeoutMillis, keepAliveOnPing, pingIntervalMillis, maxConnectionAgeMillis,
                 maxNumRequestsPerConnection,
@@ -2600,10 +2629,11 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
                 meterRegistry, proxyProtocolMaxTlvSize, channelOptions, newChildChannelOptions,
                 childChannelPipelineCustomizer,
                 clientAddressSources, clientAddressTrustedProxyFilter, clientAddressFilter, clientAddressMapper,
-                enableServerHeader, enableDateHeader, errorHandler, sslContexts,
+                enableServerHeader, enableDateHeader, errorHandler,
+                serverTlsProvider, sslContextFactory,
                 http1HeaderNaming, dependencyInjector, absoluteUriTransformer,
                 unloggedExceptionsReportIntervalMillis, ImmutableList.copyOf(shutdownSupports),
-                bossGroupFactory);
+                bossGroupFactory, connectionAcceptor);
     }
 
     /**
@@ -2665,31 +2695,6 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
         return reflectiveDependencyInjector;
     }
 
-    private static VirtualHost setSslContextIfAbsent(VirtualHost h,
-                                                     @Nullable SslContext defaultSslContext) {
-        if (h.sslContext() != null || defaultSslContext == null) {
-            return h;
-        }
-        return h.withNewSslContext(defaultSslContext);
-    }
-
-    @Nullable
-    private static SslContext findDefaultSslContext(VirtualHost defaultVirtualHost,
-                                                    List<VirtualHost> virtualHosts) {
-        final SslContext defaultSslContext = defaultVirtualHost.sslContext();
-        if (defaultSslContext != null) {
-            return defaultSslContext;
-        }
-
-        for (int i = virtualHosts.size() - 1; i >= 0; i--) {
-            final SslContext sslContext = virtualHosts.get(i).sslContext();
-            if (sslContext != null) {
-                return sslContext;
-            }
-        }
-        return null;
-    }
-
     private static void warnIfServiceHasMultipleRoutes(String path, HttpService service) {
         if (service instanceof ServiceWithRoutes) {
             if (!Flags.reportMaskedRoutes()) {
@@ -2703,6 +2708,79 @@ public final class ServerBuilder implements TlsSetters, ServiceConfigsBuilder<Se
                             "the -Dcom.linecorp.armeria.reportMaskedRoutes=false JVM option.",
                             path, service);
             }
+        }
+    }
+
+    /**
+     * Encapsulates the state and build logic for producing a {@link ServerTlsProvider}.
+     * Multiple {@link ServerTlsProvider}s can be added, forming a chain where each is
+     * tried in order and the first non-null {@link ServerTlsSpec} wins.
+     * A fallback provider is built from either a {@link TlsProvider} (wrapped in
+     * {@link TlsProviderAdapter}) or static VirtualHost TLS settings ({@link StaticTlsProvider}).
+     */
+    private static final class ServerTlsProviderBuilder {
+        @Nullable
+        private TlsProvider tlsProvider;
+        private final List<ServerTlsProvider> serverTlsProviders = new ArrayList<>();
+        @Nullable
+        private ServerTlsConfig tlsConfig;
+
+        void setTlsProvider(TlsProvider tlsProvider) {
+            this.tlsProvider = tlsProvider;
+        }
+
+        void addServerTlsProvider(ServerTlsProvider serverTlsProvider) {
+            this.serverTlsProviders.add(serverTlsProvider);
+        }
+
+        void setTlsConfig(ServerTlsConfig tlsConfig) {
+            this.tlsConfig = tlsConfig;
+        }
+
+        @Nullable
+        TlsProvider tlsProvider() {
+            return tlsProvider;
+        }
+
+        @Nullable
+        ServerTlsConfig tlsConfig() {
+            return tlsConfig;
+        }
+
+        /**
+         * Builds the {@link ServerTlsProvider}. Creates a chain from any added
+         * {@link ServerTlsProvider}s, with a fallback from either the {@link TlsProvider}
+         * (wrapped in {@link TlsProviderAdapter}) or static VirtualHost TLS
+         * ({@link StaticTlsProvider}). Returns {@code null} if no TLS is configured.
+         */
+        @Nullable
+        ServerTlsProvider build(@Nullable TlsEngineType tlsEngineType,
+                                VirtualHost defaultVirtualHost, List<VirtualHost> virtualHosts) {
+            // Build the fallback provider from TlsProvider or static VirtualHost TLS.
+            final ServerTlsProvider fallback;
+            if (tlsProvider != null) {
+                assert tlsEngineType != null;
+                fallback = new TlsProviderAdapter(tlsProvider, tlsEngineType, tlsConfig);
+            } else {
+                fallback = StaticTlsProvider.of(defaultVirtualHost, virtualHosts);
+            }
+
+            if (serverTlsProviders.isEmpty()) {
+                return fallback;
+            }
+
+            // Stable sort by order (lower = evaluated first); equal-order providers
+            // retain their registration order. Fallback is always last.
+            final List<ServerTlsProvider> sorted = new ArrayList<>(serverTlsProviders);
+            sorted.sort(Comparator.comparingInt(ServerTlsProvider::order));
+            if (fallback != null) {
+                sorted.add(fallback);
+            }
+
+            if (sorted.size() == 1) {
+                return sorted.get(0);
+            }
+            return new CompositeServerTlsProvider(sorted);
         }
     }
 }

@@ -55,9 +55,10 @@ public final class ServerTlsSpec extends AbstractTlsSpec {
                   List<X509Certificate> trustedCertificates,
                   List<TlsPeerVerifierFactory> verifierFactories, TlsEngineType engineType,
                   Consumer<? super SslContextBuilder> tlsCustomizer, ClientAuth clientAuth,
+                  boolean allowUnsafeCiphers,
                   @Nullable KeyManagerFactory keyManagerFactory, String hostnamePattern) {
         super(protocols, alpnProtocols, ciphers, tlsKeyPair, trustedCertificates, verifierFactories, engineType,
-              tlsCustomizer, keyManagerFactory);
+              tlsCustomizer, keyManagerFactory, allowUnsafeCiphers);
         this.clientAuth = clientAuth;
         this.hostnamePattern = hostnamePattern;
     }
@@ -118,11 +119,20 @@ public final class ServerTlsSpec extends AbstractTlsSpec {
                           .toString();
     }
 
-    static ServerTlsSpecBuilder builder() {
+    /**
+     * Returns a new {@link ServerTlsSpecBuilder}.
+     */
+    @UnstableApi
+    public static ServerTlsSpecBuilder builder() {
         return new ServerTlsSpecBuilder();
     }
 
-    static class ServerTlsSpecBuilder extends AbstractTlsSpecBuilder<ServerTlsSpecBuilder, ServerTlsSpec> {
+    /**
+     * A builder for {@link ServerTlsSpec}.
+     */
+    @UnstableApi
+    public static class ServerTlsSpecBuilder
+            extends AbstractTlsSpecBuilder<ServerTlsSpecBuilder, ServerTlsSpec> {
 
         private ClientAuth clientAuth = ClientAuth.NONE;
         private String hostnamePattern = "UNKNOWN";
@@ -130,21 +140,33 @@ public final class ServerTlsSpec extends AbstractTlsSpec {
         @Nullable
         private KeyManagerFactory keyManagerFactory;
 
-        ServerTlsSpecBuilder clientAuth(ClientAuth clientAuth) {
+        /**
+         * Sets the client authentication requirement.
+         */
+        public ServerTlsSpecBuilder clientAuth(ClientAuth clientAuth) {
             this.clientAuth = requireNonNull(clientAuth, "clientAuth");
             return this;
         }
 
+        /**
+         * Sets the hostname pattern for this TLS configuration.
+         */
         ServerTlsSpecBuilder hostnamePattern(String hostnamePattern) {
             this.hostnamePattern = requireNonNull(hostnamePattern, "hostnamePattern");
             return this;
         }
 
+        /**
+         * Sets the TLS customizer for the {@link SslContextBuilder}.
+         */
         ServerTlsSpecBuilder tlsCustomizer(Consumer<? super SslContextBuilder> tlsCustomizer) {
             this.tlsCustomizer = requireNonNull(tlsCustomizer, "tlsCustomizer");
             return this;
         }
 
+        /**
+         * Sets the {@link KeyManagerFactory} to use for TLS.
+         */
         ServerTlsSpecBuilder keyManagerFactory(KeyManagerFactory keyManagerFactory) {
             this.keyManagerFactory = requireNonNull(keyManagerFactory, "keyManagerFactory");
             return this;
@@ -157,7 +179,7 @@ public final class ServerTlsSpec extends AbstractTlsSpec {
             return new ServerTlsSpec(SslContextUtil.supportedTlsVersions(engineType().sslProvider()),
                                      SslContextUtil.DEFAULT_ALPN_PROTOCOLS, ciphers(), tlsKeyPair(),
                                      trustedCertificates(), verifierFactories(), engineType(), tlsCustomizer,
-                                     clientAuth, keyManagerFactory, hostnamePattern);
+                                     clientAuth, allowUnsafeCiphers(), keyManagerFactory, hostnamePattern);
         }
     }
 }

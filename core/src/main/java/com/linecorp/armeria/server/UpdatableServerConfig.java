@@ -33,13 +33,12 @@ import com.linecorp.armeria.common.Http1HeaderNaming;
 import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.BlockingTaskExecutor;
+import com.linecorp.armeria.internal.common.SslContextFactory;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
-import io.netty.handler.ssl.SslContext;
-import io.netty.util.Mapping;
 
 final class UpdatableServerConfig implements ServerConfig {
 
@@ -59,12 +58,19 @@ final class UpdatableServerConfig implements ServerConfig {
 
     // Delegate non-public methods
 
-    /**
-     * Returns a map of SslContexts {@link SslContext}.
-     */
     @Nullable
-    Mapping<String, SslContext> sslContextMapping() {
-        return delegate.sslContextMapping();
+    ServerTlsProvider serverTlsProvider() {
+        return delegate.serverTlsProvider();
+    }
+
+    @Nullable
+    SslContextFactory sslContextFactory() {
+        return delegate.sslContextFactory();
+    }
+
+    @Nullable
+    ConnectionAcceptor connectionAcceptor() {
+        return delegate.connectionAcceptor();
     }
 
     /**

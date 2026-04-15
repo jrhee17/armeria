@@ -54,6 +54,7 @@ import com.linecorp.armeria.internal.common.ArmeriaHttp2HeadersDecoder;
 import com.linecorp.armeria.internal.common.KeepAliveHandler;
 import com.linecorp.armeria.internal.common.NoopKeepAliveHandler;
 import com.linecorp.armeria.internal.common.ReadSuppressingHandler;
+import com.linecorp.armeria.internal.common.SslContextFactory;
 import com.linecorp.armeria.internal.common.TrafficLoggingHandler;
 import com.linecorp.armeria.internal.common.util.CertificateUtil;
 import com.linecorp.armeria.internal.common.util.ChannelUtil;
@@ -96,6 +97,7 @@ import io.netty.handler.flush.FlushConsolidationHandler;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
+import io.netty.handler.ssl.SniCompletionEvent;
 import io.netty.handler.ssl.SniHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
@@ -159,6 +161,7 @@ final class HttpServerPipelineConfigurator extends ChannelInitializer<Channel> {
         final ChannelPipeline p = ch.pipeline();
         p.addLast(new FlushConsolidationHandler());
         p.addLast(ReadSuppressingHandler.INSTANCE);
+
         configurePipeline(p, port.protocols(), null);
         config.childChannelPipelineCustomizer().accept(p);
     }
@@ -198,6 +201,20 @@ final class HttpServerPipelineConfigurator extends ChannelInitializer<Channel> {
     }
 
     private void configureHttp(ChannelPipeline p, @Nullable ProxiedAddresses proxiedAddresses) {
+        final Channel ch = p.channel();
+
+        // Call the ConnectionAcceptor for non-TLS connections if present.
+        final ConnectionAcceptor acceptor = config.connectionAcceptor();
+        if (acceptor != null) {
+            final ConnectionContext connectionCtx =
+                    new ConnectionContext(SessionProtocol.HTTP, "", null, ch);
+            ch.attr(ConnectionContext.ATTR).set(connectionCtx);
+            if (!acceptor.accept(connectionCtx)) {
+                ch.close();
+                return;
+            }
+        }
+
         final long idleTimeoutMillis = config.idleTimeoutMillis();
         final long maxConnectionAgeMillis = config.maxConnectionAgeMillis();
         final int maxNumRequestsPerConnection = config.maxNumRequestsPerConnection();
@@ -232,25 +249,70 @@ final class HttpServerPipelineConfigurator extends ChannelInitializer<Channel> {
     }
 
     private void configureHttps(ChannelPipeline p, @Nullable ProxiedAddresses proxiedAddresses) {
-        p.addLast(newSniHandler(p));
+        final ServerTlsProvider serverTlsProvider = config.serverTlsProvider();
+        final SslContextFactory sslContextFactory = config.sslContextFactory();
+        final ConnectionAcceptor acceptor = config.connectionAcceptor();
+        assert serverTlsProvider != null : "HTTPS configured but no ServerTlsProvider";
+        assert sslContextFactory != null : "HTTPS configured but no SslContextFactory";
+
+        if (acceptor != null) {
+            // ConnectionAcceptor requires full ClientHello parsing for ConnectionContext.
+            p.addLast(new ConnectionAcceptHandler(acceptor, serverTlsProvider, sslContextFactory,
+                                                  Flags.defaultMaxClientHelloLength(),
+                                                  config.idleTimeoutMillis()));
+        } else if (serverTlsProvider instanceof StaticTlsProvider) {
+            // Simple hostname-based TLS — use SniHandler without full ClientHello parsing.
+            final Mapping<String, SslContext> mapping =
+                    ((StaticTlsProvider) serverTlsProvider).toSslContextMapping(sslContextFactory);
+            p.addLast(newSniHandler(p, mapping, sslContextFactory));
+            p.addLast(new SniConnectionContextHandler());
+        } else if (serverTlsProvider instanceof TlsProviderAdapter) {
+            final Mapping<String, SslContext> mapping =
+                    ((TlsProviderAdapter) serverTlsProvider).toSslContextMapping(sslContextFactory);
+            p.addLast(newSniHandler(p, mapping, sslContextFactory));
+            p.addLast(new SniConnectionContextHandler());
+        } else {
+            // Advanced TLS (e.g. xDS composite) — needs full ClientHello for ConnectionContext.
+            p.addLast(new ConnectionAcceptHandler(null, serverTlsProvider, sslContextFactory,
+                                                  Flags.defaultMaxClientHelloLength(),
+                                                  config.idleTimeoutMillis()));
+        }
         p.addLast(TrafficLoggingHandler.SERVER);
         p.addLast(new Http2OrHttpHandler(proxiedAddresses));
     }
 
-    private SniHandler newSniHandler(ChannelPipeline p) {
-        final Mapping<String, SslContext> sslContexts =
-                requireNonNull(config.sslContextMapping(), "config.sslContextMapping() returned null");
-        final SniHandler sniHandler = new SniHandler(sslContexts, Flags.defaultMaxClientHelloLength(),
+    private SniHandler newSniHandler(ChannelPipeline p, Mapping<String, SslContext> mapping,
+                                     SslContextFactory sslContextFactory) {
+        final SniHandler sniHandler = new SniHandler(mapping, Flags.defaultMaxClientHelloLength(),
                                                      config.idleTimeoutMillis());
-        if (sslContexts instanceof TlsProviderMapping) {
-            p.channel().closeFuture().addListener(future -> {
-                final SslContext sslContext = sniHandler.sslContext();
-                if (sslContext != null) {
-                    ((TlsProviderMapping) sslContexts).release(sslContext);
-                }
-            });
-        }
+        p.channel().closeFuture().addListener(future -> {
+            final SslContext sslContext = sniHandler.sslContext();
+            if (sslContext != null) {
+                sslContextFactory.release(sslContext);
+            }
+        });
         return sniHandler;
+    }
+
+    /**
+     * Creates a {@link ConnectionContext} from the {@link SniCompletionEvent} fired by the
+     * {@link SniHandler}, then removes itself from the pipeline.
+     */
+    private static final class SniConnectionContextHandler extends ChannelInboundHandlerAdapter {
+        @Override
+        public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+            if (evt instanceof SniCompletionEvent) {
+                final SniCompletionEvent sniEvent = (SniCompletionEvent) evt;
+                if (sniEvent.isSuccess()) {
+                    final String hostname = sniEvent.hostname() != null ? sniEvent.hostname() : "";
+                    final ConnectionContext connectionCtx =
+                            new ConnectionContext(HTTPS, hostname, null, ctx.channel());
+                    ctx.channel().attr(ConnectionContext.ATTR).set(connectionCtx);
+                }
+                ctx.pipeline().remove(this);
+            }
+            super.userEventTriggered(ctx, evt);
+        }
     }
 
     private Http2ConnectionHandler newHttp2ConnectionHandler(ChannelPipeline pipeline, AsciiString scheme) {

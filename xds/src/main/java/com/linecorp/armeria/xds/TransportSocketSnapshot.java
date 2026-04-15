@@ -33,9 +33,13 @@ import com.linecorp.armeria.common.TlsKeyPair;
 import com.linecorp.armeria.common.TlsPeerVerifierFactory;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
+import com.linecorp.armeria.server.ServerTlsSpec;
+import com.linecorp.armeria.server.ServerTlsSpec.ServerTlsSpecBuilder;
 
 import io.envoyproxy.envoy.config.core.v3.TransportSocket;
+import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext;
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext;
+import io.netty.handler.ssl.ClientAuth;
 
 /**
  * A snapshot of a {@link TransportSocket} resource with its associated TLS configuration.
@@ -55,12 +59,15 @@ public final class TransportSocketSnapshot implements Snapshot<TransportSocket> 
     private final CertificateValidationContextSnapshot validationContext;
     @Nullable
     private final ClientTlsSpec clientTlsSpec;
+    @Nullable
+    private final ServerTlsSpec serverTlsSpec;
 
     TransportSocketSnapshot(TransportSocket transportSocket) {
         this.transportSocket = transportSocket;
         tlsCertificate = null;
         validationContext = null;
         clientTlsSpec = null;
+        serverTlsSpec = null;
     }
 
     TransportSocketSnapshot(TransportSocket transportSocket,
@@ -71,6 +78,18 @@ public final class TransportSocketSnapshot implements Snapshot<TransportSocket> 
         this.tlsCertificate = tlsCertificate.orElse(null);
         this.validationContext = validationContext.orElse(null);
         clientTlsSpec = buildClientTlsSpec(upstreamTlsContext, this.tlsCertificate, this.validationContext);
+        serverTlsSpec = null;
+    }
+
+    TransportSocketSnapshot(TransportSocket transportSocket,
+                            DownstreamTlsContext downstreamTlsContext,
+                            Optional<TlsCertificateSnapshot> tlsCertificate,
+                            Optional<CertificateValidationContextSnapshot> validationContext) {
+        this.transportSocket = transportSocket;
+        this.tlsCertificate = tlsCertificate.orElse(null);
+        this.validationContext = validationContext.orElse(null);
+        clientTlsSpec = null;
+        serverTlsSpec = buildServerTlsSpec(downstreamTlsContext, this.tlsCertificate, this.validationContext);
     }
 
     @Override
@@ -96,10 +115,18 @@ public final class TransportSocketSnapshot implements Snapshot<TransportSocket> 
 
     /**
      * Returns the {@link ClientTlsSpec} resolved for this transport socket, or {@code null}
-     * if this transport socket does not configure TLS.
+     * if this transport socket does not configure upstream TLS.
      */
     public @Nullable ClientTlsSpec clientTlsSpec() {
         return clientTlsSpec;
+    }
+
+    /**
+     * Returns the {@link ServerTlsSpec} resolved for this transport socket, or {@code null}
+     * if this transport socket does not configure downstream TLS.
+     */
+    public @Nullable ServerTlsSpec serverTlsSpec() {
+        return serverTlsSpec;
     }
 
     private static ClientTlsSpec buildClientTlsSpec(
@@ -150,6 +177,28 @@ public final class TransportSocketSnapshot implements Snapshot<TransportSocket> 
             specBuilder.verifierFactories(verifierFactories);
         }
         return specBuilder.build();
+    }
+
+    @Nullable
+    private static ServerTlsSpec buildServerTlsSpec(
+            DownstreamTlsContext downstreamTlsContext,
+            @Nullable TlsCertificateSnapshot tlsCertificate,
+            @Nullable CertificateValidationContextSnapshot validationContext) {
+        if (tlsCertificate == null || tlsCertificate.tlsKeyPair() == null) {
+            return null;
+        }
+        final ServerTlsSpecBuilder builder = ServerTlsSpec.builder();
+        builder.tlsKeyPair(tlsCertificate.tlsKeyPair());
+        if (DownstreamTlsTransportSocketFactory.requireClientCertificate(downstreamTlsContext)) {
+            builder.clientAuth(ClientAuth.REQUIRE);
+        }
+        if (validationContext != null) {
+            final List<X509Certificate> trustedCa = validationContext.trustedCa();
+            if (trustedCa != null) {
+                builder.trustedCertificates(trustedCa);
+            }
+        }
+        return builder.build();
     }
 
     private static void warnNoVerifyOnce() {

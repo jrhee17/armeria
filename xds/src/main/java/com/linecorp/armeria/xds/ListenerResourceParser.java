@@ -17,6 +17,7 @@
 package com.linecorp.armeria.xds;
 
 import java.util.List;
+import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Any;
 
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.xds.filter.XdsHttpFilter;
 
 import io.envoyproxy.envoy.config.listener.v3.Filter;
@@ -104,11 +106,64 @@ final class ListenerResourceParser extends ResourceParser<Listener, ListenerXdsR
         return null;
     }
 
+    private static List<ParsedFilterChain> parseFilterChains(Listener listener,
+                                                              XdsExtensionRegistry registry) {
+        final List<FilterChain> filterChains = listener.getFilterChainsList();
+        if (filterChains.isEmpty()) {
+            return ImmutableList.of();
+        }
+        final ImmutableList.Builder<ParsedFilterChain> builder = ImmutableList.builder();
+        for (FilterChain filterChain : filterChains) {
+            builder.add(parseOneFilterChain(filterChain, registry));
+        }
+        return builder.build();
+    }
+
+    @Nullable
+    private static ParsedFilterChain parseDefaultFilterChain(Listener listener,
+                                                              XdsExtensionRegistry registry) {
+        if (!listener.hasDefaultFilterChain()) {
+            return null;
+        }
+        return parseOneFilterChain(listener.getDefaultFilterChain(), registry);
+    }
+
+    private static ParsedFilterChain parseOneFilterChain(FilterChain filterChain,
+                                                          XdsExtensionRegistry registry) {
+        // Extract HttpConnectionManager from the network filters
+        final HttpConnectionManager hcm = extractHcm(filterChain, registry);
+        final Function<? super HttpService, ? extends HttpService> serverDecorator =
+                hcm != null ? FilterUtil.buildDownstreamServerFilter(
+                        registry, hcm.getHttpFiltersList()) : null;
+        return new ParsedFilterChain(filterChain, serverDecorator);
+    }
+
+    @Nullable
+    private static HttpConnectionManager extractHcm(FilterChain filterChain,
+                                                     XdsExtensionRegistry registry) {
+        for (Filter filter : filterChain.getFiltersList()) {
+            if (!filter.hasTypedConfig()) {
+                continue;
+            }
+            final HttpConnectionManagerFactory factory =
+                    registry.queryByTypeUrl(filter.getTypedConfig().getTypeUrl(),
+                                            HttpConnectionManagerFactory.class);
+            if (factory != null) {
+                return factory.create(filter.getTypedConfig(), registry.validator());
+            }
+        }
+        return null;
+    }
+
     @Override
     ListenerXdsResource parse(Listener message, XdsExtensionRegistry registry, String version) {
         final HttpConnectionManager connectionManager = findHcm(message, registry);
-        final List<XdsHttpFilter> downstreamFilters = resolveDownstreamFilters(connectionManager, registry);
-        return new ListenerXdsResource(message, connectionManager, downstreamFilters, version);
+        final List<XdsHttpFilter> downstreamFilters =
+                resolveDownstreamFilters(connectionManager, registry);
+        final List<ParsedFilterChain> filterChains = parseFilterChains(message, registry);
+        final ParsedFilterChain defaultFilterChain = parseDefaultFilterChain(message, registry);
+        return new ListenerXdsResource(message, connectionManager, downstreamFilters,
+                                       filterChains, defaultFilterChain, version);
     }
 
     @Override

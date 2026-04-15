@@ -76,6 +76,11 @@ public class ServiceRequestContextWrapper
     }
 
     @Override
+    public ConnectionContext connectionContext() {
+        return unwrap().connectionContext();
+    }
+
+    @Override
     public InetAddress clientAddress() {
         return unwrap().clientAddress();
     }

@@ -41,13 +41,13 @@ import com.linecorp.armeria.common.RequestId;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.BlockingTaskExecutor;
 import com.linecorp.armeria.common.util.EventLoopGroups;
+import com.linecorp.armeria.internal.common.SslContextFactory;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
-import io.netty.handler.ssl.SslContext;
 import io.netty.util.Mapping;
 import io.netty.util.concurrent.FastThreadLocalThread;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -133,9 +133,13 @@ final class DefaultServerConfig implements ServerConfig {
     private final List<ShutdownSupport> shutdownSupports;
 
     @Nullable
-    private final Mapping<String, SslContext> sslContexts;
+    private final ServerTlsProvider serverTlsProvider;
+    @Nullable
+    private final SslContextFactory sslContextFactory;
     private final ServerMetrics serverMetrics;
     private final Function<? super String, ? extends EventLoopGroup> bossGroupFactory;
+    @Nullable
+    private final ConnectionAcceptor connectionAcceptor;
 
     @Nullable
     private String strVal;
@@ -163,13 +167,15 @@ final class DefaultServerConfig implements ServerConfig {
             Function<? super ProxiedAddresses, ? extends InetSocketAddress> clientAddressMapper,
             boolean enableServerHeader, boolean enableDateHeader,
             ServerErrorHandler errorHandler,
-            @Nullable Mapping<String, SslContext> sslContexts,
+            @Nullable ServerTlsProvider serverTlsProvider,
+            @Nullable SslContextFactory sslContextFactory,
             Http1HeaderNaming http1HeaderNaming,
             DependencyInjector dependencyInjector,
             Function<? super String, String> absoluteUriTransformer,
             long unloggedExceptionsReportIntervalMillis,
             List<ShutdownSupport> shutdownSupports,
-            @Nullable Function<? super String, ? extends EventLoopGroup> bossGroupFactory) {
+            @Nullable Function<? super String, ? extends EventLoopGroup> bossGroupFactory,
+            @Nullable ConnectionAcceptor connectionAcceptor) {
         requireNonNull(ports, "ports");
         requireNonNull(defaultVirtualHost, "defaultVirtualHost");
         requireNonNull(virtualHosts, "virtualHosts");
@@ -276,7 +282,8 @@ final class DefaultServerConfig implements ServerConfig {
         this.enableDateHeader = enableDateHeader;
 
         this.errorHandler = requireNonNull(errorHandler, "errorHandler");
-        this.sslContexts = sslContexts;
+        this.serverTlsProvider = serverTlsProvider;
+        this.sslContextFactory = sslContextFactory;
         this.http1HeaderNaming = requireNonNull(http1HeaderNaming, "http1HeaderNaming");
         this.dependencyInjector = requireNonNull(dependencyInjector, "dependencyInjector");
         @SuppressWarnings("unchecked")
@@ -286,6 +293,7 @@ final class DefaultServerConfig implements ServerConfig {
         this.unloggedExceptionsReportIntervalMillis = unloggedExceptionsReportIntervalMillis;
         this.shutdownSupports = ImmutableList.copyOf(requireNonNull(shutdownSupports, "shutdownSupports"));
         this.bossGroupFactory = bossGroupFactory == null ? DEFAULT_BOSS_GROUP_FACTORY : bossGroupFactory;
+        this.connectionAcceptor = connectionAcceptor;
         serverMetrics = new ServerMetrics(meterRegistry);
     }
 
@@ -702,11 +710,19 @@ final class DefaultServerConfig implements ServerConfig {
     }
 
     /**
-     * Returns a map of SslContexts {@link SslContext}.
+     * Returns the {@link ServerTlsProvider}, or {@code null} if not set.
      */
     @Nullable
-    Mapping<String, SslContext> sslContextMapping() {
-        return sslContexts;
+    ServerTlsProvider serverTlsProvider() {
+        return serverTlsProvider;
+    }
+
+    /**
+     * Returns the {@link SslContextFactory}, or {@code null} if not set.
+     */
+    @Nullable
+    SslContextFactory sslContextFactory() {
+        return sslContextFactory;
     }
 
     @Override
@@ -737,6 +753,11 @@ final class DefaultServerConfig implements ServerConfig {
     @Override
     public ServerMetrics serverMetrics() {
         return serverMetrics;
+    }
+
+    @Nullable
+    ConnectionAcceptor connectionAcceptor() {
+        return connectionAcceptor;
     }
 
     List<ShutdownSupport> shutdownSupports() {

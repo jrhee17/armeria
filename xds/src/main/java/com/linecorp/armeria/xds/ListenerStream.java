@@ -18,9 +18,15 @@ package com.linecorp.armeria.xds;
 
 import static com.linecorp.armeria.xds.XdsType.LISTENER;
 
+import java.util.List;
+import java.util.Optional;
+
+import com.google.common.collect.ImmutableList;
+
 import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
+import io.envoyproxy.envoy.config.core.v3.TransportSocket;
 import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.Rds;
@@ -64,13 +70,30 @@ final class ListenerStream extends RefCountedStream<ListenerSnapshot> {
 
     private SnapshotStream<ListenerSnapshot> resource2snapshot(
             ListenerXdsResource resource, @Nullable ConfigSource parentConfigSource) {
-        SnapshotStream<ListenerSnapshot> node = null;
+        // Resolve route (client-side path)
+        final SnapshotStream<Optional<RouteSnapshot>> routeStream = resolveRoute(resource, parentConfigSource);
+
+        // Resolve filter chain snapshots (server-side path)
+        final SnapshotStream<List<FilterChainSnapshot>> filterChainSnapshotsStream =
+                resolveFilterChainSnapshots(resource, parentConfigSource);
+        final SnapshotStream<Optional<FilterChainSnapshot>> defaultFilterChainStream =
+                resolveDefaultFilterChainSnapshot(resource, parentConfigSource);
+
+        return SnapshotStream.combineLatest(
+                routeStream, filterChainSnapshotsStream, defaultFilterChainStream,
+                (route, filterChainSnapshots, defaultFilterChain) ->
+                        new ListenerSnapshot(resource, route.orElse(null),
+                                             filterChainSnapshots,
+                                             defaultFilterChain.orElse(null)));
+    }
+
+    private SnapshotStream<Optional<RouteSnapshot>> resolveRoute(
+            ListenerXdsResource resource, @Nullable ConfigSource parentConfigSource) {
         final HttpConnectionManager connectionManager = resource.connectionManager();
         if (connectionManager != null) {
             if (connectionManager.hasRouteConfig()) {
                 final RouteConfiguration routeConfig = connectionManager.getRouteConfig();
-                node = new RouteStream(context, routeConfig, resource)
-                        .map(routeSnapshot -> new ListenerSnapshot(resource, routeSnapshot));
+                return new RouteStream(context, routeConfig, resource).map(Optional::of);
             } else if (connectionManager.hasRds()) {
                 final Rds rds = connectionManager.getRds();
                 final String routeName = rds.getRouteConfigName();
@@ -81,13 +104,40 @@ final class ListenerStream extends RefCountedStream<ListenerSnapshot> {
                     return SnapshotStream.error(new XdsResourceException(LISTENER, resourceName,
                                                                          "config source not found"));
                 }
-                node = new RouteStream(configSource, routeName, context, resource)
-                        .map(routeSnapshot -> new ListenerSnapshot(resource, routeSnapshot));
+                return new RouteStream(configSource, routeName, context, resource).map(Optional::of);
             }
         }
-        if (node == null) {
-            node = SnapshotStream.just(new ListenerSnapshot(resource));
+        return SnapshotStream.just(Optional.empty());
+    }
+
+    private SnapshotStream<List<FilterChainSnapshot>> resolveFilterChainSnapshots(
+            ListenerXdsResource resource, @Nullable ConfigSource parentConfigSource) {
+        final List<ParsedFilterChain> filterChains = resource.filterChains();
+        if (filterChains.isEmpty()) {
+            return SnapshotStream.just(ImmutableList.of());
         }
-        return node;
+        final ImmutableList.Builder<SnapshotStream<FilterChainSnapshot>> streams = ImmutableList.builder();
+        for (ParsedFilterChain parsed : filterChains) {
+            streams.add(filterChainSnapshotStream(parsed, parentConfigSource));
+        }
+        return SnapshotStream.combineNLatest(streams.build());
+    }
+
+    private SnapshotStream<Optional<FilterChainSnapshot>> resolveDefaultFilterChainSnapshot(
+            ListenerXdsResource resource, @Nullable ConfigSource parentConfigSource) {
+        final ParsedFilterChain defaultChain = resource.defaultFilterChain();
+        if (defaultChain == null) {
+            return SnapshotStream.just(Optional.empty());
+        }
+        return filterChainSnapshotStream(defaultChain, parentConfigSource).map(Optional::of);
+    }
+
+    private SnapshotStream<FilterChainSnapshot> filterChainSnapshotStream(
+            ParsedFilterChain parsed, @Nullable ConfigSource parentConfigSource) {
+        final TransportSocket transportSocket = parsed.transportSocket() != null ?
+                                                parsed.transportSocket()
+                                                : TransportSocket.getDefaultInstance();
+        return new TransportSocketStream(context, parentConfigSource, transportSocket)
+                .map(ts -> new FilterChainSnapshot(parsed, ts));
     }
 }

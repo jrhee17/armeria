@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Any;
@@ -29,6 +30,7 @@ import com.linecorp.armeria.client.ClientDecorationBuilder;
 import com.linecorp.armeria.client.ClientPreprocessors;
 import com.linecorp.armeria.client.ClientPreprocessorsBuilder;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.xds.filter.HttpFilterFactory;
 import com.linecorp.armeria.xds.filter.XdsHttpFilter;
 
@@ -87,6 +89,34 @@ final class FilterUtil {
             builder.add(new RetryStateFactory(retryPolicy).retryingDecorator());
         }
         return builder.build();
+    }
+
+    @Nullable
+    static Function<? super HttpService, ? extends HttpService> buildDownstreamServerFilter(
+            XdsExtensionRegistry extensionRegistry, List<HttpFilter> httpFilters) {
+        if (httpFilters.isEmpty()) {
+            return null;
+        }
+        Function<HttpService, HttpService> composed = Function.identity();
+        boolean hasDecorator = false;
+        for (int i = httpFilters.size() - 1; i >= 0; i--) {
+            final HttpFilter httpFilter = httpFilters.get(i);
+            final XdsHttpFilter instance = resolveInstance(extensionRegistry, httpFilter, null);
+            if (instance == null) {
+                continue;
+            }
+            final Function<? super HttpService, ? extends HttpService> serverDecorator =
+                    instance.serverDecorator();
+            hasDecorator = true;
+            final Function<HttpService, HttpService> current = composed;
+            composed = service -> {
+                @SuppressWarnings("unchecked")
+                final Function<HttpService, HttpService> casted =
+                        (Function<HttpService, HttpService>) serverDecorator;
+                return casted.apply(current.apply(service));
+            };
+        }
+        return hasDecorator ? composed : null;
     }
 
     @Nullable

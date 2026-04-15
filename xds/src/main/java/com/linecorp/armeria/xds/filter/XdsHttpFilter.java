@@ -16,6 +16,8 @@
 
 package com.linecorp.armeria.xds.filter;
 
+import java.util.function.Function;
+
 import com.linecorp.armeria.client.DecoratingHttpClientFunction;
 import com.linecorp.armeria.client.DecoratingRpcClientFunction;
 import com.linecorp.armeria.client.HttpClient;
@@ -24,6 +26,7 @@ import com.linecorp.armeria.client.PreClient;
 import com.linecorp.armeria.client.RpcClient;
 import com.linecorp.armeria.client.RpcPreprocessor;
 import com.linecorp.armeria.common.annotation.UnstableApi;
+import com.linecorp.armeria.server.HttpService;
 
 /**
  * Represents a resolved HTTP filter returned by {@link HttpFilterFactory#create}.
@@ -57,5 +60,12 @@ public interface XdsHttpFilter {
      */
     default DecoratingRpcClientFunction rpcDecorator() {
         return RpcClient::execute;
+    }
+
+    /**
+     * Returns a server-side decorator for this filter.
+     */
+    default Function<? super HttpService, ? extends HttpService> serverDecorator() {
+        return Function.identity();
     }
 }

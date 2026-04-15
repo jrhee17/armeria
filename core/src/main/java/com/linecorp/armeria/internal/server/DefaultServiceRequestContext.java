@@ -63,6 +63,7 @@ import com.linecorp.armeria.internal.common.InitiateConnectionShutdown;
 import com.linecorp.armeria.internal.common.NonWrappingRequestContext;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
 import com.linecorp.armeria.internal.server.RouteDecoratingService.InitialDispatcherService;
+import com.linecorp.armeria.server.ConnectionContext;
 import com.linecorp.armeria.server.HttpService;
 import com.linecorp.armeria.server.ProxiedAddresses;
 import com.linecorp.armeria.server.Route;
@@ -107,6 +108,7 @@ public final class DefaultServiceRequestContext
     private final InetAddress clientAddress;
     private final InetSocketAddress remoteAddress;
     private final InetSocketAddress localAddress;
+    private final ConnectionContext connectionContext;
 
     private boolean shouldReportUnloggedExceptions = true;
 
@@ -196,6 +198,7 @@ public final class DefaultServiceRequestContext
         this.clientAddress = requireNonNull(clientAddress, "clientAddress");
         this.remoteAddress = requireNonNull(remoteAddress, "remoteAddress");
         this.localAddress = requireNonNull(localAddress, "localAddress");
+        connectionContext = ConnectionContext.getOrCreate(ch, sessionProtocol);
 
         log = RequestLog.builder(this);
         log.startRequest(requestStartTimeNanos, requestStartTimeMicros);
@@ -255,9 +258,14 @@ public final class DefaultServiceRequestContext
         return clientAddress;
     }
 
-    @Override
+    @Nullable
     protected Channel channel() {
         return ch;
+    }
+
+    @Override
+    public ConnectionContext connectionContext() {
+        return connectionContext;
     }
 
     @Override

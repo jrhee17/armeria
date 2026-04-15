@@ -18,6 +18,8 @@ package com.linecorp.armeria.xds;
 
 import java.util.List;
 
+import com.google.common.collect.ImmutableList;
+
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.xds.client.endpoint.RouterFilterFactory.RouterXdsHttpFilter;
@@ -37,21 +39,38 @@ public final class ListenerXdsResource extends AbstractXdsResource {
     @Nullable
     private final HttpConnectionManager connectionManager;
     private final List<XdsHttpFilter> downstreamFilters;
+    private final List<ParsedFilterChain> filterChains;
+    @Nullable
+    private final ParsedFilterChain defaultFilterChain;
     @Nullable
     private final Router router;
 
     ListenerXdsResource(Listener listener, @Nullable HttpConnectionManager connectionManager,
                         List<XdsHttpFilter> downstreamFilters, String version) {
-        this(listener, connectionManager, downstreamFilters, version, 0);
+        this(listener, connectionManager, downstreamFilters,
+             ImmutableList.of(), null, version, 0);
+    }
+
+    ListenerXdsResource(Listener listener, @Nullable HttpConnectionManager connectionManager,
+                        List<XdsHttpFilter> downstreamFilters,
+                        List<ParsedFilterChain> filterChains,
+                        @Nullable ParsedFilterChain defaultFilterChain,
+                        String version) {
+        this(listener, connectionManager, downstreamFilters,
+             filterChains, defaultFilterChain, version, 0);
     }
 
     private ListenerXdsResource(Listener listener, @Nullable HttpConnectionManager connectionManager,
                                 List<XdsHttpFilter> downstreamFilters,
+                                List<ParsedFilterChain> filterChains,
+                                @Nullable ParsedFilterChain defaultFilterChain,
                                 String version, long revision) {
         super(version, revision);
         this.listener = listener;
         this.connectionManager = connectionManager;
         this.downstreamFilters = downstreamFilters;
+        this.filterChains = filterChains;
+        this.defaultFilterChain = defaultFilterChain;
         router = findRouter(downstreamFilters);
     }
 
@@ -96,7 +115,7 @@ public final class ListenerXdsResource extends AbstractXdsResource {
             return this;
         }
         return new ListenerXdsResource(listener, connectionManager, downstreamFilters,
-                                       version(), revision);
+                                       filterChains, defaultFilterChain, version(), revision);
     }
 
     /**
@@ -105,5 +124,21 @@ public final class ListenerXdsResource extends AbstractXdsResource {
     @Nullable
     public Router router() {
         return router;
+    }
+
+    /**
+     * The parsed filter chains from the {@link Listener}'s {@code filter_chains} list.
+     * Empty for client-side (apiListener) listeners.
+     */
+    public List<ParsedFilterChain> filterChains() {
+        return filterChains;
+    }
+
+    /**
+     * The default filter chain from the {@link Listener}, or {@code null} if not set.
+     */
+    @Nullable
+    public ParsedFilterChain defaultFilterChain() {
+        return defaultFilterChain;
     }
 }

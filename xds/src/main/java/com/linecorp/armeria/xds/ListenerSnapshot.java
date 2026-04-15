@@ -16,8 +16,11 @@
 
 package com.linecorp.armeria.xds;
 
+import java.util.List;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
@@ -33,14 +36,25 @@ public final class ListenerSnapshot implements Snapshot<ListenerXdsResource> {
     private final ListenerXdsResource listenerXdsResource;
     @Nullable
     private final RouteSnapshot routeSnapshot;
+    private final List<FilterChainSnapshot> filterChainSnapshots;
+    @Nullable
+    private final FilterChainSnapshot defaultFilterChainSnapshot;
 
     ListenerSnapshot(ListenerXdsResource listenerXdsResource) {
-        this(listenerXdsResource, null);
+        this(listenerXdsResource, null, ImmutableList.of(), null);
     }
 
     ListenerSnapshot(ListenerXdsResource listenerXdsResource, @Nullable RouteSnapshot routeSnapshot) {
+        this(listenerXdsResource, routeSnapshot, ImmutableList.of(), null);
+    }
+
+    ListenerSnapshot(ListenerXdsResource listenerXdsResource, @Nullable RouteSnapshot routeSnapshot,
+                     List<FilterChainSnapshot> filterChainSnapshots,
+                     @Nullable FilterChainSnapshot defaultFilterChainSnapshot) {
         this.listenerXdsResource = listenerXdsResource;
         this.routeSnapshot = routeSnapshot;
+        this.filterChainSnapshots = filterChainSnapshots;
+        this.defaultFilterChainSnapshot = defaultFilterChainSnapshot;
     }
 
     @Override
@@ -56,6 +70,23 @@ public final class ListenerSnapshot implements Snapshot<ListenerXdsResource> {
         return routeSnapshot;
     }
 
+    /**
+     * The resolved filter chain snapshots, in the same order as
+     * {@link ListenerXdsResource#filterChains()}.
+     */
+    public List<FilterChainSnapshot> filterChainSnapshots() {
+        return filterChainSnapshots;
+    }
+
+    /**
+     * The resolved default filter chain snapshot,
+     * or {@code null} if no default filter chain is configured.
+     */
+    @Nullable
+    public FilterChainSnapshot defaultFilterChainSnapshot() {
+        return defaultFilterChainSnapshot;
+    }
+
     @Override
     public boolean equals(Object object) {
         if (this == object) {
@@ -66,12 +97,15 @@ public final class ListenerSnapshot implements Snapshot<ListenerXdsResource> {
         }
         final ListenerSnapshot that = (ListenerSnapshot) object;
         return Objects.equal(listenerXdsResource, that.listenerXdsResource) &&
-               Objects.equal(routeSnapshot, that.routeSnapshot);
+               Objects.equal(routeSnapshot, that.routeSnapshot) &&
+               Objects.equal(filterChainSnapshots, that.filterChainSnapshots) &&
+               Objects.equal(defaultFilterChainSnapshot, that.defaultFilterChainSnapshot);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(listenerXdsResource, routeSnapshot);
+        return Objects.hashCode(listenerXdsResource, routeSnapshot,
+                                filterChainSnapshots, defaultFilterChainSnapshot);
     }
 
     @Override
@@ -80,6 +114,8 @@ public final class ListenerSnapshot implements Snapshot<ListenerXdsResource> {
                           .omitNullValues()
                           .add("listenerXdsResource", listenerXdsResource)
                           .add("routeSnapshot", routeSnapshot)
+                          .add("filterChainSnapshots", filterChainSnapshots)
+                          .add("defaultFilterChainSnapshot", defaultFilterChainSnapshot)
                           .toString();
     }
 

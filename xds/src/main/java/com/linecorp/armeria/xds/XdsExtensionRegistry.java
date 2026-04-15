@@ -77,6 +77,7 @@ final class XdsExtensionRegistry {
 
         // Built-in transport socket factories
         register(UpstreamTlsTransportSocketFactory.INSTANCE, byName, byTypeUrl);
+        register(DownstreamTlsTransportSocketFactory.INSTANCE, byName, byTypeUrl);
         register(RawBufferTransportSocketFactory.INSTANCE, byName, byTypeUrl);
 
         return new XdsExtensionRegistry(byTypeUrl.build(), byName.build(), validator);

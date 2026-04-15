@@ -113,6 +113,7 @@ public final class Server implements ListenableAsyncCloseable {
     @GuardedBy("lock")
     private final Map<InetSocketAddress, ServerPort> activePorts = new LinkedHashMap<>();
     private final ConnectionLimitingHandler connectionLimitingHandler;
+    private final List<ServerPlugin> plugins;
     private boolean hasWebSocketService;
 
     @Nullable
@@ -120,10 +121,15 @@ public final class Server implements ListenableAsyncCloseable {
     ServerBootstrap serverBootstrap;
 
     Server(DefaultServerConfig serverConfig) {
+        this(serverConfig, ImmutableList.of());
+    }
+
+    Server(DefaultServerConfig serverConfig, List<ServerPlugin> plugins) {
         serverConfig.setServer(this);
         config = new UpdatableServerConfig(requireNonNull(serverConfig, "serverConfig"));
         startStop = new ServerStartStopSupport(config.startStopExecutor());
         connectionLimitingHandler = new ConnectionLimitingHandler(config.maxNumConnections());
+        this.plugins = requireNonNull(plugins, "plugins");
 
         // Server-wide metrics.
         RequestTargetCache.registerServerMetrics(config.meterRegistry());
@@ -418,6 +424,7 @@ public final class Server implements ListenableAsyncCloseable {
         requireNonNull(serverConfigurator, "serverConfigurator");
         final ServerBuilder sb = builder();
         serverConfigurator.reconfigure(sb);
+        plugins.forEach(plugin -> plugin.install(sb));
         final ImmutableList<ServerPort> serverPorts;
         lock.lock();
         try {
@@ -718,6 +725,15 @@ public final class Server implements ListenableAsyncCloseable {
 
         private void finishDoStop(CompletableFuture<Void> future) {
             serverChannels.clear();
+
+            // Close plugins first so they can clean up their resources.
+            for (ServerPlugin plugin : plugins) {
+                try {
+                    plugin.close();
+                } catch (Exception e) {
+                    logger.warn("Failed to close plugin: {}", plugin, e);
+                }
+            }
 
             final Builder<ShutdownSupport> builder = ImmutableList.builder();
             builder.addAll(config.delegate().shutdownSupports());

@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 LINE Corporation
+ * Copyright 2025 LINE Corporation
  *
  * LINE Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -33,38 +33,43 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.util.Mapping;
 
-final class TlsProviderMapping implements Mapping<String, SslContext> {
+/**
+ * Adapts a {@link TlsProvider} into a {@link ServerTlsProvider} by resolving
+ * {@link ServerTlsSpec} from hostname-based {@link TlsKeyPair} lookup combined
+ * with server-level TLS configuration.
+ */
+final class TlsProviderAdapter implements ServerTlsProvider {
 
-    private final TlsProvider tlsProvider;
+    private final TlsProvider delegate;
     private final TlsEngineType tlsEngineType;
     @Nullable
     private final ServerTlsConfig tlsConfig;
-    private final SslContextFactory sslContextFactory;
 
-    TlsProviderMapping(TlsProvider tlsProvider, TlsEngineType tlsEngineType,
-                       @Nullable ServerTlsConfig tlsConfig, SslContextFactory sslContextFactory) {
-        this.tlsProvider = tlsProvider;
+    TlsProviderAdapter(TlsProvider delegate, TlsEngineType tlsEngineType,
+                       @Nullable ServerTlsConfig tlsConfig) {
+        this.delegate = delegate;
         this.tlsEngineType = tlsEngineType;
         this.tlsConfig = tlsConfig;
-        this.sslContextFactory = sslContextFactory;
     }
 
     @Override
-    public SslContext map(@Nullable String hostname) {
-        if (hostname == null) {
+    @Nullable
+    public ServerTlsSpec serverTlsSpec(ConnectionContext ctx) {
+        String hostname = ctx.sniHostname();
+        if (hostname.isEmpty()) {
             hostname = "*";
         } else {
             hostname = TlsProviderUtil.normalizeHostname(hostname);
         }
-        final TlsKeyPair keyPair = tlsProvider.keyPair(hostname);
-        final List<X509Certificate> trustedCertificates = tlsProvider.trustedCertificates(hostname);
+        final TlsKeyPair keyPair = delegate.keyPair(hostname);
+        if (keyPair == null) {
+            return null;
+        }
+        final List<X509Certificate> trustedCertificates = delegate.trustedCertificates(hostname);
         final Consumer<SslContextBuilder> tlsCustomizer =
                 tlsConfig != null ? tlsConfig.tlsCustomizer() : ignored -> {};
         final ClientAuth clientAuth = tlsConfig != null ? tlsConfig.clientAuth() : ClientAuth.NONE;
-        final boolean allowUnsafeCiphers = tlsConfig != null ? tlsConfig.allowsUnsafeCiphers() : false;
-        if (keyPair == null) {
-            throw new IllegalStateException("No TLS key pair found for " + hostname);
-        }
+        final boolean allowUnsafeCiphers = tlsConfig != null && tlsConfig.allowsUnsafeCiphers();
         final ServerTlsSpecBuilder builder = ServerTlsSpec.builder()
                                                           .tlsKeyPair(keyPair)
                                                           .engineType(tlsEngineType)
@@ -74,10 +79,14 @@ final class TlsProviderMapping implements Mapping<String, SslContext> {
         if (trustedCertificates != null) {
             builder.trustedCertificates(trustedCertificates);
         }
-        return sslContextFactory.getOrCreate(builder.build());
+        return builder.build();
     }
 
-    void release(SslContext sslContext) {
-        sslContextFactory.release(sslContext);
+    /**
+     * Returns a {@link Mapping} that resolves hostnames to {@link SslContext},
+     * suitable for use with Netty's {@code SniHandler}.
+     */
+    Mapping<String, SslContext> toSslContextMapping(SslContextFactory sslContextFactory) {
+        return new TlsProviderMapping(delegate, tlsEngineType, tlsConfig, sslContextFactory);
     }
 }

@@ -32,6 +32,7 @@ configurations.named('jmhCompileProtoPath').configure {
 
 jmh {
     duplicateClassesStrategy = DuplicatesStrategy.EXCLUDE
+    zip64 = true
     jmhVersion = libs.versions.jmh.core.get()
 
     def jmhIncludes = rootProject.findProperty('jmh.includes')

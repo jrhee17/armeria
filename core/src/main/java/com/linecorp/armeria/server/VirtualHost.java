@@ -53,7 +53,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.netty.channel.EventLoopGroup;
 import io.netty.handler.ssl.SslContext;
 import io.netty.util.Mapping;
-import io.netty.util.ReferenceCountUtil;
 
 /**
  * A <a href="https://en.wikipedia.org/wiki/Virtual_hosting#Name-based">name-based virtual host</a>.
@@ -92,6 +91,8 @@ public final class VirtualHost {
     @Nullable
     private final SslContext sslContext;
     @Nullable
+    private final ServerTlsSpec serverTlsSpec;
+    @Nullable
     private final TlsProvider tlsProvider;
     @Nullable
     private final TlsEngineType tlsEngineType;
@@ -120,6 +121,7 @@ public final class VirtualHost {
     VirtualHost(String defaultHostname, String hostnamePattern, int port,
                 @Nullable ServerPort serverPort,
                 @Nullable SslContext sslContext,
+                @Nullable ServerTlsSpec serverTlsSpec,
                 @Nullable TlsProvider tlsProvider,
                 @Nullable TlsEngineType tlsEngineType,
                 Iterable<ServiceConfig> serviceConfigs,
@@ -151,6 +153,7 @@ public final class VirtualHost {
         this.port = port;
         this.serverPort = serverPort;
         this.sslContext = sslContext;
+        this.serverTlsSpec = serverTlsSpec;
         this.tlsProvider = tlsProvider;
         this.tlsEngineType = tlsEngineType;
         this.defaultServiceNaming = defaultServiceNaming;
@@ -183,22 +186,6 @@ public final class VirtualHost {
         accessLogger = accessLoggerMapper.apply(this);
         checkState(accessLogger != null,
                    "accessLoggerMapper.apply() has returned null for virtual host: %s.", hostnamePattern);
-    }
-
-    VirtualHost withNewSslContext(SslContext sslContext) {
-        if (tlsProvider != null) {
-            ReferenceCountUtil.release(sslContext);
-            throw new IllegalStateException("Cannot set a new SslContext when TlsProvider is set.");
-        }
-        return new VirtualHost(originalDefaultHostname, originalHostnamePattern, port, serverPort,
-                               sslContext, null,
-                               tlsEngineType, serviceConfigs, fallbackServiceConfig,
-                               RejectedRouteHandler.DISABLED, host -> accessLogger, defaultServiceNaming,
-                               defaultLogName, requestTimeoutMillis, maxRequestLength, verboseResponses,
-                               accessLogWriter, blockingTaskExecutor, requestAutoAbortDelayMillis,
-                               successFunction, multipartUploadsLocation, multipartRemovalStrategy,
-                               serviceWorkerGroup,
-                               shutdownSupports, requestIdGenerator);
     }
 
     /**
@@ -379,6 +366,11 @@ public final class VirtualHost {
     @Nullable
     public SslContext sslContext() {
         return sslContext;
+    }
+
+    @Nullable
+    ServerTlsSpec serverTlsSpec() {
+        return serverTlsSpec;
     }
 
     /**
@@ -645,7 +637,7 @@ public final class VirtualHost {
                 this.fallbackServiceConfig.withDecoratedService(decorator);
 
         return new VirtualHost(originalDefaultHostname, originalHostnamePattern, port, serverPort,
-                               sslContext, tlsProvider,
+                               sslContext, serverTlsSpec, tlsProvider,
                                tlsEngineType, serviceConfigs, fallbackServiceConfig,
                                RejectedRouteHandler.DISABLED, host -> accessLogger, defaultServiceNaming,
                                defaultLogName, requestTimeoutMillis, maxRequestLength, verboseResponses,
