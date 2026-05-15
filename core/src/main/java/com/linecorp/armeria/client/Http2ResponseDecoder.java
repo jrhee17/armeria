@@ -229,8 +229,11 @@ final class Http2ResponseDecoder extends AbstractHttpResponseDecoder implements 
         }
 
         if (!written) {
-            throw connectionError(INTERNAL_ERROR, newClosedStreamException(ctx),
-                                  "failed to consume a HEADERS frame");
+            if (logger.isDebugEnabled()) {
+                logger.debug("{} Received a late HEADERS frame for a closed stream: {}",
+                             ctx.channel(), streamId);
+            }
+            return;
         }
 
         if (endOfStream) {
@@ -278,9 +281,14 @@ final class Http2ResponseDecoder extends AbstractHttpResponseDecoder implements 
                     writtenBytes, dataLength, maxContentLength, streamId);
         }
 
-        if (!res.tryWriteData(HttpData.wrap(data.retain()).withEndOfStream(endOfStream))) {
-            throw connectionError(INTERNAL_ERROR, newClosedSessionException(ctx),
-                                  "failed to consume a DATA frame");
+        final HttpData wrappedData = HttpData.wrap(data.retain()).withEndOfStream(endOfStream);
+        if (!res.tryWriteData(wrappedData)) {
+            wrappedData.close();
+            if (logger.isDebugEnabled()) {
+                logger.debug("{} Received a late DATA frame for a closed stream: {}",
+                             ctx.channel(), streamId);
+            }
+            return dataLength + padding;
         }
 
         if (endOfStream) {
