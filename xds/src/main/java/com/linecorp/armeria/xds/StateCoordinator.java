@@ -17,38 +17,25 @@
 package com.linecorp.armeria.xds;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-
-import java.util.Map;
-import java.util.Set;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
 
-import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SafeCloseable;
 
 import io.envoyproxy.envoy.config.core.v3.ConfigSource;
-import io.envoyproxy.envoy.service.discovery.v3.DiscoveryResponse;
 import io.netty.util.concurrent.EventExecutor;
 
-final class StateCoordinator implements SotwSubscriptionCallbacks, SafeCloseable {
-
-    private static final Logger logger = LoggerFactory.getLogger(StateCoordinator.class);
+final class StateCoordinator implements SafeCloseable {
 
     private final SubscriberStorage subscriberStorage;
     private final ResourceStateStore stateStore;
     private final XdsExtensionRegistry extensionRegistry;
-    private final EventExecutor eventLoop;
 
     StateCoordinator(EventExecutor eventLoop, ConfigSource configSource,
                      boolean delta, XdsExtensionRegistry extensionRegistry) {
-        this.eventLoop = eventLoop;
         final long timeoutMillis = initialFetchTimeoutMillis(configSource);
         subscriberStorage = new SubscriberStorage(eventLoop, timeoutMillis, delta);
         stateStore = new ResourceStateStore();
@@ -70,14 +57,25 @@ final class StateCoordinator implements SotwSubscriptionCallbacks, SafeCloseable
         return epochMilli;
     }
 
-    <T extends XdsResource> boolean register(XdsType type, String resourceName, ResourceWatcher<T> watcher) {
+    <T extends XdsResource> boolean register(XdsType type, String resourceName,
+                                             SnapshotWatcher<T> watcher) {
         final boolean updated = subscriberStorage.register(type, resourceName, watcher);
         replayToWatcher(type, resourceName, watcher);
         return updated;
     }
 
-    <T extends XdsResource> boolean unregister(XdsType type, String resourceName, ResourceWatcher<T> watcher) {
+    <T extends XdsResource> boolean unregister(XdsType type, String resourceName,
+                                               SnapshotWatcher<T> watcher) {
         return subscriberStorage.unregister(type, resourceName, watcher);
+    }
+
+    private <T extends XdsResource> void replayToWatcher(XdsType type, String resourceName,
+                                                         SnapshotWatcher<T> watcher) {
+        @SuppressWarnings("unchecked")
+        final T cached = (T) stateStore.resource(type, resourceName);
+        if (cached != null) {
+            watcher.onUpdate(cached, null);
+        }
     }
 
     ImmutableSet<String> interestedResources(XdsType type) {
@@ -101,9 +99,10 @@ final class StateCoordinator implements SotwSubscriptionCallbacks, SafeCloseable
         if (revised == null) {
             return;
         }
-        final XdsStreamSubscriber<XdsResource> subscriber = subscriber(type, resourceName);
+        final CompositeSnapshotWatcher<XdsResource> subscriber =
+                subscriberStorage.subscriber(type, resourceName);
         if (subscriber != null) {
-            subscriber.onData(revised);
+            subscriber.onUpdate(revised, null);
         }
     }
 
@@ -111,79 +110,16 @@ final class StateCoordinator implements SotwSubscriptionCallbacks, SafeCloseable
         if (!stateStore.remove(type, resourceName)) {
             return;
         }
-        final XdsStreamSubscriber<?> subscriber = subscriber(type, resourceName);
+        final CompositeSnapshotWatcher<?> subscriber = subscriberStorage.subscriber(type, resourceName);
         if (subscriber != null) {
-            subscriber.onAbsent();
+            subscriber.onUpdate(null, new MissingXdsResourceException(type, resourceName));
         }
     }
 
     void onResourceError(XdsType type, String resourceName, Throwable cause) {
-        final XdsStreamSubscriber<?> subscriber = subscriber(type, resourceName);
+        final CompositeSnapshotWatcher<?> subscriber = subscriberStorage.subscriber(type, resourceName);
         if (subscriber != null) {
-            subscriber.onError(resourceName, cause);
-        }
-    }
-
-    @Nullable
-    private <T extends XdsResource> XdsStreamSubscriber<T> subscriber(XdsType type, String resourceName) {
-        return subscriberStorage.subscriber(type, resourceName);
-    }
-
-    private <T extends XdsResource> void replayToWatcher(XdsType type, String resourceName,
-                                                         ResourceWatcher<T> watcher) {
-        final XdsResource resource = stateStore.resource(type, resourceName);
-        if (resource != null) {
-            //noinspection unchecked
-            watcher.onChanged((T) resource);
-        }
-    }
-
-    @Override
-    public void onDiscoveryResponse(DiscoveryResponse response) {
-        checkState(eventLoop.inEventLoop(), "eventLoop must be inEventLoop");
-        final String typeUrl = response.getTypeUrl();
-        final ResourceParser<?, ?> parser = XdsResourceParserUtil.fromTypeUrl(typeUrl);
-        if (parser == null) {
-            logger.warn("Unknown type URL in discovery response: {}", typeUrl);
-            return;
-        }
-
-        final XdsType type = parser.type();
-        final ParsedResourcesHolder holder =
-                parser.parseResources(response.getResourcesList(),
-                                      extensionRegistry, response.getVersionInfo());
-        if (!holder.errors().isEmpty()) {
-            // Report errors for invalid resources
-            holder.invalidResources().forEach((name, error) -> onResourceError(type, name, error));
-            logger.warn("Failed to parse {} resource(s) from discovery response (type: {})",
-                        holder.errors().size(), typeUrl);
-            return;
-        }
-        onSotwConfigUpdate(type, holder.parsedResources());
-    }
-
-    void onSotwConfigUpdate(XdsType type, Map<String, Object> parsedResources) {
-        // Apply successfully parsed resources
-        parsedResources.forEach((name, resource) -> {
-            if (resource instanceof XdsResource) {
-                onResourceUpdated(type, name, (XdsResource) resource);
-            }
-        });
-
-        // SotW absent detection for full-state types (LDS/CDS)
-        final ResourceParser<?, ?> resourceParser = XdsResourceParserUtil.fromType(type);
-        assert resourceParser != null;
-        final boolean fullStateOfTheWorld = resourceParser.isFullStateOfTheWorld();
-        if (fullStateOfTheWorld) {
-            final Set<String> active = activeResources(resourceParser.type());
-            for (String name : active) {
-                if (parsedResources.containsKey(name)) {
-                    continue;
-                }
-                onResourceMissing(resourceParser.type(), name);
-            }
-        } else {
-            // A limitation of sotw - we can't know if resources should be removed.
+            subscriber.onUpdate(null, XdsResourceException.maybeWrap(type, resourceName, cause));
         }
     }
 

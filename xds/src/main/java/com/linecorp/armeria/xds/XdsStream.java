@@ -16,9 +16,7 @@
 
 package com.linecorp.armeria.xds;
 
-import com.linecorp.armeria.common.util.SafeCloseable;
+import com.linecorp.armeria.xds.stream.SnapshotStream;
 
-interface XdsStream extends SafeCloseable {
-
-    void resourcesUpdated(XdsType type);
+interface XdsStream extends SnapshotStream<ParsedResources> {
 }

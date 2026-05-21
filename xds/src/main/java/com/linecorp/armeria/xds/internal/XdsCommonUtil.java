@@ -27,12 +27,18 @@ import com.google.protobuf.UInt32Value;
 import com.linecorp.armeria.client.ClientTlsSpec;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.PreClientRequestContext;
+import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.MediaType;
 import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.common.TimeoutException;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.xds.ClusterSnapshot;
 import com.linecorp.armeria.xds.TransportSocketSnapshot;
+import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
 
+import io.envoyproxy.envoy.extensions.upstreams.http.v3.HttpProtocolOptions;
+import io.envoyproxy.envoy.extensions.upstreams.http.v3.HttpProtocolOptions.ExplicitHttpConfig;
 import io.netty.util.AttributeKey;
 
 public final class XdsCommonUtil {
@@ -100,22 +106,56 @@ public final class XdsCommonUtil {
         return "grpc".equals(subtype) || subtype.startsWith("grpc+");
     }
 
-    public static void setTlsParams(PreClientRequestContext ctx, Endpoint endpoint) {
+    public static Endpoint applyClusterToCtx(ClusterSnapshot clusterSnapshot, PreClientRequestContext ctx) {
+        final XdsLoadBalancer loadBalancer = clusterSnapshot.loadBalancer();
+        if (loadBalancer == null) {
+            throw UnprocessedRequestException.of(
+                    new IllegalStateException(
+                            "The cluster '" + clusterSnapshot.xdsResource().resource().getName() +
+                            "' does not have a load balancer."));
+        }
+        final Endpoint endpoint = loadBalancer.selectNow(ctx);
+        if (endpoint == null) {
+            throw UnprocessedRequestException.of(
+                    new TimeoutException("Failed to select an endpoint."));
+        }
+        setTlsParams(ctx, endpoint, clusterSnapshot.xdsResource().httpProtocolOptions());
+        ctx.setEndpointGroup(endpoint);
+        return endpoint;
+    }
+
+    private static void setTlsParams(PreClientRequestContext ctx, Endpoint endpoint,
+                                     @Nullable HttpProtocolOptions httpProtocolOptions) {
         final TransportSocketSnapshot transportSocket =
                 endpoint.attr(TRANSPORT_SOCKET_SNAPSHOT_KEY);
         checkArgument(transportSocket != null,
                       "TransportSocket not set for selected endpoint: %s", endpoint);
-        ClientTlsSpec clientTlsSpec = transportSocket.clientTlsSpec();
+        final ClientTlsSpec clientTlsSpec = transportSocket.clientTlsSpec();
         if (clientTlsSpec == null) {
-            ctx.setSessionProtocol(SessionProtocol.HTTP);
+            ctx.setSessionProtocol(sessionProtocol(false, httpProtocolOptions));
             return;
         }
         final Set<String> alpnOverride = ctx.attr(ALPN_OVERRIDE_KEY);
         if (alpnOverride != null && !alpnOverride.isEmpty()) {
-            clientTlsSpec = clientTlsSpec.toBuilder().alpnProtocols(alpnOverride).build();
+            ctx.setClientTlsSpec(clientTlsSpec.toBuilder().alpnProtocols(alpnOverride).build());
+        } else {
+            ctx.setClientTlsSpec(clientTlsSpec);
         }
-        ctx.setSessionProtocol(SessionProtocol.HTTPS);
-        ctx.setClientTlsSpec(clientTlsSpec);
+        ctx.setSessionProtocol(sessionProtocol(true, httpProtocolOptions));
+    }
+
+    private static SessionProtocol sessionProtocol(boolean tls,
+                                                   @Nullable HttpProtocolOptions httpProtocolOptions) {
+        if (httpProtocolOptions != null && httpProtocolOptions.hasExplicitHttpConfig()) {
+            final ExplicitHttpConfig explicitConfig = httpProtocolOptions.getExplicitHttpConfig();
+            if (explicitConfig.hasHttp2ProtocolOptions()) {
+                return tls ? SessionProtocol.H2 : SessionProtocol.H2C;
+            }
+            if (explicitConfig.hasHttpProtocolOptions()) {
+                return tls ? SessionProtocol.H1 : SessionProtocol.H1C;
+            }
+        }
+        return tls ? SessionProtocol.HTTPS : SessionProtocol.HTTP;
     }
 
     private XdsCommonUtil() {}

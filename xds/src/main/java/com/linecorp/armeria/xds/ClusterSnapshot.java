@@ -24,9 +24,12 @@ import com.google.common.base.Objects;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.Endpoint;
+import com.linecorp.armeria.client.HttpPreprocessor;
+import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
+import com.linecorp.armeria.xds.internal.XdsCommonUtil;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 
@@ -110,6 +113,22 @@ public final class ClusterSnapshot implements Snapshot<ClusterXdsResource> {
      */
     public TransportSocketSnapshot transportSocket() {
         return transportSocket;
+    }
+
+    /**
+     * Returns an {@link HttpPreprocessor} that selects an endpoint from this cluster's
+     * load balancer, configures TLS parameters and session protocol based on the endpoint's
+     * transport socket, and sets the endpoint on the request context.
+     *
+     * @throws UnprocessedRequestException if no load balancer is available or no endpoint
+     *                                     could be selected
+     */
+    @UnstableApi
+    public HttpPreprocessor httpPreprocessor() {
+        return (delegate, ctx, req) -> {
+            XdsCommonUtil.applyClusterToCtx(this, ctx);
+            return delegate.execute(ctx, req);
+        };
     }
 
     @Override

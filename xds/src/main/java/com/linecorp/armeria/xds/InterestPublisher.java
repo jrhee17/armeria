@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 LY Corporation
+ * Copyright 2026 LY Corporation
  *
  * LY Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -16,9 +16,18 @@
 
 package com.linecorp.armeria.xds;
 
-final class DummyResourceWatcher implements ResourceWatcher<XdsResource> {
+import com.linecorp.armeria.xds.configsource.InterestedResources;
+import com.linecorp.armeria.xds.stream.RefCountedStream;
+import com.linecorp.armeria.xds.stream.Subscription;
+
+final class InterestPublisher extends RefCountedStream<InterestedResources> {
+
+    void publish(InterestedResources interestedResources) {
+        emit(interestedResources, null);
+    }
 
     @Override
-    public void onChanged(XdsResource update) {
+    protected Subscription onStart(SnapshotWatcher<InterestedResources> watcher) {
+        return () -> {};
     }
 }

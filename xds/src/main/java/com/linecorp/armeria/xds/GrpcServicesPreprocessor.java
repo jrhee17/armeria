@@ -22,14 +22,12 @@ import static com.google.common.base.Preconditions.checkState;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpPreprocessor;
 import com.linecorp.armeria.client.PreClient;
 import com.linecorp.armeria.client.PreClientRequestContext;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.util.Exceptions;
-import com.linecorp.armeria.xds.client.endpoint.XdsLoadBalancer;
 import com.linecorp.armeria.xds.internal.XdsCommonUtil;
 
 import io.envoyproxy.envoy.config.core.v3.GrpcService;
@@ -67,12 +65,7 @@ final class GrpcServicesPreprocessor implements HttpPreprocessor {
                 bootstrapClusters.snapshotFuture(clusterName);
         checkArgument(snapshotFuture != null, "No cluster found for name: %s", clusterName);
         return HttpResponse.of(snapshotFuture.thenApply(snapshot -> {
-            final XdsLoadBalancer loadBalancer = snapshot.loadBalancer();
-            checkArgument(loadBalancer != null, "No endpoints found for name: %s", clusterName);
-            final Endpoint endpoint = loadBalancer.selectNow(ctx);
-            checkArgument(endpoint != null, "Endpoint not selected found for name: %s", clusterName);
-            XdsCommonUtil.setTlsParams(ctx, endpoint);
-            ctx.setEndpointGroup(endpoint);
+            XdsCommonUtil.applyClusterToCtx(snapshot, ctx);
             try {
                 return delegate.execute(ctx, req);
             } catch (Exception e) {

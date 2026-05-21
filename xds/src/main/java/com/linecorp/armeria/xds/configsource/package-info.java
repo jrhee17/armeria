@@ -1,7 +1,7 @@
 /*
- * Copyright 2023 LINE Corporation
+ * Copyright 2026 LY Corporation
  *
- * LINE Corporation licenses this file to you under the Apache License,
+ * LY Corporation licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
  * with the License. You may obtain a copy of the License at:
  *
@@ -14,19 +14,12 @@
  * under the License.
  */
 
-package com.linecorp.armeria.xds;
-
 /**
- * A resource watcher.
- *
- * @param <T> the type of the {@link XdsResource} that is notified
+ * Config source abstractions for xDS resource discovery.
  */
-@FunctionalInterface
-interface ResourceWatcher<T extends XdsResource> {
+@NonNullByDefault
+@UnstableApi
+package com.linecorp.armeria.xds.configsource;
 
-    default void onError(XdsType type, String resourceName, Throwable t) {}
-
-    default void onResourceDoesNotExist(XdsType type, String resourceName) {}
-
-    void onChanged(T update);
-}
+import com.linecorp.armeria.common.annotation.NonNullByDefault;
+import com.linecorp.armeria.common.annotation.UnstableApi;
