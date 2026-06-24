@@ -31,6 +31,7 @@ import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.internal.client.RuleFilter;
 
 /**
@@ -68,11 +69,26 @@ public final class CircuitBreakerRuleBuilder extends AbstractRuleBuilder<Circuit
         return build(CircuitBreakerDecision.ignore());
     }
 
+    /**
+     * Returns a {@link CircuitBreakerRuleOperatorBuilder} that negates the rule match result.
+     * The returned builder only has terminal methods ({@code thenSuccess()}, {@code thenFailure()},
+     * {@code thenIgnore()}).
+     */
+    @UnstableApi
+    public CircuitBreakerRuleOperatorBuilder not() {
+        return new CircuitBreakerRuleOperatorBuilder(this);
+    }
+
     private CircuitBreakerRule build(CircuitBreakerDecision decision) {
+        return build(decision, false);
+    }
+
+    CircuitBreakerRule build(CircuitBreakerDecision decision, boolean negate) {
         final BiFunction<? super ClientRequestContext, ? super Throwable, Boolean> ruleFilter =
                 RuleFilter.of(requestHeadersFilter(), responseHeadersFilter(),
                               responseTrailersFilter(), grpcTrailersFilter(),
-                              exceptionFilter(), totalDurationFilter(), false);
+                              exceptionFilter(), totalDurationFilter(), false,
+                              useSuccessFunction(), negate);
         return build(ruleFilter, decision, requiresResponseTrailers());
     }
 

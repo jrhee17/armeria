@@ -259,6 +259,41 @@ class CircuitBreakerClientRuleTest {
     }
 
     @Test
+    void openCircuitWithSuccessFunctionFailure() {
+        // onSuccessFunctionFailure() uses not() internally:
+        // builder().onSuccessFunction().not().thenFailure()
+        final CircuitBreakerRule rule = CircuitBreakerRule.onSuccessFunctionFailure();
+        final BlockingWebClient client =
+                WebClient.builder(server.httpUri())
+                         .successFunction((ctx, log) -> log.responseHeaders().status().code() == 200)
+                         .decorator(CircuitBreakerClient.newDecorator(superSensitiveCircuitBreaker(), rule))
+                         .build()
+                         .blocking();
+
+        // 503 is NOT a success per the SuccessFunction, so negated match → CB failure
+        assertThat(client.get("/503").status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        await().untilAsserted(() -> {
+            assertThatThrownBy(() -> client.get("/503")).isInstanceOf(FailFastException.class);
+        });
+    }
+
+    @Test
+    void doNotOpenCircuitWithSuccessFunctionFailure_whenSuccessFunctionAgrees() {
+        final CircuitBreakerRule rule = CircuitBreakerRule.onSuccessFunctionFailure();
+        final BlockingWebClient client =
+                WebClient.builder(server.httpUri())
+                         .successFunction((ctx, log) -> log.responseHeaders().status().code() == 503)
+                         .decorator(CircuitBreakerClient.newDecorator(superSensitiveCircuitBreaker(), rule))
+                         .build()
+                         .blocking();
+
+        // 503 IS a success per the SuccessFunction, so negated match → no match → next → default success
+        for (int i = 0; i < 5; i++) {
+            assertThat(client.get("/503").status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
+
+    @Test
     void openCircuitWithTotalDuration() {
         final CircuitBreakerRuleWithContent<HttpResponse> rule =
                 CircuitBreakerRuleWithContent

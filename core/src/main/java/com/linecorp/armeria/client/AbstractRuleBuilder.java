@@ -62,6 +62,7 @@ public abstract class AbstractRuleBuilder<SELF extends AbstractRuleBuilder<SELF>
     private BiPredicate<ClientRequestContext, HttpHeaders> grpcTrailersFilter;
     @Nullable
     private BiPredicate<ClientRequestContext, Duration> totalDurationFilter;
+    private boolean useSuccessFunction;
 
     /**
      * Creates a new instance with the specified {@code requestHeadersFilter}.
@@ -278,6 +279,16 @@ public abstract class AbstractRuleBuilder<SELF extends AbstractRuleBuilder<SELF>
     }
 
     /**
+     * Reports a match when the {@link com.linecorp.armeria.common.SuccessFunction SuccessFunction}
+     * configured via {@link ClientOptions#SUCCESS_FUNCTION} regards the response as a success.
+     */
+    @UnstableApi
+    public SELF onSuccessFunction() {
+        useSuccessFunction = true;
+        return self();
+    }
+
+    /**
      * Adds an {@link UnprocessedRequestException}.
      *
      * <p>When this is used for a {@link CircuitBreakerRule}, a {@link Response} is reported as a success or
@@ -351,11 +362,19 @@ public abstract class AbstractRuleBuilder<SELF extends AbstractRuleBuilder<SELF>
     }
 
     /**
+     * Returns whether the {@link com.linecorp.armeria.common.SuccessFunction SuccessFunction} filter is set.
+     */
+    protected final boolean useSuccessFunction() {
+        return useSuccessFunction;
+    }
+
+    /**
      * Returns whether this rule being built requires HTTP response trailers.
      */
     protected final boolean requiresResponseTrailers() {
         return responseTrailersFilter != null ||
                grpcTrailersFilter != null ||
-               totalDurationFilter != null;
+               totalDurationFilter != null ||
+               useSuccessFunction;
     }
 }

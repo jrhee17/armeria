@@ -26,6 +26,7 @@ import com.linecorp.armeria.client.AbstractRuleWithContentBuilder;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.Response;
+import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.internal.client.RuleFilter;
 
 /**
@@ -65,7 +66,21 @@ public final class CircuitBreakerRuleWithContentBuilder<T extends Response>
         return build(CircuitBreakerDecision.ignore());
     }
 
+    /**
+     * Returns a {@link CircuitBreakerRuleWithContentOperatorBuilder} that negates the rule match result.
+     * The returned builder only has terminal methods ({@code thenSuccess()}, {@code thenFailure()},
+     * {@code thenIgnore()}).
+     */
+    @UnstableApi
+    public CircuitBreakerRuleWithContentOperatorBuilder<T> not() {
+        return new CircuitBreakerRuleWithContentOperatorBuilder<>(this);
+    }
+
     private CircuitBreakerRuleWithContent<T> build(CircuitBreakerDecision decision) {
+        return build(decision, false);
+    }
+
+    CircuitBreakerRuleWithContent<T> build(CircuitBreakerDecision decision, boolean negate) {
         final BiFunction<? super ClientRequestContext, ? super T,
                 ? extends CompletionStage<Boolean>> responseFilter = responseFilter();
         final boolean hasResponseFilter = responseFilter != null;
@@ -73,7 +88,7 @@ public final class CircuitBreakerRuleWithContentBuilder<T extends Response>
                 RuleFilter.of(requestHeadersFilter(), responseHeadersFilter(),
                               responseTrailersFilter(), grpcTrailersFilter(),
                               exceptionFilter(), totalDurationFilter(),
-                              hasResponseFilter);
+                              hasResponseFilter, useSuccessFunction(), negate);
         final CircuitBreakerRule first = CircuitBreakerRuleBuilder.build(
                 ruleFilter, decision, requiresResponseTrailers());
         if (!hasResponseFilter) {

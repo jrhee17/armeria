@@ -46,11 +46,13 @@ public final class RuleFilter implements BiFunction<ClientRequestContext, Throwa
             @Nullable BiPredicate<ClientRequestContext, HttpHeaders> grpcTrailersFilter,
             @Nullable BiPredicate<ClientRequestContext, Throwable> exceptionFilter,
             @Nullable BiPredicate<ClientRequestContext, Duration> totalDurationFilter,
-            boolean hasResponseFilter) {
+            boolean hasResponseFilter,
+            boolean useSuccessFunction,
+            boolean negate) {
 
         return new RuleFilter(requestHeadersFilter, exceptionFilter, responseHeadersFilter,
                               responseTrailersFilter, grpcTrailersFilter, totalDurationFilter,
-                              hasResponseFilter);
+                              hasResponseFilter, useSuccessFunction, negate);
     }
 
     private final BiPredicate<ClientRequestContext, RequestHeaders> requestHeadersFilter;
@@ -60,6 +62,8 @@ public final class RuleFilter implements BiFunction<ClientRequestContext, Throwa
     private final @Nullable BiPredicate<ClientRequestContext, HttpHeaders> grpcTrailersFilter;
     private final @Nullable BiPredicate<ClientRequestContext, Duration> totalDurationFilter;
     private final boolean hasResponseFilter;
+    private final boolean useSuccessFunction;
+    private final boolean negate;
 
     private RuleFilter(BiPredicate<ClientRequestContext, RequestHeaders> requestHeadersFilter,
                        @Nullable BiPredicate<ClientRequestContext, Throwable> exceptionFilter,
@@ -67,7 +71,9 @@ public final class RuleFilter implements BiFunction<ClientRequestContext, Throwa
                        @Nullable BiPredicate<ClientRequestContext, HttpHeaders> responseTrailersFilter,
                        @Nullable BiPredicate<ClientRequestContext, HttpHeaders> grpcTrailersFilter,
                        @Nullable BiPredicate<ClientRequestContext, Duration> totalDurationFilter,
-                       boolean hasResponseFilter) {
+                       boolean hasResponseFilter,
+                       boolean useSuccessFunction,
+                       boolean negate) {
         this.requestHeadersFilter = requestHeadersFilter;
         this.exceptionFilter = exceptionFilter;
         this.responseHeadersFilter = responseHeadersFilter;
@@ -75,6 +81,8 @@ public final class RuleFilter implements BiFunction<ClientRequestContext, Throwa
         this.grpcTrailersFilter = grpcTrailersFilter;
         this.totalDurationFilter = totalDurationFilter;
         this.hasResponseFilter = hasResponseFilter;
+        this.useSuccessFunction = useSuccessFunction;
+        this.negate = negate;
     }
 
     @Override
@@ -82,17 +90,21 @@ public final class RuleFilter implements BiFunction<ClientRequestContext, Throwa
         final RequestLog log = ctx.log().partial();
         final HttpRequest request = ctx.request();
         if (request != null && !requestHeadersFilter.test(ctx, request.headers())) {
-            return false;
+            return maybeNegate(false);
         }
 
         // Safe to return true since no filters are set
         if (exceptionFilter == null && responseHeadersFilter == null &&
             responseTrailersFilter == null && grpcTrailersFilter == null &&
-            totalDurationFilter == null && !hasResponseFilter) {
-            return true;
+            totalDurationFilter == null && !hasResponseFilter && !useSuccessFunction) {
+            return maybeNegate(true);
         }
 
-        return applySlow(ctx, cause, log);
+        return maybeNegate(applySlow(ctx, cause, log));
+    }
+
+    private boolean maybeNegate(boolean result) {
+        return negate ? !result : result;
     }
 
     private boolean applySlow(ClientRequestContext ctx, @Nullable Throwable cause, RequestLog log) {
@@ -138,6 +150,12 @@ public final class RuleFilter implements BiFunction<ClientRequestContext, Throwa
         if (totalDurationFilter != null && log.isAvailable(RequestLogProperty.RESPONSE_END_TIME)) {
             final long totalDurationNanos = log.totalDurationNanos();
             if (totalDurationFilter.test(ctx, Duration.ofNanos(totalDurationNanos))) {
+                return true;
+            }
+        }
+
+        if (useSuccessFunction) {
+            if (ctx.options().successFunction().isSuccess(ctx, log)) {
                 return true;
             }
         }

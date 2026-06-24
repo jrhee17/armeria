@@ -162,9 +162,17 @@ public interface CircuitBreakerRule {
      */
     @UnstableApi
     static CircuitBreakerRule onSuccessFunctionMatch() {
-        return (ctx, cause) -> ctx.log().whenComplete().thenApply(log ->
-                ctx.options().successFunction().isSuccess(ctx, log) ?
-                CircuitBreakerDecision.success() : CircuitBreakerDecision.next());
+        return builder().onSuccessFunction().thenSuccess();
+    }
+
+    /**
+     * Returns a newly created {@link CircuitBreakerRule} that will report a {@link Response} as a failure,
+     * if the {@link SuccessFunction} configured via {@link ClientOptions#SUCCESS_FUNCTION} does not regard
+     * the response as a success.
+     */
+    @UnstableApi
+    static CircuitBreakerRule onSuccessFunctionFailure() {
+        return builder().onSuccessFunction().not().thenFailure();
     }
 
     /**
