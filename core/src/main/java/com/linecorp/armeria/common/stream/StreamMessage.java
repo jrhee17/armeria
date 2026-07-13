@@ -38,6 +38,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -174,6 +175,39 @@ public interface StreamMessage<T> extends Publisher<T> {
                 }
                 return new RegularFixedStreamMessage<>(objs);
         }
+    }
+
+    /**
+     * Creates a new {@link StreamMessage} that invokes the specified {@link Supplier} on subscription to
+     * obtain the actual {@link StreamMessage}. The supplier is called lazily — it is not invoked until the
+     * returned {@link StreamMessage} is subscribed to.
+     *
+     * <pre>{@code
+     * StreamMessage<HttpData> stream = StreamMessage.of(() -> StreamMessage.of(path));
+     * }</pre>
+     *
+     * @param supplier the {@link Supplier} that produces a new {@link StreamMessage} on each subscription
+     */
+    @UnstableApi
+    static <T> StreamMessage<T> of(Supplier<? extends StreamMessage<? extends T>> supplier) {
+        requireNonNull(supplier, "supplier");
+        return StreamMessage.of((Publisher<T>) subscriber -> {
+            final StreamMessage<? extends T> actual;
+            try {
+                actual = supplier.get();
+            } catch (Throwable t) {
+                StreamMessage.<T>aborted(t).subscribe(subscriber);
+                return;
+            }
+            if (actual == null) {
+                StreamMessage.<T>aborted(
+                        new NullPointerException("supplier.get() returned null.")).subscribe(subscriber);
+                return;
+            }
+            @SuppressWarnings("unchecked")
+            final StreamMessage<T> cast = (StreamMessage<T>) actual;
+            cast.subscribe(subscriber);
+        });
     }
 
     /**

@@ -359,44 +359,34 @@ public interface HttpRequest extends Request, HttpMessage {
     }
 
     /**
+     * Creates a new {@link HttpRequest} whose body is produced lazily by the specified {@link Supplier}.
+     * The supplier is invoked on subscription, not at construction time.
+     *
+     * @param headers the {@link RequestHeaders}
+     * @param bodyFactory the {@link Supplier} that produces the body {@link StreamMessage}
+     */
+    @UnstableApi
+    static HttpRequest of(RequestHeaders headers,
+                          Supplier<? extends StreamMessage<? extends HttpObject>> bodyFactory) {
+        requireNonNull(headers, "headers");
+        requireNonNull(bodyFactory, "bodyFactory");
+        return of(headers, StreamMessage.of(bodyFactory));
+    }
+
+    /**
      * Creates a new {@link HttpRequest} whose body can be reproduced on demand, so that
      * {@code RetryingClient} and {@code RedirectingClient} can resend it without buffering the whole
      * body in memory.
      *
-     * <p>For streaming requests larger than about 2 GiB, buffering the body for replay is neither
-     * possible (an {@code int} size limit is exceeded) nor desirable. Instead, supply a factory that
-     * opens a fresh body {@link StreamMessage} on demand:
-     *
+     * <p>This is a shortcut for:
      * <pre>{@code
-     * final Path path = Paths.get("/tmp/large-upload.bin");
-     * final RequestHeaders headers =
-     *         RequestHeaders.of(HttpMethod.POST, "/upload",
-     *                           HttpHeaderNames.CONTENT_TYPE, "application/octet-stream");
-     * final HttpRequest req = HttpRequest.reproducible(headers, () -> StreamMessage.of(path));
-     * final RequestOptions options =
-     *         RequestOptions.builder()
-     *                       .exchangeType(ExchangeType.REQUEST_STREAMING)
-     *                       .build();
-     * client.execute(req, options);
+     * HttpRequest.of(headers, bodyFactory).withDuplicatorFactory(bodyFactory);
      * }</pre>
-     *
-     * <p>The {@code bodyFactory} is invoked once per attempt (initial request, retry attempt, or
-     * redirect hop). The fixed {@code headers} are reused for every attempt; the factory regenerates
-     * only the body {@link StreamMessage}, so the request method and headers cannot drift between
-     * attempts. The body each factory invocation produces must match the declared
-     * {@link HttpHeaderNames#CONTENT_LENGTH} (if any), exactly as for any streaming
-     * {@link HttpRequest}.
-     *
-     * <p>Reproducible replay applies only to the outermost duplicating decorator (typically
-     * {@code RetryingClient}). Each attempt handed downstream is an ordinary {@link HttpRequest};
-     * an inner decorator (e.g. a redirect within a single retry attempt) treats it as a normal
-     * request and may buffer it. It is honored for streaming requests
-     * ({@link ExchangeType#isRequestStreaming()}); an aggregated exchange type buffers the body as
-     * usual.
      *
      * @param headers the fixed {@link RequestHeaders} reused for every attempt
      * @param bodyFactory produces a fresh body {@link StreamMessage} for each attempt; it must not
      *                    return {@code null}
+     * @see #withDuplicatorFactory(Supplier)
      */
     @UnstableApi
     static HttpRequest reproducible(
@@ -404,7 +394,7 @@ public interface HttpRequest extends Request, HttpMessage {
             Supplier<? extends StreamMessage<? extends HttpObject>> bodyFactory) {
         requireNonNull(headers, "headers");
         requireNonNull(bodyFactory, "bodyFactory");
-        return new ReproducibleHttpRequest(headers, bodyFactory);
+        return HttpRequest.of(headers, bodyFactory).withDuplicatorFactory(bodyFactory);
     }
 
     /**
@@ -689,6 +679,26 @@ public interface HttpRequest extends Request, HttpMessage {
                                            .executor(executor)
                                            .usePooledObjects(alloc)
                                            .build());
+    }
+
+    /**
+     * Returns a new {@link HttpRequest} that wraps this request and overrides {@link #toDuplicator} to
+     * produce a non-buffering duplicator. Each {@linkplain HttpRequestDuplicator#duplicate() duplicate}
+     * obtains a fresh body from the specified {@code bodyFactory} instead of buffering the original
+     * body for replay.
+     *
+     * <p>This is useful when the request body is too large to buffer in memory (e.g. streaming uploads
+     * larger than 2 GiB) and the request may be retried or redirected.
+     *
+     * @param bodyFactory produces a fresh body {@link StreamMessage} for each duplicate; must not
+     *                    return {@code null}
+     * @see #reproducible(RequestHeaders, Supplier)
+     */
+    @UnstableApi
+    default HttpRequest withDuplicatorFactory(
+            Supplier<? extends StreamMessage<? extends HttpObject>> bodyFactory) {
+        requireNonNull(bodyFactory, "bodyFactory");
+        return new ReproducibleHttpRequest(this, bodyFactory);
     }
 
     @Override
