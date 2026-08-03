@@ -36,6 +36,7 @@ import com.linecorp.armeria.common.Response;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.TimeoutMode;
+import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.client.ClientUtil;
 
 import io.netty.util.AsciiString;
@@ -84,8 +85,13 @@ public abstract class AbstractRetryingClient<I extends Request, O extends Respon
 
         final State state = new State(config, ctx.responseTimeoutMillis());
         ctx.setAttr(STATE, state);
-        // Clear the root context's timeout scheduling. The timeout will be managed per derived context.
-        ctx.clearResponseTimeout();
+        // Cancel the root context's scheduled timeout task. The timeout will be managed per derived context.
+        // We use cancelScheduled() instead of clearResponseTimeout() to preserve the original
+        // timeoutNanos value so that ctx.responseTimeoutMillis() still returns the configured value.
+        final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
+        if (ctxExt != null) {
+            ctxExt.responseCancellationScheduler().cancelScheduled();
+        }
         return doExecute(ctx, req);
     }
 
