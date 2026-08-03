@@ -30,6 +30,7 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RpcRequest;
 import com.linecorp.armeria.common.RpcResponse;
+import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.internal.client.ClientPendingThrowableUtil;
 import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.common.util.StringUtil;
@@ -158,12 +159,20 @@ public final class RetryingRpcClient extends AbstractRetryingClient<RpcRequest, 
                     "the response returned to the client has been cancelled"), initialAttempt);
             return;
         }
-        if (!setResponseTimeout(ctx)) {
+        final long responseTimeoutMillis = nextResponseTimeoutMillis(ctx);
+        if (responseTimeoutMillis < 0) {
             handleException(ctx, future, ResponseTimeoutException.get(), initialAttempt);
             return;
         }
 
         final ClientRequestContext derivedCtx = newDerivedContext(ctx, null, req, initialAttempt);
+
+        // Set the timeout on the derived context, not the root context.
+        if (responseTimeoutMillis == 0) {
+            derivedCtx.clearResponseTimeout();
+        } else {
+            derivedCtx.setResponseTimeoutMillis(TimeoutMode.SET_FROM_NOW, responseTimeoutMillis);
+        }
 
         if (!initialAttempt) {
             derivedCtx.mutateAdditionalRequestHeaders(

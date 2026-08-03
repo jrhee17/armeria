@@ -84,6 +84,8 @@ public abstract class AbstractRetryingClient<I extends Request, O extends Respon
 
         final State state = new State(config, ctx.responseTimeoutMillis());
         ctx.setAttr(STATE, state);
+        // Clear the root context's timeout scheduling. The timeout will be managed per derived context.
+        ctx.clearResponseTimeout();
         return doExecute(ctx, req);
     }
 
@@ -171,10 +173,26 @@ public abstract class AbstractRetryingClient<I extends Request, O extends Respon
     }
 
     /**
+     * Returns the response timeout millis for the next attempt.
+     *
+     * @return a positive value if the timeout is set,
+     *         {@code 0} if the timeout is disabled,
+     *         or {@code -1} if the overall deadline has been exceeded
+     */
+    @SuppressWarnings("MethodMayBeStatic") // Intentionally left non-static for better user experience.
+    protected final long nextResponseTimeoutMillis(ClientRequestContext ctx) {
+        requireNonNull(ctx, "ctx");
+        return state(ctx).responseTimeoutMillis();
+    }
+
+    /**
      * Resets the {@link ClientRequestContext#responseTimeoutMillis()}.
      *
      * @return {@code true} if the response timeout is set, {@code false} if it can't be set due to the timeout
+     * @deprecated Use {@link #nextResponseTimeoutMillis(ClientRequestContext)} and set the timeout on the
+     *             derived context instead.
      */
+    @Deprecated
     @SuppressWarnings("MethodMayBeStatic") // Intentionally left non-static for better user experience.
     protected final boolean setResponseTimeout(ClientRequestContext ctx) {
         requireNonNull(ctx, "ctx");

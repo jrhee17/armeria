@@ -42,6 +42,7 @@ import com.linecorp.armeria.common.HttpResponseDuplicator;
 import com.linecorp.armeria.common.Request;
 import com.linecorp.armeria.common.RequestHeadersBuilder;
 import com.linecorp.armeria.common.ResponseHeaders;
+import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.common.SplitHttpResponse;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.logging.RequestLog;
@@ -290,7 +291,8 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
             return;
         }
 
-        if (!setResponseTimeout(ctx)) {
+        final long responseTimeoutMillis = nextResponseTimeoutMillis(ctx);
+        if (responseTimeoutMillis < 0) {
             handleException(ctx, rootReqDuplicator, future, ResponseTimeoutException.get(), initialAttempt);
             return;
         }
@@ -310,6 +312,13 @@ public final class RetryingClient extends AbstractRetryingClient<HttpRequest, Ht
         } catch (Throwable t) {
             handleException(ctx, rootReqDuplicator, future, t, initialAttempt);
             return;
+        }
+
+        // Set the timeout on the derived context, not the root context.
+        if (responseTimeoutMillis == 0) {
+            derivedCtx.clearResponseTimeout();
+        } else {
+            derivedCtx.setResponseTimeoutMillis(TimeoutMode.SET_FROM_NOW, responseTimeoutMillis);
         }
 
         final RetryConfig<HttpResponse> config = mappedRetryConfig(ctx);
