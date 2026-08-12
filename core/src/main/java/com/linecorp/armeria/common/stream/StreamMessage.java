@@ -38,6 +38,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -240,6 +241,21 @@ public interface StreamMessage<T> extends Publisher<T> {
         //noinspection unchecked
         deferred.delegateOnCompletion((CompletionStage<? extends Publisher<T>>) stage);
         return deferred;
+    }
+
+    /**
+     * Creates a new {@link StreamMessage} whose delegate is produced lazily by the specified
+     * {@link Supplier} at subscribe time. The supplier is invoked once when a subscriber subscribes
+     * to the returned stream. If the supplier throws an exception, the subscriber receives an error
+     * signal with that exception.
+     *
+     * @param supplier the supplier that produces the actual {@link StreamMessage} at subscribe time
+     */
+    @UnstableApi
+    static <T> StreamMessage<T> defer(
+            Supplier<? extends StreamMessage<? extends T>> supplier) {
+        requireNonNull(supplier, "supplier");
+        return new SupplierBasedStreamMessage<>(supplier);
     }
 
     /**

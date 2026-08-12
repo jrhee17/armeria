@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -358,6 +359,48 @@ public interface HttpRequest extends Request, HttpMessage {
     }
 
     /**
+     * Creates a new {@link HttpRequest} whose body is produced lazily by the specified supplier
+     * at subscribe time, similar to {@code Flux.defer()}.
+     *
+     * <p>The supplier is invoked each time the request is subscribed to. This is useful for
+     * creating request bodies that should not be materialized until consumption.
+     *
+     * @param headers the request headers
+     * @param bodySupplier a supplier that produces a fresh body stream on each subscription
+     */
+    @UnstableApi
+    static HttpRequest defer(RequestHeaders headers,
+                             Supplier<? extends StreamMessage<? extends HttpObject>> bodySupplier) {
+        requireNonNull(headers, "headers");
+        requireNonNull(bodySupplier, "bodySupplier");
+        return of(headers, StreamMessage.defer(bodySupplier));
+    }
+
+    /**
+     * Creates a new reproducible {@link HttpRequest} whose body is produced lazily by the specified
+     * supplier, and whose {@link #toDuplicator()} uses the same supplier to produce fresh body
+     * streams instead of buffering.
+     *
+     * <p>This is a convenience method equivalent to:
+     * <pre>{@code
+     * HttpRequest.defer(headers, bodySupplier)
+     *            .withDuplicator(HttpRequestDuplicatorFactory.reproducible(bodySupplier));
+     * }</pre>
+     *
+     * @param headers the request headers
+     * @param bodySupplier a supplier that produces a fresh body stream on each call
+     */
+    @UnstableApi
+    static HttpRequest reproducible(
+            RequestHeaders headers,
+            Supplier<? extends StreamMessage<? extends HttpObject>> bodySupplier) {
+        requireNonNull(headers, "headers");
+        requireNonNull(bodySupplier, "bodySupplier");
+        return defer(headers, bodySupplier)
+                .withDuplicator(HttpRequestDuplicatorFactory.reproducible(bodySupplier));
+    }
+
+    /**
      * Returns a new {@link HttpRequestBuilder}.
      */
     static HttpRequestBuilder builder() {
@@ -498,6 +541,30 @@ public interface HttpRequest extends Request, HttpMessage {
             return this;
         }
         return HeaderOverridingHttpRequest.of(this, newHeaders);
+    }
+
+    /**
+     * Returns a new {@link HttpRequest} whose {@link #toDuplicator} creates an
+     * {@link HttpRequestDuplicator} via the specified factory instead of the default buffering one.
+     *
+     * <p>When {@link #toDuplicator} is called, the factory receives the original {@link HttpRequest}
+     * so it can decide how to handle it (e.g. abort it if unused, or subscribe to it for buffering).
+     *
+     * <p>For example, a non-buffering duplicator that regenerates the body from a factory:
+     * <pre>{@code
+     * HttpRequest req = HttpRequest.of(headers, body)
+     *     .withDuplicator(original -> {
+     *         original.abort();
+     *         return HttpRequestDuplicator.reproducible(headers, bodyFactory);
+     *     });
+     * }</pre>
+     *
+     * <p>The factory is preserved across {@link #withHeaders(RequestHeaders)} calls.
+     */
+    @UnstableApi
+    default HttpRequest withDuplicator(HttpRequestDuplicatorFactory duplicatorFactory) {
+        requireNonNull(duplicatorFactory, "duplicatorFactory");
+        return new DuplicatorOverridingHttpRequest(this, duplicatorFactory);
     }
 
     /**
