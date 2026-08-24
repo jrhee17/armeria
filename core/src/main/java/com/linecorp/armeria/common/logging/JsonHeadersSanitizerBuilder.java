@@ -47,6 +47,6 @@ public final class JsonHeadersSanitizerBuilder
     public HeadersSanitizer<JsonNode> build() {
         final ObjectMapper objectMapper = this.objectMapper != null ?
                                           this.objectMapper : JacksonUtil.newDefaultObjectMapper();
-        return new JsonHeadersSanitizer(sensitiveHeaders(), maskingFunction(), objectMapper);
+        return new JsonHeadersSanitizer(headerMaskingFunctions(), objectMapper);
     }
 }

@@ -16,17 +16,15 @@
 
 package com.linecorp.armeria.common.logging;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.Map;
 import java.util.function.BiConsumer;
 
 import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.RequestContext;
+import com.linecorp.armeria.common.annotation.Nullable;
 
 import io.netty.util.AsciiString;
 
@@ -37,14 +35,10 @@ final class TextHeadersSanitizer implements HeadersSanitizer<String> {
 
     static final HeadersSanitizer<String> INSTANCE = new TextHeadersSanitizerBuilder().build();
 
-    private final Set<AsciiString> sensitiveHeaders;
+    private final Map<AsciiString, List<HeaderMaskingFunction>> headerMaskingFunctions;
 
-    private final HeaderMaskingFunction maskingFunction;
-
-    TextHeadersSanitizer(Set<AsciiString> sensitiveHeaders,
-                         HeaderMaskingFunction maskingFunction) {
-        this.sensitiveHeaders = sensitiveHeaders;
-        this.maskingFunction = maskingFunction;
+    TextHeadersSanitizer(Map<AsciiString, List<HeaderMaskingFunction>> headerMaskingFunctions) {
+        this.headerMaskingFunctions = headerMaskingFunctions;
     }
 
     @Override
@@ -60,7 +54,7 @@ final class TextHeadersSanitizer implements HeadersSanitizer<String> {
             sb.append('[');
         }
 
-        maskHeaders(headers, sensitiveHeaders, maskingFunction,
+        maskHeaders(headers, headerMaskingFunctions,
                     (header, values) -> sb.append(header).append('=')
                                           .append(values.size() > 1 ?
                                                   values.toString() : values.get(0)).append(", "));
@@ -70,30 +64,38 @@ final class TextHeadersSanitizer implements HeadersSanitizer<String> {
     }
 
     static void maskHeaders(
-            HttpHeaders headers, Set<AsciiString> sensitiveHeaders,
-            HeaderMaskingFunction maskingFunction,
+            HttpHeaders headers,
+            Map<AsciiString, List<HeaderMaskingFunction>> headerMaskingFunctions,
             BiConsumer<AsciiString, List<String>> consumer) {
         for (AsciiString headerName : headers.names()) {
             List<String> values = headers.getAll(headerName);
-            if (sensitiveHeaders.contains(headerName)) {
-                // Mask the header values.
-                if (values.size() == 1) {
-                    final String masked = maskingFunction.mask(headerName, values.get(0));
-                    if (masked == null) {
-                        values = ImmutableList.of();
-                    } else {
-                        values = ImmutableList.of(masked);
-                    }
-                } else {
-                    values = values.stream()
-                                   .map(value -> maskingFunction.mask(headerName, value))
-                                   .filter(Objects::nonNull)
-                                   .collect(toImmutableList());
-                }
+            final List<HeaderMaskingFunction> fns = headerMaskingFunctions.get(headerName);
+            if (fns != null && !fns.isEmpty()) {
+                values = applyMaskingFunctions(headerName, values, fns);
             }
             if (!values.isEmpty()) {
                 consumer.accept(headerName, values);
             }
         }
+    }
+
+    private static List<String> applyMaskingFunctions(
+            AsciiString headerName, List<String> values,
+            List<HeaderMaskingFunction> maskingFunctions) {
+        final ImmutableList.Builder<String> builder = ImmutableList.builder();
+        for (String value : values) {
+            @Nullable
+            String current = value;
+            for (HeaderMaskingFunction fn : maskingFunctions) {
+                if (current == null) {
+                    break;
+                }
+                current = fn.mask(headerName, current);
+            }
+            if (current != null) {
+                builder.add(current);
+            }
+        }
+        return builder.build();
     }
 }

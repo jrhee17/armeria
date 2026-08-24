@@ -18,14 +18,21 @@ package com.linecorp.armeria.common.logging;
 
 import static java.util.Objects.requireNonNull;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.annotation.UnstableApi;
 
 import io.netty.util.AsciiString;
 
@@ -48,6 +55,12 @@ abstract class AbstractHeadersSanitizerBuilder<SELF extends AbstractHeadersSanit
     private Set<AsciiString> sensitiveHeaders;
 
     private HeaderMaskingFunction maskingFunction = HeaderMaskingFunction.of();
+
+    @Nullable
+    private Map<AsciiString, List<HeaderMaskingFunction>> perHeaderMaskingFunctions;
+
+    @Nullable
+    private QueryParamMaskingFunction queryParamMaskingFunction;
 
     @SuppressWarnings("unchecked")
     final SELF self() {
@@ -107,5 +120,96 @@ abstract class AbstractHeadersSanitizerBuilder<SELF extends AbstractHeadersSanit
      */
     final HeaderMaskingFunction maskingFunction() {
         return maskingFunction;
+    }
+
+    /**
+     * Adds a {@link HeaderMaskingFunction} for the specified header. Unlike
+     * {@link #maskingFunction(HeaderMaskingFunction)} which only applies to
+     * {@linkplain #sensitiveHeaders(CharSequence...) sensitive headers}, this method
+     * targets a specific header by name. Multiple functions for the same header are
+     * applied in the order they are added.
+     */
+    @UnstableApi
+    public SELF maskHeader(CharSequence headerName, HeaderMaskingFunction maskingFunction) {
+        requireNonNull(headerName, "headerName");
+        requireNonNull(maskingFunction, "maskingFunction");
+        if (perHeaderMaskingFunctions == null) {
+            perHeaderMaskingFunctions = new LinkedHashMap<>();
+        }
+        perHeaderMaskingFunctions
+                .computeIfAbsent(AsciiString.of(headerName).toLowerCase(), k -> new ArrayList<>())
+                .add(maskingFunction);
+        return self();
+    }
+
+    /**
+     * Adds the query parameter names whose values should be masked with {@code ****} in the
+     * {@code :path} header before logging. Query parameter names are case-sensitive.
+     * This is a convenience method that internally sets a {@link QueryParamMaskingFunction}
+     * which masks matched parameter values.
+     */
+    @UnstableApi
+    public SELF maskQueryParams(String... queryParams) {
+        requireNonNull(queryParams, "queryParams");
+        return maskQueryParams(ImmutableSet.copyOf(queryParams));
+    }
+
+    /**
+     * Adds the query parameter names whose values should be masked with {@code ****} in the
+     * {@code :path} header before logging. Query parameter names are case-sensitive.
+     * This is a convenience method that internally sets a {@link QueryParamMaskingFunction}
+     * which masks matched parameter values.
+     */
+    @UnstableApi
+    public SELF maskQueryParams(Iterable<String> queryParams) {
+        requireNonNull(queryParams, "queryParams");
+        final ImmutableSet<String> paramSet = ImmutableSet.copyOf(queryParams);
+        queryParamMaskingFunction((name, value) ->
+                paramSet.contains(name) ? "****" : value);
+        return self();
+    }
+
+    /**
+     * Sets the {@link QueryParamMaskingFunction} that is applied to every query parameter
+     * in the {@code :path} header before logging. Return the original value to leave a
+     * parameter unchanged, or {@code null} to remove it from the log.
+     */
+    @UnstableApi
+    public SELF queryParamMaskingFunction(QueryParamMaskingFunction queryParamMaskingFunction) {
+        this.queryParamMaskingFunction =
+                requireNonNull(queryParamMaskingFunction, "queryParamMaskingFunction");
+        return self();
+    }
+
+    /**
+     * Builds a per-header map of masking functions by merging sensitive headers,
+     * query param masking, and per-header custom functions.
+     */
+    final Map<AsciiString, List<HeaderMaskingFunction>> headerMaskingFunctions() {
+        final Map<AsciiString, List<HeaderMaskingFunction>> result = new LinkedHashMap<>();
+
+        // 1. Sensitive headers each get the shared masking function.
+        final HeaderMaskingFunction sensitiveFn = maskingFunction;
+        for (AsciiString header : sensitiveHeaders()) {
+            result.computeIfAbsent(header, k -> new ArrayList<>()).add(sensitiveFn);
+        }
+
+        // 2. Query param masking targets :path.
+        if (queryParamMaskingFunction != null) {
+            result.computeIfAbsent(HttpHeaderNames.PATH, k -> new ArrayList<>())
+                  .add(new QueryParamMaskingValueSanitizer(queryParamMaskingFunction));
+        }
+
+        // 3. Per-header custom functions.
+        if (perHeaderMaskingFunctions != null) {
+            perHeaderMaskingFunctions.forEach((name, fns) ->
+                    result.computeIfAbsent(name, k -> new ArrayList<>()).addAll(fns));
+        }
+
+        // Convert to immutable.
+        final ImmutableMap.Builder<AsciiString, List<HeaderMaskingFunction>> immutable =
+                ImmutableMap.builder();
+        result.forEach((name, fns) -> immutable.put(name, ImmutableList.copyOf(fns)));
+        return immutable.buildOrThrow();
     }
 }
