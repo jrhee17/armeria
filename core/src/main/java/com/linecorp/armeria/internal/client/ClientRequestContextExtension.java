@@ -27,6 +27,7 @@ import com.linecorp.armeria.client.endpoint.EndpointGroup;
 import com.linecorp.armeria.client.endpoint.EndpointSelector;
 import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpHeaders;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.logging.RequestLog;
 import com.linecorp.armeria.internal.common.CancellationScheduler;
 import com.linecorp.armeria.internal.common.RequestContextExtension;
@@ -122,4 +123,11 @@ public interface ClientRequestContextExtension extends ClientRequestContext, Req
     void rpcClientCustomizer(Function<RpcClient, RpcClient> rpcClient);
 
     Function<RpcClient, RpcClient> rpcClientCustomizer();
+
+    /**
+     * Overrides the default request headers for this context.
+     * This is used by {@code RedirectingClient} to strip sensitive headers from
+     * {@link ClientRequestContext#defaultRequestHeaders()} on cross-origin redirects.
+     */
+    void setDefaultRequestHeaders(@Nullable HttpHeaders defaultRequestHeaders);
 }

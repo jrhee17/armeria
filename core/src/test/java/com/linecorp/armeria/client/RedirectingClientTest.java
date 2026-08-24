@@ -23,6 +23,7 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -37,9 +38,11 @@ import com.google.common.collect.ImmutableList;
 import com.linecorp.armeria.client.logging.LoggingClient;
 import com.linecorp.armeria.client.redirect.CyclicRedirectsException;
 import com.linecorp.armeria.client.redirect.RedirectConfig;
+import com.linecorp.armeria.client.redirect.RedirectHeadersSanitizer;
 import com.linecorp.armeria.client.redirect.TooManyRedirectsException;
 import com.linecorp.armeria.client.redirect.UnexpectedDomainRedirectException;
 import com.linecorp.armeria.client.redirect.UnexpectedProtocolRedirectException;
+import com.linecorp.armeria.common.auth.AuthToken;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpData;
 import com.linecorp.armeria.common.HttpHeaderNames;
@@ -47,6 +50,7 @@ import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
+import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.SessionProtocol;
@@ -61,6 +65,7 @@ import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 class RedirectingClientTest {
 
     private static final AtomicInteger requestCounter = new AtomicInteger();
+    private static final AtomicReference<RequestHeaders> capturedHeaders = new AtomicReference<>();
 
     @RegisterExtension
     static ServerExtension server = new ServerExtension() {
@@ -165,6 +170,22 @@ class RedirectingClientTest {
                     return HttpResponse.of(400);
                 }
             });
+
+            // Cross-origin redirect: redirects to sink.com which captures headers.
+            sb.service("/crossOriginRedirect", (ctx, req) -> HttpResponse.ofRedirect(
+                    "http://sink.com:" + server.httpPort() + "/captureHeaders"));
+            sb.virtualHost("sink.com")
+              .service("/captureHeaders", (ctx, req) -> {
+                  capturedHeaders.set(req.headers());
+                  return HttpResponse.of(200);
+              });
+
+            // Same-origin redirect: stays on the same host.
+            sb.service("/sameOriginRedirect", (ctx, req) -> HttpResponse.ofRedirect("/captureHeadersSameOrigin"));
+            sb.service("/captureHeadersSameOrigin", (ctx, req) -> {
+                capturedHeaders.set(req.headers());
+                return HttpResponse.of(200);
+            });
         }
 
         private int otherHttpPort(ServiceRequestContext ctx) {
@@ -182,6 +203,7 @@ class RedirectingClientTest {
     @BeforeEach
     void setUp() {
         requestCounter.set(0);
+        capturedHeaders.set(null);
     }
 
     @Test
@@ -510,6 +532,111 @@ class RedirectingClientTest {
         final ClientRequestContext ctx = ClientRequestContext.of(req);
         final RequestTarget result = RedirectingClient.resolveLocation(ctx, redirectLocation);
         return result != null ? result.toString() : null;
+    }
+
+    @Test
+    void crossOriginRedirect_stripsCredentialHeaders() {
+        try (ClientFactory factory = localhostAccessingClientFactory()) {
+            final WebClient client = WebClient.builder()
+                                              .factory(factory)
+                                              .followRedirects()
+                                              .build();
+            client.execute(RequestHeaders.of(HttpMethod.GET,
+                                             server.httpUri() + "/crossOriginRedirect",
+                                             HttpHeaderNames.AUTHORIZATION, "Bearer secret",
+                                             HttpHeaderNames.COOKIE, "session=abc"))
+                  .aggregate().join();
+
+            final RequestHeaders headers = capturedHeaders.get();
+            assertThat(headers).isNotNull();
+            assertThat(headers.get(HttpHeaderNames.AUTHORIZATION)).isNull();
+            assertThat(headers.get(HttpHeaderNames.COOKIE)).isNull();
+        }
+    }
+
+    @Test
+    void sameOriginRedirect_preservesCredentialHeaders() {
+        final WebClient client = WebClient.builder(server.httpUri())
+                                          .followRedirects()
+                                          .build();
+        client.execute(RequestHeaders.of(HttpMethod.GET, "/sameOriginRedirect",
+                                         HttpHeaderNames.AUTHORIZATION, "Bearer secret",
+                                         HttpHeaderNames.COOKIE, "session=abc"))
+              .aggregate().join();
+
+        final RequestHeaders headers = capturedHeaders.get();
+        assertThat(headers).isNotNull();
+        assertThat(headers.get(HttpHeaderNames.AUTHORIZATION)).isEqualTo("Bearer secret");
+        assertThat(headers.get(HttpHeaderNames.COOKIE)).isEqualTo("session=abc");
+    }
+
+    @Test
+    void crossOriginRedirect_noOpSanitizer_preservesCredentialHeaders() {
+        try (ClientFactory factory = localhostAccessingClientFactory()) {
+            final WebClient client =
+                    WebClient.builder()
+                             .factory(factory)
+                             .followRedirects(
+                                     RedirectConfig.builder()
+                                                   .headersSanitizer(RedirectHeadersSanitizer.ofNoOp())
+                                                   .build())
+                             .build();
+            client.execute(RequestHeaders.of(HttpMethod.GET,
+                                             server.httpUri() + "/crossOriginRedirect",
+                                             HttpHeaderNames.AUTHORIZATION, "Bearer secret",
+                                             HttpHeaderNames.COOKIE, "session=abc"))
+                  .aggregate().join();
+
+            final RequestHeaders headers = capturedHeaders.get();
+            assertThat(headers).isNotNull();
+            assertThat(headers.get(HttpHeaderNames.AUTHORIZATION)).isEqualTo("Bearer secret");
+            assertThat(headers.get(HttpHeaderNames.COOKIE)).isEqualTo("session=abc");
+        }
+    }
+
+    @Test
+    void crossOriginRedirect_customSanitizer() {
+        try (ClientFactory factory = localhostAccessingClientFactory()) {
+            // Custom sanitizer that only strips Authorization but keeps Cookie.
+            final WebClient client =
+                    WebClient.builder()
+                             .factory(factory)
+                             .followRedirects(
+                                     RedirectConfig.builder()
+                                                   .headersSanitizer((ctx, builder) ->
+                                                           builder.removeAndThen(HttpHeaderNames.AUTHORIZATION))
+                                                   .build())
+                             .build();
+            client.execute(RequestHeaders.of(HttpMethod.GET,
+                                             server.httpUri() + "/crossOriginRedirect",
+                                             HttpHeaderNames.AUTHORIZATION, "Bearer secret",
+                                             HttpHeaderNames.COOKIE, "session=abc"))
+                  .aggregate().join();
+
+            final RequestHeaders headers = capturedHeaders.get();
+            assertThat(headers).isNotNull();
+            assertThat(headers.get(HttpHeaderNames.AUTHORIZATION)).isNull();
+            assertThat(headers.get(HttpHeaderNames.COOKIE)).isEqualTo("session=abc");
+        }
+    }
+
+    @Test
+    void crossOriginRedirect_stripsDefaultRequestHeaders() {
+        // Credentials set via client builder .auth() are also stripped.
+        try (ClientFactory factory = localhostAccessingClientFactory()) {
+            final WebClient client =
+                    WebClient.builder()
+                             .factory(factory)
+                             .followRedirects()
+                             .auth(AuthToken.ofOAuth2("default-token"))
+                             .build();
+            client.get(server.httpUri() + "/crossOriginRedirect")
+                  .aggregate().join();
+
+            final RequestHeaders headers = capturedHeaders.get();
+            assertThat(headers).isNotNull();
+            assertThat(headers.get(HttpHeaderNames.AUTHORIZATION)).isNull();
+        }
     }
 
     private static ClientFactory localhostAccessingClientFactory() {

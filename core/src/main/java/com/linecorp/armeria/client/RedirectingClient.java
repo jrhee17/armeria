@@ -36,6 +36,7 @@ import com.google.common.collect.Sets;
 
 import com.linecorp.armeria.client.redirect.CyclicRedirectsException;
 import com.linecorp.armeria.client.redirect.RedirectConfig;
+import com.linecorp.armeria.client.redirect.RedirectHeadersSanitizer;
 import com.linecorp.armeria.client.redirect.TooManyRedirectsException;
 import com.linecorp.armeria.client.redirect.UnexpectedDomainRedirectException;
 import com.linecorp.armeria.client.redirect.UnexpectedProtocolRedirectException;
@@ -53,12 +54,15 @@ import com.linecorp.armeria.common.RequestTarget;
 import com.linecorp.armeria.common.RequestTargetForm;
 import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.SessionProtocol;
+import com.linecorp.armeria.common.HttpHeaders;
+import com.linecorp.armeria.common.HttpHeadersBuilder;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.logging.RequestLogBuilder;
 import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.stream.AbortedStreamException;
 import com.linecorp.armeria.internal.client.AggregatedHttpRequestDuplicator;
 import com.linecorp.armeria.internal.client.ClientBuilderParamsUtil;
+import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.client.ClientUtil;
 import com.linecorp.armeria.internal.common.util.TemporaryThreadLocals;
 
@@ -84,8 +88,9 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
                                  params.scheme().sessionProtocol());
         final BiPredicate<ClientRequestContext, String> domainFilter =
                 domainFilter(undefinedUri, redirectConfig.domainFilter());
+        final RedirectHeadersSanitizer headersSanitizer = redirectConfig.headersSanitizer();
         return delegate -> new RedirectingClient(delegate, allowedProtocols, domainFilter,
-                                                 redirectConfig.maxRedirects());
+                                                 redirectConfig.maxRedirects(), headersSanitizer);
     }
 
     private static Set<SessionProtocol> allowedProtocols(boolean undefinedUri,
@@ -127,13 +132,16 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
     private final Set<SessionProtocol> allowedProtocols;
     private final BiPredicate<ClientRequestContext, String> domainFilter;
     private final int maxRedirects;
+    private final RedirectHeadersSanitizer headersSanitizer;
 
     RedirectingClient(HttpClient delegate, Set<SessionProtocol> allowedProtocols,
-                      BiPredicate<ClientRequestContext, String> domainFilter, int maxRedirects) {
+                      BiPredicate<ClientRequestContext, String> domainFilter, int maxRedirects,
+                      RedirectHeadersSanitizer headersSanitizer) {
         super(delegate);
         this.allowedProtocols = allowedProtocols;
         this.domainFilter = domainFilter;
         this.maxRedirects = maxRedirects;
+        this.headersSanitizer = headersSanitizer;
     }
 
     @Override
@@ -237,11 +245,12 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
                    nextScheme != null && nextAuthority != null && nextHost != null
                     : "resolveLocation() must return an absolute request target: " + nextReqTarget;
 
+            final SessionProtocol nextProtocol;
             try {
+                nextProtocol = SessionProtocol.of(nextScheme);
                 // Reject if:
                 // 1) the protocol is not same with the original one; and
                 // 2) the protocol is not in the allow-list.
-                final SessionProtocol nextProtocol = SessionProtocol.of(nextScheme);
                 if (ctx.sessionProtocol() != nextProtocol &&
                     !allowedProtocols.contains(nextProtocol)) {
                     handleException(ctx, derivedCtx, reqDuplicator, responseFuture, response,
@@ -264,9 +273,13 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
                 return;
             }
 
+            final boolean isCrossOrigin = isCrossOrigin(ctx, nextProtocol, nextHost,
+                                                         nextReqTarget.port());
+
             final HttpRequestDuplicator newReqDuplicator =
                     newReqDuplicator(reqDuplicator, responseHeaders, requestHeaders,
-                                     nextReqTarget.toString(), nextAuthority);
+                                     nextReqTarget.toString(), nextAuthority,
+                                     isCrossOrigin, headersSanitizer, ctx);
 
             try {
                 redirectCtx.validateRedirects(nextReqTarget,
@@ -282,6 +295,9 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
                 if (cause != null) {
                     handleException(ctx, derivedCtx, reqDuplicator, responseFuture, response, cause);
                     return null;
+                }
+                if (isCrossOrigin) {
+                    sanitizeDefaultRequestHeaders(ctx, headersSanitizer);
                 }
                 execute0(ctx, redirectCtx, newReqDuplicator, false);
                 return null;
@@ -404,11 +420,18 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
                                                           ResponseHeaders responseHeaders,
                                                           RequestHeaders requestHeaders,
                                                           String nextUri,
-                                                          String nextAuthority) {
+                                                          String nextAuthority,
+                                                          boolean isCrossOrigin,
+                                                          RedirectHeadersSanitizer headersSanitizer,
+                                                          ClientRequestContext ctx) {
 
         final RequestHeadersBuilder builder = requestHeaders.toBuilder();
         builder.path(nextUri);
         builder.authority(nextAuthority);
+
+        if (isCrossOrigin) {
+            headersSanitizer.sanitize(ctx, builder);
+        }
 
         final HttpMethod method = requestHeaders.method();
         if (responseHeaders.status() == HttpStatus.SEE_OTHER &&
@@ -423,6 +446,39 @@ final class RedirectingClient extends SimpleDecoratingHttpClient {
         } else {
             return new HttpRequestDuplicatorWrapper(reqDuplicator, builder.build());
         }
+    }
+
+    private static boolean isCrossOrigin(ClientRequestContext ctx,
+                                           SessionProtocol nextProtocol,
+                                           String nextHost, int nextPort) {
+        if (ctx.sessionProtocol() != nextProtocol) {
+            return true;
+        }
+        final Endpoint endpoint = ctx.endpoint();
+        if (endpoint == null) {
+            return true;
+        }
+        if (!endpoint.host().equals(nextHost)) {
+            return true;
+        }
+        final int currentPort = endpoint.port(ctx.sessionProtocol().defaultPort());
+        final int resolvedNextPort = nextPort > 0 ? nextPort : nextProtocol.defaultPort();
+        return currentPort != resolvedNextPort;
+    }
+
+    private static void sanitizeDefaultRequestHeaders(ClientRequestContext ctx,
+                                                       RedirectHeadersSanitizer headersSanitizer) {
+        final ClientRequestContextExtension ctxExtension = ctx.as(ClientRequestContextExtension.class);
+        if (ctxExtension == null) {
+            return;
+        }
+        final HttpHeaders defaultHeaders = ctx.defaultRequestHeaders();
+        if (defaultHeaders.isEmpty()) {
+            return;
+        }
+        final HttpHeadersBuilder builder = defaultHeaders.toBuilder();
+        headersSanitizer.sanitize(ctx, builder);
+        ctxExtension.setDefaultRequestHeaders(builder.build());
     }
 
     private static void endRedirect(ClientRequestContext ctx, HttpRequestDuplicator reqDuplicator,

@@ -51,6 +51,7 @@ public final class RedirectConfigBuilder {
     private Set<String> allowedDomains;
     @Nullable
     private BiPredicate<ClientRequestContext, String> predicate;
+    private RedirectHeadersSanitizer headersSanitizer = RedirectHeadersSanitizer.ofDefault();
 
     RedirectConfigBuilder() {}
 
@@ -165,6 +166,20 @@ public final class RedirectConfigBuilder {
     }
 
     /**
+     * Sets the {@link RedirectHeadersSanitizer} that sanitizes request headers when following a
+     * cross-origin redirect. By default, {@link RedirectHeadersSanitizer#ofDefault()} is used, which
+     * strips {@code Authorization}, {@code Cookie}, and {@code Proxy-Authorization} headers.
+     *
+     * <p>To preserve all headers across redirects (not recommended unless you trust all redirect targets),
+     * use {@link RedirectHeadersSanitizer#ofNoOp()}.
+     */
+    @UnstableApi
+    public RedirectConfigBuilder headersSanitizer(RedirectHeadersSanitizer headersSanitizer) {
+        this.headersSanitizer = requireNonNull(headersSanitizer, "headersSanitizer");
+        return this;
+    }
+
+    /**
      * Returns a newly-created {@link RedirectConfig} based on the properties set so far.
      */
     public RedirectConfig build() {
@@ -183,7 +198,7 @@ public final class RedirectConfigBuilder {
             }
         }
 
-        return new RedirectConfig(allowedProtocols, predicate, maxRedirects);
+        return new RedirectConfig(allowedProtocols, predicate, maxRedirects, headersSanitizer);
     }
 
     @Nullable

@@ -165,7 +165,7 @@ public final class DefaultClientRequestContext
     private long writeTimeoutMillis;
     private long maxResponseLength;
 
-    private final HttpHeaders defaultRequestHeaders;
+    private HttpHeaders defaultRequestHeaders;
     @SuppressWarnings("FieldMayBeFinal") // Updated via `additionalRequestHeadersUpdater`
     private volatile HttpHeaders additionalRequestHeaders;
 
@@ -1067,6 +1067,11 @@ public final class DefaultClientRequestContext
     @Override
     public HttpHeaders defaultRequestHeaders() {
         return defaultRequestHeaders;
+    }
+
+    @Override
+    public void setDefaultRequestHeaders(@Nullable HttpHeaders defaultRequestHeaders) {
+        this.defaultRequestHeaders = defaultRequestHeaders != null ? defaultRequestHeaders : HttpHeaders.of();
     }
 
     @Override

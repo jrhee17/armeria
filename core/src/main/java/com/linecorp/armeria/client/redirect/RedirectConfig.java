@@ -16,6 +16,7 @@
 package com.linecorp.armeria.client.redirect;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 import java.net.URI;
 import java.util.Set;
@@ -36,7 +37,7 @@ public final class RedirectConfig {
     private static final RedirectConfig defaultRedirectConfig = builder().build();
 
     private static final RedirectConfig disabledRedirectConfig = new RedirectConfig(
-            null, (ctx, path) -> false, -1);
+            null, (ctx, path) -> false, -1, RedirectHeadersSanitizer.ofDefault());
 
     /**
      * Returns the default {@link RedirectConfig}.
@@ -64,12 +65,15 @@ public final class RedirectConfig {
     @Nullable
     private final BiPredicate<ClientRequestContext, String> domainFilter;
     private final int maxRedirects;
+    private final RedirectHeadersSanitizer headersSanitizer;
 
     RedirectConfig(@Nullable Set<SessionProtocol> allowedProtocols,
-                   @Nullable BiPredicate<ClientRequestContext, String> domainFilter, int maxRedirects) {
+                   @Nullable BiPredicate<ClientRequestContext, String> domainFilter, int maxRedirects,
+                   RedirectHeadersSanitizer headersSanitizer) {
         this.allowedProtocols = allowedProtocols;
         this.domainFilter = domainFilter;
         this.maxRedirects = maxRedirects;
+        this.headersSanitizer = requireNonNull(headersSanitizer, "headersSanitizer");
     }
 
     /**
@@ -96,12 +100,21 @@ public final class RedirectConfig {
         return maxRedirects;
     }
 
+    /**
+     * Returns the {@link RedirectHeadersSanitizer} that sanitizes request headers on cross-origin redirects.
+     */
+    @UnstableApi
+    public RedirectHeadersSanitizer headersSanitizer() {
+        return headersSanitizer;
+    }
+
     @Override
     public String toString() {
         return toStringHelper(this).omitNullValues()
                                    .add("allowedProtocols", allowedProtocols)
                                    .add("predicate", domainFilter)
                                    .add("maxRedirects", maxRedirects)
+                                   .add("headersSanitizer", headersSanitizer)
                                    .toString();
     }
 }
