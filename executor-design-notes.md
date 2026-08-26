@@ -148,13 +148,16 @@ This may negate the throughput benefits of a thread pool for workloads where con
 
 ## 4. Misc
 
-### Adopting WIP/Queue-Drain for StreamMessage
+### Removing the Event Loop Dependency for Stream Operations
 
-To fully support non-thread-affine executors for reactive streams, Armeria would need to move from `inEventLoop()` checks to atomic WIP/queue-drain serialization (like Reactor). This is a deep architectural change that would affect `StreamMessage` and all operators.
+Currently, stream operations (subscribe, deframing, signal delivery) must run on `ctx.eventLoop()` because `StreamMessage` and its operators rely on `inEventLoop()` for serialization. This means `ctx.sequentialExecutor()` does not replace `ctx.eventLoop()` — the event loop remains a required component. The sequential executor is only for user-facing code dispatch (service handlers, gRPC listener callbacks like `onMessage`, `onHalfClose`, etc.). Framework-critical tasks must not be submitted to the sequential executor, since a blocking task stalls all subsequent tasks on it.
+
+To fully eliminate this dependency, Armeria would need to move from `inEventLoop()` checks to atomic WIP/queue-drain serialization (like Reactor). This would allow stream operations to run on any sequential executor, not just the event loop.
 
 Pros:
-- Simplifies internal code — users and internals no longer need to worry about synchronization between the channel event loop and blocking executor
-- Enables decoupling stream signal delivery from a specific thread, opening the door for virtual thread support
+- Simplifies internal code — users and internals no longer need to worry about synchronization between the channel event loop and the user-facing executor
+- Enables running the entire request lifecycle on a single executor (no event loop / sequential executor split for application code)
+- Opens the door for virtual thread support where one vthread handles everything for a request
 
 Cons:
 - There is little practical need today for arbitrary executors driving reactive streams
@@ -170,3 +173,19 @@ As a general direction, networking can continue to use channel event loops. The 
 When using virtual threads, the carrier thread pool must be separate from the Netty event loop threads ([netty/netty#13204](https://github.com/netty/netty/issues/13204)). If an event loop thread doubles as a carrier, a virtual thread can acquire a lock (e.g., Netty's buffer allocator), park, and yield the carrier. If the event loop then tries to acquire the same lock, it blocks — and if the parked virtual thread needs IO on that event loop to resume, you get a deadlock.
 
 With segregated pools this is avoided: the virtual thread can resume on a different carrier and release the lock. The carrier thread pool backing virtual threads should be separate from Netty's event loop threads.
+
+### Virtual Thread-Backed EventLoop
+
+An alternative considered: use Netty's existing `DefaultEventLoop` backed by a virtual thread:
+
+```java
+new DefaultEventLoop(Thread.ofVirtual().factory());
+```
+
+This requires no new abstractions — `inEventLoop()` works as-is, ThreadLocal is safe, and all existing code works unchanged. Blocking is cheap since the backing thread is virtual.
+
+However, this approach has significant drawbacks:
+- `EventExecutor`, while the API doesn't imply it, is conventionally expected to be shared across multiple connections and to be fast/non-blocking. A per-request vthread-backed event loop breaks this expectation.
+- Since the IO event loop has the same API shape (`EventLoop` extends `EventExecutor`), it becomes confusing to track which event loop is safe to block on and which is not. Users and internal code could accidentally block the IO event loop thinking it's a vthread-backed one.
+- Blocking stalls the event loop queue. Even though the vthread parks cheaply (carrier is freed), the event loop can't drain subsequent tasks until the blocking call returns. Framework-critical code like `req.subscribe()` or timeout handling submitted to the same event loop would be stalled. The familiar `EventLoop` API makes this a trap — users and framework code will mix blocking and non-blocking tasks without realizing the impact.
+- Requires JDK 21+.
