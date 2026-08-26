@@ -164,3 +164,9 @@ Cons:
 ### IO Layer
 
 As a general direction, networking can continue to use channel event loops. The new executor abstraction would be for user-facing code (service handlers, gRPC serde, interceptors, etc.).
+
+### Virtual Thread Carrier Thread Segregation
+
+When using virtual threads, the carrier thread pool must be separate from the Netty event loop threads ([netty/netty#13204](https://github.com/netty/netty/issues/13204)). If an event loop thread doubles as a carrier, a virtual thread can acquire a lock (e.g., Netty's buffer allocator), park, and yield the carrier. If the event loop then tries to acquire the same lock, it blocks — and if the parked virtual thread needs IO on that event loop to resume, you get a deadlock.
+
+With segregated pools this is avoided: the virtual thread can resume on a different carrier and release the lock. The carrier thread pool backing virtual threads should be separate from Netty's event loop threads.
