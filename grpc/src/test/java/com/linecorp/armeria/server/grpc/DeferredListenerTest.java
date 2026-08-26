@@ -30,8 +30,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import com.google.common.util.concurrent.MoreExecutors;
-
 import com.linecorp.armeria.common.CommonPools;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
@@ -40,6 +38,7 @@ import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.grpc.GrpcExceptionHandlerFunction;
 import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
+import com.linecorp.armeria.internal.common.grpc.SequentialExecutor;
 import com.linecorp.armeria.internal.common.grpc.InternalGrpcExceptionHandler;
 import com.linecorp.armeria.server.ServiceRequestContext;
 
@@ -72,11 +71,9 @@ class DeferredListenerTest {
         }
         assertListenerEvents(serverCall, eventLoop);
 
-        final Executor blockingExecutor =
-                MoreExecutors.newSequentialExecutor(CommonPools.blockingTaskExecutor());
         final UnaryServerCall<SimpleRequest, SimpleResponse> blockingServerCall =
-                newServerCall(eventLoop, blockingExecutor);
-        assertListenerEvents(blockingServerCall, blockingExecutor);
+                newServerCall(eventLoop, CommonPools.blockingTaskExecutor());
+        assertListenerEvents(blockingServerCall, blockingServerCall.sequentialExecutor());
     }
 
     private static void assertListenerEvents(ServerCall<SimpleRequest, SimpleResponse> serverCall,
@@ -114,6 +111,9 @@ class DeferredListenerTest {
         final ServiceRequestContext ctx = ServiceRequestContext.builder(HttpRequest.of(HttpMethod.POST, "/"))
                                                                .eventLoop(eventLoop)
                                                                .build();
+        final SequentialExecutor sequentialExecutor = blockingTaskExecutor != null
+                                          ? SequentialExecutor.of(blockingTaskExecutor)
+                                          : SequentialExecutor.of(eventLoop);
         return new UnaryServerCall<>(ctx.request(), TestServiceGrpc.getUnaryCallMethod(), "UnaryCall",
                                      CompressorRegistry.getDefaultInstance(),
                                      DecompressorRegistry.getDefaultInstance(),
@@ -121,7 +121,7 @@ class DeferredListenerTest {
                                      GrpcSerializationFormats.PROTO, null, false,
                                      ResponseHeaders.of(200),
                                      new InternalGrpcExceptionHandler(GrpcExceptionHandlerFunction.of()),
-                                     blockingTaskExecutor, false, false, false);
+                                     sequentialExecutor, false, false, false);
     }
 
     private static class TestListener extends ServerCall.Listener<SimpleRequest> {

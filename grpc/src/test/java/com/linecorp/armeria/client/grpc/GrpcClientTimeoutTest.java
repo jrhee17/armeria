@@ -35,9 +35,12 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.Uninterruptibles;
 
+import com.linecorp.armeria.common.logging.LogLevel;
+import com.linecorp.armeria.common.logging.LogWriter;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.annotation.Blocking;
 import com.linecorp.armeria.server.grpc.GrpcService;
+import com.linecorp.armeria.server.logging.LoggingService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
 import ch.qos.logback.classic.Level;
@@ -79,6 +82,11 @@ class GrpcClientTimeoutTest {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
             sb.requestTimeoutMillis(2000);
+            sb.decorator(LoggingService.builder()
+                                 .logWriter(LogWriter.builder()
+                                                    .successfulResponseLogLevel(LogLevel.DEBUG)
+                                                     .build())
+                                       .newDecorator());
             sb.service(GrpcService.builder()
                                   .addService(new SlowService())
                                   .build());
@@ -90,6 +98,11 @@ class GrpcClientTimeoutTest {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
             sb.requestTimeoutMillis(2000);
+            sb.decorator(LoggingService.builder()
+                                       .logWriter(LogWriter.builder()
+                                                           .successfulResponseLogLevel(LogLevel.DEBUG)
+                                                           .build())
+                                       .newDecorator());
             sb.service(GrpcService.builder()
                                   .useClientTimeoutHeader(false)
                                   .addService(new SlowService())

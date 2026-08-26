@@ -17,30 +17,21 @@ package com.linecorp.armeria.internal.server.grpc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.awaitility.Awaitility.await;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.reactivestreams.Subscriber;
-import org.reactivestreams.Subscription;
 
 import com.linecorp.armeria.client.grpc.GrpcClients;
-import com.linecorp.armeria.common.FilteredHttpRequest;
-import com.linecorp.armeria.common.HttpObject;
+import com.linecorp.armeria.common.HttpRequest;
+import com.linecorp.armeria.common.HttpRequestWriter;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.grpc.GrpcService;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
-import io.grpc.Metadata;
-import io.grpc.ServerCall;
-import io.grpc.ServerCall.Listener;
-import io.grpc.ServerCallHandler;
-import io.grpc.ServerInterceptor;
-import io.grpc.ServerInterceptors;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import testing.grpc.Messages.StreamingInputCallRequest;
@@ -54,51 +45,32 @@ class AbstractServerCallTest {
     static final ServerExtension server = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
-            final AtomicReference<ServerCall<?, ?>> serverCallCaptor = new AtomicReference<>();
             final GrpcService grpcService =
                     GrpcService.builder()
                                .useBlockingTaskExecutor(true)
                                .useClientTimeoutHeader(false)
-                               .addService(ServerInterceptors.intercept(
-                                       new FooTestServiceImpl(),
-                                       new ServerInterceptor() {
-
-                                           @Override
-                                           public <T, U> Listener<T> interceptCall(
-                                                   ServerCall<T, U> call, Metadata headers,
-                                                   ServerCallHandler<T, U> next) {
-                                               serverCallCaptor.set(call);
-                                               return next.startCall(call, headers);
-                                           }
-                                       }))
+                               .addService(new FooTestServiceImpl())
                                .build();
             sb.service(grpcService);
+            // Delay the request body delivery past the request timeout.
+            // The timeout fires at 100ms and cancels the call. The body
+            // arrives at 300ms, by which point the call is already cancelled
+            // — so listener.onMessage() is never called.
             sb.decorator((delegate, ctx, req) -> {
-                final FilteredHttpRequest newReq = new FilteredHttpRequest(req) {
-                    @Override
-                    protected void beforeSubscribe(Subscriber<? super HttpObject> subscriber,
-                                                   Subscription subscription) {
-                        // This is called right before
-                        // blockingExecutor.execute(() -> invokeOnMessage(request, endOfStream));
-                        // in AbstractServerCall.
-                        // https://github.com/line/armeria/blob/0960d091bfc7f350c17e68f57cc627de584b9705/grpc/src/main/java/com/linecorp/armeria/internal/server/grpc/AbstractServerCall.java#L363
-                        final ServerCall<?, ?> serverCall = serverCallCaptor.get();
-                        assertThat(serverCall).isInstanceOf(AbstractServerCall.class);
-                        ((AbstractServerCall<?, ?>) serverCall).blockingExecutor.execute(() -> {
-                            // invokeOnMessage is not called until the request is cancelled.
-                            await().until(serverCall::isCancelled);
-                            // Now, AbstractServerCall.invokeOnMessage() is called and it doesn't call
-                            // listener.onMessage() because the request is cancelled.
-                        });
-                    }
-
-                    @Override
-                    protected HttpObject filter(HttpObject obj) {
-                        return obj;
-                    }
-                };
-                ctx.updateRequest(newReq);
-                return delegate.serve(ctx, newReq);
+                final HttpRequestWriter streaming = HttpRequest.streaming(req.headers());
+                ctx.updateRequest(streaming);
+                ctx.eventLoop().schedule(() -> {
+                    req.aggregate().handle((areq, e) -> {
+                        if (e != null) {
+                            streaming.abort(e);
+                            return null;
+                        }
+                        streaming.write(areq.content());
+                        streaming.close();
+                        return null;
+                    });
+                }, 300, TimeUnit.MILLISECONDS);
+                return delegate.serve(ctx, streaming);
             });
             sb.requestTimeoutMillis(100);
         }

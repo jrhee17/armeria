@@ -21,7 +21,6 @@ import static com.linecorp.armeria.internal.common.HttpMessageAggregator.aggrega
 import static java.util.Objects.requireNonNull;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 
 import com.linecorp.armeria.common.AggregationOptions;
 import com.linecorp.armeria.common.HttpData;
@@ -36,6 +35,7 @@ import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.grpc.GrpcJsonMarshaller;
 import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
+import com.linecorp.armeria.internal.common.grpc.SequentialExecutor;
 import com.linecorp.armeria.internal.common.grpc.GrpcLogUtil;
 import com.linecorp.armeria.internal.common.grpc.InternalGrpcExceptionHandler;
 import com.linecorp.armeria.internal.server.grpc.AbstractServerCall;
@@ -72,13 +72,13 @@ final class UnaryServerCall<I, O> extends AbstractServerCall<I, O> {
                     @Nullable GrpcJsonMarshaller jsonMarshaller, boolean unsafeWrapRequestBuffers,
                     ResponseHeaders defaultHeaders,
                     InternalGrpcExceptionHandler exceptionHandler,
-                    @Nullable Executor blockingExecutor,
+                    SequentialExecutor sequentialExecutor,
                     boolean autoCompress,
                     boolean useMethodMarshaller,
                     boolean enableEnvoyHttp1Bridge) {
         super(req, method, simpleMethodName, compressorRegistry, decompressorRegistry, res,
               maxResponseMessageLength, ctx, serializationFormat, jsonMarshaller, unsafeWrapRequestBuffers,
-              defaultHeaders, exceptionHandler, blockingExecutor, autoCompress, useMethodMarshaller);
+              defaultHeaders, exceptionHandler, sequentialExecutor, autoCompress, useMethodMarshaller);
         requireNonNull(req, "req");
         this.ctx = requireNonNull(ctx, "ctx");
         final boolean grpcWebText = GrpcSerializationFormats.isGrpcWebText(serializationFormat);
@@ -107,23 +107,34 @@ final class UnaryServerCall<I, O> extends AbstractServerCall<I, O> {
                    return null;
                }
 
-               try {
-                   onRequestMessage(requestDeframer.deframe(aggregatedHttpRequest.content()), true);
-               } catch (Exception ex) {
-                   // An exception could be raised when the deframer detects malformed data which is released by
-                   // the try-with-resource block. So `objects` don't need to be released here.
-                   onError(ex);
+               final SequentialExecutor sequentialExecutor = sequentialExecutor();
+               if (sequentialExecutor.inExecution()) {
+                   deframeAndDeliver(aggregatedHttpRequest.content());
+               } else {
+                   sequentialExecutor.execute(
+                           () -> deframeAndDeliver(aggregatedHttpRequest.content()));
                }
                return null;
            });
     }
 
+    private void deframeAndDeliver(HttpData content) {
+        try {
+            onRequestMessage(requestDeframer.deframe(content), true);
+        } catch (Exception ex) {
+            // An exception could be raised when the deframer detects malformed data which is released by
+            // the try-with-resource block. So `objects` don't need to be released here.
+            onError(ex);
+        }
+    }
+
     @Override
     public void sendMessage(O message) {
-        if (ctx.eventLoop().inEventLoop()) {
+        final SequentialExecutor sequentialExecutor = sequentialExecutor();
+        if (sequentialExecutor.inExecution()) {
             doSendMessage(message);
         } else {
-            ctx.eventLoop().execute(() -> doSendMessage(message));
+            sequentialExecutor.execute(() -> doSendMessage(message));
         }
     }
 

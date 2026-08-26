@@ -56,6 +56,7 @@ import com.linecorp.armeria.common.grpc.GrpcExceptionHandlerFunction;
 import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
 import com.linecorp.armeria.common.grpc.protocol.DeframedMessage;
 import com.linecorp.armeria.common.util.EventLoopGroups;
+import com.linecorp.armeria.internal.common.grpc.SequentialExecutor;
 import com.linecorp.armeria.internal.common.grpc.DefaultJsonMarshaller;
 import com.linecorp.armeria.internal.common.grpc.GrpcTestUtil;
 import com.linecorp.armeria.internal.common.grpc.InternalGrpcExceptionHandler;
@@ -335,7 +336,7 @@ class UnaryServerCallTest {
                                        .contentType(GrpcSerializationFormats.PROTO.mediaType())
                                        .build(),
                         exceptionHandler,
-                        /* blockingExecutor */ null,
+                        /* sequentialExecutor */ SequentialExecutor.of(ctx.eventLoop()),
                         /* autoCompress */ false,
                         /* useMethodMarshaller */ false,
                         /* enableEnvoyHttp1Bridge */ false);
@@ -382,7 +383,7 @@ class UnaryServerCallTest {
                                .contentType(GrpcSerializationFormats.PROTO.mediaType())
                                .build(),
                 exceptionHandler,
-                /* blockingExecutor */ null,
+                /* sequentialExecutor */ SequentialExecutor.of(ctx.eventLoop()),
                 /* autoCompress */ false,
                 /* useMethodMarshaller */ false,
                 /* enableEnvoyHttp1Bridge */ false);

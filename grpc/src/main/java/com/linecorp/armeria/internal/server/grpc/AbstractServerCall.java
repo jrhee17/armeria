@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.Executor;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,6 +55,7 @@ import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.stream.AbortedStreamException;
 import com.linecorp.armeria.common.stream.ClosedStreamException;
 import com.linecorp.armeria.common.util.SafeCloseable;
+import com.linecorp.armeria.internal.common.grpc.SequentialExecutor;
 import com.linecorp.armeria.internal.common.grpc.ForwardingCompressor;
 import com.linecorp.armeria.internal.common.grpc.ForwardingDecompressor;
 import com.linecorp.armeria.internal.common.grpc.GrpcLogUtil;
@@ -112,8 +112,7 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
     private final boolean autoCompression;
 
     @VisibleForTesting
-    @Nullable
-    final Executor blockingExecutor;
+    final SequentialExecutor sequentialExecutor;
     private final InternalGrpcExceptionHandler exceptionHandler;
 
     // Only set once.
@@ -150,7 +149,7 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
                                  boolean unsafeWrapRequestBuffers,
                                  ResponseHeaders defaultHeaders,
                                  InternalGrpcExceptionHandler exceptionHandler,
-                                 @Nullable Executor blockingExecutor,
+                                 SequentialExecutor sequentialExecutor,
                                  boolean autoCompression,
                                  boolean useMethodMarshaller) {
         requireNonNull(req, "req");
@@ -173,16 +172,15 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
         marshaller = new GrpcMessageMarshaller<>(alloc, serializationFormat, method, jsonMarshaller,
                                                  unsafeWrapRequestBuffers, useMethodMarshaller);
         this.unsafeWrapRequestBuffers = unsafeWrapRequestBuffers;
-        this.blockingExecutor = blockingExecutor;
+        this.sequentialExecutor = sequentialExecutor;
         defaultResponseHeaders = defaultHeaders;
         this.exceptionHandler = exceptionHandler;
 
         res.whenComplete().handle((unused, t) -> {
-            final EventLoop eventLoop = ctx.eventLoop();
-            if (eventLoop.inEventLoop()) {
+            if (sequentialExecutor.inExecution()) {
                 maybeCancel();
             } else {
-                eventLoop.execute(this::maybeCancel);
+                sequentialExecutor.execute(this::maybeCancel);
             }
             return null;
         });
@@ -239,12 +237,10 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
     }
 
     private void close(ServerStatusAndMetadata statusAndMetadata, @Nullable Throwable exception) {
-        if (ctx.eventLoop().inEventLoop()) {
+        if (sequentialExecutor.inExecution()) {
             doClose(statusAndMetadata, exception);
         } else {
-            ctx.eventLoop().execute(() -> {
-                doClose(statusAndMetadata, exception);
-            });
+            sequentialExecutor.execute(() -> doClose(statusAndMetadata, exception));
         }
     }
 
@@ -307,18 +303,10 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
             }
 
             if (!cancelled) {
-                if (blockingExecutor != null) {
-                    blockingExecutor.execute(this::invokeOnComplete);
-                } else {
-                    invokeOnComplete();
-                }
+                invokeOnComplete();
             } else {
                 this.cancelled = true;
-                if (blockingExecutor != null) {
-                    blockingExecutor.execute(this::invokeOnCancel);
-                } else {
-                    invokeOnCancel();
-                }
+                invokeOnCancel();
                 // Transport error, not business logic error, so reset the stream.
                 if (!closeCalled) {
                     res.abort(statusAndMetadata.asRuntimeException());
@@ -329,7 +317,6 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
 
     public void onRequestMessage(DeframedMessage message, boolean endOfStream) {
         try {
-            final I request;
             final ByteBuf buf = message.buf();
 
             boolean success = false;
@@ -355,18 +342,14 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
             }
 
             final boolean grpcWebText = GrpcSerializationFormats.isGrpcWebText(serializationFormat);
-            request = marshaller.deserializeRequest(message, grpcWebText);
+            final I request = marshaller.deserializeRequest(message, grpcWebText);
             maybeLogRequestContent(request);
 
             if (unsafeWrapRequestBuffers && buf != null && !grpcWebText) {
                 GrpcUnsafeBufferUtil.storeBuffer(buf, request, ctx);
             }
 
-            if (blockingExecutor != null) {
-                blockingExecutor.execute(() -> invokeOnMessage(request, endOfStream));
-            } else {
-                invokeOnMessage(request, endOfStream);
-            }
+            invokeOnMessage(request, endOfStream);
         } catch (Throwable cause) {
             close(cause, true);
         }
@@ -376,85 +359,96 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
         clientStreamClosed = true;
         if (!closeCalled) {
             maybeLogRequestContent(null);
-            if (blockingExecutor != null) {
-                blockingExecutor.execute(this::invokeHalfClose);
-            } else {
-                invokeHalfClose();
+            invokeHalfClose();
+        }
+    }
+
+    private void dispatchToListener(Runnable callback) {
+        final Executor raw = sequentialExecutor.raw();
+        if (sequentialExecutor.inExecution() && raw instanceof EventLoop) {
+            // Event loop case: already on the event loop, run inline (current behavior)
+            try (SafeCloseable ignored = ctx.push()) {
+                callback.run();
             }
+        } else {
+            raw.execute(() -> {
+                try (SafeCloseable ignored = ctx.push()) {
+                    callback.run();
+                }
+            });
         }
     }
 
     protected final void invokeOnReady() {
-        if (blockingExecutor != null && cancelled) {
-            // Do not call listener.onReady() if the call is cancelled after
-            // this task was scheduled to blockingTaskExecutor.
+        if (cancelled) {
             return;
         }
-        try {
-            if (listener != null) {
-                listener.onReady();
+        dispatchToListener(() -> {
+            try {
+                if (listener != null) {
+                    listener.onReady();
+                }
+            } catch (Throwable t) {
+                close(t);
             }
-        } catch (Throwable t) {
-            close(t);
-        }
+        });
     }
 
     private void invokeOnMessage(I request, boolean halfClose) {
-        if (blockingExecutor != null && cancelled) {
-            // Do not call listener.onMessage() if the call is cancelled after
-            // this task was scheduled to blockingTaskExecutor.
+        if (cancelled) {
             return;
         }
-        try (SafeCloseable ignored = ctx.push()) {
-            assert listener != null;
-            listener.onMessage(request);
-            if (halfClose) {
-                listener.onHalfClose();
+        dispatchToListener(() -> {
+            try {
+                assert listener != null;
+                listener.onMessage(request);
+                if (halfClose) {
+                    listener.onHalfClose();
+                }
+            } catch (Throwable cause) {
+                close(cause);
             }
-        } catch (Throwable cause) {
-            close(cause);
-        }
+        });
     }
 
     protected final void invokeHalfClose() {
-        if (blockingExecutor != null && cancelled) {
-            // Do not call listener.onHalfClose() if the call is cancelled after
-            // this task was scheduled to blockingTaskExecutor.
+        if (cancelled) {
             return;
         }
-        try (SafeCloseable ignored = ctx.push()) {
-            assert listener != null;
-            listener.onHalfClose();
-        } catch (Throwable t) {
-            close(t);
-        }
+        dispatchToListener(() -> {
+            try {
+                assert listener != null;
+                listener.onHalfClose();
+            } catch (Throwable t) {
+                close(t);
+            }
+        });
     }
 
     private void invokeOnComplete() {
-        try (SafeCloseable ignored = ctx.push()) {
-            if (listener != null) {
-                listener.onComplete();
+        dispatchToListener(() -> {
+            try {
+                if (listener != null) {
+                    listener.onComplete();
+                }
+            } catch (Throwable t) {
+                logger.warn("Error in gRPC onComplete handler.", t);
             }
-        } catch (Throwable t) {
-            // This should not be possible with normal generated stubs which do not implement
-            // onComplete, but is conceivable for a completely manually constructed stub.
-            logger.warn("Error in gRPC onComplete handler.", t);
-        }
+        });
     }
 
     private void invokeOnCancel() {
-        try (SafeCloseable ignored = ctx.push()) {
-            if (listener != null) {
-                listener.onCancel();
+        dispatchToListener(() -> {
+            try {
+                if (listener != null) {
+                    listener.onCancel();
+                }
+            } catch (Throwable t) {
+                if (!closeCalled) {
+                    close(t);
+                }
             }
-        } catch (Throwable t) {
-            if (!closeCalled) {
-                // A custom error when dealing with client cancel or transport issues should be
-                // returned. We have already closed the listener, so it will not receive any more
-                // callbacks as designed.
-                close(t);
-            }
-        }
+        });
     }
 
     protected void onError(Throwable t) {
@@ -478,10 +472,10 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
 
     @Override
     public void sendHeaders(Metadata metadata) {
-        if (ctx.eventLoop().inEventLoop()) {
+        if (sequentialExecutor.inExecution()) {
             doSendHeaders(metadata);
         } else {
-            ctx.eventLoop().execute(() -> doSendHeaders(metadata));
+            sequentialExecutor.execute(() -> doSendHeaders(metadata));
         }
     }
 
@@ -662,9 +656,8 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
         return cancelled;
     }
 
-    @Nullable
-    public final Executor blockingExecutor() {
-        return blockingExecutor;
+    public final SequentialExecutor sequentialExecutor() {
+        return sequentialExecutor;
     }
 
     public final EventLoop eventLoop() {

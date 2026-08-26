@@ -29,7 +29,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -40,7 +39,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.MoreExecutors;
 
 import com.linecorp.armeria.common.ExchangeType;
 import com.linecorp.armeria.common.HttpRequest;
@@ -59,9 +57,14 @@ import com.linecorp.armeria.common.grpc.protocol.GrpcHeaderNames;
 import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.common.util.TimeoutMode;
+import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
+import com.linecorp.armeria.internal.common.CancellationScheduler;
+import com.linecorp.armeria.internal.common.RequestContextExtension;
 import com.linecorp.armeria.internal.common.grpc.InternalGrpcExceptionHandler;
 import com.linecorp.armeria.internal.common.grpc.MetadataUtil;
+import com.linecorp.armeria.internal.common.grpc.SequentialExecutor;
 import com.linecorp.armeria.internal.common.grpc.TimeoutHeaderUtil;
+import com.linecorp.armeria.internal.server.DefaultServiceRequestContext;
 import com.linecorp.armeria.internal.server.grpc.AbstractServerCall;
 import com.linecorp.armeria.internal.server.grpc.ServerStatusAndMetadata;
 import com.linecorp.armeria.server.AbstractHttpService;
@@ -293,23 +296,24 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
             @Nullable CompletableFuture<HttpResponse> resFuture,
             SerializationFormat serializationFormat) {
         final MethodDescriptor<I, O> methodDescriptor = methodDef.getMethodDescriptor();
-        final Executor blockingExecutor;
-        if (useBlockingTaskExecutor || registry.needToUseBlockingTaskExecutor(methodDef)) {
-            ctx.setAttr(GRPC_USE_BLOCKING_EXECUTOR, true);
-            blockingExecutor = MoreExecutors.newSequentialExecutor(ctx.blockingTaskExecutor());
+        final boolean useBlocking = useBlockingTaskExecutor ||
+                                    registry.needToUseBlockingTaskExecutor(methodDef);
+        ctx.setAttr(GRPC_USE_BLOCKING_EXECUTOR, useBlocking);
+        final SequentialExecutor sequentialExecutor;
+        if (useBlocking) {
+            sequentialExecutor = SequentialExecutor.of(ctx.blockingTaskExecutor());
         } else {
-            ctx.setAttr(GRPC_USE_BLOCKING_EXECUTOR, false);
-            blockingExecutor = null;
+            sequentialExecutor = SequentialExecutor.of(ctx.eventLoop());
         }
         final AbstractServerCall<I, O> call = newServerCall(simpleMethodName, methodDef, ctx, req,
                                                             res, resFuture, serializationFormat,
-                                                            blockingExecutor);
-        if (blockingExecutor != null) {
-            blockingExecutor.execute(() -> startCall(methodDef, ctx, req, methodDescriptor, call));
-        } else {
+                                                            sequentialExecutor);
+        if (sequentialExecutor.inExecution()) {
             try (SafeCloseable ignored = ctx.push()) {
                 startCall(methodDef, ctx, req, methodDescriptor, call);
             }
+        } else {
+            sequentialExecutor.execute(() -> startCall(methodDef, ctx, req, methodDescriptor, call));
         }
     }
 
@@ -336,6 +340,10 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
         call.setListener(listener);
         call.startDeframing();
         ctx.whenRequestCancelling().handle((cancellationCause, unused) -> {
+            final DefaultServiceRequestContext ctxExt = ctx.as(DefaultServiceRequestContext.class);
+            assert ctxExt != null;
+            final CancellationScheduler cancellationScheduler = ctxExt.requestCancellationScheduler();
+            cancellationScheduler.updateTask(CancellationScheduler.noopCancellationTask);
             call.exceptionHandler().handle(ctx, cancellationCause).thenAccept(statusAndMetadata -> {
                 call.close(new ServerStatusAndMetadata(statusAndMetadata.status(), statusAndMetadata.metadata(),
                                                        true));
@@ -348,7 +356,7 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
             String simpleMethodName, ServerMethodDefinition<I, O> methodDef,
             ServiceRequestContext ctx, HttpRequest req,
             HttpResponse res, @Nullable CompletableFuture<HttpResponse> resFuture,
-            SerializationFormat serializationFormat, @Nullable Executor blockingExecutor) {
+            SerializationFormat serializationFormat, SequentialExecutor sequentialExecutor) {
 
         final MethodDescriptor<I, O> methodDescriptor = methodDef.getMethodDescriptor();
         final InternalGrpcExceptionHandler exceptionHandler =
@@ -376,7 +384,7 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
                     unsafeWrapRequestBuffers,
                     defaultHeaders,
                     exceptionHandler,
-                    blockingExecutor,
+                    sequentialExecutor,
                     autoCompression,
                     useMethodMarshaller,
                     enableEnvoyHttp1Bridge);
@@ -396,7 +404,7 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
                     unsafeWrapRequestBuffers,
                     defaultHeaders,
                     exceptionHandler,
-                    blockingExecutor,
+                    sequentialExecutor,
                     autoCompression,
                     useMethodMarshaller);
         }

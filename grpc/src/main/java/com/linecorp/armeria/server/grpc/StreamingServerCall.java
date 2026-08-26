@@ -19,7 +19,6 @@ package com.linecorp.armeria.server.grpc;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import org.reactivestreams.Subscriber;
@@ -37,6 +36,7 @@ import com.linecorp.armeria.common.grpc.protocol.DeframedMessage;
 import com.linecorp.armeria.common.stream.AbortedStreamException;
 import com.linecorp.armeria.common.stream.StreamMessage;
 import com.linecorp.armeria.common.stream.SubscriptionOption;
+import com.linecorp.armeria.internal.common.grpc.SequentialExecutor;
 import com.linecorp.armeria.internal.common.grpc.GrpcLogUtil;
 import com.linecorp.armeria.internal.common.grpc.HttpStreamDeframer;
 import com.linecorp.armeria.internal.common.grpc.InternalGrpcExceptionHandler;
@@ -85,11 +85,11 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
                         @Nullable GrpcJsonMarshaller jsonMarshaller, boolean unsafeWrapRequestBuffers,
                         ResponseHeaders defaultHeaders,
                         InternalGrpcExceptionHandler exceptionHandler,
-                        @Nullable Executor blockingExecutor, boolean autoCompress,
+                        SequentialExecutor sequentialExecutor, boolean autoCompress,
                         boolean useMethodMarshaller) {
         super(req, method, simpleMethodName, compressorRegistry, decompressorRegistry, res,
               maxResponseMessageLength, ctx, serializationFormat, jsonMarshaller, unsafeWrapRequestBuffers,
-              defaultHeaders, exceptionHandler, blockingExecutor, autoCompress, useMethodMarshaller);
+              defaultHeaders, exceptionHandler, sequentialExecutor, autoCompress, useMethodMarshaller);
         requireNonNull(req, "req");
         this.method = requireNonNull(method, "method");
         this.ctx = requireNonNull(ctx, "ctx");
@@ -109,10 +109,11 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
 
     @Override
     public void request(int numMessages) {
-        if (ctx.eventLoop().inEventLoop()) {
+        final SequentialExecutor sequentialExecutor = sequentialExecutor();
+        if (sequentialExecutor.inExecution()) {
             request0(numMessages);
         } else {
-            ctx.eventLoop().execute(() -> request0(numMessages));
+            sequentialExecutor.execute(() -> request0(numMessages));
         }
     }
 
@@ -132,10 +133,11 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
     @Override
     public void sendMessage(O message) {
         pendingMessagesUpdater.incrementAndGet(this);
-        if (ctx.eventLoop().inEventLoop()) {
+        final SequentialExecutor sequentialExecutor = sequentialExecutor();
+        if (sequentialExecutor.inExecution()) {
             doSendMessage(message);
         } else {
-            ctx.eventLoop().execute(() -> doSendMessage(message));
+            sequentialExecutor.execute(() -> doSendMessage(message));
         }
     }
 
@@ -163,11 +165,11 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
                     // Invoke onReady() only when server can send multiple messages.
                     res.whenConsumed().thenRun(() -> {
                         if (!isCloseCalled() && pendingMessagesUpdater.decrementAndGet(this) == 0) {
-                            final Executor blockingExecutor = blockingExecutor();
-                            if (blockingExecutor != null) {
-                                blockingExecutor.execute(this::invokeOnReady);
-                            } else {
+                            final SequentialExecutor sequentialExecutor = sequentialExecutor();
+                            if (sequentialExecutor.inExecution()) {
                                 invokeOnReady();
+                            } else {
+                                sequentialExecutor.execute(this::invokeOnReady);
                             }
                         }
                     });
@@ -236,7 +238,15 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
     @Override
     public void onSubscribe(Subscription subscription) {
         requireNonNull(subscription, "subscription");
-        // 'subscribe()' only happens in the constructor of ArmeriaServerCall.
+        final SequentialExecutor sequentialExecutor = sequentialExecutor();
+        if (sequentialExecutor.inExecution()) {
+            doOnSubscribe(subscription);
+        } else {
+            sequentialExecutor.execute(() -> doOnSubscribe(subscription));
+        }
+    }
+
+    private void doOnSubscribe(Subscription subscription) {
         upstream = subscription;
         if (pendingRequests > 0) {
             upstream.request(pendingRequests);
@@ -246,12 +256,22 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
 
     @Override
     public void onNext(DeframedMessage message) {
-        onRequestMessage(message, false);
+        final SequentialExecutor sequentialExecutor = sequentialExecutor();
+        if (sequentialExecutor.inExecution()) {
+            onRequestMessage(message, false);
+        } else {
+            sequentialExecutor.execute(() -> onRequestMessage(message, false));
+        }
     }
 
     @Override
     public void onComplete() {
-        onRequestComplete();
+        final SequentialExecutor sequentialExecutor = sequentialExecutor();
+        if (sequentialExecutor.inExecution()) {
+            onRequestComplete();
+        } else {
+            sequentialExecutor.execute(this::onRequestComplete);
+        }
     }
 
     @Override
@@ -272,6 +292,15 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
             // failure there's no need to notify the server listener of it).
             return;
         }
-        closeListener(new ServerStatusAndMetadata(status, metadata, true));
+        final SequentialExecutor sequentialExecutor = sequentialExecutor();
+        if (sequentialExecutor.inExecution()) {
+            closeListener(new ServerStatusAndMetadata(status, metadata, true));
+        } else {
+            sequentialExecutor.execute(() -> {
+                if (!isCloseCalled()) {
+                    closeListener(new ServerStatusAndMetadata(status, metadata, true));
+                }
+            });
+        }
     }
 }

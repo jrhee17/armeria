@@ -149,7 +149,7 @@ allprojects {
             }
 
             predictiveTestSelection {
-                enabled.set(!isCi)
+                enabled.set(false)
             }
         }
     }

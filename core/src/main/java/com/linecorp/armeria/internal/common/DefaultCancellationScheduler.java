@@ -353,10 +353,6 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
     private void invokeTask(@Nullable Throwable cause) {
         lock.lock();
         try {
-            if (state == State.FINISHED) {
-                return;
-            }
-            state = State.FINISHED;
             cancelScheduled();
             // set the cause
             cause = getFinalCause(cause);
@@ -366,7 +362,17 @@ final class DefaultCancellationScheduler implements CancellationScheduler {
         }
 
         if (task.canSchedule()) {
-            ((CancellationFuture) whenCancelling()).doComplete(cause);
+            ((CancellationFuture) whenCancelling()).doComplete(this.cause);
+        }
+
+        lock.lock();
+        try {
+            if (state == State.FINISHED) {
+                return;
+            }
+            state = State.FINISHED;
+        } finally {
+            lock.unlock();
         }
 
         if (task.canSchedule()) {
