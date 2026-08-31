@@ -294,12 +294,13 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
     protected abstract void doCloseOnCancel(ServerStatusAndMetadata statusAndMetadata);
 
     /**
-     * Transitions from IDLE to WRITING. Returns {@code true} if successful.
+     * Transitions to WRITING. Returns {@code true} if successful.
      * If the state is CANCELLED, returns {@code false} — the caller should abandon the write.
+     * Reentrant: if already WRITING, returns {@code true}.
      */
     protected final boolean startWrite() {
         synchronized (writeLock) {
-            if (writeState != WriteState.IDLE) {
+            if (writeState == WriteState.CANCELLED) {
                 return false;
             }
             writeState = WriteState.WRITING;
@@ -354,8 +355,14 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
         }
         if (canWriteNow) {
             closeCalled = true;
+            if (!ctx.log().isAvailable(RequestLogProperty.REQUEST_CONTENT)) {
+                ctx.logBuilder().requestContent(GrpcLogUtil.rpcRequest(method, simpleMethodName), null);
+            }
+            if (!ctx.log().isAvailable(RequestLogProperty.RESPONSE_CONTENT)) {
+                ctx.logBuilder().responseContent(
+                        GrpcLogUtil.rpcResponse(statusAndMetadata, firstResponse()), null);
+            }
             doCloseOnCancel(statusAndMetadata);
-            // Schedule listener cleanup on sequential executor (runs after user code finishes).
             sequentialExecutor.execute(() -> closeListener(statusAndMetadata));
         }
         // else: write in progress — writer will handle cleanup in endWrite().
