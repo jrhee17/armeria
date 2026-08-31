@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 import java.io.IOException;
 import java.util.Base64;
 import java.util.List;
-import java.util.concurrent.Executor;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,6 +96,8 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
     private static final String GRPC_STATUS_CODE_INTERNAL =
             String.valueOf(Status.Code.INTERNAL.value());
 
+    private enum WriteState { IDLE, WRITING, CANCELLED }
+
     private final MethodDescriptor<I, O> method;
     private final String simpleMethodName;
 
@@ -134,7 +136,13 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
     private volatile boolean cancelled;
     private volatile boolean clientStreamClosed;
     private volatile boolean listenerClosed;
-    private boolean closeCalled;
+    private volatile boolean closeCalled;
+
+    // Guards writeState and pendingCancel transitions. Held only for state checks (nanoseconds).
+    private final Object writeLock = new Object();
+    private WriteState writeState = WriteState.IDLE;
+    @Nullable
+    private ServerStatusAndMetadata pendingCancel;
 
     protected AbstractServerCall(HttpRequest req,
                                  MethodDescriptor<I, O> method,
@@ -278,6 +286,81 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
 
     protected abstract void doClose(ServerStatusAndMetadata statusAndMetadata);
 
+    /**
+     * Writes a cancel response directly to the response stream, bypassing the sequential executor.
+     * Called from {@link #cancelCall(ServerStatusAndMetadata)} or {@link #endWrite()} when a
+     * cancel is detected.
+     */
+    protected abstract void doCloseOnCancel(ServerStatusAndMetadata statusAndMetadata);
+
+    /**
+     * Transitions from IDLE to WRITING. Returns {@code true} if successful.
+     * If the state is CANCELLED, returns {@code false} — the caller should abandon the write.
+     */
+    protected final boolean startWrite() {
+        synchronized (writeLock) {
+            if (writeState != WriteState.IDLE) {
+                return false;
+            }
+            writeState = WriteState.WRITING;
+            return true;
+        }
+    }
+
+    /**
+     * Transitions from WRITING back to IDLE. If the state was changed to CANCELLED
+     * while writing (by {@link #cancelCall}), handles the pending cancel.
+     */
+    protected final void endWrite() {
+        final ServerStatusAndMetadata cancel;
+        synchronized (writeLock) {
+            if (writeState == WriteState.CANCELLED) {
+                cancel = pendingCancel;
+                pendingCancel = null;
+            } else {
+                writeState = WriteState.IDLE;
+                cancel = null;
+            }
+        }
+        if (cancel != null) {
+            closeCalled = true;
+            doCloseOnCancel(cancel);
+            closeListener(cancel);
+        }
+    }
+
+    /**
+     * Cancels the call by bypassing the sequential executor. Coordinates with any
+     * in-progress writes via the write state lock.
+     *
+     * <p>If no write is in progress (IDLE), writes the cancel response immediately and
+     * schedules listener cleanup on the sequential executor.
+     *
+     * <p>If a write is in progress (WRITING), stores the cancel info. The writer will
+     * handle cleanup in {@link #endWrite()}.
+     */
+    public final void cancelCall(ServerStatusAndMetadata statusAndMetadata) {
+        final boolean canWriteNow;
+        synchronized (writeLock) {
+            if (writeState == WriteState.CANCELLED) {
+                return;
+            }
+            canWriteNow = writeState == WriteState.IDLE;
+            if (!canWriteNow) {
+                pendingCancel = statusAndMetadata;
+            }
+            writeState = WriteState.CANCELLED;
+            cancelled = true;
+        }
+        if (canWriteNow) {
+            closeCalled = true;
+            doCloseOnCancel(statusAndMetadata);
+            // Schedule listener cleanup on sequential executor (runs after user code finishes).
+            sequentialExecutor.execute(() -> closeListener(statusAndMetadata));
+        }
+        // else: write in progress — writer will handle cleanup in endWrite().
+    }
+
     protected final void closeListener(ServerStatusAndMetadata statusAndMetadata) {
         final boolean cancelled = statusAndMetadata.shouldCancel();
         if (!listenerClosed) {
@@ -363,92 +446,66 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
         }
     }
 
-    private void dispatchToListener(Runnable callback) {
-        final Executor raw = sequentialExecutor.raw();
-        if (sequentialExecutor.inExecution() && raw instanceof EventLoop) {
-            // Event loop case: already on the event loop, run inline (current behavior)
-            try (SafeCloseable ignored = ctx.push()) {
-                callback.run();
-            }
-        } else {
-            raw.execute(() -> {
-                try (SafeCloseable ignored = ctx.push()) {
-                    callback.run();
-                }
-            });
-        }
-    }
-
     protected final void invokeOnReady() {
         if (cancelled) {
             return;
         }
-        dispatchToListener(() -> {
-            try {
-                if (listener != null) {
-                    listener.onReady();
-                }
-            } catch (Throwable t) {
-                close(t);
+        try (SafeCloseable ignored = ctx.push()) {
+            if (listener != null) {
+                listener.onReady();
             }
-        });
+        } catch (Throwable t) {
+            close(t);
+        }
     }
 
     private void invokeOnMessage(I request, boolean halfClose) {
         if (cancelled) {
             return;
         }
-        dispatchToListener(() -> {
-            try {
-                assert listener != null;
-                listener.onMessage(request);
-                if (halfClose) {
-                    listener.onHalfClose();
-                }
-            } catch (Throwable cause) {
-                close(cause);
+        try (SafeCloseable ignored = ctx.push()) {
+            assert listener != null;
+            listener.onMessage(request);
+            if (halfClose) {
+                listener.onHalfClose();
             }
-        });
+        } catch (Throwable cause) {
+            close(cause);
+        }
     }
 
     protected final void invokeHalfClose() {
         if (cancelled) {
             return;
         }
-        dispatchToListener(() -> {
-            try {
-                assert listener != null;
-                listener.onHalfClose();
-            } catch (Throwable t) {
-                close(t);
-            }
-        });
+        try (SafeCloseable ignored = ctx.push()) {
+            assert listener != null;
+            listener.onHalfClose();
+        } catch (Throwable t) {
+            close(t);
+        }
     }
 
     private void invokeOnComplete() {
-        dispatchToListener(() -> {
-            try {
-                if (listener != null) {
-                    listener.onComplete();
-                }
-            } catch (Throwable t) {
-                logger.warn("Error in gRPC onComplete handler.", t);
+        try (SafeCloseable ignored = ctx.push()) {
+            if (listener != null) {
+                listener.onComplete();
             }
-        });
+        } catch (Throwable t) {
+            logger.warn("Error in gRPC onComplete handler.", t);
+        }
     }
 
     private void invokeOnCancel() {
-        dispatchToListener(() -> {
-            try {
-                if (listener != null) {
-                    listener.onCancel();
-                }
-            } catch (Throwable t) {
-                if (!closeCalled) {
-                    close(t);
-                }
+        try (SafeCloseable ignored = ctx.push()) {
+            if (listener != null) {
+                listener.onCancel();
             }
-        });
+        } catch (Throwable t) {
+            if (!closeCalled) {
+                close(t);
+            }
+        }
     }
 
     protected void onError(Throwable t) {

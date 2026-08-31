@@ -156,6 +156,11 @@ final class UnaryServerCall<I, O> extends AbstractServerCall<I, O> {
 
     @Override
     public void doClose(ServerStatusAndMetadata statusAndMetadata) {
+        if (!startWrite()) {
+            // Already cancelled via cancelCall(). Cancel path handles response.
+            return;
+        }
+
         Exception caught = null;
         try {
             final ResponseHeaders responseHeaders = responseHeaders();
@@ -199,6 +204,8 @@ final class UnaryServerCall<I, O> extends AbstractServerCall<I, O> {
             resFuture.complete(response);
         } catch (Exception ex) {
             caught = ex;
+        } finally {
+            endWrite();
         }
 
         if (caught == null) {
@@ -220,6 +227,16 @@ final class UnaryServerCall<I, O> extends AbstractServerCall<I, O> {
                 closeListener(errorSsm);
             }
         });
+    }
+
+    @Override
+    protected void doCloseOnCancel(ServerStatusAndMetadata statusAndMetadata) {
+        final Status status = statusAndMetadata.status();
+        final Metadata metadata = statusAndMetadata.metadata();
+        final ResponseHeadersBuilder trailersBuilder = defaultResponseHeaders().toBuilder();
+        final HttpResponse errorResponse = HttpResponse.of(
+                (ResponseHeaders) statusToTrailers(ctx, trailersBuilder, status, metadata));
+        resFuture.complete(errorResponse);
     }
 
     @Nullable

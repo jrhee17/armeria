@@ -34,8 +34,6 @@ import io.netty.channel.EventLoop;
  *   <li>{@link #inExecution()} returns {@code true} when the caller is currently executing
  *       within this executor (on the event loop for the event-loop variant, or inside a
  *       task submitted to the sequential executor for the blocking variant).</li>
- *   <li>{@link #raw()} returns the underlying non-sequential executor for dispatching
- *       user code (listener callbacks) that should not block the sequential executor.</li>
  * </ul>
  */
 public abstract class SequentialExecutor implements Executor {
@@ -69,12 +67,6 @@ public abstract class SequentialExecutor implements Executor {
      */
     public abstract boolean inExecution();
 
-    /**
-     * Returns the underlying raw (non-sequential) executor. This is used to dispatch
-     * listener callbacks (user code) so they do not block the sequential executor.
-     */
-    public abstract Executor raw();
-
     private static final class EventLoopSequentialExecutor extends SequentialExecutor {
 
         private final EventLoop eventLoop;
@@ -96,23 +88,16 @@ public abstract class SequentialExecutor implements Executor {
         public boolean inExecution() {
             return eventLoop.inEventLoop();
         }
-
-        @Override
-        public Executor raw() {
-            return eventLoop;
-        }
     }
 
     private static final class DelegatingSequentialExecutor extends SequentialExecutor {
 
-        private final Executor rawExecutor;
         private final Executor sequential;
         @Nullable
         private volatile Thread executingThread;
 
-        DelegatingSequentialExecutor(Executor rawExecutor) {
-            this.rawExecutor = rawExecutor;
-            this.sequential = MoreExecutors.newSequentialExecutor(rawExecutor);
+        DelegatingSequentialExecutor(Executor executor) {
+            this.sequential = MoreExecutors.newSequentialExecutor(executor);
         }
 
         @Override
@@ -134,11 +119,6 @@ public abstract class SequentialExecutor implements Executor {
         @Override
         public boolean inExecution() {
             return Thread.currentThread() == executingThread;
-        }
-
-        @Override
-        public Executor raw() {
-            return rawExecutor;
         }
     }
 }

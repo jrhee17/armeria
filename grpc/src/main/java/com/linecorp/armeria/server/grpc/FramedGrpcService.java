@@ -57,9 +57,7 @@ import com.linecorp.armeria.common.grpc.protocol.GrpcHeaderNames;
 import com.linecorp.armeria.common.logging.RequestLogProperty;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.common.util.TimeoutMode;
-import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.common.CancellationScheduler;
-import com.linecorp.armeria.internal.common.RequestContextExtension;
 import com.linecorp.armeria.internal.common.grpc.InternalGrpcExceptionHandler;
 import com.linecorp.armeria.internal.common.grpc.MetadataUtil;
 import com.linecorp.armeria.internal.common.grpc.SequentialExecutor;
@@ -345,8 +343,8 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
             final CancellationScheduler cancellationScheduler = ctxExt.requestCancellationScheduler();
             cancellationScheduler.updateTask(CancellationScheduler.noopCancellationTask);
             call.exceptionHandler().handle(ctx, cancellationCause).thenAccept(statusAndMetadata -> {
-                call.close(new ServerStatusAndMetadata(statusAndMetadata.status(), statusAndMetadata.metadata(),
-                                                       true));
+                call.cancelCall(new ServerStatusAndMetadata(statusAndMetadata.status(),
+                                                            statusAndMetadata.metadata(), true));
             });
             return null;
         });

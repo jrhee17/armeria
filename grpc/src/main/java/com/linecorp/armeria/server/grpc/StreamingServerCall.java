@@ -28,6 +28,7 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponseWriter;
 import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.ResponseHeaders;
+import com.linecorp.armeria.common.ResponseHeadersBuilder;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.grpc.GrpcJsonMarshaller;
@@ -150,16 +151,20 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
         checkState(responseHeaders != null, "sendHeaders has not been called");
         checkState(!isCloseCalled(), "call is closed");
 
-        if (firstResponse == null) {
-            // Write the response headers when the first response is received.
-            if (!res.tryWrite(responseHeaders)) {
-                maybeCancel();
-                return;
-            }
-            firstResponse = message;
+        if (!startWrite()) {
+            // Already cancelled via cancelCall().
+            return;
         }
-
         try {
+            if (firstResponse == null) {
+                // Write the response headers when the first response is received.
+                if (!res.tryWrite(responseHeaders)) {
+                    maybeCancel();
+                    return;
+                }
+                firstResponse = message;
+            }
+
             if (res.tryWrite(toPayload(message))) {
                 if (!method.getType().serverSendsOneMessage()) {
                     // Invoke onReady() only when server can send multiple messages.
@@ -179,6 +184,8 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
             }
         } catch (Throwable e) {
             close(e, true);
+        } finally {
+            endWrite();
         }
     }
 
@@ -189,44 +196,78 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
 
     @Override
     public void doClose(ServerStatusAndMetadata statusAndMetadata) {
+        if (!startWrite()) {
+            // Already cancelled via cancelCall(). Cancel path handles response.
+            return;
+        }
+
         final Status status = statusAndMetadata.status();
         final Metadata metadata = statusAndMetadata.metadata();
         final boolean trailersOnly;
-        if (firstResponse != null) {
-            // ResponseHeaders was written successfully.
-            trailersOnly = false;
-        } else {
-            final ResponseHeaders responseHeaders = responseHeaders();
-            if (!status.isOk() || responseHeaders == null) {
-                // Trailers-Only is permitted for calls that produce an immediate error.
-                // https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#responses
-                trailersOnly = true;
+        try {
+            if (firstResponse != null) {
+                // ResponseHeaders was written successfully.
+                trailersOnly = false;
             } else {
-                // A unary response should not reach hear.
-                // The status should be non-OK if serverSendsOneMessage's firstResponse is null.
-                assert !method.getType().serverSendsOneMessage();
-
-                // SERVER_STREAMING or BIDI_STREAMING may not produce a response.
-                // Try to write the pending response headers.
-                if (res.tryWrite(responseHeaders)) {
-                    trailersOnly = false;
+                final ResponseHeaders responseHeaders = responseHeaders();
+                if (!status.isOk() || responseHeaders == null) {
+                    // Trailers-Only is permitted for calls that produce an immediate error.
+                    // https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#responses
+                    trailersOnly = true;
                 } else {
-                    // A stream was closed already.
-                    statusAndMetadata.shouldCancel(true);
-                    closeListener(statusAndMetadata);
-                    return;
+                    // A unary response should not reach hear.
+                    // The status should be non-OK if serverSendsOneMessage's firstResponse is null.
+                    assert !method.getType().serverSendsOneMessage();
+
+                    // SERVER_STREAMING or BIDI_STREAMING may not produce a response.
+                    // Try to write the pending response headers.
+                    if (res.tryWrite(responseHeaders)) {
+                        trailersOnly = false;
+                    } else {
+                        // A stream was closed already.
+                        statusAndMetadata.shouldCancel(true);
+                        closeListener(statusAndMetadata);
+                        return;
+                    }
                 }
             }
-        }
 
-        // Set responseContent before closing stream to use responseCause in error handling
-        ctx.logBuilder().responseContent(GrpcLogUtil.rpcResponse(statusAndMetadata, firstResponse), null);
-        try {
+            // Set responseContent before closing stream to use responseCause in error handling
+            ctx.logBuilder().responseContent(GrpcLogUtil.rpcResponse(statusAndMetadata, firstResponse), null);
             if (res.tryWrite(responseTrailers(ctx, status, metadata, trailersOnly))) {
                 res.close();
             }
         } finally {
-            closeListener(statusAndMetadata);
+            endWrite();
+        }
+        closeListener(statusAndMetadata);
+    }
+
+    @Override
+    protected void doCloseOnCancel(ServerStatusAndMetadata statusAndMetadata) {
+        final Status status = statusAndMetadata.status();
+        final Metadata metadata = statusAndMetadata.metadata();
+        final boolean trailersOnly = (firstResponse == null);
+        try {
+            if (trailersOnly) {
+                final ResponseHeaders responseHeaders = responseHeaders();
+                final ResponseHeadersBuilder trailersBuilder;
+                if (responseHeaders != null) {
+                    trailersBuilder = responseHeaders.toBuilder();
+                } else {
+                    trailersBuilder = defaultResponseHeaders().toBuilder();
+                }
+                if (res.tryWrite(statusToTrailers(ctx, trailersBuilder, status, metadata))) {
+                    res.close();
+                }
+            } else {
+                // Response headers already written by a previous doSendMessage.
+                if (res.tryWrite(responseTrailers(ctx, status, metadata, false))) {
+                    res.close();
+                }
+            }
+        } catch (Exception ignored) {
+            // Best effort — the client might have already disconnected.
         }
     }
 
