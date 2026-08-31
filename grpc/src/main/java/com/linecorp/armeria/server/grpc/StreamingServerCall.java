@@ -28,7 +28,6 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponseWriter;
 import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.ResponseHeaders;
-import com.linecorp.armeria.common.ResponseHeadersBuilder;
 import com.linecorp.armeria.common.SerializationFormat;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.grpc.GrpcJsonMarshaller;
@@ -241,34 +240,6 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
             endWrite();
         }
         closeListener(statusAndMetadata);
-    }
-
-    @Override
-    protected void doCloseOnCancel(ServerStatusAndMetadata statusAndMetadata) {
-        final Status status = statusAndMetadata.status();
-        final Metadata metadata = statusAndMetadata.metadata();
-        final boolean trailersOnly = (firstResponse == null);
-        try {
-            if (trailersOnly) {
-                final ResponseHeaders responseHeaders = responseHeaders();
-                final ResponseHeadersBuilder trailersBuilder;
-                if (responseHeaders != null) {
-                    trailersBuilder = responseHeaders.toBuilder();
-                } else {
-                    trailersBuilder = defaultResponseHeaders().toBuilder();
-                }
-                if (res.tryWrite(statusToTrailers(ctx, trailersBuilder, status, metadata))) {
-                    res.close();
-                }
-            } else {
-                // Response headers already written by a previous doSendMessage.
-                if (res.tryWrite(responseTrailers(ctx, status, metadata, false))) {
-                    res.close();
-                }
-            }
-        } catch (Exception ignored) {
-            // Best effort — the client might have already disconnected.
-        }
     }
 
     @Override

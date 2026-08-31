@@ -229,16 +229,6 @@ final class UnaryServerCall<I, O> extends AbstractServerCall<I, O> {
         });
     }
 
-    @Override
-    protected void doCloseOnCancel(ServerStatusAndMetadata statusAndMetadata) {
-        final Status status = statusAndMetadata.status();
-        final Metadata metadata = statusAndMetadata.metadata();
-        final ResponseHeadersBuilder trailersBuilder = defaultResponseHeaders().toBuilder();
-        final HttpResponse errorResponse = HttpResponse.of(
-                (ResponseHeaders) statusToTrailers(ctx, trailersBuilder, status, metadata));
-        resFuture.complete(errorResponse);
-    }
-
     @Nullable
     @Override
     protected O firstResponse() {

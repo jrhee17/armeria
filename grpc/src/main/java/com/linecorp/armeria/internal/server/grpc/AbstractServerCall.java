@@ -287,13 +287,6 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
     protected abstract void doClose(ServerStatusAndMetadata statusAndMetadata);
 
     /**
-     * Writes a cancel response directly to the response stream, bypassing the sequential executor.
-     * Called from {@link #cancelCall(ServerStatusAndMetadata)} or {@link #endWrite()} when a
-     * cancel is detected.
-     */
-    protected abstract void doCloseOnCancel(ServerStatusAndMetadata statusAndMetadata);
-
-    /**
      * Transitions to WRITING. Returns {@code true} if successful.
      * If the state is CANCELLED, returns {@code false} — the caller should abandon the write.
      * Reentrant: if already WRITING, returns {@code true}.
@@ -310,7 +303,8 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
 
     /**
      * Transitions from WRITING back to IDLE. If the state was changed to CANCELLED
-     * while writing (by {@link #cancelCall}), handles the pending cancel.
+     * while writing (by {@link #cancelCall}), handles the pending cancel by calling
+     * {@link #doClose(ServerStatusAndMetadata)}.
      */
     protected final void endWrite() {
         final ServerStatusAndMetadata cancel;
@@ -318,15 +312,17 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
             if (writeState == WriteState.CANCELLED) {
                 cancel = pendingCancel;
                 pendingCancel = null;
+                if (cancel != null) {
+                    // Temporarily allow doClose's startWrite() to succeed.
+                    writeState = WriteState.WRITING;
+                }
             } else {
                 writeState = WriteState.IDLE;
                 cancel = null;
             }
         }
         if (cancel != null) {
-            closeCalled = true;
-            doCloseOnCancel(cancel);
-            closeListener(cancel);
+            closeAndCancel(cancel);
         }
     }
 
@@ -334,8 +330,8 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
      * Cancels the call by bypassing the sequential executor. Coordinates with any
      * in-progress writes via the write state lock.
      *
-     * <p>If no write is in progress (IDLE), writes the cancel response immediately and
-     * schedules listener cleanup on the sequential executor.
+     * <p>If no write is in progress (IDLE), claims the write and calls
+     * {@link #doClose(ServerStatusAndMetadata)} directly to write the cancel response.
      *
      * <p>If a write is in progress (WRITING), stores the cancel info. The writer will
      * handle cleanup in {@link #endWrite()}.
@@ -347,25 +343,27 @@ public abstract class AbstractServerCall<I, O> extends ServerCall<I, O> {
                 return;
             }
             canWriteNow = writeState == WriteState.IDLE;
-            if (!canWriteNow) {
+            if (canWriteNow) {
+                // Claim the write so doClose's startWrite() succeeds (reentrant).
+                writeState = WriteState.WRITING;
+            } else {
                 pendingCancel = statusAndMetadata;
+                writeState = WriteState.CANCELLED;
             }
-            writeState = WriteState.CANCELLED;
             cancelled = true;
         }
         if (canWriteNow) {
-            closeCalled = true;
-            if (!ctx.log().isAvailable(RequestLogProperty.REQUEST_CONTENT)) {
-                ctx.logBuilder().requestContent(GrpcLogUtil.rpcRequest(method, simpleMethodName), null);
-            }
-            if (!ctx.log().isAvailable(RequestLogProperty.RESPONSE_CONTENT)) {
-                ctx.logBuilder().responseContent(
-                        GrpcLogUtil.rpcResponse(statusAndMetadata, firstResponse()), null);
-            }
-            doCloseOnCancel(statusAndMetadata);
-            sequentialExecutor.execute(() -> closeListener(statusAndMetadata));
+            closeAndCancel(statusAndMetadata);
         }
         // else: write in progress — writer will handle cleanup in endWrite().
+    }
+
+    private void closeAndCancel(ServerStatusAndMetadata statusAndMetadata) {
+        closeCalled = true;
+        doClose(statusAndMetadata);
+        synchronized (writeLock) {
+            writeState = WriteState.CANCELLED;
+        }
     }
 
     protected final void closeListener(ServerStatusAndMetadata statusAndMetadata) {
