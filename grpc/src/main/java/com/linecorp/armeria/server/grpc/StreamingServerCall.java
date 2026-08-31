@@ -154,16 +154,18 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
             // Already cancelled via cancelCall().
             return;
         }
-        try {
-            if (firstResponse == null) {
-                // Write the response headers when the first response is received.
-                if (!res.tryWrite(responseHeaders)) {
-                    maybeCancel();
-                    return;
-                }
-                firstResponse = message;
-            }
 
+        if (firstResponse == null) {
+            // Write the response headers when the first response is received.
+            if (!res.tryWrite(responseHeaders)) {
+                endWrite();
+                maybeCancel();
+                return;
+            }
+            firstResponse = message;
+        }
+
+        try {
             if (res.tryWrite(toPayload(message))) {
                 if (!method.getType().serverSendsOneMessage()) {
                     // Invoke onReady() only when server can send multiple messages.
@@ -203,36 +205,37 @@ final class StreamingServerCall<I, O> extends AbstractServerCall<I, O>
         final Status status = statusAndMetadata.status();
         final Metadata metadata = statusAndMetadata.metadata();
         final boolean trailersOnly;
-        try {
-            if (firstResponse != null) {
-                // ResponseHeaders was written successfully.
-                trailersOnly = false;
+        if (firstResponse != null) {
+            // ResponseHeaders was written successfully.
+            trailersOnly = false;
+        } else {
+            final ResponseHeaders responseHeaders = responseHeaders();
+            if (!status.isOk() || responseHeaders == null) {
+                // Trailers-Only is permitted for calls that produce an immediate error.
+                // https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#responses
+                trailersOnly = true;
             } else {
-                final ResponseHeaders responseHeaders = responseHeaders();
-                if (!status.isOk() || responseHeaders == null) {
-                    // Trailers-Only is permitted for calls that produce an immediate error.
-                    // https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#responses
-                    trailersOnly = true;
-                } else {
-                    // A unary response should not reach hear.
-                    // The status should be non-OK if serverSendsOneMessage's firstResponse is null.
-                    assert !method.getType().serverSendsOneMessage();
+                // A unary response should not reach hear.
+                // The status should be non-OK if serverSendsOneMessage's firstResponse is null.
+                assert !method.getType().serverSendsOneMessage();
 
-                    // SERVER_STREAMING or BIDI_STREAMING may not produce a response.
-                    // Try to write the pending response headers.
-                    if (res.tryWrite(responseHeaders)) {
-                        trailersOnly = false;
-                    } else {
-                        // A stream was closed already.
-                        statusAndMetadata.shouldCancel(true);
-                        closeListener(statusAndMetadata);
-                        return;
-                    }
+                // SERVER_STREAMING or BIDI_STREAMING may not produce a response.
+                // Try to write the pending response headers.
+                if (res.tryWrite(responseHeaders)) {
+                    trailersOnly = false;
+                } else {
+                    // A stream was closed already.
+                    statusAndMetadata.shouldCancel(true);
+                    endWrite();
+                    closeListener(statusAndMetadata);
+                    return;
                 }
             }
+        }
 
-            // Set responseContent before closing stream to use responseCause in error handling
-            ctx.logBuilder().responseContent(GrpcLogUtil.rpcResponse(statusAndMetadata, firstResponse), null);
+        // Set responseContent before closing stream to use responseCause in error handling
+        ctx.logBuilder().responseContent(GrpcLogUtil.rpcResponse(statusAndMetadata, firstResponse), null);
+        try {
             if (res.tryWrite(responseTrailers(ctx, status, metadata, trailersOnly))) {
                 res.close();
             }
