@@ -30,7 +30,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
@@ -110,7 +109,6 @@ final class DefaultClientFactory implements ClientFactory {
 
     private final HttpClientFactory httpClientFactory;
     private final Multimap<Scheme, ClientFactory> clientFactories;
-    private final List<ClientFactory> clientFactoriesToClose;
     private final AsyncCloseableSupport closeable = AsyncCloseableSupport.of(this::closeAsync);
     @Nullable
     private final ResourceLeakTracker<ClientFactory> leakTracker = leakDetector.track(this);
@@ -118,23 +116,47 @@ final class DefaultClientFactory implements ClientFactory {
     DefaultClientFactory(HttpClientFactory httpClientFactory) {
         this.httpClientFactory = httpClientFactory;
 
-        final List<ClientFactory> availableClientFactories = new ArrayList<>();
+        // Phase 1: Transport enhancers (xDS, etc.) wrap httpClientFactory.
+        ClientFactory transportAccum = httpClientFactory;
+        for (DelegatingClientFactoryProvider provider
+                : ServiceLoader.load(DelegatingClientFactoryProvider.class,
+                                     DefaultClientFactory.class.getClassLoader())) {
+            transportAccum = provider.newFactory(transportAccum);
+        }
+        final ClientFactory transport = transportAccum;
 
-        // Give priority to custom client factories.
-        Streams.stream(ServiceLoader.load(ClientFactoryProvider.class,
-                                          DefaultClientFactory.class.getClassLoader()))
-               .map(provider -> provider.newFactory(httpClientFactory))
-               .forEach(availableClientFactories::add);
-
-        availableClientFactories.add(httpClientFactory);
-
-        final ImmutableListMultimap.Builder<Scheme, ClientFactory> builder = ImmutableListMultimap.builder();
-        for (ClientFactory f : availableClientFactories) {
-            f.supportedSchemes().forEach(s -> builder.put(s, f));
+        // Collect discovery protocols from the transport chain's supported schemes.
+        final List<String> discoveryProtocols = new ArrayList<>();
+        for (Scheme s : transport.supportedSchemes()) {
+            final String dp = s.discoveryProtocol();
+            if (dp != null && !discoveryProtocols.contains(dp)) {
+                discoveryProtocols.add(dp);
+            }
         }
 
+        // Phase 2: Serialization factories (gRPC, Thrift, etc.) wrap the transport chain.
+        final List<ClientFactory> allFactories = new ArrayList<>();
+        Streams.stream(ServiceLoader.load(ClientFactoryProvider.class,
+                                          DefaultClientFactory.class.getClassLoader()))
+               .map(provider -> provider.newFactory(transport))
+               .forEach(allFactories::add);
+        allFactories.add(transport);
+
+        // Build the final multimap, synthesizing discovery scheme registrations.
+        final ImmutableListMultimap.Builder<Scheme, ClientFactory> builder =
+                ImmutableListMultimap.builder();
+        for (ClientFactory f : allFactories) {
+            for (Scheme s : f.supportedSchemes()) {
+                builder.put(s, f);
+                // For each non-discovery scheme, also register for discovery variants.
+                if (s.discoveryProtocol() == null) {
+                    for (String dp : discoveryProtocols) {
+                        builder.put(Scheme.of(s.serializationFormat(), dp), f);
+                    }
+                }
+            }
+        }
         clientFactories = builder.build();
-        clientFactoriesToClose = ImmutableList.copyOf(availableClientFactories).reverse();
     }
 
     @Override
@@ -278,12 +300,12 @@ final class DefaultClientFactory implements ClientFactory {
             tlsProvider.close();
         }
 
-        final CompletableFuture<?>[] delegateCloseFutures =
-                clientFactoriesToClose.stream()
-                                      .map(ClientFactory::closeAsync)
-                                      .toArray(CompletableFuture[]::new);
-
-        CompletableFuture.allOf(delegateCloseFutures).handle((unused, cause) -> {
+        final CompletableFuture<?>[] futures =
+                clientFactories.values().stream()
+                               .distinct()
+                               .map(ClientFactory::closeAsync)
+                               .toArray(CompletableFuture[]::new);
+        CompletableFuture.allOf(futures).handle((unused, cause) -> {
             if (cause != null) {
                 future.completeExceptionally(cause);
             } else {

@@ -299,10 +299,6 @@ public interface ClientFactory extends Unwrappable, ListenableAsyncCloseable {
             return uri;
         }
 
-        if (uri.getAuthority() == null) {
-            throw new IllegalArgumentException("URI with missing authority: " + uri);
-        }
-
         final String scheme = uri.getScheme();
         if (scheme == null) {
             throw new IllegalArgumentException("URI with missing scheme: " + uri);
@@ -310,6 +306,24 @@ public interface ClientFactory extends Unwrappable, ListenableAsyncCloseable {
         final Scheme parsedScheme = Scheme.tryParse(scheme);
         if (parsedScheme == null) {
             throw new IllegalArgumentException("URI with undefined scheme: " + uri);
+        }
+
+        // Discovery schemes may have empty authority (e.g. xds:///listener).
+        if (parsedScheme.discoveryProtocol() != null) {
+            final String path = Strings.emptyToNull(uri.getRawPath());
+            if (path != null) {
+                return uri;
+            }
+            try {
+                return new URI(scheme, uri.getRawAuthority(),
+                               "/", uri.getRawQuery(), uri.getRawFragment());
+            } catch (URISyntaxException e) {
+                throw new IllegalArgumentException(e.getMessage(), e);
+            }
+        }
+
+        if (uri.getAuthority() == null) {
+            throw new IllegalArgumentException("URI with missing authority: " + uri);
         }
 
         final Set<Scheme> supportedSchemes = supportedSchemes();

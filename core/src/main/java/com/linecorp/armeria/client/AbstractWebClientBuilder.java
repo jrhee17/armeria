@@ -119,6 +119,10 @@ public abstract class AbstractWebClientBuilder extends AbstractClientOptionsBuil
     private static Scheme validateScheme(String scheme) {
         final Scheme parsedScheme = Scheme.tryParse(scheme);
         if (parsedScheme != null) {
+            // Accept discovery schemes (e.g. xds, gproto+xds)
+            if (parsedScheme.discoveryProtocol() != null) {
+                return parsedScheme;
+            }
             if (parsedScheme.serializationFormat() == SerializationFormat.NONE &&
                 httpAndHttpsValues().contains(parsedScheme.sessionProtocol())) {
                 return parsedScheme;

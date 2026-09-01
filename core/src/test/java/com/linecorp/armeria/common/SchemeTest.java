@@ -57,4 +57,17 @@ class SchemeTest {
         assertThatThrownBy(() -> Scheme.parse("http+blah")).isInstanceOf(IllegalArgumentException.class)
                                                            .hasMessageContaining("scheme: http+blah");
     }
+
+    @Test
+    void tryParse_unknown_discoveryProtocol() {
+        // An unknown string that is not a session protocol or discovery protocol should return null.
+        assertThat(Scheme.tryParse("unknownprotocol")).isNull();
+    }
+
+    @Test
+    void discoveryProtocol_isNullForNormalSchemes() {
+        final Scheme scheme = Scheme.tryParse("http");
+        assertThat(scheme).isNotNull();
+        assertThat(scheme.discoveryProtocol()).isNull();
+    }
 }

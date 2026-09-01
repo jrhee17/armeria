@@ -41,6 +41,8 @@ public final class ClientBuilderParamsBuilder {
     private final URI uri;
     private final EndpointGroup endpointGroup;
     private final SessionProtocol sessionProtocol;
+    @Nullable
+    private final String discoveryProtocol;
 
     private SerializationFormat serializationFormat;
     private String absolutePathRef;
@@ -54,6 +56,7 @@ public final class ClientBuilderParamsBuilder {
         uri = params.uri();
         endpointGroup = params.endpointGroup();
         sessionProtocol = params.scheme().sessionProtocol();
+        discoveryProtocol = params.scheme().discoveryProtocol();
 
         serializationFormat = params.scheme().serializationFormat();
         absolutePathRef = params.absolutePathRef();
@@ -66,6 +69,9 @@ public final class ClientBuilderParamsBuilder {
         final Scheme scheme = Scheme.parse(uri.getScheme());
         final EndpointGroup endpointGroup;
         if (ClientBuilderParamsUtil.isInternalUri(uri)) {
+            endpointGroup = UndefinedEndpointGroup.of();
+        } else if (scheme.discoveryProtocol() != null) {
+            // Discovery schemes (e.g. xds:///listener) may have empty authority.
             endpointGroup = UndefinedEndpointGroup.of();
         } else {
             endpointGroup = Endpoint.parse(uri.getRawAuthority());
@@ -85,6 +91,7 @@ public final class ClientBuilderParamsBuilder {
         this.endpointGroup = endpointGroup;
         serializationFormat = scheme.serializationFormat();
         sessionProtocol = scheme.sessionProtocol();
+        discoveryProtocol = scheme.discoveryProtocol();
         this.absolutePathRef = absolutePathRef;
     }
 
@@ -105,6 +112,7 @@ public final class ClientBuilderParamsBuilder {
         this.uri = uri;
         serializationFormat = scheme.serializationFormat();
         sessionProtocol = scheme.sessionProtocol();
+        discoveryProtocol = scheme.discoveryProtocol();
         this.absolutePathRef = normalizedAbsolutePathRef;
     }
 
@@ -150,14 +158,24 @@ public final class ClientBuilderParamsBuilder {
         final SerializationFormat serializationFormat = this.serializationFormat;
         final String absolutePathRef = this.absolutePathRef;
         final ClientFactory factory = options.factory();
-        final Scheme scheme = factory.validateScheme(Scheme.of(serializationFormat, sessionProtocol));
+        final Scheme scheme;
+        if (discoveryProtocol != null) {
+            scheme = factory.validateScheme(Scheme.of(serializationFormat, discoveryProtocol));
+        } else {
+            scheme = factory.validateScheme(Scheme.of(serializationFormat, sessionProtocol));
+        }
         final String schemeStr = scheme.shortUriText();
 
         final String path = nullOrEmptyToSlash(absolutePathRef);
 
         final URI uri;
         try {
-            uri = new URI(schemeStr + "://" + this.uri.getRawAuthority() + path);
+            final String authority = this.uri.getRawAuthority();
+            if (authority != null && !authority.isEmpty()) {
+                uri = new URI(schemeStr + "://" + authority + path);
+            } else {
+                uri = new URI(schemeStr + ":///" + path.substring(1));
+            }
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);
         }

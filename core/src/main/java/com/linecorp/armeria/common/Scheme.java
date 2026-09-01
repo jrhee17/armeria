@@ -19,14 +19,17 @@ package com.linecorp.armeria.common;
 import static java.util.Objects.requireNonNull;
 
 import java.util.Map;
+import java.util.ServiceLoader;
 
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
 
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.annotation.UnstableApi;
 
 /**
- * A pair of {@link SerializationFormat} and {@link SessionProtocol}.
+ * A pair of {@link SerializationFormat} and {@link SessionProtocol}, optionally combined with
+ * a discovery protocol name.
  * <p>
  * A {@link Scheme} is represented and used as the scheme of a URI in the following format:
  * </p>
@@ -41,10 +44,15 @@ import com.linecorp.armeria.common.annotation.Nullable;
  * <li>{@code "tcompact+h2c"}</li>
  * <li>{@code "none+http"}</li>
  * </ul>
+ * <p>
+ * When a discovery protocol is present, the scheme text uses the discovery protocol name
+ * instead of the session protocol. For example, {@code "xds"} or {@code "gproto+xds"}.
+ * </p>
  */
 public final class Scheme implements Comparable<Scheme> {
 
     private static final Map<String, Scheme> SCHEMES;
+    private static final Map<String, Scheme> DISCOVERY_SCHEMES;
 
     static {
         // Pre-populate all possible scheme combos.
@@ -69,8 +77,26 @@ public final class Scheme implements Comparable<Scheme> {
                 }
             }
         }
-
         SCHEMES = schemes.build();
+
+        final ImmutableMap.Builder<String, Scheme> discoverySchemes = ImmutableMap.builder();
+        for (DiscoveryProtocolProvider provider
+                : ServiceLoader.load(DiscoveryProtocolProvider.class,
+                                     DiscoveryProtocolProvider.class.getClassLoader())) {
+            for (String name : provider.protocols()) {
+                final String dtxt = Ascii.toLowerCase(requireNonNull(name, "protocol name"));
+                for (SerializationFormat f : SerializationFormat.values()) {
+                    final String ftxt = f.uriText();
+                    final Scheme scheme = new Scheme(f, dtxt);
+                    discoverySchemes.put(ftxt + '+' + dtxt, scheme);
+                    discoverySchemes.put(dtxt + '+' + ftxt, scheme);
+                    if (f == SerializationFormat.NONE) {
+                        discoverySchemes.put(dtxt, scheme);
+                    }
+                }
+            }
+        }
+        DISCOVERY_SCHEMES = discoverySchemes.build();
     }
 
     /**
@@ -90,7 +116,11 @@ public final class Scheme implements Comparable<Scheme> {
         if (parsedScheme != null) {
             return parsedScheme;
         }
-        return SCHEMES.get(SerializationFormat.NONE.uriText() + '+' + lowercaseScheme);
+        final Scheme noneScheme = SCHEMES.get(SerializationFormat.NONE.uriText() + '+' + lowercaseScheme);
+        if (noneScheme != null) {
+            return noneScheme;
+        }
+        return DISCOVERY_SCHEMES.get(lowercaseScheme);
     }
 
     /**
@@ -121,14 +151,43 @@ public final class Scheme implements Comparable<Scheme> {
         return scheme;
     }
 
+    /**
+     * Returns the {@link Scheme} of the specified {@link SerializationFormat} and discovery protocol name.
+     * The discovery protocol must have been registered via {@link DiscoveryProtocolProvider} SPI.
+     */
+    @UnstableApi
+    public static Scheme of(SerializationFormat serializationFormat, String discoveryProtocol) {
+        requireNonNull(serializationFormat, "serializationFormat");
+        requireNonNull(discoveryProtocol, "discoveryProtocol");
+
+        final String key = serializationFormat.uriText() + '+' + discoveryProtocol;
+        final Scheme scheme = DISCOVERY_SCHEMES.get(key);
+        assert scheme != null : "Unknown discovery protocol: " + discoveryProtocol;
+        return scheme;
+    }
+
     private final SerializationFormat serializationFormat;
     private final SessionProtocol sessionProtocol;
+    @Nullable
+    private final String discoveryProtocol;
     private final String uriText;
 
     private Scheme(SerializationFormat serializationFormat, SessionProtocol sessionProtocol) {
         this.serializationFormat = requireNonNull(serializationFormat, "serializationFormat");
         this.sessionProtocol = requireNonNull(sessionProtocol, "sessionProtocol");
+        discoveryProtocol = null;
         uriText = serializationFormat().uriText() + '+' + sessionProtocol().uriText();
+    }
+
+    private Scheme(SerializationFormat serializationFormat, String discoveryProtocol) {
+        this.serializationFormat = requireNonNull(serializationFormat, "serializationFormat");
+        sessionProtocol = SessionProtocol.HTTP;
+        this.discoveryProtocol = requireNonNull(discoveryProtocol, "discoveryProtocol");
+        if (serializationFormat == SerializationFormat.NONE) {
+            uriText = discoveryProtocol;
+        } else {
+            uriText = serializationFormat.uriText() + '+' + discoveryProtocol;
+        }
     }
 
     /**
@@ -146,7 +205,18 @@ public final class Scheme implements Comparable<Scheme> {
     }
 
     /**
+     * Returns the discovery protocol name, or {@code null} if this scheme does not use
+     * a discovery protocol.
+     */
+    @UnstableApi
+    @Nullable
+    public String discoveryProtocol() {
+        return discoveryProtocol;
+    }
+
+    /**
      * Returns the textual representation ({@code "serializationFormat+sessionProtocol"}).
+     * For discovery schemes, the discovery protocol name is used instead of the session protocol.
      */
     public String uriText() {
         return uriText;
@@ -155,9 +225,12 @@ public final class Scheme implements Comparable<Scheme> {
     /**
      * Returns the textual representation ({@code "serializationFormat+sessionProtocol"}).
      * If the {@link #serializationFormat()} is {@link SerializationFormat#NONE}, the serializationFormat
-     * is omitted.
+     * is omitted. For discovery schemes, the discovery protocol name is used instead.
      */
     public String shortUriText() {
+        if (discoveryProtocol != null) {
+            return uriText;
+        }
         if (serializationFormat() == SerializationFormat.NONE) {
             return sessionProtocol().uriText();
         } else {
