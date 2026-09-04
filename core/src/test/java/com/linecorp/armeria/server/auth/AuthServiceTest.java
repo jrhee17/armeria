@@ -259,11 +259,15 @@ class AuthServiceTest {
             }
             try (CloseableHttpResponse res = hc.execute(new HttpGet(server.httpUri() + "/basic"))) {
                 assertThat(res.getCode()).isEqualTo(401);
+                assertThat(res.getHeader("WWW-Authenticate")).isNotNull();
+                assertThat(res.getHeader("WWW-Authenticate").getValue()).isEqualTo("Basic");
             }
             try (CloseableHttpResponse res = hc.execute(
                     basicGetRequest("/basic", AuthToken.ofBasic("choco", "pangyo"),
                                     AUTHORIZATION))) {
                 assertThat(res.getCode()).isEqualTo(401);
+                assertThat(res.getHeader("WWW-Authenticate")).isNotNull();
+                assertThat(res.getHeader("WWW-Authenticate").getValue()).isEqualTo("Basic");
             }
         }
     }
@@ -303,6 +307,8 @@ class AuthServiceTest {
             try (CloseableHttpResponse res = hc.execute(
                     oauth1aGetRequest("/oauth1a", failToken, AUTHORIZATION))) {
                 assertThat(res.getCode()).isEqualTo(401);
+                // OAuth1a failure should NOT include WWW-Authenticate: Basic
+                assertThat(res.getHeader("WWW-Authenticate")).isNull();
             }
         }
     }

@@ -18,14 +18,18 @@ package com.linecorp.armeria.server.auth;
 
 import static java.util.Objects.requireNonNull;
 
+import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 
+import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.HttpStatus;
 import com.linecorp.armeria.common.RequestHeaders;
+import com.linecorp.armeria.common.ResponseHeaders;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.auth.BasicToken;
+import com.linecorp.armeria.server.ServiceRequestContext;
 import com.linecorp.armeria.common.auth.OAuth1aToken;
 import com.linecorp.armeria.common.auth.OAuth2Token;
 import com.linecorp.armeria.common.metric.MeterIdPrefix;
@@ -36,6 +40,15 @@ import com.linecorp.armeria.server.Service;
  * Builds a new {@link AuthService}.
  */
 public final class AuthServiceBuilder {
+
+    private static final AuthFailureHandler BASIC_AUTH_FAILURE_HANDLER = (delegate, ctx, req, cause) -> {
+        if (cause != null) {
+            AuthService.logger.warn("Unexpected exception during authorization.", cause);
+        }
+        return HttpResponse.of(ResponseHeaders.builder(HttpStatus.UNAUTHORIZED)
+                                              .add(HttpHeaderNames.WWW_AUTHENTICATE, "Basic")
+                                              .build());
+    };
 
     @Nullable
     private Authorizer<HttpRequest> authorizer;
@@ -82,16 +95,34 @@ public final class AuthServiceBuilder {
      * Adds an HTTP basic {@link Authorizer}.
      */
     public AuthServiceBuilder addBasicAuth(Authorizer<? super BasicToken> authorizer) {
+        requireNonNull(authorizer, "authorizer");
         return addTokenAuthorizer(AuthTokenExtractors.basic(),
-                                  requireNonNull(authorizer, "authorizer"));
+                                  withBasicAuthFailureHandler(authorizer));
     }
 
     /**
      * Adds an HTTP basic {@link Authorizer} for the given {@code header}.
      */
     public AuthServiceBuilder addBasicAuth(Authorizer<? super BasicToken> authorizer, CharSequence header) {
+        requireNonNull(authorizer, "authorizer");
         return addTokenAuthorizer(new BasicTokenExtractor(requireNonNull(header, "header")),
-                                  requireNonNull(authorizer, "authorizer"));
+                                  withBasicAuthFailureHandler(authorizer));
+    }
+
+    private static Authorizer<BasicToken> withBasicAuthFailureHandler(
+            Authorizer<? super BasicToken> basicAuthorizer) {
+        return new AbstractAuthorizerWithHandlers<BasicToken>() {
+            @Override
+public CompletionStage<AuthorizationStatus> authorizeAndSupplyHandlers(
+        ServiceRequestContext ctx, @Nullable BasicToken data) {
+    return basicAuthorizer.authorizeAndSupplyHandlers(ctx, data).thenApply(status -> {
+        if (status != null && !status.isAuthorized() && status.failureHandler() == null) {
+            return AuthorizationStatus.ofFailure(BASIC_AUTH_FAILURE_HANDLER);
+        }
+        return status;
+    });
+}
+        };
     }
 
     /**
