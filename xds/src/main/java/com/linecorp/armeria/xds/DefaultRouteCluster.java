@@ -33,15 +33,18 @@ final class DefaultRouteCluster implements RouteCluster {
 
     private final ClusterSnapshot clusterSnapshot;
     private final Metadata metadataMatch;
+    private final HeaderMutator headerMutator;
     private final HttpClient httpClient;
     private final RpcClient rpcClient;
 
     DefaultRouteCluster(ClusterSnapshot clusterSnapshot, Metadata metadataMatch,
+                        HeaderMutator headerMutator,
                         @Nullable ClientDecoration retryDecoration,
                         ClientDecoration downstreamDecoration,
                         ClientDecoration upstreamDecoration) {
         this.clusterSnapshot = requireNonNull(clusterSnapshot, "clusterSnapshot");
         this.metadataMatch = requireNonNull(metadataMatch, "metadataMatch");
+        this.headerMutator = requireNonNull(headerMutator, "headerMutator");
         httpClient = FilterUtil.buildHttpClient(retryDecoration, downstreamDecoration, upstreamDecoration);
         rpcClient = FilterUtil.buildRpcClient(retryDecoration, downstreamDecoration, upstreamDecoration);
     }
@@ -64,6 +67,11 @@ final class DefaultRouteCluster implements RouteCluster {
     @Override
     public RpcClient rpcClient() {
         return rpcClient;
+    }
+
+    @Override
+    public HeaderMutator headerMutator() {
+        return headerMutator;
     }
 
     @Override

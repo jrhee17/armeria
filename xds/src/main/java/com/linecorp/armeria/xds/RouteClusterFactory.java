@@ -42,14 +42,20 @@ final class RouteClusterFactory {
     private final Map<String, Any> routeFilterConfigs;
     @Nullable
     private final ClientDecoration retryDecoration;
+    private final HeaderMutationChain mutationChain;
+    private final boolean mostSpecificWins;
 
     RouteClusterFactory(SubscriptionContext context, HcmContext hcmContext,
                         Map<String, Any> routeFilterConfigs,
-                        @Nullable ClientDecoration retryDecoration) {
+                        @Nullable ClientDecoration retryDecoration,
+                        HeaderMutationChain mutationChain,
+                        boolean mostSpecificWins) {
         this.context = context;
         this.hcmContext = hcmContext;
         this.routeFilterConfigs = routeFilterConfigs;
         this.retryDecoration = retryDecoration;
+        this.mutationChain = mutationChain;
+        this.mostSpecificWins = mostSpecificWins;
     }
 
     SnapshotStream<RouteClusterResolver> resolve(Route route) {
@@ -73,8 +79,9 @@ final class RouteClusterFactory {
         return SnapshotStream.combineLatest(
                 clusterStream, downstreamStream, upstreamStream,
                 (cs, down, up) -> {
-                    return RouteClusterResolver.ofSingle(new DefaultRouteCluster(cs, routeMetadataMatch,
-                                                                                 retryDecoration, down, up));
+                    return RouteClusterResolver.ofSingle(
+                            new DefaultRouteCluster(cs, routeMetadataMatch, mutationChain, retryDecoration,
+                                                    down, up));
                 });
     }
 
@@ -103,6 +110,7 @@ final class RouteClusterFactory {
                     clusterStream, downstreamStream, upstreamStream,
                     (clusterSnapshot, downstreamFilters, upstreamFilter) -> {
                         return new WeightedClusterSnapshot(clusterSnapshot, weight, mergedMetadata,
+                                                           clusterWeight, mutationChain, mostSpecificWins,
                                                            retryDecoration, downstreamFilters, upstreamFilter);
                     }));
         }

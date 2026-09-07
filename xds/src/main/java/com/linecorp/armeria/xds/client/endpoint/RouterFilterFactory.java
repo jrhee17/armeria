@@ -21,12 +21,17 @@ import java.util.List;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Any;
 
+import com.linecorp.armeria.client.DecoratingHttpClientFunction;
+import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.server.DecoratingHttpServiceFunction;
+import com.linecorp.armeria.xds.HeaderMutator;
+import com.linecorp.armeria.xds.RouteCluster;
 import com.linecorp.armeria.xds.filter.FactoryContext;
 import com.linecorp.armeria.xds.filter.HttpFilterFactory;
 import com.linecorp.armeria.xds.filter.XdsHttpFilter;
 import com.linecorp.armeria.xds.internal.DelegatingHttpService;
+import com.linecorp.armeria.xds.internal.XdsCommonUtil;
 
 import io.envoyproxy.envoy.extensions.filters.http.router.v3.Router;
 import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter;
@@ -95,6 +100,24 @@ public final class RouterFilterFactory implements HttpFilterFactory {
          */
         public Router router() {
             return router;
+        }
+
+        @Override
+        public DecoratingHttpClientFunction httpDecorator() {
+            return (delegate, ctx, req) -> {
+                final RouteCluster routeCluster = ctx.attr(XdsCommonUtil.ROUTE_CLUSTER);
+                if (routeCluster != null) {
+                    final HeaderMutator headerMutator = routeCluster.headerMutator();
+                    if (!headerMutator.isEmpty()) {
+                        final RequestHeaders mutated = headerMutator.apply(req.headers());
+                        if (mutated != req.headers()) {
+                            req = req.withHeaders(mutated);
+                            ctx.updateRequest(req);
+                        }
+                    }
+                }
+                return delegate.execute(ctx, req);
+            };
         }
 
         @Override

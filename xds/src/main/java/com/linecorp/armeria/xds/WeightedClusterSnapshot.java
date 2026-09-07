@@ -42,16 +42,23 @@ public final class WeightedClusterSnapshot implements RouteCluster, Weighted {
     private final ClusterSnapshot clusterSnapshot;
     private final int weight;
     private final Metadata metadataMatch;
+    private final HeaderMutator headerMutator;
     private final HttpClient httpClient;
     private final RpcClient rpcClient;
 
     WeightedClusterSnapshot(ClusterSnapshot clusterSnapshot, int weight, Metadata metadataMatch,
+                            ClusterWeight clusterWeight, HeaderMutationChain baseMutationChain,
+                            boolean mostSpecificWins,
                             @Nullable ClientDecoration retryDecoration,
                             ClientDecoration downstreamDecoration,
                             ClientDecoration upstreamDecoration) {
         this.clusterSnapshot = requireNonNull(clusterSnapshot, "clusterSnapshot");
         this.weight = weight;
         this.metadataMatch = requireNonNull(metadataMatch, "metadataMatch");
+        final HeaderMutation wcMutation = HeaderMutation.of(
+                clusterWeight.getRequestHeadersToAddList(),
+                clusterWeight.getRequestHeadersToRemoveList());
+        headerMutator = baseMutationChain.withClusterWeight(wcMutation, mostSpecificWins);
         httpClient = FilterUtil.buildHttpClient(retryDecoration, downstreamDecoration, upstreamDecoration);
         rpcClient = FilterUtil.buildRpcClient(retryDecoration, downstreamDecoration, upstreamDecoration);
     }
@@ -88,6 +95,11 @@ public final class WeightedClusterSnapshot implements RouteCluster, Weighted {
     @Override
     public RpcClient rpcClient() {
         return rpcClient;
+    }
+
+    @Override
+    public HeaderMutator headerMutator() {
+        return headerMutator;
     }
 
     @Override
