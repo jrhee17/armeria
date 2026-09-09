@@ -21,7 +21,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -353,15 +352,10 @@ class AsyncGrpcExceptionHandlerTest {
 
     // The two servers below verify that a unary response which fails to serialize in `sendMessage()`
     // is reported with the status produced by the asynchronous handler, even though the service calls
-    // `onCompleted()` right after `onNext()`, i.e. before the asynchronous handler completes.
+    // `onCompleted()` right after `onNext()`.
 
-    private static final CountDownLatch blockingServiceCompleted = new CountDownLatch(1);
-
-    @RegisterExtension
-    static final ServerExtension serverWithFailingResponseSerialization = new ServerExtension() {
-        @Override
-        protected void configure(ServerBuilder sb) {
-            final GrpcExceptionHandlerFunction asyncHandler = new GrpcExceptionHandlerFunction() {
+    private static final GrpcExceptionHandlerFunction failingResponseSerializationHandler =
+            new GrpcExceptionHandlerFunction() {
                 @Override
                 public @Nullable Status apply(RequestContext ctx, Status status, Throwable cause,
                                               Metadata metadata) {
@@ -371,18 +365,21 @@ class AsyncGrpcExceptionHandlerTest {
                 @Override
                 public CompletableFuture<Status> applyAsync(RequestContext ctx, Status status,
                                                             Throwable cause, Metadata metadata) {
-                    // A completed future is enough on the event loop, because the continuation is
-                    // always scheduled to the event loop asynchronously.
                     return UnmodifiableFuture.completedFuture(
                             Status.RESOURCE_EXHAUSTED.withDescription("large-response-async-handled")
                                                      .withCause(cause));
                 }
             };
+
+    @RegisterExtension
+    static final ServerExtension serverWithFailingResponseSerialization = new ServerExtension() {
+        @Override
+        protected void configure(ServerBuilder sb) {
             sb.requestTimeoutMillis(5000)
               .service(GrpcService.builder()
-                                  .addService(new LargeResponseService(null))
+                                  .addService(new LargeResponseService())
                                   .maxResponseMessageLength(1000)
-                                  .exceptionHandler(asyncHandler)
+                                  .exceptionHandler(failingResponseSerializationHandler)
                                   .build());
         }
     };
@@ -391,38 +388,12 @@ class AsyncGrpcExceptionHandlerTest {
     static final ServerExtension blockingServerWithFailingResponseSerialization = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) {
-            final GrpcExceptionHandlerFunction asyncHandler = new GrpcExceptionHandlerFunction() {
-                @Override
-                public @Nullable Status apply(RequestContext ctx, Status status, Throwable cause,
-                                              Metadata metadata) {
-                    return null;
-                }
-
-                @Override
-                public CompletableFuture<Status> applyAsync(RequestContext ctx, Status status,
-                                                            Throwable cause, Metadata metadata) {
-                    // Complete the future only after the service has called `onCompleted()`, so that
-                    // the handler is guaranteed to be still pending when the service closes the call.
-                    final CompletableFuture<Status> future = new CompletableFuture<>();
-                    ASYNC_EXECUTOR.execute(() -> {
-                        try {
-                            blockingServiceCompleted.await(10, TimeUnit.SECONDS);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                        future.complete(Status.RESOURCE_EXHAUSTED
-                                                .withDescription("large-response-async-handled")
-                                                .withCause(cause));
-                    });
-                    return future;
-                }
-            };
             sb.requestTimeoutMillis(5000)
               .service(GrpcService.builder()
-                                  .addService(new LargeResponseService(blockingServiceCompleted))
+                                  .addService(new LargeResponseService())
                                   .maxResponseMessageLength(1000)
                                   .useBlockingTaskExecutor(true)
-                                  .exceptionHandler(asyncHandler)
+                                  .exceptionHandler(failingResponseSerializationHandler)
                                   .build());
         }
     };
@@ -612,14 +583,6 @@ class AsyncGrpcExceptionHandlerTest {
     }
 
     private static class LargeResponseService extends TestServiceImplBase {
-
-        @Nullable
-        private final CountDownLatch completed;
-
-        LargeResponseService(@Nullable CountDownLatch completed) {
-            this.completed = completed;
-        }
-
         @Override
         public void unaryCall(SimpleRequest request, StreamObserver<SimpleResponse> responseObserver) {
             final SimpleResponse response =
@@ -629,9 +592,6 @@ class AsyncGrpcExceptionHandlerTest {
                                   .build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
-            if (completed != null) {
-                completed.countDown();
-            }
         }
     }
 }

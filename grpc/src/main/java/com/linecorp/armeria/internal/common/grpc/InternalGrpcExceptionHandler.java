@@ -20,6 +20,7 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,12 +83,12 @@ public final class InternalGrpcExceptionHandler {
             if (future == null) {
                 return UnmodifiableFuture.completedFuture(delegate.apply(ctx, status, cause, metadata));
             } else {
-                final EventLoop eventLoop = eventLoopOrNull(ctx);
-                if (eventLoop == null) {
-                    return future.handle(applyOrFallback(ctx, status, cause, metadata));
-                } else {
-                    return future.handleAsync(applyOrFallback(ctx, status, cause, metadata), eventLoop);
-                }
+                // Use handle() instead of handleAsync() so that the callback runs inline when
+                // the future is already complete, avoiding unnecessary event loop scheduling.
+                // If the callback ran on a non-event-loop thread, reschedule the result onto
+                // the event loop so that downstream listeners execute on the correct thread.
+                return future.handle(applyOrFallback(ctx, status, cause, metadata))
+                             .thenCompose(rescheduleIfNeeded(ctx));
             }
         } catch (Throwable t) {
             return UnmodifiableFuture.exceptionallyCompletedFuture(t);
@@ -108,6 +109,27 @@ public final class InternalGrpcExceptionHandler {
 
             return delegate.apply(ctx, status, cause, metadata);
         };
+    }
+
+    private static Function<Status, CompletableFuture<Status>> rescheduleIfNeeded(RequestContext ctx) {
+        return status -> {
+            final EventLoop eventLoop = eventLoopOrNull(ctx);
+            if (eventLoop == null || eventLoop.inEventLoop()) {
+                return UnmodifiableFuture.completedFuture(status);
+            }
+            final CompletableFuture<Status> future = new CompletableFuture<>();
+            eventLoop.execute(() -> future.complete(status));
+            return future;
+        };
+    }
+
+    @Nullable
+    private static EventLoop eventLoopOrNull(RequestContext ctx) {
+        try {
+            return ctx.eventLoop();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private static Status restoreStatus(Status status, Throwable cause) {
@@ -140,13 +162,4 @@ public final class InternalGrpcExceptionHandler {
         return t;
     }
 
-    @Nullable
-    private static EventLoop eventLoopOrNull(RequestContext ctx) {
-        try {
-            return ctx.eventLoop();
-        } catch (Exception e) {
-            // ctx may not have an event loop in some derived/mocked contexts; fall back to inline.
-            return null;
-        }
-    }
 }
