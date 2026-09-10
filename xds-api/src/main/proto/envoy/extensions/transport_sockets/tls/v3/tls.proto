@@ -52,6 +52,7 @@ message UpstreamTlsContext {
   //
   // See :ref:`SNI configuration <start_quick_start_securing_sni_client>` for details on how this
   // interacts with other validation options.
+  option (armeria.xds.supported.field) = 6;
   bool auto_host_sni = 6;
 
   // If true, replaces any Subject Alternative Name (SAN) validations with a validation for a DNS SAN matching

@@ -161,6 +161,13 @@ final class ClusterFilterFactory {
             clientTlsSpec = clientTlsSpec.toBuilder().alpnProtocols(alpnOverride).build();
         }
         ctx.setClientTlsSpec(clientTlsSpec);
+
+        if (!transportSocket.autoHostSni()) {
+            final String sni = transportSocket.sni();
+            if (sni != null) {
+                ctx.setSniHostname(sni);
+            }
+        }
     }
 
     @Override

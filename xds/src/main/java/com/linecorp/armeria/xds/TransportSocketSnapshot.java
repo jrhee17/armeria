@@ -63,6 +63,9 @@ public final class TransportSocketSnapshot implements Snapshot<TransportSocket> 
     private final ClientTlsSpec clientTlsSpec;
     @Nullable
     private final ServerTlsSpecSelector serverTlsSpecSelector;
+    @Nullable
+    private final String sni;
+    private final boolean autoHostSni;
 
     TransportSocketSnapshot(TransportSocket transportSocket) {
         this.transportSocket = transportSocket;
@@ -70,6 +73,8 @@ public final class TransportSocketSnapshot implements Snapshot<TransportSocket> 
         validationContext = null;
         clientTlsSpec = null;
         serverTlsSpecSelector = null;
+        sni = null;
+        autoHostSni = false;
     }
 
     TransportSocketSnapshot(TransportSocket transportSocket,
@@ -83,6 +88,12 @@ public final class TransportSocketSnapshot implements Snapshot<TransportSocket> 
                                                                            : tlsCertificates.get(0);
         clientTlsSpec = buildClientTlsSpec(upstreamTlsContext, firstCert, this.validationContext);
         serverTlsSpecSelector = null;
+        if (upstreamTlsContext != null && !upstreamTlsContext.getSni().isEmpty()) {
+            sni = upstreamTlsContext.getSni();
+        } else {
+            sni = null;
+        }
+        autoHostSni = upstreamTlsContext != null && upstreamTlsContext.getAutoHostSni();
     }
 
     TransportSocketSnapshot(TransportSocket transportSocket,
@@ -93,6 +104,8 @@ public final class TransportSocketSnapshot implements Snapshot<TransportSocket> 
         this.tlsCertificates = ImmutableList.copyOf(tlsCertificates);
         this.validationContext = validationContext.orElse(null);
         clientTlsSpec = null;
+        sni = null;
+        autoHostSni = false;
 
         final List<ServerTlsSpec> specs =
                 tlsCertificates.stream()
@@ -137,6 +150,15 @@ public final class TransportSocketSnapshot implements Snapshot<TransportSocket> 
      */
     public @Nullable ClientTlsSpec clientTlsSpec() {
         return clientTlsSpec;
+    }
+
+    @Nullable
+    String sni() {
+        return sni;
+    }
+
+    boolean autoHostSni() {
+        return autoHostSni;
     }
 
     /**
