@@ -71,12 +71,15 @@ final class ClusterFilterFactory {
     private final SessionProtocol sessionProtocol;
     @Nullable
     private final HttpProtocolOptions httpProtocolOptions;
+    private final long connectTimeoutMillis;
 
     ClusterFilterFactory(XdsLoadBalancer loadBalancer,
-                         @Nullable HttpProtocolOptions httpProtocolOptions) {
+                         @Nullable HttpProtocolOptions httpProtocolOptions,
+                         long connectTimeoutMillis) {
         endpointGroup = XdsEndpointGroup.of(loadBalancer);
         this.httpProtocolOptions = httpProtocolOptions;
         sessionProtocol = sessionProtocol(httpProtocolOptions);
+        this.connectTimeoutMillis = connectTimeoutMillis;
     }
 
     @Nullable
@@ -100,6 +103,9 @@ final class ClusterFilterFactory {
         final RouteCluster routeCluster = ctx.attr(XdsCommonUtil.ROUTE_CLUSTER);
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         if (ctxExt != null) {
+            if (connectTimeoutMillis > 0) {
+                ctxExt.setConnectTimeoutMillis(connectTimeoutMillis);
+            }
             final HttpClient httpClient = routeCluster != null ?
                                           routeCluster.httpClient() : CLUSTER_ONLY_HTTP_CLIENT;
             ctxExt.httpClientCustomizer(actualClient -> {

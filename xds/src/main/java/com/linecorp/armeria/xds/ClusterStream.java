@@ -111,8 +111,10 @@ final class ClusterStream extends RefCountedStream<ClusterSnapshot> {
             lbStream = lbFactory.register(resource, input.transportSocket,
                                           input.transportSocketMatches, null);
         }
+        final long connectTimeoutMillis = connectTimeoutMillis(resource.resource());
         return lbStream.map(lb -> {
-            final ClusterFilterFactory factory = new ClusterFilterFactory(lb, httpProtocolOptions);
+            final ClusterFilterFactory factory =
+                    new ClusterFilterFactory(lb, httpProtocolOptions, connectTimeoutMillis);
             return new ClusterSnapshot(resource, lb, input.transportSocket, input.transportSocketMatches,
                                        factory);
         });
@@ -126,6 +128,14 @@ final class ClusterStream extends RefCountedStream<ClusterSnapshot> {
             return null;
         }
         return context.extensionRegistry().unpack(any, HttpProtocolOptions.class);
+    }
+
+    private static long connectTimeoutMillis(Cluster cluster) {
+        if (!cluster.hasConnectTimeout()) {
+            return 0;
+        }
+        final com.google.protobuf.Duration duration = cluster.getConnectTimeout();
+        return duration.getSeconds() * 1000 + duration.getNanos() / 1_000_000;
     }
 
     private static class TransportSocketMatchesStream

@@ -113,4 +113,15 @@ public interface ClientRequestContextExtension extends ClientRequestContext, Req
     void httpClientCustomizer(Function<HttpClient, HttpClient> customizer);
 
     Function<HttpClient, HttpClient> httpClientCustomizer();
+
+    /**
+     * Returns the per-request connect timeout in milliseconds. {@code 0} means unset
+     * (use the factory default).
+     */
+    long connectTimeoutMillis();
+
+    /**
+     * Sets the per-request connect timeout in milliseconds.
+     */
+    void setConnectTimeoutMillis(long connectTimeoutMillis);
 }

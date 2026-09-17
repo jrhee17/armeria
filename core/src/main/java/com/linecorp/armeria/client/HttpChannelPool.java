@@ -400,6 +400,10 @@ final class HttpChannelPool implements AsyncCloseable {
             return;
         }
 
+        if (poolKey.connectTimeoutHintMillis > 0) {
+            bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, poolKey.connectTimeoutHintMillis);
+        }
+
         bootstrap.register().addListener((ChannelFuture registerFuture) -> {
             if (!registerFuture.isSuccess()) {
                 sessionPromise.tryFailure(registerFuture.cause());
@@ -480,8 +484,11 @@ final class HttpChannelPool implements AsyncCloseable {
         final EventLoop eventLoop = ch.eventLoop();
         assert eventLoop.inEventLoop();
 
+        final int effectiveTimeoutMillis =
+                poolKey.connectTimeoutHintMillis > 0 ? poolKey.connectTimeoutHintMillis
+                                                     : connectTimeoutMillis;
         ch.pipeline().addLast(
-                new HttpSessionHandler(this, ch, sessionPromise, connectTimeoutMillis,
+                new HttpSessionHandler(this, ch, sessionPromise, effectiveTimeoutMillis,
                                        desiredProtocol, serializationFormat, poolKey, clientFactory));
     }
 
@@ -622,13 +629,16 @@ final class HttpChannelPool implements AsyncCloseable {
         @Nullable
         final InetSocketAddress localAddress;
         private final int hashCode;
+        // Not included in equals/hashCode — a hint for the connect path only.
+        final int connectTimeoutHintMillis;
 
         PoolKey(Endpoint endpoint, ProxyConfig proxyConfig, @Nullable ClientTlsSpec tlsSpec,
-                @Nullable InetSocketAddress localAddress) {
+                @Nullable InetSocketAddress localAddress, int connectTimeoutHintMillis) {
             this.endpoint = endpoint;
             this.proxyConfig = proxyConfig;
             this.tlsSpec = tlsSpec;
             this.localAddress = localAddress;
+            this.connectTimeoutHintMillis = connectTimeoutHintMillis;
             hashCode = Objects.hash(endpoint, proxyConfig, tlsSpec, localAddress);
         }
 

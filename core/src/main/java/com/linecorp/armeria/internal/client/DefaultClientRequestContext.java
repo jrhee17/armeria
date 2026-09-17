@@ -189,6 +189,7 @@ public final class DefaultClientRequestContext
     private String defaultSniHostname;
     @Nullable
     private InetSocketAddress localBindAddress;
+    private long connectTimeoutMillis;
 
     public DefaultClientRequestContext(SessionProtocol sessionProtocol, HttpRequest httpRequest,
                                        @Nullable RpcRequest rpcRequest, RequestTarget requestTarget,
@@ -698,6 +699,7 @@ public final class DefaultClientRequestContext
         clientTlsSpec = ctx.clientTlsSpec();
         sniHostname = ctx.sniHostname;
         localBindAddress = ctx.localBindAddress();
+        connectTimeoutMillis = ctx.connectTimeoutMillis;
 
         for (final Iterator<Entry<AttributeKey<?>, Object>> i = ctx.ownAttrs(); i.hasNext();) {
             addAttr(i.next());
@@ -1016,6 +1018,18 @@ public final class DefaultClientRequestContext
     @Override
     public void setWriteTimeout(Duration writeTimeout) {
         setWriteTimeoutMillis(requireNonNull(writeTimeout, "writeTimeout").toMillis());
+    }
+
+    @Override
+    public long connectTimeoutMillis() {
+        return connectTimeoutMillis;
+    }
+
+    @Override
+    public void setConnectTimeoutMillis(long connectTimeoutMillis) {
+        checkArgument(connectTimeoutMillis > 0,
+                      "connectTimeoutMillis: %s (expected: > 0)", connectTimeoutMillis);
+        this.connectTimeoutMillis = connectTimeoutMillis;
     }
 
     @Override
