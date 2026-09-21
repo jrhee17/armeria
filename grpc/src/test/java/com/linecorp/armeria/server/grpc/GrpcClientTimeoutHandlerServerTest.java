@@ -17,8 +17,8 @@
 package com.linecorp.armeria.server.grpc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
-import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
@@ -57,14 +57,14 @@ class GrpcClientTimeoutHandlerServerTest {
         protected void configure(ServerBuilder sb) throws Exception {
             sb.requestTimeoutMillis(SERVER_TIMEOUT_MILLIS);
             sb.service(GrpcService.builder()
-                                  .clientTimeoutHandler((ctx, method, clientTimeout) -> {
+                                  .clientTimeoutHandler((ctx, method, clientTimeoutMillis) -> {
                                       // Give 'UnaryCall' a tighter bound than the rest.
                                       if ("UnaryCall".equals(
                                               method.getMethodDescriptor().getBareMethodName())) {
-                                          return Duration.ofSeconds(1);
+                                          return 1000;
                                       }
                                       return GrpcClientTimeoutHandler.boundedByServerTimeout()
-                                                                     .apply(ctx, method, clientTimeout);
+                                                                     .apply(ctx, method, clientTimeoutMillis);
                                   })
                                   .addService(new TimeoutReportingService())
                                   .build());
@@ -76,7 +76,8 @@ class GrpcClientTimeoutHandlerServerTest {
         final TestServiceBlockingStub client =
                 GrpcClients.newClient(server.httpUri(), TestServiceBlockingStub.class);
         final long timeoutMillis = requestTimeoutMillis(client.withDeadlineAfter(1, TimeUnit.HOURS));
-        assertThat(timeoutMillis).isEqualTo(SERVER_TIMEOUT_MILLIS);
+        // SET_FROM_NOW adds elapsed time since request start, so allow a small tolerance.
+        assertThat(timeoutMillis).isCloseTo(SERVER_TIMEOUT_MILLIS, within(50L));
     }
 
     @Test
@@ -93,7 +94,7 @@ class GrpcClientTimeoutHandlerServerTest {
         final TestServiceBlockingStub client = GrpcClients.builder(server.httpUri())
                                                           .responseTimeoutMillis(0)
                                                           .build(TestServiceBlockingStub.class);
-        assertThat(requestTimeoutMillis(client)).isEqualTo(SERVER_TIMEOUT_MILLIS);
+        assertThat(requestTimeoutMillis(client)).isCloseTo(SERVER_TIMEOUT_MILLIS, within(50L));
     }
 
     @Test
@@ -102,8 +103,9 @@ class GrpcClientTimeoutHandlerServerTest {
                 GrpcClients.newClient(perMethodServer.httpUri(), TestServiceBlockingStub.class)
                            .withDeadlineAfter(1, TimeUnit.HOURS);
         final SimpleRequest req = SimpleRequest.getDefaultInstance();
-        assertThat(Long.parseLong(client.unaryCall(req).getUsername())).isEqualTo(1000);
-        assertThat(Long.parseLong(client.unaryCall2(req).getUsername())).isEqualTo(SERVER_TIMEOUT_MILLIS);
+        assertThat(Long.parseLong(client.unaryCall(req).getUsername())).isCloseTo(1000L, within(50L));
+        assertThat(Long.parseLong(client.unaryCall2(req).getUsername()))
+                .isCloseTo(SERVER_TIMEOUT_MILLIS, within(50L));
     }
 
     private static long requestTimeoutMillis(TestServiceBlockingStub client) {

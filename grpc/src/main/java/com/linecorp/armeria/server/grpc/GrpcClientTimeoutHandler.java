@@ -16,11 +16,6 @@
 
 package com.linecorp.armeria.server.grpc;
 
-import static java.util.Objects.requireNonNull;
-
-import java.time.Duration;
-
-import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.ServiceRequestContext;
@@ -30,7 +25,15 @@ import io.grpc.ServerMethodDefinition;
 /**
  * Decides the request timeout to use for the timeout requested by a client via the {@code grpc-timeout}
  * header. A request without the header is treated as a request for an infinite timeout, as the gRPC
- * specification requires, so the handler is invoked with {@link Duration#ZERO} in that case as well.
+ * specification requires, so the handler is invoked with {@link Long#MAX_VALUE} in that case as well.
+ *
+ * <p>The return value is interpreted as follows:
+ * <ul>
+ *   <li>A positive value sets the request timeout to that many milliseconds.</li>
+ *   <li>{@link Long#MAX_VALUE} means no timeout (infinite).</li>
+ *   <li>{@code 0} or a negative value means the timeout has already been exhausted and the request
+ *       should time out immediately.</li>
+ * </ul>
  *
  * <p>This allows a server to adjust or reject the timeout requested by a client, e.g. to make sure that
  * an untrusted client cannot ask for an arbitrarily long timeout:
@@ -55,9 +58,9 @@ public interface GrpcClientTimeoutHandler {
     }
 
     /**
-     * Returns a {@link GrpcClientTimeoutHandler} that ignores the {@code grpc-timeout} header entirely, even
-     * if the client asks for a shorter timeout than the server's, so that the request timeout configured for
-     * the Armeria server is always used, e.g. the one set via {@link ServerBuilder#requestTimeout(Duration)}.
+     * Returns a {@link GrpcClientTimeoutHandler} that ignores the {@code grpc-timeout} header entirely, so
+     * that the request timeout configured for the Armeria server is always used, e.g. the one set via
+     * {@link ServerBuilder#requestTimeout(java.time.Duration)}.
      */
     static GrpcClientTimeoutHandler disabled() {
         return GrpcClientTimeoutHandlers.DISABLED;
@@ -78,34 +81,36 @@ public interface GrpcClientTimeoutHandler {
     }
 
     /**
-     * Returns a {@link GrpcClientTimeoutHandler} that extends the timeout requested by the client by the
-     * specified {@code buffer}, which is useful to compensate for the time spent on the network.
-     *
-     * @throws IllegalArgumentException if the {@code buffer} is negative
-     */
-    static GrpcClientTimeoutHandler withBuffer(Duration buffer) {
-        requireNonNull(buffer, "buffer");
-        if (buffer.isNegative()) {
-            throw new IllegalArgumentException("buffer: " + buffer + " (expected: >= 0)");
-        }
-        if (buffer.isZero()) {
-            return enabled();
-        }
-        return new GrpcClientTimeoutHandlers.WithBuffer(buffer);
-    }
-
-    /**
-     * Returns the request timeout to set for the specified {@link ServiceRequestContext}.
+     * Returns the request timeout in milliseconds to set for the specified {@link ServiceRequestContext}.
      *
      * @param ctx the {@link ServiceRequestContext} of the request
      * @param method the {@link ServerMethodDefinition} the request is routed to
-     * @param clientTimeout the timeout requested via the {@code grpc-timeout} header. {@link Duration#ZERO}
-     *                      means that the client asked for an infinite timeout, either explicitly or by
-     *                      omitting the header.
+     * @param clientTimeoutMillis the timeout in milliseconds requested via the {@code grpc-timeout} header.
+     *                            {@link Long#MAX_VALUE} means that the client asked for an infinite timeout,
+     *                            either explicitly or by omitting the header. Always positive.
      *
-     * @return the timeout to use, or {@link Duration#ZERO} to use an infinite timeout.
-     *         {@code null} to leave the request timeout configured for the server untouched.
+     * @return the timeout in milliseconds to use. {@link Long#MAX_VALUE} for no timeout (infinite).
+     *         {@code 0} or negative to time out immediately.
      */
-    @Nullable
-    Duration apply(ServiceRequestContext ctx, ServerMethodDefinition<?, ?> method, Duration clientTimeout);
+    long apply(ServiceRequestContext ctx, ServerMethodDefinition<?, ?> method, long clientTimeoutMillis);
+
+    /**
+     * Returns a {@link GrpcClientTimeoutHandler} that first applies this handler, then adjusts the result
+     * by the specified {@code offsetMillis}. A positive offset extends the timeout; a negative offset
+     * shrinks it, similar to Envoy's {@code grpc_timeout_header_offset}.
+     *
+     * <p>A negative offset is useful to ensure that the server finishes before the client's deadline,
+     * giving the response time to travel back through the network. If the adjusted timeout is zero or
+     * negative, the request will time out immediately.
+     *
+     * <p>Note that an infinite timeout ({@link Long#MAX_VALUE}) is left unchanged regardless of the offset.
+     * This means the offset has no effect when the upstream handler does not set a finite timeout.
+     */
+    default GrpcClientTimeoutHandler withOffset(long offsetMillis) {
+        if (offsetMillis == 0) {
+            return this;
+        }
+        final GrpcClientTimeoutHandler outer = this;
+        return new GrpcClientTimeoutHandlers.WithOffset(outer, offsetMillis);
+    }
 }

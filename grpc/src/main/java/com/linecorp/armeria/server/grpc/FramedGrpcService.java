@@ -251,7 +251,7 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
                             });
                     return HttpResponse.of(future);
                 }
-                applyClientTimeout(ctx, method, Duration.ofNanos(timeoutNanos));
+                applyClientTimeout(ctx, method, TimeUnit.NANOSECONDS.toMillis(timeoutNanos));
             } else {
                 if (Boolean.TRUE.equals(ctx.attr(UnframedGrpcSupport.IS_UNFRAMED_GRPC))) {
                     // For unframed gRPC, we use the default timeout.
@@ -259,7 +259,7 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
                     // For framed gRPC, as per gRPC specification, if timeout is omitted a server should assume
                     // an infinite timeout.
                     // https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#protocol
-                    applyClientTimeout(ctx, method, Duration.ZERO);
+                    applyClientTimeout(ctx, method, Long.MAX_VALUE);
                 }
             }
         }
@@ -282,16 +282,14 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
     }
 
     private void applyClientTimeout(ServiceRequestContext ctx, ServerMethodDefinition<?, ?> method,
-                                    Duration clientTimeout) {
-        final Duration timeout = clientTimeoutHandler.apply(ctx, method, clientTimeout);
-        if (timeout == null) {
-            // Leave the request timeout configured for the server untouched.
-            return;
-        }
-        if (GrpcClientTimeoutHandlers.isInfinite(timeout)) {
+                                    long clientTimeoutMillis) {
+        final long timeoutMillis = clientTimeoutHandler.apply(ctx, method, clientTimeoutMillis);
+        if (timeoutMillis == Long.MAX_VALUE) {
             ctx.clearRequestTimeout();
+        } else if (timeoutMillis <= 0) {
+            ctx.timeoutNow();
         } else {
-            ctx.setRequestTimeout(TimeoutMode.SET_FROM_NOW, timeout);
+            ctx.setRequestTimeout(TimeoutMode.SET_FROM_NOW, Duration.ofMillis(timeoutMillis));
         }
     }
 
