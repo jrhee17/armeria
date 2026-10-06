@@ -40,11 +40,15 @@ import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 
+import com.linecorp.armeria.client.FutureResponseAs;
+import com.linecorp.armeria.client.InvalidHttpResponseException;
+import com.linecorp.armeria.client.ResponseAs;
 import com.linecorp.armeria.common.FixedHttpResponse.OneElementFixedHttpResponse;
 import com.linecorp.armeria.common.FixedHttpResponse.RegularFixedHttpResponse;
 import com.linecorp.armeria.common.FixedHttpResponse.ThreeElementFixedHttpResponse;
@@ -830,6 +834,98 @@ public interface HttpResponse extends Response, HttpMessage {
                                            .executor(executor)
                                            .cacheResult(true)
                                            .build());
+    }
+
+    /**
+     * Applies the specified {@link FutureResponseAs} to this response, enabling flexible
+     * response conversion.
+     * <pre>{@code
+     * WebClient client = WebClient.of("https://api.example.com");
+     * ResponseEntity<MyObject> entity =
+     *     client.postJson("/v1/items", item)
+     *           .as(ResponseAs.json(MyObject.class))
+     *           .join();
+     * }</pre>
+     */
+    @UnstableApi
+    @CheckReturnValue
+    default <T> CompletableFuture<T> as(FutureResponseAs<T> responseAs) {
+        requireNonNull(responseAs, "responseAs");
+        return responseAs.as(this);
+    }
+
+    /**
+     * Aggregates this response and deserializes the JSON content into the specified non-container type
+     * using the default {@link ObjectMapper}.
+     * An {@link InvalidHttpResponseException} is raised if the status is not
+     * {@linkplain HttpStatus#isSuccess() success}.
+     *
+     * <p>Note that this method should NOT be used if the result type is a container such as
+     * {@link java.util.Collection} or {@link java.util.Map}.
+     * Use {@link #asJson(TypeReference)} for the container type.
+     * <pre>{@code
+     * WebClient client = WebClient.of("https://api.example.com");
+     * ResponseEntity<MyObject> entity =
+     *     client.postJson("/v1/items", item)
+     *           .asJson(MyObject.class)
+     *           .join();
+     * }</pre>
+     *
+     * @see JacksonObjectMapperProvider
+     */
+    @UnstableApi
+    @CheckReturnValue
+    default <T> CompletableFuture<ResponseEntity<T>> asJson(Class<? extends T> clazz) {
+        return as(ResponseAs.json(clazz));
+    }
+
+    /**
+     * Aggregates this response and deserializes the JSON content into the specified non-container type
+     * using the specified {@link ObjectMapper}.
+     * An {@link InvalidHttpResponseException} is raised if the status is not
+     * {@linkplain HttpStatus#isSuccess() success}.
+     *
+     * <p>Note that this method should NOT be used if the result type is a container such as
+     * {@link java.util.Collection} or {@link java.util.Map}.
+     * Use {@link #asJson(TypeReference, ObjectMapper)} for the container type.
+     */
+    @UnstableApi
+    @CheckReturnValue
+    default <T> CompletableFuture<ResponseEntity<T>> asJson(Class<? extends T> clazz,
+                                                            ObjectMapper mapper) {
+        return as(ResponseAs.json(clazz, mapper));
+    }
+
+    /**
+     * Aggregates this response and deserializes the JSON content into the specified Java type
+     * using the default {@link ObjectMapper}. This is useful for container types such as
+     * {@link java.util.List} and {@link java.util.Map}.
+     * <pre>{@code
+     * WebClient client = WebClient.of("https://api.example.com");
+     * ResponseEntity<List<MyObject>> entity =
+     *     client.get("/v1/items")
+     *           .asJson(new TypeReference<List<MyObject>>() {})
+     *           .join();
+     * }</pre>
+     *
+     * @see JacksonObjectMapperProvider
+     */
+    @UnstableApi
+    @CheckReturnValue
+    default <T> CompletableFuture<ResponseEntity<T>> asJson(TypeReference<? extends T> typeRef) {
+        return as(ResponseAs.json(typeRef));
+    }
+
+    /**
+     * Aggregates this response and deserializes the JSON content into the specified Java type
+     * using the specified {@link ObjectMapper}. This is useful for container types such as
+     * {@link java.util.List} and {@link java.util.Map}.
+     */
+    @UnstableApi
+    @CheckReturnValue
+    default <T> CompletableFuture<ResponseEntity<T>> asJson(TypeReference<? extends T> typeRef,
+                                                            ObjectMapper mapper) {
+        return as(ResponseAs.json(typeRef, mapper));
     }
 
     /**

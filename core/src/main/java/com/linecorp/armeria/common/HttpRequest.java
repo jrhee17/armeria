@@ -36,6 +36,8 @@ import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
@@ -47,6 +49,7 @@ import com.linecorp.armeria.common.FixedHttpRequest.RegularFixedHttpRequest;
 import com.linecorp.armeria.common.FixedHttpRequest.TwoElementFixedHttpRequest;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
+import com.linecorp.armeria.internal.common.JacksonUtil;
 import com.linecorp.armeria.common.stream.PublisherBasedStreamMessage;
 import com.linecorp.armeria.common.stream.StreamMessage;
 import com.linecorp.armeria.common.stream.StreamTimeoutMode;
@@ -264,6 +267,107 @@ public interface HttpRequest extends Request, HttpMessage {
                 return new TwoElementFixedHttpRequest(headers, contents[0], contents[1]);
             default:
                 return new RegularFixedHttpRequest(headers, contents);
+        }
+    }
+
+    /**
+     * Creates a new HTTP request with the specified {@code content} converted into JSON using the
+     * default {@link ObjectMapper}.
+     *
+     * @param method the HTTP method of the request
+     * @param path the path of the request
+     * @param content the object to be serialized as a JSON payload
+     *
+     * @throws IllegalArgumentException if failed to encode the {@code content} into JSON.
+     * @see JacksonObjectMapperProvider
+     */
+    @UnstableApi
+    static HttpRequest ofJson(HttpMethod method, String path, Object content) {
+        requireNonNull(method, "method");
+        requireNonNull(path, "path");
+        requireNonNull(content, "content");
+        return ofJson(RequestHeaders.builder(method, path)
+                                    .contentType(MediaType.JSON)
+                                    .build(),
+                      content);
+    }
+
+    /**
+     * Creates a new HTTP request with the specified {@code content} converted into JSON using the
+     * specified {@link ObjectMapper}.
+     *
+     * @param method the HTTP method of the request
+     * @param path the path of the request
+     * @param content the object to be serialized as a JSON payload
+     * @param mapper the {@link ObjectMapper} to use for serialization
+     *
+     * @throws IllegalArgumentException if failed to encode the {@code content} into JSON.
+     */
+    @UnstableApi
+    static HttpRequest ofJson(HttpMethod method, String path, Object content, ObjectMapper mapper) {
+        requireNonNull(method, "method");
+        requireNonNull(path, "path");
+        requireNonNull(content, "content");
+        requireNonNull(mapper, "mapper");
+        return ofJson(RequestHeaders.builder(method, path)
+                                    .contentType(MediaType.JSON)
+                                    .build(),
+                      content, mapper);
+    }
+
+    /**
+     * Creates a new HTTP request with the specified {@link RequestHeaders} and {@code content} converted
+     * into JSON using the default {@link ObjectMapper}.
+     *
+     * @throws IllegalArgumentException if failed to encode the {@code content} into JSON.
+     * @see JacksonObjectMapperProvider
+     */
+    @UnstableApi
+    static HttpRequest ofJson(RequestHeaders headers, Object content) {
+        requireNonNull(headers, "headers");
+        requireNonNull(content, "content");
+        final HttpData httpData;
+        try {
+            httpData = HttpData.wrap(JacksonUtil.writeValueAsBytes(content));
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException(e.toString(), e);
+        }
+        final MediaType contentType = headers.contentType();
+        if (contentType != null && contentType.isJson()) {
+            return of(headers, httpData);
+        } else {
+            return of(headers.toBuilder()
+                             .contentType(MediaType.JSON)
+                             .build(),
+                      httpData);
+        }
+    }
+
+    /**
+     * Creates a new HTTP request with the specified {@link RequestHeaders} and {@code content} converted
+     * into JSON using the specified {@link ObjectMapper}.
+     *
+     * @throws IllegalArgumentException if failed to encode the {@code content} into JSON.
+     */
+    @UnstableApi
+    static HttpRequest ofJson(RequestHeaders headers, Object content, ObjectMapper mapper) {
+        requireNonNull(headers, "headers");
+        requireNonNull(content, "content");
+        requireNonNull(mapper, "mapper");
+        final HttpData httpData;
+        try {
+            httpData = HttpData.wrap(mapper.writeValueAsBytes(content));
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException(e.toString(), e);
+        }
+        final MediaType contentType = headers.contentType();
+        if (contentType != null && contentType.isJson()) {
+            return of(headers, httpData);
+        } else {
+            return of(headers.toBuilder()
+                             .contentType(MediaType.JSON)
+                             .build(),
+                      httpData);
         }
     }
 
