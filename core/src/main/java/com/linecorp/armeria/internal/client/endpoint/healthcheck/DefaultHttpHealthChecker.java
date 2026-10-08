@@ -29,12 +29,14 @@ import org.slf4j.LoggerFactory;
 
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ClientRequestContextCaptor;
+import com.linecorp.armeria.client.ClientTlsSpec;
 import com.linecorp.armeria.client.Clients;
 import com.linecorp.armeria.client.Endpoint;
 import com.linecorp.armeria.client.HttpClient;
 import com.linecorp.armeria.client.ResponseTimeoutException;
 import com.linecorp.armeria.client.SimpleDecoratingHttpClient;
 import com.linecorp.armeria.client.WebClient;
+import com.linecorp.armeria.client.WebClientBuilder;
 import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckedEndpointGroup;
 import com.linecorp.armeria.client.endpoint.healthcheck.HealthCheckerContext;
 import com.linecorp.armeria.common.HttpHeaderNames;
@@ -83,17 +85,27 @@ public final class DefaultHttpHealthChecker implements HttpHealthChecker {
 
     public DefaultHttpHealthChecker(HealthCheckerContext ctx, Endpoint endpoint, String path, boolean useGet,
                                     SessionProtocol protocol, @Nullable String host) {
-        this(ctx, endpoint, path, useGet, protocol, host, DEFAULT_EXPECTED_STATUSES);
+        this(ctx, endpoint, path, useGet, protocol, host, DEFAULT_EXPECTED_STATUSES, null);
     }
 
     public DefaultHttpHealthChecker(HealthCheckerContext ctx, Endpoint endpoint, String path, boolean useGet,
                                     SessionProtocol protocol, @Nullable String host,
                                     IntPredicate expectedStatuses) {
+        this(ctx, endpoint, path, useGet, protocol, host, expectedStatuses, null);
+    }
+
+    public DefaultHttpHealthChecker(HealthCheckerContext ctx, Endpoint endpoint, String path, boolean useGet,
+                                    SessionProtocol protocol, @Nullable String host,
+                                    IntPredicate expectedStatuses,
+                                    @Nullable ClientTlsSpec clientTlsSpec) {
         this.ctx = ctx;
-        webClient = WebClient.builder(protocol, endpoint)
-                             .options(ctx.clientOptions())
-                             .decorator(ResponseTimeoutUpdater::new)
-                             .build();
+        final WebClientBuilder builder = WebClient.builder(protocol, endpoint)
+                                                  .options(ctx.clientOptions())
+                                                  .decorator(ResponseTimeoutUpdater::new);
+        if (clientTlsSpec != null) {
+            builder.clientTlsSpec(clientTlsSpec);
+        }
+        webClient = builder.build();
         authority = host != null ? host : endpoint.authority();
         this.path = path;
         this.useGet = useGet;

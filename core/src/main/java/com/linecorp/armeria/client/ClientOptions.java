@@ -156,6 +156,18 @@ public final class ClientOptions
     public static final ClientOption<Supplier<? extends AutoCloseable>> CONTEXT_HOOK =
             ClientOption.define("CONTEXT_HOOK", NOOP_CONTEXT_HOOK);
 
+    /**
+     * A sentinel {@link ClientTlsSpec} indicating that no client-level TLS spec has been set.
+     */
+    private static final ClientTlsSpec NOOP_CLIENT_TLS_SPEC = ClientTlsSpec.builder().build();
+
+    /**
+     * The {@link ClientTlsSpec} to use for all requests made by this client.
+     */
+    @UnstableApi
+    public static final ClientOption<ClientTlsSpec> CLIENT_TLS_SPEC =
+            ClientOption.define("CLIENT_TLS_SPEC", NOOP_CLIENT_TLS_SPEC);
+
     @UnstableApi
     public static final ClientOption<ResponseTimeoutMode> RESPONSE_TIMEOUT_MODE =
             ClientOption.define("RESPONSE_TIMEOUT_MODE", Flags.responseTimeoutMode());
@@ -355,6 +367,14 @@ public final class ClientOptions
     @UnstableApi
     public RedirectConfig redirectConfig() {
         return get(REDIRECT_CONFIG);
+    }
+
+    /**
+     * Returns the {@link ClientTlsSpec} to use for all requests, or {@link ClientTlsSpec#of()} if not set.
+     */
+    @UnstableApi
+    public ClientTlsSpec clientTlsSpec() {
+        return get(CLIENT_TLS_SPEC);
     }
 
     /**

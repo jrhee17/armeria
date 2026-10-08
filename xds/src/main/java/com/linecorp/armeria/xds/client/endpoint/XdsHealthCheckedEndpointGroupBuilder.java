@@ -36,6 +36,8 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.AsyncCloseable;
 import com.linecorp.armeria.common.util.DomainSocketAddress;
 import com.linecorp.armeria.internal.client.endpoint.healthcheck.DefaultHttpHealthChecker;
+import com.linecorp.armeria.xds.TransportSocketSnapshot;
+import com.linecorp.armeria.xds.internal.XdsEndpoint;
 
 import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.config.core.v3.HealthCheck.HttpHealthCheck;
@@ -62,13 +64,6 @@ final class XdsHealthCheckedEndpointGroupBuilder
         this.httpHealthCheck = httpHealthCheck;
         expectedStatuses = toExpectedStatuses(httpHealthCheck);
         this.healthCheckTlsSpec = healthCheckTlsSpec;
-        if (healthCheckTlsSpec != null) {
-            final ClientTlsSpec tlsSpec = healthCheckTlsSpec;
-            withClientOptions(opts -> opts.decorator((delegate1, ctx, req) -> {
-                ctx.setClientTlsSpec(tlsSpec);
-                return delegate1.execute(ctx, req);
-            }));
-        }
     }
 
     @Override
@@ -83,13 +78,33 @@ final class XdsHealthCheckedEndpointGroupBuilder
             final String path = httpHealthCheck.getPath();
             final String host = Strings.emptyToNull(httpHealthCheck.getHost());
 
+            final ClientTlsSpec tlsSpec = resolveEndpointTlsSpec(ctx.originalEndpoint());
+            final SessionProtocol protocol = tlsSpec != null ? SessionProtocol.HTTPS : SessionProtocol.HTTP;
             final DefaultHttpHealthChecker checker =
                     new DefaultHttpHealthChecker(ctx, endpoint(healthCheckConfig, ctx.originalEndpoint()),
                                                  path, httpMethod(httpHealthCheck) == HttpMethod.GET,
-                                                 SessionProtocol.HTTP, host, expectedStatuses);
+                                                 protocol, host, expectedStatuses, tlsSpec);
             checker.start();
             return checker;
         };
+    }
+
+    @Nullable
+    private ClientTlsSpec resolveEndpointTlsSpec(Endpoint endpoint) {
+        if (healthCheckTlsSpec != null) {
+            // transport_socket_match_criteria is set; use the fixed spec for all endpoints.
+            return healthCheckTlsSpec;
+        }
+        // Use the endpoint's own transport socket, matching what ClusterFilterFactory
+        // does for regular requests.
+        final XdsEndpoint xdsEndpoint = XdsEndpoint.get(endpoint);
+        if (xdsEndpoint != null) {
+            final TransportSocketSnapshot transportSocket = xdsEndpoint.transportSocket();
+            if (transportSocket != null) {
+                return transportSocket.clientTlsSpec();
+            }
+        }
+        return null;
     }
 
     private static HttpMethod httpMethod(HttpHealthCheck httpHealthCheck) {

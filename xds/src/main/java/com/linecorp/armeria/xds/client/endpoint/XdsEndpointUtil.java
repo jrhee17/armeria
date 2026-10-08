@@ -76,8 +76,11 @@ final class XdsEndpointUtil {
             if (matched != null) {
                 return matched.transportSocket().clientTlsSpec();
             }
+            // transport_socket_match_criteria is set but no match found; fall back to cluster default.
+            return defaultTransportSocket.clientTlsSpec();
         }
-        return defaultTransportSocket.clientTlsSpec();
+        // No transport_socket_match_criteria; use per-endpoint resolution.
+        return null;
     }
 
     static List<Endpoint> convertLoadAssignment(

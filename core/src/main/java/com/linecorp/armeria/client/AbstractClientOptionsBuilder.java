@@ -512,6 +512,18 @@ public class AbstractClientOptionsBuilder {
     }
 
     /**
+     * Sets the {@link ClientTlsSpec} that will be applied to all requests made by this client.
+     * A per-request {@link ClientTlsSpec} set via {@link RequestOptionsSetters#clientTlsSpec(ClientTlsSpec)}
+     * takes precedence over this setting.
+     */
+    @UnstableApi
+    public AbstractClientOptionsBuilder clientTlsSpec(ClientTlsSpec clientTlsSpec) {
+        requireNonNull(clientTlsSpec, "clientTlsSpec");
+        option(ClientOptions.CLIENT_TLS_SPEC, clientTlsSpec);
+        return this;
+    }
+
+    /**
      * Sets the {@link ResponseTimeoutMode} which determines when a {@link #responseTimeout(Duration)}}
      * will start to be scheduled.
      *

@@ -534,6 +534,13 @@ public final class DefaultClientRequestContext
             return;
         }
         if (clientTlsSpec == null) {
+            // Check client-level ClientTlsSpec before falling back to the factory-level provider.
+            final ClientTlsSpec clientOptionTlsSpec = options.clientTlsSpec();
+            if (clientOptionTlsSpec != ClientOptions.CLIENT_TLS_SPEC.defaultValue()) {
+                clientTlsSpec = clientOptionTlsSpec;
+            }
+        }
+        if (clientTlsSpec == null) {
             clientTlsSpec = options.factory().options().clientTlsProvider().clientTlsSpec(this);
         }
         setClientTlsSpec(clientTlsSpec);
