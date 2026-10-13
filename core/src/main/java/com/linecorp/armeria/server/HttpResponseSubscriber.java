@@ -39,6 +39,9 @@ final class HttpResponseSubscriber extends AbstractHttpResponseSubscriber {
 
     @Override
     void onResponseHeaders(ResponseHeaders headers) {
+        // Suppress any pending 100 Continue now that we are committing response headers.
+        req.suppress100Continue();
+
         boolean endOfStream = headers.isEndOfStream();
         final HttpStatus status = headers.status();
         final ResponseHeaders merged;

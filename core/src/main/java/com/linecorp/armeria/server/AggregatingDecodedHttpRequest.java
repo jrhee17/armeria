@@ -49,6 +49,10 @@ final class AggregatingDecodedHttpRequest extends AggregatingStreamMessage<HttpO
 
     @Nullable
     private ServiceRequestContext ctx;
+    @Nullable
+    private Runnable continueTask;
+    // Only accessed from the event loop.
+    private boolean continueSent;
     private long transferredBytes;
 
     @Nullable
@@ -264,5 +268,30 @@ final class AggregatingDecodedHttpRequest extends AggregatingStreamMessage<HttpO
     @Override
     public RequestHeaders headers() {
         return headers;
+    }
+
+    @Override
+    public void setExpectContinueTask(@Nullable Runnable task) {
+        this.continueTask = task;
+        // The framework always consumes the body for aggregation,
+        // so send 100 Continue immediately.
+        send100ContinueIfNeeded();
+    }
+
+    @Override
+    public void send100ContinueIfNeeded() {
+        if (continueTask == null) {
+            return;
+        }
+        assert eventLoop.inEventLoop();
+        if (!continueSent) {
+            continueSent = true;
+            continueTask.run();
+        }
+    }
+
+    @Override
+    public void suppress100Continue() {
+        continueSent = true;
     }
 }

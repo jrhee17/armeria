@@ -64,6 +64,10 @@ final class EmptyContentDecodedHttpRequest implements DecodedHttpRequest {
     private HttpResponse response;
     @Nullable
     private Throwable abortResponseCause;
+    @Nullable
+    private Runnable continueTask;
+    // Only accessed from the event loop.
+    private boolean continueSent;
 
     EmptyContentDecodedHttpRequest(EventLoop eventLoop, int id, int streamId, RequestHeaders headers,
                                    boolean keepAlive, RoutingContext routingContext,
@@ -192,6 +196,31 @@ final class EmptyContentDecodedHttpRequest implements DecodedHttpRequest {
     @Override
     public RequestHeaders headers() {
         return headers;
+    }
+
+    @Override
+    public void setExpectContinueTask(@Nullable Runnable task) {
+        this.continueTask = task;
+        // No body to defer — send 100 Continue immediately.
+        // The client already sent the complete request (end of stream).
+        send100ContinueIfNeeded();
+    }
+
+    @Override
+    public void send100ContinueIfNeeded() {
+        if (continueTask == null) {
+            return;
+        }
+        assert eventLoop.inEventLoop();
+        if (!continueSent) {
+            continueSent = true;
+            continueTask.run();
+        }
+    }
+
+    @Override
+    public void suppress100Continue() {
+        continueSent = true;
     }
 
     @Override

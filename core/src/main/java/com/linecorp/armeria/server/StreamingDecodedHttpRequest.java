@@ -29,10 +29,12 @@ import com.linecorp.armeria.common.HttpObject;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RequestHeaders;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.stream.SubscriptionOption;
 import com.linecorp.armeria.internal.common.DefaultHttpRequest;
 import com.linecorp.armeria.internal.common.InboundTrafficController;
 
 import io.netty.channel.EventLoop;
+import io.netty.util.concurrent.EventExecutor;
 
 final class StreamingDecodedHttpRequest extends DefaultHttpRequest implements DecodedHttpRequestWriter {
 
@@ -51,6 +53,10 @@ final class StreamingDecodedHttpRequest extends DefaultHttpRequest implements De
 
     @Nullable
     private ServiceRequestContext ctx;
+    @Nullable
+    private Runnable continueTask;
+    // Only accessed from the event loop.
+    private boolean continueSent;
     private long transferredBytes;
 
     @Nullable
@@ -245,6 +251,44 @@ final class StreamingDecodedHttpRequest extends DefaultHttpRequest implements De
     @Override
     public boolean isHttp1WebSocket() {
         return http1WebSocket;
+    }
+
+    @Override
+    public void setExpectContinueTask(@Nullable Runnable task) {
+        this.continueTask = task;
+    }
+
+    @Override
+    public void send100ContinueIfNeeded() {
+        if (continueTask == null) {
+            return;
+        }
+        // Both the gate check and the write must happen on the event loop so that
+        // suppress100Continue() (called from response header writing, also on the event loop)
+        // and this method see a consistent state.
+        if (eventLoop.inEventLoop()) {
+            send100Continue0();
+        } else {
+            eventLoop.execute(this::send100Continue0);
+        }
+    }
+
+    private void send100Continue0() {
+        if (!continueSent) {
+            continueSent = true;
+            continueTask.run();
+        }
+    }
+
+    @Override
+    public void suppress100Continue() {
+        // Always called from the event loop (response header writing path).
+        continueSent = true;
+    }
+
+    @Override
+    protected void subscribe0(EventExecutor executor, SubscriptionOption[] options) {
+        send100ContinueIfNeeded();
     }
 
     @VisibleForTesting

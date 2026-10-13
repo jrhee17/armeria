@@ -26,6 +26,7 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.SystemInfo;
 import com.linecorp.armeria.internal.common.InboundTrafficController;
 
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.EventLoop;
 
@@ -142,6 +143,24 @@ interface DecodedHttpRequest extends HttpRequest {
      * when the request started.
      */
     long requestStartTimeMicros();
+
+    /**
+     * Sets the task that sends a {@code 100 Continue} response. Called by the decoder when
+     * the request has a valid {@code Expect: 100-continue} header.
+     */
+    default void setExpectContinueTask(@Nullable Runnable task) {}
+
+    /**
+     * Sends {@code 100 Continue} if the request expects it and the response has not been committed yet.
+     * This is a one-shot operation — calling it multiple times has no additional effect.
+     */
+    default void send100ContinueIfNeeded() {}
+
+    /**
+     * Suppresses sending {@code 100 Continue}. Called when response headers are about to be committed,
+     * so that a late body subscription does not send a stale {@code 100 Continue}.
+     */
+    default void suppress100Continue() {}
 
     /**
      * Returns the maximum allowed length of the content of the request.

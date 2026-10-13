@@ -136,11 +136,11 @@ final class Http2RequestDecoder extends Http2EventAdapter {
                 return;
             }
 
-            // Handle `expect: 100-continue` first to give `handle100Continue()` a chance to remove
-            // the `expect` header before converting the Netty HttpHeaders into Armeria RequestHeaders.
-            // This is because removing a header from RequestHeaders is more expensive due to its
-            // immutability.
-            final boolean hasInvalidExpectHeader = !handle100Continue(streamId, nettyHeaders, method);
+            // Check `expect: 100-continue` but defer sending 100 Continue until the
+            // request body is actually subscribed to.
+            final int expectResult = checkExpectContinue(nettyHeaders);
+            final boolean hasInvalidExpectHeader = expectResult < 0;
+            final boolean expectsContinue = expectResult > 0;
 
             // Convert the Netty Http2Headers into Armeria RequestHeaders.
             final RequestHeaders headers =
@@ -212,6 +212,17 @@ final class Http2RequestDecoder extends Http2EventAdapter {
             final EventLoop eventLoop = ctx.channel().eventLoop();
             req = DecodedHttpRequest.of(endOfStream, eventLoop, id, streamId, headers, true,
                                         inboundTrafficController, routingCtx);
+            if (expectsContinue) {
+                final ServerHttpObjectEncoder enc = encoder;
+                final HttpMethod reqMethod = method;
+                final Channel ch = channel;
+                // The task is always executed on the event loop by
+                // send100ContinueIfNeeded().
+                req.setExpectContinueTask(() -> {
+                    enc.writeHeaders(0, streamId, CONTINUE_RESPONSE, false, reqMethod);
+                    ch.flush();
+                });
+            }
             final long maxRequestLength = req.maxRequestLength();
             if (maxRequestLength > 0 && contentLength > maxRequestLength) {
                 abortLargeRequest(req, true);
@@ -252,25 +263,24 @@ final class Http2RequestDecoder extends Http2EventAdapter {
         return (streamId - 1) >>> 1;
     }
 
-    private boolean handle100Continue(int streamId, Http2Headers headers, HttpMethod method) {
+    /**
+     * Checks the {@code Expect} header.
+     *
+     * @return {@code 0} if no {@code Expect} header,
+     *         {@code 1} if valid {@code Expect: 100-continue},
+     *         {@code -1} if unsupported {@code Expect} value.
+     */
+    private static int checkExpectContinue(Http2Headers headers) {
         final CharSequence expectValue = headers.get(HttpHeaderNames.EXPECT);
         if (expectValue == null) {
-            // No 'expect' header.
-            return true;
+            return 0;
         }
 
-        // '100-continue' is the only allowed expectation.
         if (!AsciiString.contentEqualsIgnoreCase(HttpHeaderValues.CONTINUE, expectValue)) {
-            return false;
+            return -1;
         }
 
-        // Send a '100 Continue' response.
-        assert encoder != null;
-        encoder.writeHeaders(0 /* unused */, streamId, CONTINUE_RESPONSE, false, method);
-
-        // Remove the 'expect' header so that it's handled in a way invisible to a Service.
-        headers.remove(HttpHeaderNames.EXPECT);
-        return true;
+        return 1;
     }
 
     @Override

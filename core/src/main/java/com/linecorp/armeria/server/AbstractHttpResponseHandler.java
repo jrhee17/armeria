@@ -133,6 +133,9 @@ abstract class AbstractHttpResponseHandler {
      * Note that the caller has to flush the written data when needed.
      */
     final ChannelFuture writeAggregatedHttpResponse(AggregatedHttpResponse res) {
+        // Suppress any pending 100 Continue now that we are committing response headers.
+        req.suppress100Continue();
+
         final int id = req.id();
         final int streamId = req.streamId();
 
