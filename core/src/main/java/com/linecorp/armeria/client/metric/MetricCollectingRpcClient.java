@@ -70,4 +70,12 @@ public final class MetricCollectingRpcClient extends AbstractMetricCollectingCli
             DistributionStatisticConfig distributionStatisticConfig) {
         super(delegate, meterIdPrefixFunction, successFunction, distributionStatisticConfig);
     }
+
+    MetricCollectingRpcClient(
+            RpcClient delegate, MeterIdPrefixFunction meterIdPrefixFunction,
+            @Nullable BiPredicate<? super RequestContext, ? super RequestLog> successFunction,
+            DistributionStatisticConfig distributionStatisticConfig,
+            int maxCardinality) {
+        super(delegate, meterIdPrefixFunction, successFunction, distributionStatisticConfig, maxCardinality);
+    }
 }

@@ -26,8 +26,10 @@ import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.RequestContext;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.logging.RequestLog;
 import com.linecorp.armeria.common.metric.MeterIdPrefixFunction;
+import com.linecorp.armeria.internal.common.metric.RequestMetricLimiter;
 import com.linecorp.armeria.internal.common.metric.RequestMetricSupport;
 import com.linecorp.armeria.internal.server.RouteDecoratingService;
 import com.linecorp.armeria.server.HttpService;
@@ -75,6 +77,18 @@ public final class MetricCollectingService extends SimpleDecoratingHttpService {
     }
 
     /**
+     * Returns a new {@link HttpService} decorator that tracks request stats using {@link MeterRegistry}
+     * with the specified {@code maxCardinality}.
+     */
+    @UnstableApi
+    public static Function<? super HttpService, MetricCollectingService> newDecorator(
+            MeterIdPrefixFunction meterIdPrefixFunction, int maxCardinality) {
+
+        requireNonNull(meterIdPrefixFunction, "meterIdPrefixFunction");
+        return builder(meterIdPrefixFunction).maxCardinality(maxCardinality).newDecorator();
+    }
+
+    /**
      * Returns a newly created {@link MetricCollectingServiceBuilder}.
      */
     public static MetricCollectingServiceBuilder builder(MeterIdPrefixFunction meterIdPrefixFunction) {
@@ -86,16 +100,27 @@ public final class MetricCollectingService extends SimpleDecoratingHttpService {
     private final BiPredicate<? super RequestContext, ? super RequestLog> successFunction;
     private final ConcurrentMap<Route, Boolean> routeCache = new ConcurrentHashMap<>();
     private final DistributionStatisticConfig distributionStatisticConfig;
+    @Nullable
+    private final RequestMetricLimiter metricLimiter;
 
     MetricCollectingService(HttpService delegate,
                             MeterIdPrefixFunction meterIdPrefixFunction,
                             @Nullable BiPredicate<? super RequestContext, ? super RequestLog> successFunction,
                             DistributionStatisticConfig distributionStatisticConfig) {
+        this(delegate, meterIdPrefixFunction, successFunction, distributionStatisticConfig, 0);
+    }
+
+    MetricCollectingService(HttpService delegate,
+                            MeterIdPrefixFunction meterIdPrefixFunction,
+                            @Nullable BiPredicate<? super RequestContext, ? super RequestLog> successFunction,
+                            DistributionStatisticConfig distributionStatisticConfig,
+                            int maxCardinality) {
         super(delegate);
         this.meterIdPrefixFunction = requireNonNull(meterIdPrefixFunction, "meterIdPrefixFunction");
         this.successFunction = successFunction;
         this.distributionStatisticConfig =
                 requireNonNull(distributionStatisticConfig, "distributionStatisticConfig");
+        metricLimiter = maxCardinality > 0 ? new RequestMetricLimiter(maxCardinality) : null;
     }
 
     @Override
@@ -104,7 +129,7 @@ public final class MetricCollectingService extends SimpleDecoratingHttpService {
             RequestMetricSupport.setup(ctx, REQUEST_METRICS_SET, meterIdPrefixFunction, true,
                                        successFunction != null ? successFunction::test
                                                                : ctx.config().successFunction(),
-                                       distributionStatisticConfig);
+                                       distributionStatisticConfig, metricLimiter);
         }
         return unwrap().serve(ctx, req);
     }

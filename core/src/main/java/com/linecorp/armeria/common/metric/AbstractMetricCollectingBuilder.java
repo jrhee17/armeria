@@ -15,6 +15,7 @@
  */
 package com.linecorp.armeria.common.metric;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 import java.util.function.BiPredicate;
@@ -23,6 +24,7 @@ import com.linecorp.armeria.client.ClientBuilder;
 import com.linecorp.armeria.common.RequestContext;
 import com.linecorp.armeria.common.SuccessFunction;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.annotation.UnstableApi;
 import com.linecorp.armeria.common.logging.RequestLog;
 import com.linecorp.armeria.server.ServerBuilder;
 
@@ -39,6 +41,8 @@ public abstract class AbstractMetricCollectingBuilder {
     private BiPredicate<? super RequestContext, ? super RequestLog> successFunction;
 
     private DistributionStatisticConfig distributionStatisticConfig = MoreMeters.distributionStatisticConfig();
+
+    private int maxCardinality;
 
     /**
      * Creates a new instance with the specified {@link MeterIdPrefixFunction}.
@@ -102,6 +106,29 @@ public abstract class AbstractMetricCollectingBuilder {
             DistributionStatisticConfig distributionStatisticConfig) {
         this.distributionStatisticConfig = requireNonNull(distributionStatisticConfig,
                                                           "distributionStatisticConfig");
+        return this;
+    }
+
+    /**
+     * Returns the {@code maxCardinality}.
+     */
+    protected final int maxCardinality() {
+        return maxCardinality;
+    }
+
+    /**
+     * Sets the maximum number of distinct metric prefixes to track. When the number of unique
+     * {@code completeRequestPrefix} values exceeds this limit, metrics for new tag combinations
+     * are silently dropped and a warning is logged once.
+     *
+     * <p>A value of {@code 0} (the default) means no limit.
+     *
+     * @param maxCardinality the maximum number of distinct metric prefixes, must be positive
+     */
+    @UnstableApi
+    public AbstractMetricCollectingBuilder maxCardinality(int maxCardinality) {
+        checkArgument(maxCardinality > 0, "maxCardinality: %s (expected: > 0)", maxCardinality);
+        this.maxCardinality = maxCardinality;
         return this;
     }
 }
