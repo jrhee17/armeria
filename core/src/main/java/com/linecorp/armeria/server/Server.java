@@ -809,53 +809,58 @@ public final class Server implements ListenableAsyncCloseable {
                 return;
             }
 
-            final SocketAddress localAddress = ch.localAddress();
-            final ServerPort actualPort;
-            if (localAddress instanceof InetSocketAddress) {
-                actualPort = new ServerPort((InetSocketAddress) localAddress,
-                                            port.protocols(),
-                                            port.portGroup());
-            } else if (localAddress instanceof io.netty.channel.unix.DomainSocketAddress) {
-                // Convert Netty's DomainSocketAddress to ours.
-                final DomainSocketAddress converted = DomainSocketAddress.of(
-                        (io.netty.channel.unix.DomainSocketAddress) localAddress);
-                actualPort = new ServerPort(converted,
-                                            port.protocols(),
-                                            port.portGroup());
-            } else {
-                logger.warn("Unexpected local address type: {}", localAddress.getClass().getName());
-                return;
-            }
-            final ServerPortMetric serverPortMetric = ch.attr(SERVER_PORT_METRIC).get();
-            assert serverPortMetric != null;
-            actualPort.setServerPortMetric(serverPortMetric);
-
-            // Set the actual port on the original ServerPort for ephemeral ports
-            if (port.localAddress().getPort() == 0) {
-                port.setActualPort(actualPort.localAddress().getPort());
-            }
-
-            // Update the boss thread so its name contains the actual port.
-            Thread.currentThread().setName(bossThreadName(actualPort));
-
-            lock.lock();
             try {
-                // Update the map of active ports.
-                activePorts.put(actualPort.localAddress(), actualPort);
-            } finally {
-                lock.unlock();
-            }
-
-            config.serverMetrics().addServerPort(actualPort);
-
-            if (logger.isInfoEnabled()) {
-                if (isLocalPort(actualPort)) {
-                    port.protocols().forEach(p -> logger.info(
-                            "Serving {} at {} - {}://127.0.0.1:{}/",
-                            p.name(), localAddress, p.uriText(), actualPort.localAddress().getPort()));
+                final SocketAddress localAddress = ch.localAddress();
+                final ServerPort actualPort;
+                if (localAddress instanceof InetSocketAddress) {
+                    actualPort = new ServerPort((InetSocketAddress) localAddress,
+                                                port.protocols(),
+                                                port.portGroup());
+                } else if (localAddress instanceof io.netty.channel.unix.DomainSocketAddress) {
+                    // Convert Netty's DomainSocketAddress to ours.
+                    final DomainSocketAddress converted = DomainSocketAddress.of(
+                            (io.netty.channel.unix.DomainSocketAddress) localAddress);
+                    actualPort = new ServerPort(converted,
+                                                port.protocols(),
+                                                port.portGroup());
                 } else {
-                    logger.info("Serving {} at {}", Joiner.on('+').join(port.protocols()), localAddress);
+                    logger.warn("Unexpected local address type: {}", localAddress.getClass().getName());
+                    return;
                 }
+                final ServerPortMetric serverPortMetric = ch.attr(SERVER_PORT_METRIC).get();
+                assert serverPortMetric != null;
+                actualPort.setServerPortMetric(serverPortMetric);
+
+                // Set the actual port on the original ServerPort for ephemeral ports
+                if (port.localAddress().getPort() == 0) {
+                    port.setActualPort(actualPort.localAddress().getPort());
+                }
+
+                // Update the boss thread so its name contains the actual port.
+                Thread.currentThread().setName(bossThreadName(actualPort));
+
+                lock.lock();
+                try {
+                    // Update the map of active ports.
+                    activePorts.put(actualPort.localAddress(), actualPort);
+                } finally {
+                    lock.unlock();
+                }
+
+                config.serverMetrics().addServerPort(actualPort);
+
+                if (logger.isInfoEnabled()) {
+                    if (isLocalPort(actualPort)) {
+                        port.protocols().forEach(p -> logger.info(
+                                "Serving {} at {} - {}://127.0.0.1:{}/",
+                                p.name(), localAddress, p.uriText(), actualPort.localAddress().getPort()));
+                    } else {
+                        logger.info("Serving {} at {}", Joiner.on('+').join(port.protocols()), localAddress);
+                    }
+                }
+            } catch (Throwable cause) {
+                // Roll back startup even when binding succeeded but port initialization failed.
+                future.completeExceptionally(cause);
             }
         }
     }
@@ -878,7 +883,8 @@ public final class Server implements ListenableAsyncCloseable {
 
         @Override
         public void operationComplete(ChannelFuture f) throws Exception {
-            if (!f.isSuccess()) {
+            // A successful bind can still fail while initializing the port.
+            if (!f.isSuccess() || future.isDone()) {
                 return;
             }
             if (!it.hasNext()) {
