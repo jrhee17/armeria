@@ -642,6 +642,7 @@ public final class Server implements ListenableAsyncCloseable {
                 lock.lock();
                 try {
                     activePorts.clear();
+                    config().ports().forEach(ServerPort::resetActualPort);
                 } finally {
                     lock.unlock();
                 }

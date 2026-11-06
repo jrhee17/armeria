@@ -236,7 +236,7 @@ public final class ServerPort implements Comparable<ServerPort> {
 
     /**
      * Returns the actual port this {@link ServerPort} is bound to.
-     * If the port was configured as 0 (ephemeral) and has been bound, returns the actual bound port.
+     * If the port was configured as 0 (ephemeral) and is bound, returns the actual bound port.
      * Otherwise, returns the configured port from {@link #localAddress()}.
      */
     @UnstableApi
@@ -263,6 +263,13 @@ public final class ServerPort implements Comparable<ServerPort> {
         checkState(this.actualPort == -1,
                    "actualPort is already set to %s", this.actualPort);
         this.actualPort = actualPort;
+    }
+
+    /**
+     * Clears the bound port after shutdown so that the next startup can bind an ephemeral port again.
+     */
+    void resetActualPort() {
+        actualPort = -1;
     }
 
     @Nullable

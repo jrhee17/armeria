@@ -44,8 +44,15 @@ class ServerStartupFailureTest {
         final InetAddress loopback = InetAddress.getLoopbackAddress();
         final List<ServerPort> ports = new ArrayList<>();
         final List<EventLoopGroup> bossGroups = new CopyOnWriteArrayList<>();
+        final List<InetSocketAddress> boundAddresses = new CopyOnWriteArrayList<>();
         final ServerBuilder sb = Server.builder()
                                       .service("/", (ctx, req) -> HttpResponse.of(200))
+                                      .serverListener(new ServerListenerAdapter() {
+                                          @Override
+                                          public void serverStopping(Server server) {
+                                              boundAddresses.addAll(server.activePorts().keySet());
+                                          }
+                                      })
                                       .bossGroupFactory(threadName -> {
                                           final EventLoopGroup group = EventLoopGroups.newEventLoopGroup(1);
                                           bossGroups.add(group);
@@ -71,11 +78,12 @@ class ServerStartupFailureTest {
             // Startup must wait for rollback and must not attempt any ports after the failed one.
             assertThat(bossGroups).hasSize(failingPortIndex + 1)
                                   .allSatisfy(group -> assertThat(group.isTerminated()).isTrue());
-            for (int i = 0; i < failingPortIndex; i++) {
+            assertThat(ports).allSatisfy(port -> assertThat(port.actualPort()).isZero());
+            assertThat(boundAddresses).hasSize(failingPortIndex);
+            for (InetSocketAddress address : boundAddresses) {
                 // Ports initialized before the failure must have released their listening sockets.
-                final int boundPort = ports.get(i).actualPort();
-                try (ServerSocket rebound = new ServerSocket(boundPort, 0, loopback)) {
-                    assertThat(rebound.getLocalPort()).isEqualTo(boundPort);
+                try (ServerSocket rebound = new ServerSocket(address.getPort(), 0, address.getAddress())) {
+                    assertThat(rebound.getLocalPort()).isEqualTo(address.getPort());
                 }
             }
         } finally {

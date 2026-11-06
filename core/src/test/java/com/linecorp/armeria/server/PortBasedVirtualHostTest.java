@@ -501,6 +501,35 @@ class PortBasedVirtualHostTest {
     }
 
     @Test
+    void serverPortVirtualHostCanRestart() {
+        final ServerPort port = new ServerPort(0, SessionProtocol.HTTP);
+        try (Server server = Server.builder()
+                                   .port(port)
+                                   .virtualHost(port)
+                                   .service("/test", (ctx, req) -> HttpResponse.of("OK"))
+                                   .and()
+                                   .build()) {
+            for (int i = 0; i < 2; i++) {
+                assertThat(port.actualPort()).isZero();
+                server.start().join();
+
+                final int boundPort = port.actualPort();
+                assertThat(boundPort).isPositive();
+                assertThat(server.activePorts()).hasSize(1);
+                assertThat(server.activeLocalPort()).isEqualTo(boundPort);
+                assertThat(server.config().findVirtualHost("example.com", boundPort).serverPort())
+                        .isSameAs(port);
+                final WebClient client = WebClient.of("http://127.0.0.1:" + boundPort);
+                assertThat(client.get("/test").aggregate().join().contentUtf8()).isEqualTo("OK");
+
+                server.stop().join();
+                assertThat(server.activePorts()).isEmpty();
+                assertThat(port.actualPort()).isZero();
+            }
+        }
+    }
+
+    @Test
     void multipleRandomPortVirtualHosts() {
         final ServerPort port1 = new ServerPort(0, SessionProtocol.HTTP);
         final ServerPort port2 = new ServerPort(0, SessionProtocol.HTTP);
