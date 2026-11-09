@@ -120,7 +120,7 @@ final class HttpChannelPool implements AsyncCloseable {
                                     sslContextFactory, clientFactory.defaultSslContexts());
     }
 
-    private void configureProxy(Channel ch, ProxyConfig proxyConfig) {
+    private void configureProxy(Channel ch, ProxyConfig proxyConfig, int connectTimeoutMillis) {
         if (proxyConfig.proxyType() == ProxyType.DIRECT) {
             return;
         }
@@ -408,9 +408,12 @@ final class HttpChannelPool implements AsyncCloseable {
 
             try {
                 final Channel channel = registerFuture.channel();
+                final int connectTimeoutMillis = poolKey.connectTimeoutMillis > 0 ?
+                                                 poolKey.connectTimeoutMillis : this.connectTimeoutMillis;
+                channel.config().setConnectTimeoutMillis(connectTimeoutMillis);
                 ConnectionEventListener.setToChannelAttr(
                         desiredProtocol, clientFactory.connectionPoolListener(), channel);
-                configureProxy(channel, poolKey.proxyConfig);
+                configureProxy(channel, poolKey.proxyConfig, connectTimeoutMillis);
 
                 if (desiredProtocol.isTls() && timingsBuilder != null) {
                     channel.attr(TIMINGS_BUILDER_KEY).set(timingsBuilder);
@@ -481,7 +484,7 @@ final class HttpChannelPool implements AsyncCloseable {
         assert eventLoop.inEventLoop();
 
         ch.pipeline().addLast(
-                new HttpSessionHandler(this, ch, sessionPromise, connectTimeoutMillis,
+                new HttpSessionHandler(this, ch, sessionPromise, ch.config().getConnectTimeoutMillis(),
                                        desiredProtocol, serializationFormat, poolKey, clientFactory));
     }
 
@@ -621,14 +624,18 @@ final class HttpChannelPool implements AsyncCloseable {
         private final ClientTlsSpec tlsSpec;
         @Nullable
         final InetSocketAddress localAddress;
+
+        // Excluded from equals/hashCode
+        final int connectTimeoutMillis;
         private final int hashCode;
 
         PoolKey(Endpoint endpoint, ProxyConfig proxyConfig, @Nullable ClientTlsSpec tlsSpec,
-                @Nullable InetSocketAddress localAddress) {
+                @Nullable InetSocketAddress localAddress, int connectTimeoutMillis) {
             this.endpoint = endpoint;
             this.proxyConfig = proxyConfig;
             this.tlsSpec = tlsSpec;
             this.localAddress = localAddress;
+            this.connectTimeoutMillis = connectTimeoutMillis;
             hashCode = Objects.hash(endpoint, proxyConfig, tlsSpec, localAddress);
         }
 

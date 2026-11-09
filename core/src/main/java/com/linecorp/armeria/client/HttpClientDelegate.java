@@ -237,7 +237,10 @@ final class HttpClientDelegate implements HttpClient {
             }
         }
 
-        final PoolKey key = new PoolKey(endpoint, proxyConfig, ctx.clientTlsSpec(), localBindAddress);
+        final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
+        final int connectTimeoutMillis = ctxExt != null ? ctxExt.connectTimeoutMillis() : 0;
+        final PoolKey key = new PoolKey(endpoint, proxyConfig, ctx.clientTlsSpec(), localBindAddress,
+                                       connectTimeoutMillis);
         final HttpChannelPool pool;
         try {
             pool = factory.pool(ctx.eventLoop().withoutContext());

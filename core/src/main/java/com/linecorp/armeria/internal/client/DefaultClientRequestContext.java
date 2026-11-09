@@ -161,6 +161,7 @@ public final class DefaultClientRequestContext
     private final ClientOptions options;
     private final RequestLogBuilder log;
     private final CancellationScheduler responseCancellationScheduler;
+    private int connectTimeoutMillis;
     private long writeTimeoutMillis;
     private long maxResponseLength;
 
@@ -689,6 +690,7 @@ public final class DefaultClientRequestContext
         // Cancel the original timeout and create a new scheduler for the derived context.
         ctx.responseCancellationScheduler.cancelScheduled();
         responseCancellationScheduler = CancellationScheduler.ofClient(ctx.remainingTimeoutNanos());
+        connectTimeoutMillis = ctx.connectTimeoutMillis();
         writeTimeoutMillis = ctx.writeTimeoutMillis();
         maxResponseLength = ctx.maxResponseLength();
 
@@ -1070,6 +1072,18 @@ public final class DefaultClientRequestContext
     @Override
     public long remainingTimeoutNanos() {
         return responseCancellationScheduler().remainingTimeoutNanos();
+    }
+
+    @Override
+    public int connectTimeoutMillis() {
+        return connectTimeoutMillis;
+    }
+
+    @Override
+    public void setConnectTimeoutMillis(int connectTimeoutMillis) {
+        checkArgument(connectTimeoutMillis >= 0,
+                      "connectTimeoutMillis: %s (expected: >= 0)", connectTimeoutMillis);
+        this.connectTimeoutMillis = connectTimeoutMillis;
     }
 
     @Override

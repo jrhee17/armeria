@@ -19,6 +19,8 @@ package com.linecorp.armeria.xds;
 import java.util.Set;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.primitives.Ints;
+import com.google.protobuf.Duration;
 
 import com.linecorp.armeria.client.ClientDecoration;
 import com.linecorp.armeria.client.ClientRequestContext;
@@ -42,6 +44,7 @@ import com.linecorp.armeria.xds.internal.DelegatingHttpClient;
 import com.linecorp.armeria.xds.internal.XdsCommonUtil;
 import com.linecorp.armeria.xds.internal.XdsEndpoint;
 
+import io.envoyproxy.envoy.config.cluster.v3.Cluster;
 import io.envoyproxy.envoy.extensions.upstreams.http.v3.HttpProtocolOptions;
 import io.envoyproxy.envoy.extensions.upstreams.http.v3.HttpProtocolOptions.ExplicitHttpConfig;
 
@@ -69,14 +72,23 @@ final class ClusterFilterFactory {
 
     private final XdsEndpointGroup endpointGroup;
     private final SessionProtocol sessionProtocol;
+    private final int connectTimeoutMillis;
     @Nullable
     private final HttpProtocolOptions httpProtocolOptions;
 
-    ClusterFilterFactory(XdsLoadBalancer loadBalancer,
+    ClusterFilterFactory(Cluster cluster, XdsLoadBalancer loadBalancer,
                          @Nullable HttpProtocolOptions httpProtocolOptions) {
         endpointGroup = XdsEndpointGroup.of(loadBalancer);
         this.httpProtocolOptions = httpProtocolOptions;
         sessionProtocol = sessionProtocol(httpProtocolOptions);
+        if (cluster.hasConnectTimeout()) {
+            final Duration timeout = cluster.getConnectTimeout();
+            final long timeoutMillis = java.time.Duration.ofSeconds(timeout.getSeconds(), timeout.getNanos())
+                                                         .toMillis();
+            connectTimeoutMillis = Ints.saturatedCast(Math.max(1, timeoutMillis));
+        } else {
+            connectTimeoutMillis = 0;
+        }
     }
 
     @Nullable
@@ -100,6 +112,9 @@ final class ClusterFilterFactory {
         final RouteCluster routeCluster = ctx.attr(XdsCommonUtil.ROUTE_CLUSTER);
         final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
         if (ctxExt != null) {
+            if (connectTimeoutMillis > 0) {
+                ctxExt.setConnectTimeoutMillis(connectTimeoutMillis);
+            }
             final HttpClient httpClient = routeCluster != null ?
                                           routeCluster.httpClient() : CLUSTER_ONLY_HTTP_CLIENT;
             ctxExt.httpClientCustomizer(actualClient -> {

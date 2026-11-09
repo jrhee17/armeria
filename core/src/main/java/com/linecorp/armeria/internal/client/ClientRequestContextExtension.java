@@ -37,6 +37,18 @@ import com.linecorp.armeria.internal.common.RequestContextExtension;
 public interface ClientRequestContextExtension extends ClientRequestContext, RequestContextExtension {
 
     /**
+     * Returns the timeout for a new connection attempt in milliseconds, or {@code 0} to use the
+     * client factory's timeout. This timeout does not affect pooled or shared pending connections.
+     */
+    int connectTimeoutMillis();
+
+    /**
+     * Sets the timeout for a new connection attempt in milliseconds, or {@code 0} to use the
+     * client factory's timeout.
+     */
+    void setConnectTimeoutMillis(int connectTimeoutMillis);
+
+    /**
      * Returns the {@link CancellationScheduler} used to schedule a response timeout.
      */
     CancellationScheduler responseCancellationScheduler();

@@ -17,28 +17,59 @@
 package com.linecorp.armeria.xds.it;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import com.linecorp.armeria.client.ClientFactory;
+import com.linecorp.armeria.client.ClientFactoryOptions;
 import com.linecorp.armeria.client.ClientRequestContext;
 import com.linecorp.armeria.client.ClientRequestContextCaptor;
 import com.linecorp.armeria.client.Clients;
+import com.linecorp.armeria.client.SessionProtocolNegotiationException;
+import com.linecorp.armeria.client.UnprocessedRequestException;
 import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.Flags;
 import com.linecorp.armeria.common.HttpMethod;
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
+import com.linecorp.armeria.internal.testing.NettyServerExtension;
 import com.linecorp.armeria.xds.XdsBootstrap;
 import com.linecorp.armeria.xds.client.endpoint.XdsHttpPreprocessor;
+
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.util.ReferenceCountUtil;
 
 class TimeoutTest {
 
     private static final long DEFAULT_RESPONSE_TIMEOUT_MILLIS = Flags.defaultResponseTimeoutMillis();
+
+    @RegisterExtension
+    static final NettyServerExtension silentServer = new NettyServerExtension() {
+        @Override
+        protected void configure(Channel ch) {
+            ch.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+                @Override
+                public void channelRead(ChannelHandlerContext ctx, Object msg) {
+                    // Accept TCP connections without completing HTTP/2 session negotiation.
+                    ReferenceCountUtil.release(msg);
+                }
+            });
+        }
+    };
 
     //language=YAML
     private static final String connManagerBootstrap =
@@ -67,6 +98,12 @@ class TimeoutTest {
                   clusters:
                   - name: my-cluster
                     type: STATIC
+                    %s
+                    typed_extension_protocol_options:
+                      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+                        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+                        explicit_http_config:
+                          http2_protocol_options: {}
                     load_assignment:
                       cluster_name: my-cluster
                       endpoints:
@@ -75,7 +112,7 @@ class TimeoutTest {
                             address:
                               socket_address:
                                 address: 127.0.0.1
-                                port_value: 8080
+                                port_value: %s
                 """;
 
     public static Stream<Arguments> responseTimeout_args() {
@@ -105,7 +142,7 @@ class TimeoutTest {
     @ParameterizedTest
     @MethodSource("responseTimeout_args")
     void responseTimeout(String routeOptions, long expectedMillis) {
-        final String yamlBootstrap = connManagerBootstrap.formatted(routeOptions);
+        final String yamlBootstrap = connManagerBootstrap.formatted(routeOptions, "", 8080);
         try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(XdsResourceReader.fromYaml(yamlBootstrap));
              XdsHttpPreprocessor preprocessor = XdsHttpPreprocessor.ofListener("my-listener", xdsBootstrap)) {
             final ClientRequestContext ctx;
@@ -121,6 +158,63 @@ class TimeoutTest {
                 ctx = captor.get();
             }
             assertThat(ctx.responseTimeoutMillis()).isEqualTo(expectedMillis);
+        }
+    }
+
+    static Stream<Arguments> connectTimeout_args() {
+        return Stream.of(
+                Arguments.of("connect_timeout: 0.2s", 5000, 200),
+                Arguments.of("connect_timeout: 0.4s", 50, 400),
+                Arguments.of("", 200, 200));
+    }
+
+    @ParameterizedTest
+    @MethodSource("connectTimeout_args")
+    void connectTimeout(String clusterOptions, int factoryTimeoutMillis, int expectedTimeoutMillis) {
+        final String yamlBootstrap = connManagerBootstrap.formatted(
+                "{ cluster: my-cluster }", clusterOptions, silentServer.address().getPort());
+        final AtomicInteger channelTimeoutMillis = new AtomicInteger();
+        final AtomicLong connectStartNanos = new AtomicLong();
+        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(XdsResourceReader.fromYaml(yamlBootstrap));
+             XdsHttpPreprocessor preprocessor = XdsHttpPreprocessor.ofListener("my-listener", xdsBootstrap);
+             ClientFactory factory =
+                     ClientFactory.builder()
+                                  .connectTimeoutMillis(factoryTimeoutMillis)
+                                  .option(ClientFactoryOptions.CHANNEL_PIPELINE_CUSTOMIZER, pipeline -> {
+                                      channelTimeoutMillis.set(pipeline.channel().config()
+                                                                       .getConnectTimeoutMillis());
+                                      connectStartNanos.set(System.nanoTime());
+                                  })
+                                  .build()) {
+            final WebClient client = WebClient.builder(preprocessor)
+                                              .factory(factory)
+                                              .responseTimeoutMillis(5000)
+                                              .build();
+            assertThatThrownBy(() -> client.blocking().get("/"))
+                    .isInstanceOf(UnprocessedRequestException.class)
+                    .hasRootCauseInstanceOf(SessionProtocolNegotiationException.class);
+            assertThat(channelTimeoutMillis).hasValue(expectedTimeoutMillis);
+            assertThat(System.nanoTime() - connectStartNanos.get())
+                    .isGreaterThanOrEqualTo(TimeUnit.MILLISECONDS.toNanos(expectedTimeoutMillis));
+        }
+    }
+
+    @CsvSource({ "0.000000001s, 1", "2147483648s, 2147483647" })
+    @ParameterizedTest
+    void connectTimeoutBounds(String timeout, int expectedTimeoutMillis) {
+        final String yamlBootstrap = connManagerBootstrap.formatted(
+                "{ cluster: my-cluster }", "connect_timeout: " + timeout, 8080);
+        try (XdsBootstrap xdsBootstrap = XdsBootstrap.of(XdsResourceReader.fromYaml(yamlBootstrap));
+             XdsHttpPreprocessor preprocessor = XdsHttpPreprocessor.ofListener("my-listener", xdsBootstrap)) {
+            final WebClient client = WebClient.builder(preprocessor)
+                                              .decorator((delegate, ctx, req) -> {
+                                                  assertThat(ctx.as(ClientRequestContextExtension.class)
+                                                                .connectTimeoutMillis())
+                                                          .isEqualTo(expectedTimeoutMillis);
+                                                  return HttpResponse.of(200);
+                                              })
+                                              .build();
+            assertThat(client.blocking().get("/").status().code()).isEqualTo(200);
         }
     }
 }

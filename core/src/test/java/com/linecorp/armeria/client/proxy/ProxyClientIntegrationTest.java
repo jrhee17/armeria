@@ -52,6 +52,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -73,6 +74,7 @@ import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.TlsPeerVerifierFactory;
 import com.linecorp.armeria.common.TlsProvider;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.internal.client.ClientRequestContextExtension;
 import com.linecorp.armeria.internal.testing.BlockingUtils;
 import com.linecorp.armeria.internal.testing.NettyServerExtension;
 import com.linecorp.armeria.internal.testing.SimpleChannelHandlerFactory;
@@ -688,8 +690,9 @@ class ProxyClientIntegrationTest {
         }
     }
 
-    @Test
-    void testProxy_connectionTimeoutFailure_throwsException() throws Exception {
+    @ValueSource(booleans = { false, true })
+    @ParameterizedTest
+    void testProxy_connectionTimeoutFailure_throwsException(boolean overrideTimeout) throws Exception {
         final int proxyMessageDelayMillis = 5_000;
         final int connectTimeoutMillis = 1_000;
 
@@ -727,12 +730,19 @@ class ProxyClientIntegrationTest {
         try (ClientFactory clientFactory =
                      ClientFactory.builder()
                                   .proxyConfig(selector)
-                                  .connectTimeoutMillis(connectTimeoutMillis)
+                                  .connectTimeoutMillis(overrideTimeout ? 10_000 : connectTimeoutMillis)
                                   .useHttp2Preface(true)
                                   .build()) {
 
             final WebClient webClient = WebClient.builder(SessionProtocol.H1C, backendServer.httpEndpoint())
                                                  .factory(clientFactory)
+                                                 .decorator((delegate, ctx, req) -> {
+                                                     if (overrideTimeout) {
+                                                         ctx.as(ClientRequestContextExtension.class)
+                                                            .setConnectTimeoutMillis(connectTimeoutMillis);
+                                                     }
+                                                     return delegate.execute(ctx, req);
+                                                 })
                                                  .decorator(LoggingClient.newDecorator())
                                                  .build();
             final CompletableFuture<AggregatedHttpResponse> responseFuture =

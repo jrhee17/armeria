@@ -8,6 +8,12 @@ The xDS client module lets Armeria clients discover endpoints, match routes, and
 apply policies — retries, timeouts, load balancing, mTLS — all driven by xDS
 configuration.
 
+The cluster's `connect_timeout`, when specified, overrides the [ClientFactory](type)
+timeout for new connection attempts, including proxy and session negotiation. If
+omitted, the factory's timeout applies. This override is best effort: pooled
+connections are reused, and shared pending connection attempts retain the timeout
+of the request that started them. Each connection phase uses its own timeout.
+
 ## Basics
 
 The simplest way to create an xDS-backed client is with the `xds:///` URI scheme:

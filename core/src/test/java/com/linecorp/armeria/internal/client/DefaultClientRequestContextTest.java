@@ -71,6 +71,18 @@ class DefaultClientRequestContextTest {
     }
 
     @Test
+    void derivedContextPreservesConnectTimeout() {
+        final ClientRequestContext ctx = ClientRequestContext.of(HttpRequest.of(HttpMethod.GET, "/"));
+        final ClientRequestContextExtension ctxExt = ctx.as(ClientRequestContextExtension.class);
+        assertThat(ctxExt.connectTimeoutMillis()).isZero();
+        ctxExt.setConnectTimeoutMillis(1234);
+
+        final ClientRequestContext derived = ctx.newDerivedContext(
+                RequestId.random(), ctx.request(), ctx.rpcRequest(), ctx.endpoint());
+        assertThat(derived.as(ClientRequestContextExtension.class).connectTimeoutMillis()).isEqualTo(1234);
+    }
+
+    @Test
     void canBringAttributeInServiceRequestContext() {
         final HttpRequest req = HttpRequest.of(HttpMethod.GET, "/");
         final ServiceRequestContext serviceContext = ServiceRequestContext.of(req);
