@@ -18,8 +18,6 @@ package com.linecorp.armeria.common.logging;
 
 import static com.linecorp.armeria.common.logging.TextHeadersSanitizer.maskHeaders;
 
-import java.util.Set;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -27,21 +25,16 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linecorp.armeria.common.HttpHeaders;
 import com.linecorp.armeria.common.RequestContext;
 
-import io.netty.util.AsciiString;
-
 /**
  * A sanitizer that sanitizes {@link HttpHeaders} and returns {@link JsonNode}.
  */
 final class JsonHeadersSanitizer implements HeadersSanitizer<JsonNode> {
 
     static final HeadersSanitizer<JsonNode> INSTANCE = new JsonHeadersSanitizerBuilder().build();
-    private final Set<AsciiString> sensitiveHeaders;
     private final HeaderMaskingFunction maskingFunction;
     private final ObjectMapper objectMapper;
 
-    JsonHeadersSanitizer(Set<AsciiString> sensitiveHeaders, HeaderMaskingFunction maskingFunction,
-                         ObjectMapper objectMapper) {
-        this.sensitiveHeaders = sensitiveHeaders;
+    JsonHeadersSanitizer(HeaderMaskingFunction maskingFunction, ObjectMapper objectMapper) {
         this.maskingFunction = maskingFunction;
         this.objectMapper = objectMapper;
     }
@@ -49,7 +42,7 @@ final class JsonHeadersSanitizer implements HeadersSanitizer<JsonNode> {
     @Override
     public JsonNode sanitize(RequestContext requestContext, HttpHeaders headers) {
         final ObjectNode result = objectMapper.createObjectNode();
-        maskHeaders(headers, sensitiveHeaders, maskingFunction,
+        maskHeaders(headers, maskingFunction,
                     (header, values) -> result.put(header.toString(), values.size() > 1 ?
                                                                       values.toString() : values.get(0)));
 

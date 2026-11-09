@@ -47,6 +47,29 @@ import com.linecorp.armeria.server.ServiceRequestContext;
 
 class JsonLogFormatterTest {
 
+    @Test
+    void completePolicyMasksQueryParamsAndHeaders() {
+        final HeaderMaskingFunction policy = HeaderMaskingFunction.builder()
+                .maskQueryParams("token")
+                .build();
+        final LogFormatter formatter = LogFormatter.builderForJson()
+                .requestHeadersSanitizer(HeadersSanitizer.builderForJson()
+                                                       .headerMaskingFunction(policy).build())
+                .build();
+        final HttpRequest request = HttpRequest.of(RequestHeaders.of(
+                HttpMethod.GET, "/search?token=query-secret&page=a+b",
+                HttpHeaderNames.AUTHORIZATION, "auth-secret"));
+        final ServiceRequestContext ctx = ServiceRequestContext.of(request);
+        final DefaultRequestLog log = (DefaultRequestLog) ctx.log();
+        log.endRequest();
+
+        final String formatted = formatter.formatRequest(log);
+        assertThat(formatted).doesNotContain("query-secret", "auth-secret");
+        assertThatJson(formatted).node("headers.authorization").isEqualTo("****");
+        assertThatJson(formatted).node("headers.:path").isEqualTo("/search?token=****&page=a+b");
+        assertThat(request.headers().path()).isEqualTo("/search?token=query-secret&page=a+b");
+    }
+
     @ParameterizedTest
     @CsvSource({ "true", "false" })
     void formatRequest() {

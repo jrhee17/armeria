@@ -20,7 +20,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.BiConsumer;
 
 import com.google.common.collect.ImmutableList;
@@ -37,13 +36,9 @@ final class TextHeadersSanitizer implements HeadersSanitizer<String> {
 
     static final HeadersSanitizer<String> INSTANCE = new TextHeadersSanitizerBuilder().build();
 
-    private final Set<AsciiString> sensitiveHeaders;
-
     private final HeaderMaskingFunction maskingFunction;
 
-    TextHeadersSanitizer(Set<AsciiString> sensitiveHeaders,
-                         HeaderMaskingFunction maskingFunction) {
-        this.sensitiveHeaders = sensitiveHeaders;
+    TextHeadersSanitizer(HeaderMaskingFunction maskingFunction) {
         this.maskingFunction = maskingFunction;
     }
 
@@ -54,42 +49,38 @@ final class TextHeadersSanitizer implements HeadersSanitizer<String> {
         }
 
         final StringBuilder sb = new StringBuilder();
+        sb.append('[');
         if (headers.isEndOfStream()) {
-            sb.append("[EOS, ");
-        } else {
-            sb.append('[');
+            sb.append("EOS");
         }
 
-        maskHeaders(headers, sensitiveHeaders, maskingFunction,
-                    (header, values) -> sb.append(header).append('=')
-                                          .append(values.size() > 1 ?
-                                                  values.toString() : values.get(0)).append(", "));
+        maskHeaders(headers, maskingFunction, (header, values) -> {
+            if (sb.length() > 1) {
+                sb.append(", ");
+            }
+            sb.append(header).append('=').append(values.size() > 1 ? values.toString() : values.get(0));
+        });
 
-        sb.setCharAt(sb.length() - 2, ']');
-        return sb.substring(0, sb.length() - 1);
+        return sb.append(']').toString();
     }
 
     static void maskHeaders(
-            HttpHeaders headers, Set<AsciiString> sensitiveHeaders,
-            HeaderMaskingFunction maskingFunction,
+            HttpHeaders headers, HeaderMaskingFunction maskingFunction,
             BiConsumer<AsciiString, List<String>> consumer) {
         for (AsciiString headerName : headers.names()) {
             List<String> values = headers.getAll(headerName);
-            if (sensitiveHeaders.contains(headerName)) {
-                // Mask the header values.
-                if (values.size() == 1) {
-                    final String masked = maskingFunction.mask(headerName, values.get(0));
-                    if (masked == null) {
-                        values = ImmutableList.of();
-                    } else {
-                        values = ImmutableList.of(masked);
-                    }
+            if (values.size() == 1) {
+                final String masked = maskingFunction.mask(headerName, values.get(0));
+                if (masked == null) {
+                    values = ImmutableList.of();
                 } else {
-                    values = values.stream()
-                                   .map(value -> maskingFunction.mask(headerName, value))
-                                   .filter(Objects::nonNull)
-                                   .collect(toImmutableList());
+                    values = ImmutableList.of(masked);
                 }
+            } else {
+                values = values.stream()
+                               .map(value -> maskingFunction.mask(headerName, value))
+                               .filter(Objects::nonNull)
+                               .collect(toImmutableList());
             }
             if (!values.isEmpty()) {
                 consumer.accept(headerName, values);

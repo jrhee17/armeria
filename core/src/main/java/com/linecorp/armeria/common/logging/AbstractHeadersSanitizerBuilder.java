@@ -20,12 +20,12 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.function.Function;
 
 import com.google.common.collect.ImmutableSet;
 
 import com.linecorp.armeria.common.HttpHeaderNames;
 import com.linecorp.armeria.common.annotation.Nullable;
+import com.linecorp.armeria.common.annotation.UnstableApi;
 
 import io.netty.util.AsciiString;
 
@@ -39,7 +39,7 @@ abstract class AbstractHeadersSanitizerBuilder<SELF extends AbstractHeadersSanit
     // - https://techdocs.akamai.com/edge-diagnostics/reference/sensitive-headers
     // - https://cloud.spring.io/spring-cloud-netflix/multi/multi__router_and_filter_zuul.html#_cookies_and_sensitive_headers
     // - https://github.com/AthenZ/athenz/blob/885df3e109a2706dc72d3c039be9846b6c041c85/clients/java/zpe/src/main/java/com/yahoo/athenz/zpe/AuthZpeClient.java#L453-L456
-    private static final Set<AsciiString> DEFAULT_SENSITIVE_HEADERS =
+    static final Set<AsciiString> DEFAULT_SENSITIVE_HEADERS =
             ImmutableSet.of(HttpHeaderNames.AUTHORIZATION, HttpHeaderNames.COOKIE,
                             HttpHeaderNames.SET_COOKIE, HttpHeaderNames.PROXY_AUTHORIZATION,
                             HttpHeaderNames.ATHENZ_ROLE_AUTH, HttpHeaderNames.YAHOO_ROLE_AUTH);
@@ -49,6 +49,9 @@ abstract class AbstractHeadersSanitizerBuilder<SELF extends AbstractHeadersSanit
 
     private HeaderMaskingFunction maskingFunction = HeaderMaskingFunction.of();
 
+    @Nullable
+    private HeaderMaskingFunction headerMaskingFunction;
+
     @SuppressWarnings("unchecked")
     final SELF self() {
         return (SELF) this;
@@ -56,7 +59,12 @@ abstract class AbstractHeadersSanitizerBuilder<SELF extends AbstractHeadersSanit
 
     /**
      * Adds the headers to mask before logging.
+     *
+     * @deprecated Register a function for each header with
+     *             {@link HeaderMaskingFunctionBuilder#maskingFunction(CharSequence, HeaderMaskingFunction)}
+     *             and set the resulting policy with {@link #headerMaskingFunction(HeaderMaskingFunction)}.
      */
+    @Deprecated
     public SELF sensitiveHeaders(CharSequence... headers) {
         requireNonNull(headers, "headers");
         return sensitiveHeaders(ImmutableSet.copyOf(headers));
@@ -64,7 +72,12 @@ abstract class AbstractHeadersSanitizerBuilder<SELF extends AbstractHeadersSanit
 
     /**
      * Adds the headers to mask before logging.
+     *
+     * @deprecated Register a function for each header with
+     *             {@link HeaderMaskingFunctionBuilder#maskingFunction(CharSequence, HeaderMaskingFunction)}
+     *             and set the resulting policy with {@link #headerMaskingFunction(HeaderMaskingFunction)}.
      */
+    @Deprecated
     public SELF sensitiveHeaders(Iterable<? extends CharSequence> headers) {
         requireNonNull(headers, "headers");
         if (sensitiveHeaders == null) {
@@ -82,8 +95,9 @@ abstract class AbstractHeadersSanitizerBuilder<SELF extends AbstractHeadersSanit
     }
 
     /**
-     * Sets the {@link Function} to use to maskFunction headers before logging.
-     * The default maskingFunction is {@link HeaderMaskingFunction#of()}
+     * Sets the function applied only to headers included in {@link #sensitiveHeaders(CharSequence...)}.
+     * The default function is {@link HeaderMaskingFunction#of()}.
+     * If the sensitive set is empty, this function is not invoked.
      *
      * <pre>{@code
      * builder.maskingFunction((name, value) -> {
@@ -96,16 +110,36 @@ abstract class AbstractHeadersSanitizerBuilder<SELF extends AbstractHeadersSanit
      *   }
      * }
      * }</pre>
+     *
+     * @deprecated Register this function for each header with
+     *             {@link HeaderMaskingFunctionBuilder#maskingFunction(CharSequence, HeaderMaskingFunction)}
+     *             and set the resulting policy with {@link #headerMaskingFunction(HeaderMaskingFunction)}.
      */
+    @Deprecated
     public SELF maskingFunction(HeaderMaskingFunction maskingFunction) {
         this.maskingFunction = requireNonNull(maskingFunction, "maskingFunction");
         return self();
     }
 
     /**
-     * Returns the {@link Function} to use to mask headers before logging.
+     * Sets the complete masking function applied to every header value before logging.
+     * This takes precedence over the deprecated sensitive-header and masking-function settings,
+     * regardless of setter order. Repeated calls replace the previous complete function.
+     * Use {@link HeaderMaskingFunction#builder()} to retain the standard default masking rules.
+     * Returning {@code null} removes that value from the log.
      */
-    final HeaderMaskingFunction maskingFunction() {
-        return maskingFunction;
+    @UnstableApi
+    public SELF headerMaskingFunction(HeaderMaskingFunction headerMaskingFunction) {
+        this.headerMaskingFunction = requireNonNull(headerMaskingFunction, "headerMaskingFunction");
+        return self();
+    }
+
+    final HeaderMaskingFunction headerMaskingFunction() {
+        if (headerMaskingFunction != null) {
+            return headerMaskingFunction;
+        }
+        final Set<AsciiString> sensitiveHeaders = sensitiveHeaders();
+        final HeaderMaskingFunction maskingFunction = this.maskingFunction;
+        return (name, value) -> sensitiveHeaders.contains(name) ? maskingFunction.mask(name, value) : value;
     }
 }

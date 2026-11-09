@@ -45,6 +45,28 @@ import com.linecorp.armeria.server.ServiceRequestContext;
 
 class TextLogFormatterTest {
 
+    @Test
+    void completePolicyMasksQueryParamsAndHeaders() {
+        final HeaderMaskingFunction policy = HeaderMaskingFunction.builder()
+                .maskQueryParams("token")
+                .build();
+        final LogFormatter formatter = LogFormatter.builderForText()
+                .requestHeadersSanitizer(HeadersSanitizer.builderForText()
+                                                       .headerMaskingFunction(policy).build())
+                .build();
+        final HttpRequest request = HttpRequest.of(RequestHeaders.of(
+                HttpMethod.GET, "/search?token=query-secret&page=a+b",
+                HttpHeaderNames.AUTHORIZATION, "auth-secret"));
+        final ServiceRequestContext ctx = ServiceRequestContext.of(request);
+        final DefaultRequestLog log = (DefaultRequestLog) ctx.log();
+        log.endRequest();
+
+        final String formatted = formatter.formatRequest(log);
+        assertThat(formatted).contains("authorization=****", ":path=/search?token=****&page=a+b")
+                             .doesNotContain("query-secret", "auth-secret");
+        assertThat(request.headers().path()).isEqualTo("/search?token=query-secret&page=a+b");
+    }
+
     @ParameterizedTest
     @CsvSource({ "true", "false" })
     void formatRequest(boolean containContext) {
