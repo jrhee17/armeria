@@ -57,6 +57,7 @@ import com.linecorp.armeria.common.grpc.GrpcSerializationFormats;
 import com.linecorp.armeria.common.grpc.protocol.ArmeriaMessageDeframer;
 import com.linecorp.armeria.common.grpc.protocol.GrpcHeaderNames;
 import com.linecorp.armeria.common.logging.RequestLogProperty;
+import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.common.util.SafeCloseable;
 import com.linecorp.armeria.common.util.TimeoutMode;
 import com.linecorp.armeria.internal.common.grpc.InternalGrpcExceptionHandler;
@@ -65,9 +66,12 @@ import com.linecorp.armeria.internal.common.grpc.TimeoutHeaderUtil;
 import com.linecorp.armeria.internal.server.grpc.AbstractServerCall;
 import com.linecorp.armeria.internal.server.grpc.ServerStatusAndMetadata;
 import com.linecorp.armeria.server.AbstractHttpService;
+import com.linecorp.armeria.server.HttpResponseException;
+import com.linecorp.armeria.server.HttpStatusException;
 import com.linecorp.armeria.server.Route;
 import com.linecorp.armeria.server.RoutingContext;
 import com.linecorp.armeria.server.ServiceConfig;
+import com.linecorp.armeria.server.ServiceOptions;
 import com.linecorp.armeria.server.ServiceRequestContext;
 import com.linecorp.armeria.server.grpc.HttpJsonTranscoderBuilder.HttpJsonGrpcMethod;
 
@@ -142,6 +146,7 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
     private final boolean lookupMethodFromAttribute;
     private final boolean autoCompression;
     private final boolean enableEnvoyHttp1Bridge;
+    private final ServiceOptions options;
 
     FramedGrpcService(HandlerRegistry registry,
                       DecompressorRegistry decompressorRegistry,
@@ -195,6 +200,23 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
                 })
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
         this.grpcHealthCheckService = grpcHealthCheckService;
+        options = ServiceOptions.builder().errorHandler((ctx, cause) -> {
+            cause = Exceptions.peel(cause);
+            if (cause instanceof HttpStatusException || cause instanceof HttpResponseException) {
+                return null;
+            }
+            final SerializationFormat format = findSerializationFormat(ctx.request().contentType());
+            final ServerMethodDefinition<?, ?> method = methodDefinition(ctx);
+            if (format == null || method == null) {
+                return null;
+            }
+            return failRequest(ctx, method, format, Status.fromThrowable(cause), cause);
+        }).build();
+    }
+
+    @Override
+    public ServiceOptions options() {
+        return options;
     }
 
     @Override
@@ -297,13 +319,6 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
         if (timeout.isZero()) {
             return false;
         }
-        final long elapsedNanos = System.nanoTime() - ctx.log().partial().requestStartTimeNanos();
-        if (timeout.toNanos() <= elapsedNanos) {
-            // The deadline is already exhausted by the time the request spent in the server, so fail the
-            // request the same way a zero timeout does. Letting the scheduler cancel it instead aborts the
-            // request before a response has started, which a client sees as UNAVAILABLE.
-            return false;
-        }
         ctx.setRequestTimeout(TimeoutMode.SET_FROM_START, timeout);
         return true;
     }
@@ -311,7 +326,8 @@ final class FramedGrpcService extends AbstractHttpService implements GrpcService
     private HttpResponse failRequest(ServiceRequestContext ctx, ServerMethodDefinition<?, ?> method,
                                      SerializationFormat serializationFormat, Status status,
                                      Throwable cause) {
-        final Metadata metadata = new Metadata();
+        final Metadata trailers = Status.trailersFromThrowable(cause);
+        final Metadata metadata = trailers != null ? trailers : new Metadata();
         final InternalGrpcExceptionHandler exceptionHandler = registry.getExceptionHandler(method);
         assert exceptionHandler != null;
         final ResponseHeaders defaultHeaders = this.defaultHeaders.get(serializationFormat);

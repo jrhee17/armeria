@@ -142,12 +142,24 @@ public interface ServiceErrorHandler {
      */
     default ServiceErrorHandler orElse(ServiceErrorHandler other) {
         requireNonNull(other, "other");
-        return (ctx, cause) -> {
-            final HttpResponse response = onServiceException(ctx, cause);
-            if (response != null) {
-                return response;
+        return new ServiceErrorHandler() {
+            @Nullable
+            @Override
+            public HttpResponse onServiceException(ServiceRequestContext ctx, Throwable cause) {
+                final HttpResponse response = ServiceErrorHandler.this.onServiceException(ctx, cause);
+                return response != null ? response : other.onServiceException(ctx, cause);
             }
-            return other.onServiceException(ctx, cause);
+
+            @Nullable
+            @Override
+            public AggregatedHttpResponse renderStatus(ServiceRequestContext ctx, RequestHeaders headers,
+                                                       HttpStatus status, @Nullable String description,
+                                                       @Nullable Throwable cause) {
+                final AggregatedHttpResponse response =
+                        ServiceErrorHandler.this.renderStatus(ctx, headers, status, description, cause);
+                return response != null ? response
+                                        : other.renderStatus(ctx, headers, status, description, cause);
+            }
         };
     }
 }

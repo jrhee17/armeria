@@ -81,6 +81,8 @@ final class ServiceConfigBuilder implements ServiceConfigSetters<ServiceConfigBu
     private EventLoopGroup serviceWorkerGroup;
     @Nullable
     private ServiceErrorHandler serviceErrorHandler;
+    @Nullable
+    private final ServiceErrorHandler optionsErrorHandler;
     private Supplier<AutoCloseable> contextHook = NOOP_CONTEXT_HOOK;
     private final List<ShutdownSupport> shutdownSupports = new ArrayList<>();
     private final HttpHeadersBuilder defaultHeaders = HttpHeaders.builder();
@@ -92,6 +94,7 @@ final class ServiceConfigBuilder implements ServiceConfigSetters<ServiceConfigBu
         this.service = requireNonNull(service, "service");
 
         final ServiceOptions options = service.options();
+        optionsErrorHandler = options.errorHandler();
         if (options.requestTimeoutMillis() != -1) {
             requestTimeoutMillis = options.requestTimeoutMillis();
         }
@@ -353,9 +356,13 @@ final class ServiceConfigBuilder implements ServiceConfigSetters<ServiceConfigBu
                         ServiceErrorHandler defaultServiceErrorHandler,
                         @Nullable UnloggedExceptionsReporter unloggedExceptionsReporter,
                         String baseContextPath, Supplier<AutoCloseable> contextHook) {
-        ServiceErrorHandler errorHandler =
-                serviceErrorHandler != null ? serviceErrorHandler.orElse(defaultServiceErrorHandler)
-                                            : defaultServiceErrorHandler;
+        ServiceErrorHandler errorHandler = defaultServiceErrorHandler;
+        if (optionsErrorHandler != null) {
+            errorHandler = optionsErrorHandler.orElse(errorHandler);
+        }
+        if (serviceErrorHandler != null) {
+            errorHandler = serviceErrorHandler.orElse(errorHandler);
+        }
         if (unloggedExceptionsReporter != null) {
             errorHandler = new ExceptionReportingServiceErrorHandler(errorHandler,
                                                                      unloggedExceptionsReporter);

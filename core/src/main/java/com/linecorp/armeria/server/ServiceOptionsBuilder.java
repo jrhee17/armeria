@@ -17,9 +17,11 @@
 package com.linecorp.armeria.server;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 import com.linecorp.armeria.common.HttpRequest;
 import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.annotation.UnstableApi;
 
 /**
@@ -31,8 +33,19 @@ public final class ServiceOptionsBuilder {
     private long maxRequestLength = -1;
     private long requestAutoAbortDelayMillis = -1;
     private long closeHttp2StreamDelayMillis;
+    @Nullable
+    private ServiceErrorHandler errorHandler;
 
     ServiceOptionsBuilder() {}
+
+    /**
+     * Sets the service's default {@link ServiceErrorHandler}. An error handler configured on the service
+     * binding is invoked before this handler, which is invoked before the virtual host or server handler.
+     */
+    public ServiceOptionsBuilder errorHandler(ServiceErrorHandler errorHandler) {
+        this.errorHandler = requireNonNull(errorHandler, "errorHandler");
+        return this;
+    }
 
     /**
      * Sets the server-side timeout of a request in milliseconds.
@@ -81,6 +94,6 @@ public final class ServiceOptionsBuilder {
      */
     public ServiceOptions build() {
         return new ServiceOptions(requestTimeoutMillis, maxRequestLength, requestAutoAbortDelayMillis,
-                                  closeHttp2StreamDelayMillis);
+                                  closeHttp2StreamDelayMillis, errorHandler);
     }
 }
