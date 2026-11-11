@@ -28,7 +28,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509ExtendedTrustManager;
@@ -47,7 +46,6 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.server.ServerTlsSpec;
 
-import io.netty.buffer.ByteBufAllocator;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
@@ -108,7 +106,7 @@ public final class SslContextUtil {
             SslContext sslContext = null;
             try {
                 sslContext = toSslContext0(clientTlsSpec);
-                validateSslContext(clientTlsSpec.allowUnsafeCiphers(), sslContext);
+                sslContext = validateSslContext(clientTlsSpec.allowUnsafeCiphers(), sslContext);
             } catch (Exception e) {
                 ReferenceCountUtil.release(sslContext);
                 return Exceptions.throwUnsafely(e);
@@ -123,7 +121,7 @@ public final class SslContextUtil {
             SslContext sslContext = null;
             try {
                 sslContext = toSslContext0(serverTlsSpec);
-                validateSslContext(serverTlsSpec.allowUnsafeCiphers(), sslContext);
+                sslContext = validateSslContext(serverTlsSpec.allowUnsafeCiphers(), sslContext);
             } catch (Exception e) {
                 ReferenceCountUtil.release(sslContext);
                 return Exceptions.throwUnsafely(e);
@@ -182,25 +180,15 @@ public final class SslContextUtil {
         return filtered;
     }
 
-    private static void validateSslContext(boolean tlsAllowUnsafeCiphers, SslContext sslContext) {
+    private static SslContext validateSslContext(boolean tlsAllowUnsafeCiphers, SslContext sslContext) {
         final Set<String> ciphers = ImmutableSet.copyOf(sslContext.cipherSuites());
         checkState(!ciphers.isEmpty(),
                    "SSLContext has no cipher suites enabled. " +
                    "You must specify at least one cipher suite.");
         if (sslContext.applicationProtocolNegotiator().protocols().contains(ApplicationProtocolNames.HTTP_2)) {
-            final Set<String> enabledProtocols = enabledProtocols(sslContext);
-            validateHttp2Ciphers(ciphers, tlsAllowUnsafeCiphers, enabledProtocols);
+            return Http2CipherValidatingSslContext.wrap(sslContext, ciphers, tlsAllowUnsafeCiphers);
         }
-    }
-
-    private static Set<String> enabledProtocols(SslContext sslContext) {
-        SSLEngine engine = null;
-        try {
-            engine = sslContext.newEngine(ByteBufAllocator.DEFAULT);
-            return ImmutableSet.copyOf(engine.getEnabledProtocols());
-        } finally {
-            ReferenceCountUtil.release(engine);
-        }
+        return sslContext;
     }
 
     public static void checkVersionsSupported(Set<String> protocols, SslProvider provider) {

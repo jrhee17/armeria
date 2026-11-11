@@ -21,7 +21,9 @@ import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.metric.MeterIdPrefix;
 import com.linecorp.armeria.internal.common.SslContextFactory;
 
+import io.netty.buffer.ByteBufAllocator;
 import io.netty.handler.ssl.SslContext;
+import io.netty.util.ReferenceCountUtil;
 
 final class BootstrapSslContexts {
 
@@ -50,7 +52,19 @@ final class BootstrapSslContexts {
         }
         sslContextFactory = new SslContextFactory(meterIdPrefix, options.meterRegistry());
         http1OnlySslCtx = sslContextFactory.getOrCreate(http1OnlyTlsSpec);
-        sslCtx = sslContextFactory.getOrCreate(defaultTlsSpec);
+        SslContext sslCtx = null;
+        try {
+            sslCtx = sslContextFactory.getOrCreate(defaultTlsSpec);
+            // Trigger the validating wrapper once at factory construction, without starting a handshake.
+            ReferenceCountUtil.release(sslCtx.newEngine(ByteBufAllocator.DEFAULT));
+        } catch (RuntimeException | Error e) {
+            if (sslCtx != null) {
+                sslContextFactory.release(sslCtx);
+            }
+            sslContextFactory.release(http1OnlySslCtx);
+            throw e;
+        }
+        this.sslCtx = sslCtx;
     }
 
     SslContextFactory sslContextFactory() {

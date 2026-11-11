@@ -21,20 +21,30 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assumptions.assumeThat;
 
 import java.util.Set;
+import java.util.function.Consumer;
 
+import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLException;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import com.google.common.collect.ImmutableList;
 
 import com.linecorp.armeria.client.ClientFactory;
 import com.linecorp.armeria.client.ClientTlsSpec;
+import com.linecorp.armeria.client.WebClient;
 import com.linecorp.armeria.common.Flags;
+import com.linecorp.armeria.common.HttpResponse;
+import com.linecorp.armeria.common.SessionProtocol;
 import com.linecorp.armeria.common.annotation.Nullable;
 import com.linecorp.armeria.common.util.Exceptions;
 import com.linecorp.armeria.common.util.SystemInfo;
+import com.linecorp.armeria.common.util.TlsEngineType;
+import com.linecorp.armeria.server.Server;
 
+import io.netty.buffer.ByteBufAllocator;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
@@ -85,20 +95,28 @@ class SslContextUtilTest {
         final String cipher = getBadCipher();
         assumeThat(cipher).isNotNull();
 
-        assertThatThrownBy(() -> {
-            SslContextUtil.toSslContext(ClientTlsSpec.builder()
-                                                     .alpnProtocols(SslContextUtil.DEFAULT_ALPN_PROTOCOLS)
-                                                     .ciphers(BAD_HTTP2_CIPHERS)
-                                                     .build());
-        }).isInstanceOf(IllegalStateException.class)
-          .hasMessageContaining("TLS without the TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 cipher suite");
+        final SslContext invalidContext = SslContextUtil.toSslContext(
+                ClientTlsSpec.builder().alpnProtocols(SslContextUtil.DEFAULT_ALPN_PROTOCOLS)
+                             .ciphers(BAD_HTTP2_CIPHERS)
+                             .build());
+        try {
+            assertThatThrownBy(() -> invalidContext.newEngine(ByteBufAllocator.DEFAULT))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("TLS without the TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 cipher suite");
+        } finally {
+            ReferenceCountUtil.release(invalidContext);
+        }
 
         final SslContext sslContext = SslContextUtil.toSslContext(
                 ClientTlsSpec.builder().ciphers(BAD_HTTP2_CIPHERS)
                              .alpnProtocols(SslContextUtil.DEFAULT_ALPN_PROTOCOLS)
                              .allowUnsafeCiphers(true)
                              .build());
-        ReferenceCountUtil.release(sslContext);
+        try {
+            ReferenceCountUtil.release(sslContext.newEngine(ByteBufAllocator.DEFAULT));
+        } finally {
+            ReferenceCountUtil.release(sslContext);
+        }
     }
 
     @Test
@@ -115,6 +133,34 @@ class SslContextUtilTest {
                              })
                              .build();
         factory.closeAsync();
+    }
+
+    @ParameterizedTest
+    @EnumSource(TlsEngineType.class)
+    void validatesRealClientAndServerEngines(TlsEngineType engineType) {
+        assumeThat(SslContextUtil.supportedTlsVersions(engineType.sslProvider())).contains("TLSv1.3");
+        final Consumer<SslContextBuilder> tlsCustomizer = builder -> {
+            builder.protocols("TLSv1.3");
+            builder.ciphers(ImmutableList.of("TLS_AES_128_GCM_SHA256"));
+        };
+        final Server server = Server.builder().https(0).tlsSelfSigned()
+                                    .tlsEngineType(engineType)
+                                    .tlsCustomizer(tlsCustomizer)
+                                    .service("/", (ctx, req) ->
+                                            HttpResponse.of(ctx.sessionProtocol().uriText()))
+                                    .build();
+        try (ClientFactory factory = ClientFactory.builder().tlsEngineType(engineType)
+                                                  .tlsNoVerify()
+                                                  .tlsCustomizer(tlsCustomizer)
+                                                  .build()) {
+            server.start().join();
+            final WebClient client = WebClient.builder("h2://127.0.0.1:" +
+                                                      server.activeLocalPort(SessionProtocol.HTTPS))
+                                              .factory(factory).build();
+            assertThat(client.get("/").aggregate().join().contentUtf8()).isEqualTo("h2");
+        } finally {
+            server.stop().join();
+        }
     }
 
     @Test
@@ -207,7 +253,14 @@ class SslContextUtilTest {
                         return Exceptions.throwUnsafely(e);
                     }
                 });
-                ReferenceCountUtil.release(sslCtx);
+                SSLEngine engine = null;
+                try {
+                    // JDK contexts can be built with unsupported ciphers; creating an engine checks support.
+                    engine = sslCtx.newEngine(ByteBufAllocator.DEFAULT);
+                } finally {
+                    ReferenceCountUtil.release(engine);
+                    ReferenceCountUtil.release(sslCtx);
+                }
                 return cipher;
             } catch (Exception e) {
                 continue;
